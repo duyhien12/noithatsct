@@ -37,7 +37,7 @@ export default function useQuotationForm() {
         apiFetch('/api/customers?limit=1000').then(d => setCustomers(d.data || [])).catch(() => { });
         apiFetch('/api/projects?limit=1000').then(d => setProjects(d.data || [])).catch(() => { });
         apiFetch('/api/products?limit=1000').then(d => setProducts(d.data || [])).catch(() => { });
-        apiFetch('/api/library?limit=1000').then(d => setLibrary(d.data || d || [])).catch(() => { });
+        apiFetch('/api/work-item-library?limit=1000').then(d => setLibrary(d.data || d || [])).catch(() => { });
     }, []);
 
     // Filtered projects
