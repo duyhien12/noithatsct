@@ -1,8 +1,67 @@
 'use client';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { fmt, UNIT_OPTIONS } from '@/lib/quotation-constants';
 
 export default function CategoryTable({ cat, ci, hook, onImageClick }) {
-    const { updateCategoryName, removeCategory, updateItem, removeItem, addItem } = hook;
+    const { updateCategoryName, removeCategory, updateItem, removeItem, addItem, addFromLibrary, addFromProduct, allSearchItems } = hook;
+
+    // Quick-add autocomplete state
+    const [quickSearch, setQuickSearch] = useState('');
+    const [quickResults, setQuickResults] = useState([]);
+    const [quickFocusIdx, setQuickFocusIdx] = useState(-1);
+    const [showQuickDrop, setShowQuickDrop] = useState(false);
+    const quickRef = useRef(null);
+    const dropRef = useRef(null);
+
+    // Debounced search
+    useEffect(() => {
+        if (!quickSearch.trim()) { setQuickResults([]); return; }
+        const timer = setTimeout(() => {
+            const q = quickSearch.toLowerCase();
+            const results = allSearchItems
+                .filter(i => i._label.toLowerCase().includes(q) || i._sub.toLowerCase().includes(q))
+                .slice(0, 12);
+            setQuickResults(results);
+            setQuickFocusIdx(-1);
+        }, 150);
+        return () => clearTimeout(timer);
+    }, [quickSearch, allSearchItems]);
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handle = (e) => {
+            if (dropRef.current && !dropRef.current.contains(e.target) && !quickRef.current?.contains(e.target)) {
+                setShowQuickDrop(false);
+            }
+        };
+        document.addEventListener('mousedown', handle);
+        return () => document.removeEventListener('mousedown', handle);
+    }, []);
+
+    const handleQuickAdd = useCallback((item) => {
+        if (item._type === 'library') addFromLibrary(item);
+        else addFromProduct(item);
+        setQuickSearch('');
+        setQuickResults([]);
+        setShowQuickDrop(false);
+        // Re-focus input
+        setTimeout(() => quickRef.current?.focus(), 50);
+    }, [addFromLibrary, addFromProduct]);
+
+    const handleQuickKeyDown = (e) => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setQuickFocusIdx(prev => Math.min(prev + 1, quickResults.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setQuickFocusIdx(prev => Math.max(prev - 1, 0));
+        } else if (e.key === 'Enter' && quickFocusIdx >= 0 && quickResults[quickFocusIdx]) {
+            e.preventDefault();
+            handleQuickAdd(quickResults[quickFocusIdx]);
+        } else if (e.key === 'Escape') {
+            setShowQuickDrop(false);
+        }
+    };
 
     return (
         <div className="card quotation-category-card" style={{ marginBottom: 16 }}>
@@ -76,8 +135,36 @@ export default function CategoryTable({ cat, ci, hook, onImageClick }) {
                         })}
                     </tbody>
                 </table>
-                <div style={{ padding: '8px 12px' }}>
+                <div style={{ padding: '8px 12px', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <button className="btn btn-ghost btn-sm" onClick={() => addItem(ci)}>+ Thêm dòng trống</button>
+                    <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+                        <input
+                            ref={quickRef}
+                            className="form-input form-input-compact quick-add-input"
+                            placeholder="⚡ Nhập nhanh: gõ tên hạng mục hoặc sản phẩm..."
+                            value={quickSearch}
+                            onChange={e => { setQuickSearch(e.target.value); setShowQuickDrop(true); }}
+                            onFocus={() => quickResults.length > 0 && setShowQuickDrop(true)}
+                            onKeyDown={handleQuickKeyDown}
+                        />
+                        {showQuickDrop && quickResults.length > 0 && (
+                            <div ref={dropRef} className="quick-add-dropdown">
+                                {quickResults.map((r, idx) => (
+                                    <div key={r.id}
+                                        className={`quick-add-option ${idx === quickFocusIdx ? 'quick-add-option-active' : ''}`}
+                                        onClick={() => handleQuickAdd(r)}
+                                        onMouseEnter={() => setQuickFocusIdx(idx)}>
+                                        <span className="quick-add-type">{r._type === 'library' ? '🔨' : '📦'}</span>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div className="quick-add-name">{r._label}</div>
+                                            <div className="quick-add-sub">{r._sub}</div>
+                                        </div>
+                                        {r._price > 0 && <span className="quick-add-price">{fmt(r._price)}đ</span>}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

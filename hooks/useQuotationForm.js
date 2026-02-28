@@ -15,6 +15,8 @@ export default function useQuotationForm({ toast }) {
     const [editingLibItem, setEditingLibItem] = useState(null);
     const [editingLibCat, setEditingLibCat] = useState(null);
     const [editingProdCat, setEditingProdCat] = useState(null);
+    const [selectMode, setSelectMode] = useState(false);
+    const [selectedItems, setSelectedItems] = useState(new Set());
 
     const [form, setForm] = useState({
         customerId: '', projectId: '', type: 'Thi công thô', notes: '',
@@ -143,40 +145,137 @@ export default function useQuotationForm({ toast }) {
         setCategories(recalc(c));
     };
 
-    // === Add from library ===
+    // === Helper: build item from library ===
+    const libItemToQuotationItem = (libItem) => ({
+        _key: Date.now() + Math.random(),
+        name: libItem.name, unit: libItem.unit || 'm²', quantity: 0,
+        mainMaterial: libItem.mainMaterial || 0, auxMaterial: libItem.auxMaterial || 0,
+        labor: libItem.labor || 0, unitPrice: libItem.unitPrice || 0, amount: 0,
+        description: libItem.description || '', image: libItem.image || '',
+        length: 0, width: 0, height: 0,
+    });
+
+    // === Helper: build item from product ===
+    const prodToQuotationItem = (prod) => ({
+        _key: Date.now() + Math.random(),
+        name: prod.name, unit: prod.unit || 'cái', quantity: 0,
+        mainMaterial: prod.salePrice || 0, auxMaterial: 0, labor: 0,
+        unitPrice: prod.salePrice || 0, amount: 0,
+        description: `${prod.brand ? prod.brand + ' - ' : ''}${prod.description || ''}`.trim(),
+        image: prod.image || '', length: 0, width: 0, height: 0,
+        productId: prod.id || null,
+    });
+
+    // === Add from library (single) ===
     const addFromLibrary = (libItem) => {
         const ci = activeCategoryIdx;
         const c = [...categories];
         if (!c[ci].name) c[ci] = { ...c[ci], name: libItem.category || libItem.name };
-        const newItem = {
-            _key: Date.now() + Math.random(),
-            name: libItem.name, unit: libItem.unit || 'm²', quantity: 0,
-            mainMaterial: libItem.mainMaterial || 0, auxMaterial: libItem.auxMaterial || 0,
-            labor: libItem.labor || 0, unitPrice: libItem.unitPrice || 0, amount: 0,
-            description: libItem.description || '', image: libItem.image || '',
-            length: 0, width: 0, height: 0,
-        };
         const existing = c[ci].items.filter(i => i.name.trim() !== '');
-        c[ci] = { ...c[ci], items: [...existing, newItem] };
+        c[ci] = { ...c[ci], items: [...existing, libItemToQuotationItem(libItem)] };
         setCategories(recalc(c));
     };
 
-    // === Add from product ===
+    // === Add from product (single) ===
     const addFromProduct = (prod) => {
         const ci = activeCategoryIdx;
         const c = [...categories];
-        const newItem = {
-            _key: Date.now() + Math.random(),
-            name: prod.name, unit: prod.unit, quantity: 0,
-            mainMaterial: prod.salePrice || 0, auxMaterial: 0, labor: 0,
-            unitPrice: prod.salePrice || 0, amount: 0,
-            description: `${prod.brand ? prod.brand + ' - ' : ''}${prod.description || ''}`.trim(),
-            image: prod.image || '', length: 0, width: 0, height: 0,
-        };
         const existing = c[ci].items.filter(i => i.name.trim() !== '');
-        c[ci] = { ...c[ci], items: [...existing, newItem] };
+        c[ci] = { ...c[ci], items: [...existing, prodToQuotationItem(prod)] };
         setCategories(recalc(c));
     };
+
+    // === Bulk add from library (multi-select) ===
+    const addBulkFromLibrary = (libItems) => {
+        if (!libItems.length) return;
+        const ci = activeCategoryIdx;
+        const c = [...categories];
+        const existing = c[ci].items.filter(i => i.name.trim() !== '');
+        const newItems = libItems.map(libItemToQuotationItem);
+        if (!c[ci].name && libItems[0].category) c[ci] = { ...c[ci], name: libItems[0].category };
+        c[ci] = { ...c[ci], items: [...existing, ...newItems] };
+        setCategories(recalc(c));
+    };
+
+    // === Bulk add from products (multi-select) ===
+    const addBulkFromProducts = (prods) => {
+        if (!prods.length) return;
+        const ci = activeCategoryIdx;
+        const c = [...categories];
+        const existing = c[ci].items.filter(i => i.name.trim() !== '');
+        const newItems = prods.map(prodToQuotationItem);
+        c[ci] = { ...c[ci], items: [...existing, ...newItems] };
+        setCategories(recalc(c));
+    };
+
+    // === Add entire category from library tree ===
+    const addCategoryFromLibrary = (catName, libItems) => {
+        if (!libItems.length) return;
+        const newCat = {
+            _key: Date.now() + Math.random(),
+            name: catName,
+            items: libItems.map(libItemToQuotationItem),
+            subtotal: 0,
+        };
+        const c = [...categories, newCat];
+        setCategories(recalc(c));
+        setActiveCategoryIdx(c.length - 1);
+    };
+
+    // === Add entire product category ===
+    const addCategoryFromProducts = (catName, prods) => {
+        if (!prods.length) return;
+        const newCat = {
+            _key: Date.now() + Math.random(),
+            name: catName,
+            items: prods.map(prodToQuotationItem),
+            subtotal: 0,
+        };
+        const c = [...categories, newCat];
+        setCategories(recalc(c));
+        setActiveCategoryIdx(c.length - 1);
+    };
+
+    // === Multi-select helpers ===
+    const toggleSelectItem = (id) => {
+        setSelectedItems(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+    const selectAllInCategory = (items) => {
+        setSelectedItems(prev => {
+            const next = new Set(prev);
+            const allSelected = items.every(i => next.has(i.id));
+            items.forEach(i => allSelected ? next.delete(i.id) : next.add(i.id));
+            return next;
+        });
+    };
+    const addSelected = () => {
+        if (selectedItems.size === 0) return;
+        if (treeTab === 'library') {
+            const items = library.filter(i => selectedItems.has(i.id));
+            addBulkFromLibrary(items);
+        } else {
+            const items = products.filter(p => selectedItems.has(p.id));
+            addBulkFromProducts(items);
+        }
+        setSelectedItems(new Set());
+        setSelectMode(false);
+    };
+    const clearSelection = () => {
+        setSelectedItems(new Set());
+        setSelectMode(false);
+    };
+
+    // === Quick-add: searchable list of all library + products ===
+    const allSearchItems = useMemo(() => {
+        const items = [];
+        library.forEach(l => items.push({ ...l, _type: 'library', _label: l.name, _sub: l.category || '', _price: l.unitPrice }));
+        products.forEach(p => items.push({ ...p, _type: 'product', _label: p.name, _sub: p.category || '', _price: p.salePrice }));
+        return items;
+    }, [library, products]);
 
     // === Inline edit handlers ===
     const saveLibItem = async () => {
@@ -244,8 +343,17 @@ export default function useQuotationForm({ toast }) {
         activeCategoryIdx, setActiveCategoryIdx,
         addCategory, removeCategory, updateCategoryName,
         addItem, removeItem, updateItem,
-        // Tree actions
+        // Tree actions (single)
         addFromLibrary, addFromProduct,
+        // Tree actions (bulk)
+        addBulkFromLibrary, addBulkFromProducts,
+        addCategoryFromLibrary, addCategoryFromProducts,
+        // Multi-select
+        selectMode, setSelectMode,
+        selectedItems, toggleSelectItem, selectAllInCategory,
+        addSelected, clearSelection,
+        // Quick-add autocomplete
+        allSearchItems,
         // Calculation
         recalc,
         directCost, managementFee, adjustmentAmount, total,

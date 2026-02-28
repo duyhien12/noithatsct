@@ -54,6 +54,9 @@ export default function EditQuotationPage() {
                         name: item.name || '',
                         unit: item.unit || 'm²',
                         quantity: item.quantity || 0,
+                        mainMaterial: item.mainMaterial || 0,
+                        auxMaterial: item.auxMaterial || 0,
+                        labor: item.labor || 0,
                         unitPrice: item.unitPrice || 0,
                         amount: item.amount || 0,
                         description: item.description || '',
@@ -61,6 +64,7 @@ export default function EditQuotationPage() {
                         width: item.width || 0,
                         height: item.height || 0,
                         image: item.image || '',
+                        productId: item.productId || null,
                     })),
                 }));
                 setCategories(cats);
