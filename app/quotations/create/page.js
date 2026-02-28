@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
 import { apiFetch } from '@/lib/fetchClient';
-import { QUOTATION_TYPES, fmt, emptyCategory } from '@/lib/quotation-constants';
+import { QUOTATION_TYPES, fmt, emptyMainCategory, emptySubcategory } from '@/lib/quotation-constants';
 import useQuotationForm from '@/hooks/useQuotationForm';
 import useAutoSaveDraft from '@/hooks/useAutoSaveDraft';
 import TreeSidebar from '@/components/quotation/TreeSidebar';
@@ -21,10 +21,9 @@ export default function CreateQuotationPage() {
     const [treeSidebarOpen, setTreeSidebarOpen] = useState(false);
 
     const {
-        form, setForm, categories, setCategories,
-        customers, filteredProjects, activeCategoryIdx, setActiveCategoryIdx,
-        addCategory, recalc, buildPayload,
-        directCost, managementFee, adjustmentAmount, total, grandTotal,
+        form, setForm, mainCategories, setMainCategories,
+        customers, filteredProjects, activeMainIdx, setActiveMainIdx,
+        addMainCategory, removeMainCategory, updateMainCategoryName, recalc, buildPayload,
     } = hook;
 
     useEffect(() => {
@@ -34,36 +33,52 @@ export default function CreateQuotationPage() {
     // Auto-save draft
     useAutoSaveDraft({
         key: 'quotation_draft_create',
-        data: { form, categories },
+        data: { form, mainCategories },
         onRestore: (draft) => {
             if (draft.form) setForm(draft.form);
-            if (draft.categories) setCategories(draft.categories);
+            if (draft.mainCategories) setMainCategories(draft.mainCategories);
             toast.info('Đã khôi phục bản nháp chưa lưu');
         },
     });
 
     const loadTemplate = (tmpl) => {
         setForm(f => ({ ...f, type: tmpl.type, vat: tmpl.vat, discount: tmpl.discount, managementFeeRate: tmpl.managementFeeRate, designFee: tmpl.designFee }));
-        const cats = tmpl.categories.map(cat => ({
-            _key: Date.now() + Math.random(), name: cat.name, subtotal: 0,
-            items: cat.items.map(item => ({ _key: Date.now() + Math.random(), ...item, amount: 0 })),
+        // Convert template categories → mainCategories (each template category becomes a main category with 1 subcategory)
+        const mcs = tmpl.categories.map(cat => ({
+            _key: Date.now() + Math.random(),
+            name: cat.name,
+            subtotal: 0,
+            subcategories: [{
+                _key: Date.now() + Math.random(),
+                name: '',
+                subtotal: 0,
+                items: cat.items.map(item => ({ _key: Date.now() + Math.random(), ...item, amount: 0 })),
+            }],
         }));
-        setCategories(recalc(cats.length > 0 ? cats : [emptyCategory()]));
-        setActiveCategoryIdx(0);
+        setMainCategories(recalc(mcs.length > 0 ? mcs : [emptyMainCategory()]));
+        setActiveMainIdx(0);
         toast.success(`Đã tải mẫu "${tmpl.name}"`);
     };
 
     const saveAsTemplate = async () => {
         if (!templateName.trim()) return toast.warning('Nhập tên mẫu!');
         try {
+            // Flatten mainCategories → categories for template save
+            const flatCats = [];
+            mainCategories.forEach(mc => {
+                mc.subcategories.forEach(sub => {
+                    flatCats.push({
+                        name: mc.name + (sub.name ? ` - ${sub.name}` : ''),
+                        items: sub.items.map(({ _key, ...item }) => item),
+                    });
+                });
+            });
             await apiFetch('/api/quotation-templates', {
                 method: 'POST',
                 body: JSON.stringify({
                     name: templateName, type: form.type, managementFeeRate: form.managementFeeRate,
                     designFee: form.designFee, vat: form.vat, discount: form.discount,
-                    categories: categories.map(cat => ({
-                        name: cat.name, items: cat.items.map(({ _key, ...item }) => item),
-                    })),
+                    categories: flatCats,
                 }),
             });
             setShowTemplateSave(false);
@@ -80,8 +95,7 @@ export default function CreateQuotationPage() {
             const saved = await apiFetch('/api/quotations', {
                 method: 'POST', body: JSON.stringify(buildPayload()),
             });
-            // Clear draft on success
-            try { localStorage.removeItem('quotation_draft_create'); } catch {}
+            try { localStorage.removeItem('quotation_draft_create'); } catch { }
             toast.success('Đã lưu báo giá thành công!');
             router.push(`/quotations/${saved.id}/edit`);
         } catch (e) { toast.error(e.message); }
@@ -159,22 +173,32 @@ export default function CreateQuotationPage() {
                     </div>
                 </div>
 
-                {/* Category tabs */}
+                {/* Main category tabs (Level 1) */}
                 <div className="quotation-category-tabs">
-                    {categories.map((cat, ci) => (
-                        <button key={cat._key} className={`btn ${ci === activeCategoryIdx ? 'btn-primary' : 'btn-secondary'} btn-sm`}
-                            onClick={() => setActiveCategoryIdx(ci)} style={{ fontSize: 12 }}>
-                            {cat.name || `Hạng mục #${ci + 1}`}
-                            <span style={{ opacity: 0.5, marginLeft: 4 }}>({fmt(cat.subtotal)}đ)</span>
+                    {mainCategories.map((mc, mi) => (
+                        <button key={mc._key} className={`btn ${mi === activeMainIdx ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                            onClick={() => { setActiveMainIdx(mi); hook.setActiveSubIdx(0); }} style={{ fontSize: 12 }}>
+                            {mc.name || `Hạng mục #${mi + 1}`}
+                            <span style={{ opacity: 0.5, marginLeft: 4 }}>({fmt(mc.subtotal)}đ)</span>
+                            {mainCategories.length > 1 && mi === activeMainIdx && (
+                                <span onClick={(e) => { e.stopPropagation(); removeMainCategory(mi); }}
+                                    style={{ marginLeft: 6, opacity: 0.5, cursor: 'pointer' }}>✕</span>
+                            )}
                         </button>
                     ))}
-                    <button className="btn btn-ghost btn-sm" onClick={addCategory} style={{ fontSize: 18, padding: '2px 10px' }}>+</button>
+                    <button className="btn btn-ghost btn-sm" onClick={addMainCategory} style={{ fontSize: 18, padding: '2px 10px' }}>+</button>
                 </div>
 
-                {/* Active category table */}
-                {categories.map((cat, ci) => ci !== activeCategoryIdx ? null : (
-                    <CategoryTable key={cat._key} cat={cat} ci={ci} hook={hook} />
-                ))}
+                {/* Main category name input */}
+                <div style={{ marginBottom: 8 }}>
+                    <input className="form-input" placeholder="Tên hạng mục chính (VD: Thiết kế kiến trúc, Phòng ngủ 1...)"
+                        value={mainCategories[activeMainIdx]?.name || ''}
+                        onChange={e => updateMainCategoryName(activeMainIdx, e.target.value)}
+                        style={{ fontWeight: 600, fontSize: 15 }} />
+                </div>
+
+                {/* Subcategory sections (Level 2 + Level 3) */}
+                <CategoryTable mi={activeMainIdx} hook={hook} />
 
                 {/* Summary */}
                 <QuotationSummary hook={hook} />

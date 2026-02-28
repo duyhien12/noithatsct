@@ -10,12 +10,15 @@ export default function TreeSidebar({ hook, onClose }) {
         editingProdCat, setEditingProdCat, saveProdCategory,
         addFromLibrary, addFromProduct,
         addCategoryFromLibrary, addCategoryFromProducts,
-        activeCategoryIdx, categories,
+        activeMainIdx, activeSubIdx, mainCategories,
         // Multi-select
         selectMode, setSelectMode,
         selectedItems, toggleSelectItem, selectAllInCategory,
         addSelected, clearSelection,
     } = hook;
+
+    const currentMC = mainCategories?.[activeMainIdx];
+    const currentSub = currentMC?.subcategories?.[activeSubIdx];
 
     const renderTreeLeaf = (item, onClick, type = 'library') => {
         const price = type === 'products' ? item.salePrice : item.unitPrice;
@@ -86,8 +89,9 @@ export default function TreeSidebar({ hook, onClose }) {
                     onChange={e => setTreeSearch(e.target.value)} style={{ width: '100%' }} />
                 <div style={{ fontSize: 11, marginTop: 6, opacity: 0.5 }}>
                     → <strong style={{ color: 'var(--accent-primary)' }}>
-                        {categories[activeCategoryIdx]?.name || `Hạng mục #${activeCategoryIdx + 1}`}
+                        {currentMC?.name || `Hạng mục #${activeMainIdx + 1}`}
                     </strong>
+                    {currentSub && <> &gt; <span style={{ opacity: 0.7 }}>{currentSub.name || `Khu vực #${activeSubIdx + 1}`}</span></>}
                 </div>
             </div>
             <div style={{ overflow: 'auto', flex: 1, padding: '4px 0' }}>

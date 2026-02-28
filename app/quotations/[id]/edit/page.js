@@ -1,9 +1,9 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
 import { apiFetch } from '@/lib/fetchClient';
-import { QUOTATION_TYPES, QUOTATION_STATUSES, fmt, emptyCategory } from '@/lib/quotation-constants';
+import { QUOTATION_TYPES, QUOTATION_STATUSES, fmt, emptyMainCategory } from '@/lib/quotation-constants';
 import useQuotationForm from '@/hooks/useQuotationForm';
 import useAutoSaveDraft from '@/hooks/useAutoSaveDraft';
 import TreeSidebar from '@/components/quotation/TreeSidebar';
@@ -17,18 +17,18 @@ export default function EditQuotationPage() {
     const hook = useQuotationForm({ toast });
     const [saving, setSaving] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [uploadingCell, setUploadingCell] = useState(null); // {ci, ii}
+    const [uploadingCell, setUploadingCell] = useState(null);
     const imgInputRef = useRef(null);
     const imgUploadTarget = useRef(null);
     const [treeSidebarOpen, setTreeSidebarOpen] = useState(false);
 
     const {
-        form, setForm, categories, setCategories,
-        customers, filteredProjects, activeCategoryIdx, setActiveCategoryIdx,
-        addCategory, recalc, buildPayload,
+        form, setForm, mainCategories, setMainCategories,
+        customers, filteredProjects, activeMainIdx, setActiveMainIdx,
+        addMainCategory, removeMainCategory, updateMainCategoryName, recalc, buildPayload,
     } = hook;
 
-    // Load quotation data
+    // Load quotation data → convert flat categories (with group) into 3-level mainCategories
     useEffect(() => {
         apiFetch(`/api/quotations/${params.id}`).then(q => {
             setForm({
@@ -46,28 +46,46 @@ export default function EditQuotationPage() {
                 status: q.status || 'Nháp',
             });
             if (q.categories && q.categories.length > 0) {
-                const cats = q.categories.map(cat => ({
+                // Group categories by `group` field → build mainCategories
+                const grouped = {};
+                const groupOrder = [];
+                q.categories.forEach(cat => {
+                    const g = cat.group || cat.name || 'Hạng mục';
+                    if (!grouped[g]) {
+                        grouped[g] = [];
+                        groupOrder.push(g);
+                    }
+                    grouped[g].push(cat);
+                });
+
+                const mcs = groupOrder.map(g => ({
                     _key: Date.now() + Math.random(),
-                    name: cat.name, subtotal: cat.subtotal || 0,
-                    items: (cat.items || []).map(item => ({
+                    name: g,
+                    subtotal: 0,
+                    subcategories: grouped[g].map(cat => ({
                         _key: Date.now() + Math.random(),
-                        name: item.name || '',
-                        unit: item.unit || 'm²',
-                        quantity: item.quantity || 0,
-                        mainMaterial: item.mainMaterial || 0,
-                        auxMaterial: item.auxMaterial || 0,
-                        labor: item.labor || 0,
-                        unitPrice: item.unitPrice || 0,
-                        amount: item.amount || 0,
-                        description: item.description || '',
-                        length: item.length || 0,
-                        width: item.width || 0,
-                        height: item.height || 0,
-                        image: item.image || '',
-                        productId: item.productId || null,
+                        name: cat.name || '',
+                        subtotal: cat.subtotal || 0,
+                        items: (cat.items || []).map(item => ({
+                            _key: Date.now() + Math.random(),
+                            name: item.name || '',
+                            unit: item.unit || 'm²',
+                            quantity: item.quantity || 0,
+                            mainMaterial: item.mainMaterial || 0,
+                            auxMaterial: item.auxMaterial || 0,
+                            labor: item.labor || 0,
+                            unitPrice: item.unitPrice || 0,
+                            amount: item.amount || 0,
+                            description: item.description || '',
+                            length: item.length || 0,
+                            width: item.width || 0,
+                            height: item.height || 0,
+                            image: item.image || '',
+                            productId: item.productId || null,
+                        })),
                     })),
                 }));
-                setCategories(cats);
+                setMainCategories(recalc(mcs));
             }
             setLoading(false);
         }).catch(e => {
@@ -79,18 +97,18 @@ export default function EditQuotationPage() {
     // Auto-save draft
     useAutoSaveDraft({
         key: `quotation_draft_${params.id}`,
-        data: { form, categories },
+        data: { form, mainCategories },
         enabled: !loading,
         onRestore: (draft) => {
             if (draft.form) setForm(draft.form);
-            if (draft.categories) setCategories(draft.categories);
+            if (draft.mainCategories) setMainCategories(draft.mainCategories);
             toast.info('Đã khôi phục bản nháp chưa lưu');
         },
     });
 
     // Image upload
-    const handleImageClick = (ci, ii) => {
-        imgUploadTarget.current = { ci, ii };
+    const handleImageClick = (mi, si, ii) => {
+        imgUploadTarget.current = { mi, si, ii };
         imgInputRef.current?.click();
     };
 
@@ -107,9 +125,11 @@ export default function EditQuotationPage() {
             const res = await fetch('/api/upload', { method: 'POST', body: fd });
             if (!res.ok) throw new Error('Upload failed');
             const { url } = await res.json();
-            const c = [...categories];
-            c[t.ci].items[t.ii] = { ...c[t.ci].items[t.ii], image: url };
-            setCategories(c);
+            const mcs = [...mainCategories];
+            const sub = mcs[t.mi].subcategories[t.si];
+            sub.items[t.ii] = { ...sub.items[t.ii], image: url };
+            mcs[t.mi] = { ...mcs[t.mi], subcategories: [...mcs[t.mi].subcategories] };
+            setMainCategories(mcs);
             toast.success('Đã tải ảnh lên');
         } catch (err) {
             toast.error('Lỗi tải ảnh: ' + err.message);
@@ -125,8 +145,7 @@ export default function EditQuotationPage() {
             await apiFetch(`/api/quotations/${params.id}`, {
                 method: 'PUT', body: JSON.stringify(buildPayload()),
             });
-            // Clear draft on success
-            try { localStorage.removeItem(`quotation_draft_${params.id}`); } catch {}
+            try { localStorage.removeItem(`quotation_draft_${params.id}`); } catch { }
             toast.success('Đã cập nhật báo giá thành công!');
         } catch (e) { toast.error(e.message); }
         setSaving(false);
@@ -136,20 +155,14 @@ export default function EditQuotationPage() {
 
     return (
         <div className="quotation-layout">
-            {/* Mobile tree toggle */}
             <button className="btn btn-primary quotation-tree-toggle" onClick={() => setTreeSidebarOpen(true)}>
                 🔧 Thư viện
             </button>
-
-            {/* Tree overlay (mobile) */}
             {treeSidebarOpen && <div className="quotation-tree-overlay" onClick={() => setTreeSidebarOpen(false)} />}
-
-            {/* LEFT: Tree sidebar */}
             <div className={`quotation-tree-wrapper ${treeSidebarOpen ? 'open' : ''}`}>
                 <TreeSidebar hook={hook} onClose={() => setTreeSidebarOpen(false)} />
             </div>
 
-            {/* RIGHT: Main */}
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="quotation-page-header">
                     <h2 style={{ margin: 0 }}>Sửa Báo Giá</h2>
@@ -199,22 +212,32 @@ export default function EditQuotationPage() {
                     </div>
                 </div>
 
-                {/* Category tabs */}
+                {/* Main category tabs (Level 1) */}
                 <div className="quotation-category-tabs">
-                    {categories.map((cat, ci) => (
-                        <button key={cat._key} className={`btn ${ci === activeCategoryIdx ? 'btn-primary' : 'btn-secondary'} btn-sm`}
-                            onClick={() => setActiveCategoryIdx(ci)} style={{ fontSize: 12 }}>
-                            {cat.name || `Hạng mục #${ci + 1}`}
-                            <span style={{ opacity: 0.5, marginLeft: 4 }}>({fmt(cat.subtotal)}đ)</span>
+                    {mainCategories.map((mc, mi) => (
+                        <button key={mc._key} className={`btn ${mi === activeMainIdx ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                            onClick={() => { setActiveMainIdx(mi); hook.setActiveSubIdx(0); }} style={{ fontSize: 12 }}>
+                            {mc.name || `Hạng mục #${mi + 1}`}
+                            <span style={{ opacity: 0.5, marginLeft: 4 }}>({fmt(mc.subtotal)}đ)</span>
+                            {mainCategories.length > 1 && mi === activeMainIdx && (
+                                <span onClick={(e) => { e.stopPropagation(); removeMainCategory(mi); }}
+                                    style={{ marginLeft: 6, opacity: 0.5, cursor: 'pointer' }}>✕</span>
+                            )}
                         </button>
                     ))}
-                    <button className="btn btn-ghost btn-sm" onClick={addCategory} style={{ fontSize: 18, padding: '2px 10px' }}>+</button>
+                    <button className="btn btn-ghost btn-sm" onClick={addMainCategory} style={{ fontSize: 18, padding: '2px 10px' }}>+</button>
                 </div>
 
-                {/* Active category table */}
-                {categories.map((cat, ci) => ci !== activeCategoryIdx ? null : (
-                    <CategoryTable key={cat._key} cat={cat} ci={ci} hook={hook} onImageClick={handleImageClick} />
-                ))}
+                {/* Main category name input */}
+                <div style={{ marginBottom: 8 }}>
+                    <input className="form-input" placeholder="Tên hạng mục chính (VD: Thiết kế kiến trúc, Phòng ngủ 1...)"
+                        value={mainCategories[activeMainIdx]?.name || ''}
+                        onChange={e => updateMainCategoryName(activeMainIdx, e.target.value)}
+                        style={{ fontWeight: 600, fontSize: 15 }} />
+                </div>
+
+                {/* Subcategory sections (Level 2 + Level 3) */}
+                <CategoryTable mi={activeMainIdx} hook={hook} onImageClick={handleImageClick} />
 
                 {/* Upload indicator */}
                 {uploadingCell && (
@@ -223,7 +246,6 @@ export default function EditQuotationPage() {
                     </div>
                 )}
 
-                {/* Summary */}
                 <QuotationSummary hook={hook} />
             </div>
 

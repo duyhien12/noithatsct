@@ -342,72 +342,102 @@ export default function QuotationPDFPage() {
                 {/* PROMO HEADER */}
                 <PromoHeader template={tpl} />
 
-                {/* BẢNG ITEMS */}
-                {(q.categories && q.categories.length > 0) ? q.categories.map((cat, ci) => (
-                    <div key={cat.id || ci}>
-                        <div className="cat-title">
-                            <span>#{ci + 1} — {cat.name || `Khu vực ${ci + 1}`}</span>
-                            <span>{fmt(cat.subtotal)}</span>
-                        </div>
-                        <table className="pdf-table">
-                            <thead><tr>
-                                <th className="c" style={{ width: 30 }}>STT</th>
-                                <th className="c" style={{ width: 42 }}>Ảnh</th>
-                                <th>Hạng mục / Sản phẩm</th>
-                                <th>Diễn giải</th>
-                                <th className="c" style={{ width: 42 }}>ĐVT</th>
-                                <th className="r" style={{ width: 44 }}>Dài</th>
-                                <th className="r" style={{ width: 44 }}>Rộng</th>
-                                <th className="r" style={{ width: 44 }}>Cao</th>
-                                <th className="r" style={{ width: 44 }}>SL</th>
-                                <th className="r" style={{ width: 84 }}>Đơn giá</th>
-                                <th className="r" style={{ width: 92 }}>Thành tiền</th>
-                            </tr></thead>
-                            <tbody>
-                                {(cat.items || []).map((item, ii) => (
-                                    <tr key={item.id || ii}>
-                                        <td className="c" style={{ color: '#94a3b8', fontSize: 10 }}>{ii + 1}</td>
-                                        <td className="c">
-                                            {item.image ? <img src={item.image} className="item-img" alt="" /> : <div className="no-img">📦</div>}
-                                        </td>
-                                        <td style={{ fontWeight: 600, fontSize: 12 }}>{item.name}</td>
-                                        <td><span className="desc-cell">{item.description || ''}</span></td>
+                {/* BẢNG ITEMS - 3 Level: group → categories → items */}
+                {(() => {
+                    if (!q.categories || q.categories.length === 0) {
+                        // Fallback: flat items
+                        return (
+                            <table className="pdf-table">
+                                <thead><tr>
+                                    <th className="c" style={{ width: 30 }}>STT</th>
+                                    <th>Hạng mục</th><th>Diễn giải</th>
+                                    <th className="c">ĐVT</th><th className="r">SL</th>
+                                    <th className="r">Đơn giá</th><th className="r">Thành tiền</th>
+                                </tr></thead>
+                                <tbody>{q.items?.map((item, i) => (
+                                    <tr key={item.id}><td className="c">{i + 1}</td>
+                                        <td style={{ fontWeight: 600 }}>{item.name}</td>
+                                        <td><span className="desc-cell">{item.description}</span></td>
                                         <td className="c">{item.unit}</td>
-                                        <td className="r">{item.length ? fmtNum(item.length) : ''}</td>
-                                        <td className="r">{item.width ? fmtNum(item.width) : ''}</td>
-                                        <td className="r">{item.height ? fmtNum(item.height) : ''}</td>
                                         <td className="r">{fmtNum(item.quantity)}</td>
                                         <td className="r">{fmt(item.unitPrice)}</td>
                                         <td className="r amt">{fmt(item.amount)}</td>
                                     </tr>
+                                ))}</tbody>
+                            </table>
+                        );
+                    }
+
+                    // Group categories by `group` field
+                    const grouped = {};
+                    const groupOrder = [];
+                    q.categories.forEach(cat => {
+                        const g = cat.group || cat.name || 'Hạng mục';
+                        if (!grouped[g]) { grouped[g] = []; groupOrder.push(g); }
+                        grouped[g].push(cat);
+                    });
+
+                    return groupOrder.map((groupName, gi) => {
+                        const subs = grouped[groupName];
+                        const groupTotal = subs.reduce((s, c) => s + (c.subtotal || 0), 0);
+                        return (
+                            <div key={gi}>
+                                {/* Main category header */}
+                                <div style={{ background: accent, color: '#fff', padding: '10px 14px', borderRadius: '6px 6px 0 0', marginTop: gi > 0 ? 20 : 14, display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 13 }}>
+                                    <span>{groupName}</span>
+                                    <span>{fmt(groupTotal)}</span>
+                                </div>
+                                {subs.map((cat, ci) => (
+                                    <div key={cat.id || ci}>
+                                        {/* Subcategory header */}
+                                        <div className="cat-title" style={{ marginTop: ci > 0 ? 2 : 0, borderRadius: 0, background: `${accent}22`, color: accent }}>
+                                            <span>#{ci + 1} — {cat.name || `Khu vực ${ci + 1}`}</span>
+                                            <span>{fmt(cat.subtotal)}</span>
+                                        </div>
+                                        <table className="pdf-table">
+                                            <thead><tr>
+                                                <th className="c" style={{ width: 30 }}>STT</th>
+                                                <th className="c" style={{ width: 42 }}>Ảnh</th>
+                                                <th>Hạng mục / Sản phẩm</th>
+                                                <th>Diễn giải</th>
+                                                <th className="c" style={{ width: 42 }}>ĐVT</th>
+                                                <th className="r" style={{ width: 44 }}>Dài</th>
+                                                <th className="r" style={{ width: 44 }}>Rộng</th>
+                                                <th className="r" style={{ width: 44 }}>Cao</th>
+                                                <th className="r" style={{ width: 44 }}>SL</th>
+                                                <th className="r" style={{ width: 84 }}>Đơn giá</th>
+                                                <th className="r" style={{ width: 92 }}>Thành tiền</th>
+                                            </tr></thead>
+                                            <tbody>
+                                                {(cat.items || []).map((item, ii) => (
+                                                    <tr key={item.id || ii}>
+                                                        <td className="c" style={{ color: '#94a3b8', fontSize: 10 }}>{ii + 1}</td>
+                                                        <td className="c">
+                                                            {item.image ? <img src={item.image} className="item-img" alt="" /> : <div className="no-img">📦</div>}
+                                                        </td>
+                                                        <td style={{ fontWeight: 600, fontSize: 12 }}>{item.name}</td>
+                                                        <td><span className="desc-cell">{item.description || ''}</span></td>
+                                                        <td className="c">{item.unit}</td>
+                                                        <td className="r">{item.length ? fmtNum(item.length) : ''}</td>
+                                                        <td className="r">{item.width ? fmtNum(item.width) : ''}</td>
+                                                        <td className="r">{item.height ? fmtNum(item.height) : ''}</td>
+                                                        <td className="r">{fmtNum(item.quantity)}</td>
+                                                        <td className="r">{fmt(item.unitPrice)}</td>
+                                                        <td className="r amt">{fmt(item.amount)}</td>
+                                                    </tr>
+                                                ))}
+                                                <tr className="sub-row">
+                                                    <td colSpan={10} className="r" style={{ paddingRight: 10 }}>Tổng {cat.name || `khu vực #${ci + 1}`}</td>
+                                                    <td className="r">{fmt(cat.subtotal)}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 ))}
-                                <tr className="sub-row">
-                                    <td colSpan={10} className="r" style={{ paddingRight: 10 }}>Tổng khu vực #{ci + 1}</td>
-                                    <td className="r">{fmt(cat.subtotal)}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                )) : (
-                    <table className="pdf-table">
-                        <thead><tr>
-                            <th className="c" style={{ width: 30 }}>STT</th>
-                            <th>Hạng mục</th><th>Diễn giải</th>
-                            <th className="c">ĐVT</th><th className="r">SL</th>
-                            <th className="r">Đơn giá</th><th className="r">Thành tiền</th>
-                        </tr></thead>
-                        <tbody>{q.items?.map((item, i) => (
-                            <tr key={item.id}><td className="c">{i + 1}</td>
-                                <td style={{ fontWeight: 600 }}>{item.name}</td>
-                                <td><span className="desc-cell">{item.description}</span></td>
-                                <td className="c">{item.unit}</td>
-                                <td className="r">{fmtNum(item.quantity)}</td>
-                                <td className="r">{fmt(item.unitPrice)}</td>
-                                <td className="r amt">{fmt(item.amount)}</td>
-                            </tr>
-                        ))}</tbody>
-                    </table>
-                )}
+                            </div>
+                        );
+                    });
+                })()}
 
                 {q.notes && <div className="pdf-notes">📝 <strong>Ghi chú:</strong> {q.notes}</div>}
 

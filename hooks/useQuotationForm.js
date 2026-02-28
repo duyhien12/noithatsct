@@ -1,151 +1,223 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { apiFetch } from '@/lib/fetchClient';
-import { emptyItem, emptyCategory, UNIT_OPTIONS } from '@/lib/quotation-constants';
+import { emptyItem, emptySubcategory, emptyMainCategory } from '@/lib/quotation-constants';
 
-export default function useQuotationForm({ toast }) {
+export default function useQuotationForm() {
+    // Reference data
     const [customers, setCustomers] = useState([]);
     const [projects, setProjects] = useState([]);
     const [products, setProducts] = useState([]);
     const [library, setLibrary] = useState([]);
-    const [treeSearch, setTreeSearch] = useState('');
+
+    // Tree sidebar state
     const [expandedNodes, setExpandedNodes] = useState({});
-    const [activeCategoryIdx, setActiveCategoryIdx] = useState(0);
     const [treeTab, setTreeTab] = useState('library');
+    const [treeSearch, setTreeSearch] = useState('');
     const [editingLibItem, setEditingLibItem] = useState(null);
     const [editingLibCat, setEditingLibCat] = useState(null);
     const [editingProdCat, setEditingProdCat] = useState(null);
     const [selectMode, setSelectMode] = useState(false);
     const [selectedItems, setSelectedItems] = useState(new Set());
 
+    // Form data
     const [form, setForm] = useState({
         customerId: '', projectId: '', type: 'Thi công thô', notes: '',
-        vat: 10, discount: 0, managementFeeRate: 5, designFee: 0, otherFee: 0,
-        adjustment: 0, adjustmentType: 'amount', status: 'Nháp',
+        managementFeeRate: 5, designFee: 0, otherFee: 0, vat: 10, discount: 0,
+        adjustment: 0, adjustmentType: 'amount',
     });
-    const [categories, setCategories] = useState([emptyCategory()]);
+
+    // 3-level hierarchy state
+    const [mainCategories, setMainCategories] = useState([emptyMainCategory()]);
+    const [activeMainIdx, setActiveMainIdx] = useState(0);
+    const [activeSubIdx, setActiveSubIdx] = useState(0);
 
     // Load reference data
     useEffect(() => {
-        apiFetch('/api/customers?limit=1000').then(d => setCustomers(d.data || []));
-        apiFetch('/api/projects?limit=1000').then(d => setProjects(d.data || []));
-        apiFetch('/api/work-item-library?limit=1000').then(d => setLibrary(d.data || []));
-        apiFetch('/api/products?limit=1000').then(d => setProducts(d.data || []));
+        apiFetch('/api/customers?limit=1000').then(r => r.ok && r.json().then(d => setCustomers(d.data || [])));
+        apiFetch('/api/projects?limit=1000').then(r => r.ok && r.json().then(d => setProjects(d.data || [])));
+        apiFetch('/api/products?limit=1000').then(r => r.ok && r.json().then(d => setProducts(d.data || [])));
+        apiFetch('/api/library?limit=1000').then(r => r.ok && r.json().then(d => setLibrary(d.data || d || [])));
     }, []);
 
-    const filteredProjects = useMemo(() => {
-        if (!form.customerId) return projects;
-        return projects.filter(p => p.customerId === form.customerId);
-    }, [form.customerId, projects]);
+    // Filtered projects
+    const filteredProjects = useMemo(() =>
+        form.customerId ? projects.filter(p => p.customerId === form.customerId) : projects,
+        [form.customerId, projects]
+    );
 
-    // === Build LIBRARY tree ===
-    const libTree = useMemo(() => {
-        const map = {};
-        const search = treeSearch.toLowerCase();
-        library.forEach(item => {
-            if (search && !item.name.toLowerCase().includes(search)
-                && !(item.category || '').toLowerCase().includes(search)
-                && !(item.subcategory || '').toLowerCase().includes(search)) return;
-            const cat = item.category || 'Khác';
-            if (!map[cat]) map[cat] = {};
-            const sub = item.subcategory || '';
-            if (!map[cat][sub]) map[cat][sub] = [];
-            map[cat][sub].push(item);
-        });
-        return map;
+    // Tree search filter
+    const filteredLibrary = useMemo(() => {
+        if (!treeSearch.trim()) return library;
+        const q = treeSearch.toLowerCase();
+        return library.filter(l => l.name.toLowerCase().includes(q) || (l.category || '').toLowerCase().includes(q));
     }, [library, treeSearch]);
 
-    // === Build PRODUCTS tree ===
-    const prodTree = useMemo(() => {
-        const map = {};
-        const search = treeSearch.toLowerCase();
-        products.forEach(p => {
-            if (search && !p.name.toLowerCase().includes(search) && !(p.category || '').toLowerCase().includes(search)) return;
-            const cat = p.category || 'Khác';
-            if (!map[cat]) map[cat] = [];
-            map[cat].push(p);
-        });
-        return map;
+    const filteredProducts = useMemo(() => {
+        if (!treeSearch.trim()) return products;
+        const q = treeSearch.toLowerCase();
+        return products.filter(p => p.name.toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q));
     }, [products, treeSearch]);
 
-    // Auto expand tree nodes
-    useEffect(() => {
-        const nodes = {};
-        if (treeTab === 'library') {
-            Object.entries(libTree).forEach(([cat, subs]) => {
-                nodes[`lib:${cat}`] = true;
-                Object.keys(subs).forEach(sub => { if (sub) nodes[`lib:${cat}:${sub}`] = true; });
-            });
-        } else {
-            Object.keys(prodTree).forEach(k => { nodes[k] = true; });
-        }
-        setExpandedNodes(nodes);
-    }, [libTree, prodTree, treeTab]);
+    // Build tree structures
+    const libTree = useMemo(() => {
+        const tree = {};
+        filteredLibrary.forEach(item => {
+            const cat = item.category || 'Chung';
+            const sub = item.subcategory || '';
+            if (!tree[cat]) tree[cat] = {};
+            if (!tree[cat][sub]) tree[cat][sub] = [];
+            tree[cat][sub].push(item);
+        });
+        return tree;
+    }, [filteredLibrary]);
+
+    const prodTree = useMemo(() => {
+        const tree = {};
+        filteredProducts.forEach(item => {
+            const cat = item.category || 'Khác';
+            if (!tree[cat]) tree[cat] = [];
+            tree[cat].push(item);
+        });
+        return tree;
+    }, [filteredProducts]);
 
     const toggleNode = (key) => setExpandedNodes(prev => ({ ...prev, [key]: !prev[key] }));
 
-    // === Calculation ===
-    const recalc = useCallback((cats) => cats.map(cat => {
-        const items = cat.items.map(item => {
-            const autoQty = (item.length && item.width && item.height)
-                ? item.length * item.width * item.height
-                : (item.length && item.width) ? item.length * item.width : null;
-            const quantity = autoQty !== null ? autoQty : (item.quantity || 0);
-            const amount = quantity * (item.unitPrice || 0);
-            return { ...item, quantity, amount };
+    // ========================================
+    // RECALC: Calculate all totals
+    // ========================================
+    const recalc = useCallback((mcs) => {
+        return mcs.map(mc => {
+            const subs = mc.subcategories.map(sub => {
+                const items = sub.items.map(item => {
+                    const l = Number(item.length) || 0;
+                    const w = Number(item.width) || 0;
+                    const h = Number(item.height) || 0;
+                    let qty = Number(item.quantity) || 0;
+                    if (l && w) qty = l * w * (h || 1);
+                    const unitPrice = Number(item.unitPrice) || 0;
+                    return { ...item, quantity: qty, amount: qty * unitPrice };
+                });
+                const subtotal = items.reduce((s, i) => s + i.amount, 0);
+                return { ...sub, items, subtotal };
+            });
+            const subtotal = subs.reduce((s, sub) => s + sub.subtotal, 0);
+            return { ...mc, subcategories: subs, subtotal };
         });
-        return { ...cat, items, subtotal: items.reduce((s, i) => s + i.amount, 0) };
-    }), []);
+    }, []);
 
-    const directCost = categories.reduce((s, c) => s + c.subtotal, 0);
-    const managementFee = directCost * (form.managementFeeRate || 0) / 100;
-    const adjustmentAmount = form.adjustmentType === 'percent'
-        ? directCost * (form.adjustment || 0) / 100
-        : (form.adjustment || 0);
-    const total = directCost + managementFee + (form.designFee || 0) + (form.otherFee || 0) + adjustmentAmount;
-    const discountAmount = total * ((form.discount || 0) / 100);
-    const afterDiscount = total - discountAmount;
-    const vatAmount = afterDiscount * ((form.vat || 0) / 100);
-    const grandTotal = afterDiscount + vatAmount;
+    // ========================================
+    // MAIN CATEGORY (Tab) handlers
+    // ========================================
+    const addMainCategory = () => {
+        const mc = emptyMainCategory();
+        setMainCategories(prev => [...prev, mc]);
+        setActiveMainIdx(mainCategories.length);
+        setActiveSubIdx(0);
+    };
 
-    // === Category/Item handlers ===
-    const addCategory = () => {
-        setCategories(prev => [...prev, emptyCategory()]);
-        setActiveCategoryIdx(categories.length);
+    const removeMainCategory = (mi) => {
+        if (mainCategories.length <= 1) return;
+        const mcs = mainCategories.filter((_, i) => i !== mi);
+        setMainCategories(mcs);
+        setActiveMainIdx(Math.min(mi, mcs.length - 1));
+        setActiveSubIdx(0);
     };
-    const removeCategory = (ci) => {
-        if (categories.length <= 1) return;
-        const next = recalc(categories.filter((_, i) => i !== ci));
-        setCategories(next);
-        setActiveCategoryIdx(Math.min(ci, next.length - 1));
+
+    const updateMainCategoryName = (mi, name) => {
+        const mcs = [...mainCategories];
+        mcs[mi] = { ...mcs[mi], name };
+        setMainCategories(mcs);
     };
-    const updateCategoryName = (ci, name) => {
-        const c = [...categories];
-        c[ci] = { ...c[ci], name };
-        setCategories(c);
-    };
-    const addItem = (ci) => {
-        const c = [...categories];
-        c[ci] = { ...c[ci], items: [...c[ci].items, emptyItem()] };
-        setCategories(c);
-    };
-    const removeItem = (ci, ii) => {
-        const c = [...categories];
-        if (c[ci].items.length <= 1) return;
-        c[ci] = { ...c[ci], items: c[ci].items.filter((_, i) => i !== ii) };
-        setCategories(recalc(c));
-    };
-    const updateItem = (ci, ii, field, value) => {
-        const c = [...categories];
-        const numFields = ['quantity', 'unitPrice', 'length', 'width', 'height'];
-        c[ci].items[ii] = {
-            ...c[ci].items[ii],
-            [field]: numFields.includes(field) ? parseFloat(value) || 0 : value,
+
+    // ========================================
+    // SUBCATEGORY (Section) handlers
+    // ========================================
+    const addSubcategory = (mi) => {
+        const mcs = [...mainCategories];
+        mcs[mi] = {
+            ...mcs[mi],
+            subcategories: [...mcs[mi].subcategories, emptySubcategory()],
         };
-        setCategories(recalc(c));
+        setMainCategories(mcs);
     };
 
-    // === Helper: build item from library ===
+    const removeSubcategory = (mi, si) => {
+        const mcs = [...mainCategories];
+        if (mcs[mi].subcategories.length <= 1) return;
+        mcs[mi] = {
+            ...mcs[mi],
+            subcategories: mcs[mi].subcategories.filter((_, i) => i !== si),
+        };
+        setMainCategories(recalc(mcs));
+        if (activeSubIdx >= mcs[mi].subcategories.length) setActiveSubIdx(mcs[mi].subcategories.length - 1);
+    };
+
+    const updateSubcategoryName = (mi, si, name) => {
+        const mcs = [...mainCategories];
+        mcs[mi] = {
+            ...mcs[mi],
+            subcategories: mcs[mi].subcategories.map((s, i) => i === si ? { ...s, name } : s),
+        };
+        setMainCategories(mcs);
+    };
+
+    // ========================================
+    // ITEM handlers
+    // ========================================
+    const addItem = (mi, si) => {
+        const mcs = [...mainCategories];
+        const sub = mcs[mi].subcategories[si];
+        mcs[mi] = {
+            ...mcs[mi],
+            subcategories: mcs[mi].subcategories.map((s, i) =>
+                i === si ? { ...s, items: [...s.items, emptyItem()] } : s
+            ),
+        };
+        setMainCategories(mcs);
+    };
+
+    const removeItem = (mi, si, ii) => {
+        const mcs = [...mainCategories];
+        mcs[mi] = {
+            ...mcs[mi],
+            subcategories: mcs[mi].subcategories.map((s, i) =>
+                i === si ? { ...s, items: s.items.filter((_, j) => j !== ii) } : s
+            ),
+        };
+        setMainCategories(recalc(mcs));
+    };
+
+    const updateItem = (mi, si, ii, field, value) => {
+        const mcs = [...mainCategories];
+        const sub = mcs[mi].subcategories[si];
+        const item = { ...sub.items[ii] };
+
+        if (['quantity', 'unitPrice', 'length', 'width', 'height', 'mainMaterial', 'auxMaterial', 'labor'].includes(field)) {
+            item[field] = parseFloat(value) || 0;
+            // Auto-calc unitPrice from components
+            if (['mainMaterial', 'auxMaterial', 'labor'].includes(field)) {
+                item.unitPrice = (item.mainMaterial || 0) + (item.auxMaterial || 0) + (item.labor || 0);
+            }
+        } else {
+            item[field] = value;
+        }
+
+        const newItems = [...sub.items];
+        newItems[ii] = item;
+        mcs[mi] = {
+            ...mcs[mi],
+            subcategories: mcs[mi].subcategories.map((s, i) =>
+                i === si ? { ...s, items: newItems } : s
+            ),
+        };
+        setMainCategories(recalc(mcs));
+    };
+
+    // ========================================
+    // Helper: build item from library/product
+    // ========================================
     const libItemToQuotationItem = (libItem) => ({
         _key: Date.now() + Math.random(),
         name: libItem.name, unit: libItem.unit || 'm²', quantity: 0,
@@ -155,7 +227,6 @@ export default function useQuotationForm({ toast }) {
         length: 0, width: 0, height: 0,
     });
 
-    // === Helper: build item from product ===
     const prodToQuotationItem = (prod) => ({
         _key: Date.now() + Math.random(),
         name: prod.name, unit: prod.unit || 'cái', quantity: 0,
@@ -166,77 +237,112 @@ export default function useQuotationForm({ toast }) {
         productId: prod.id || null,
     });
 
-    // === Add from library (single) ===
+    // ========================================
+    // Tree add handlers (single)
+    // ========================================
     const addFromLibrary = (libItem) => {
-        const ci = activeCategoryIdx;
-        const c = [...categories];
-        if (!c[ci].name) c[ci] = { ...c[ci], name: libItem.category || libItem.name };
-        const existing = c[ci].items.filter(i => i.name.trim() !== '');
-        c[ci] = { ...c[ci], items: [...existing, libItemToQuotationItem(libItem)] };
-        setCategories(recalc(c));
+        const mi = activeMainIdx;
+        const si = activeSubIdx;
+        const mcs = [...mainCategories];
+        const sub = mcs[mi].subcategories[si];
+        const existing = sub.items.filter(i => i.name.trim() !== '');
+        if (!sub.name) sub.name = libItem.category || libItem.name;
+        mcs[mi] = {
+            ...mcs[mi],
+            subcategories: mcs[mi].subcategories.map((s, i) =>
+                i === si ? { ...s, name: sub.name, items: [...existing, libItemToQuotationItem(libItem)] } : s
+            ),
+        };
+        setMainCategories(recalc(mcs));
     };
 
-    // === Add from product (single) ===
     const addFromProduct = (prod) => {
-        const ci = activeCategoryIdx;
-        const c = [...categories];
-        const existing = c[ci].items.filter(i => i.name.trim() !== '');
-        c[ci] = { ...c[ci], items: [...existing, prodToQuotationItem(prod)] };
-        setCategories(recalc(c));
+        const mi = activeMainIdx;
+        const si = activeSubIdx;
+        const mcs = [...mainCategories];
+        const sub = mcs[mi].subcategories[si];
+        const existing = sub.items.filter(i => i.name.trim() !== '');
+        mcs[mi] = {
+            ...mcs[mi],
+            subcategories: mcs[mi].subcategories.map((s, i) =>
+                i === si ? { ...s, items: [...existing, prodToQuotationItem(prod)] } : s
+            ),
+        };
+        setMainCategories(recalc(mcs));
     };
 
-    // === Bulk add from library (multi-select) ===
+    // ========================================
+    // Tree add handlers (bulk)
+    // ========================================
     const addBulkFromLibrary = (libItems) => {
         if (!libItems.length) return;
-        const ci = activeCategoryIdx;
-        const c = [...categories];
-        const existing = c[ci].items.filter(i => i.name.trim() !== '');
+        const mi = activeMainIdx;
+        const si = activeSubIdx;
+        const mcs = [...mainCategories];
+        const sub = mcs[mi].subcategories[si];
+        const existing = sub.items.filter(i => i.name.trim() !== '');
         const newItems = libItems.map(libItemToQuotationItem);
-        if (!c[ci].name && libItems[0].category) c[ci] = { ...c[ci], name: libItems[0].category };
-        c[ci] = { ...c[ci], items: [...existing, ...newItems] };
-        setCategories(recalc(c));
+        if (!sub.name && libItems[0].category) sub.name = libItems[0].category;
+        mcs[mi] = {
+            ...mcs[mi],
+            subcategories: mcs[mi].subcategories.map((s, i) =>
+                i === si ? { ...s, name: sub.name || s.name, items: [...existing, ...newItems] } : s
+            ),
+        };
+        setMainCategories(recalc(mcs));
     };
 
-    // === Bulk add from products (multi-select) ===
     const addBulkFromProducts = (prods) => {
         if (!prods.length) return;
-        const ci = activeCategoryIdx;
-        const c = [...categories];
-        const existing = c[ci].items.filter(i => i.name.trim() !== '');
+        const mi = activeMainIdx;
+        const si = activeSubIdx;
+        const mcs = [...mainCategories];
+        const sub = mcs[mi].subcategories[si];
+        const existing = sub.items.filter(i => i.name.trim() !== '');
         const newItems = prods.map(prodToQuotationItem);
-        c[ci] = { ...c[ci], items: [...existing, ...newItems] };
-        setCategories(recalc(c));
+        mcs[mi] = {
+            ...mcs[mi],
+            subcategories: mcs[mi].subcategories.map((s, i) =>
+                i === si ? { ...s, items: [...existing, ...newItems] } : s
+            ),
+        };
+        setMainCategories(recalc(mcs));
     };
 
-    // === Add entire category from library tree ===
+    // Add entire tree category as a new subcategory
     const addCategoryFromLibrary = (catName, libItems) => {
         if (!libItems.length) return;
-        const newCat = {
+        const mi = activeMainIdx;
+        const mcs = [...mainCategories];
+        const newSub = {
             _key: Date.now() + Math.random(),
             name: catName,
             items: libItems.map(libItemToQuotationItem),
             subtotal: 0,
         };
-        const c = [...categories, newCat];
-        setCategories(recalc(c));
-        setActiveCategoryIdx(c.length - 1);
+        mcs[mi] = { ...mcs[mi], subcategories: [...mcs[mi].subcategories, newSub] };
+        setMainCategories(recalc(mcs));
+        setActiveSubIdx(mcs[mi].subcategories.length - 1);
     };
 
-    // === Add entire product category ===
     const addCategoryFromProducts = (catName, prods) => {
         if (!prods.length) return;
-        const newCat = {
+        const mi = activeMainIdx;
+        const mcs = [...mainCategories];
+        const newSub = {
             _key: Date.now() + Math.random(),
             name: catName,
             items: prods.map(prodToQuotationItem),
             subtotal: 0,
         };
-        const c = [...categories, newCat];
-        setCategories(recalc(c));
-        setActiveCategoryIdx(c.length - 1);
+        mcs[mi] = { ...mcs[mi], subcategories: [...mcs[mi].subcategories, newSub] };
+        setMainCategories(recalc(mcs));
+        setActiveSubIdx(mcs[mi].subcategories.length - 1);
     };
 
-    // === Multi-select helpers ===
+    // ========================================
+    // Multi-select helpers
+    // ========================================
     const toggleSelectItem = (id) => {
         setSelectedItems(prev => {
             const next = new Set(prev);
@@ -269,7 +375,7 @@ export default function useQuotationForm({ toast }) {
         setSelectMode(false);
     };
 
-    // === Quick-add: searchable list of all library + products ===
+    // Quick-add: searchable list of all library + products
     const allSearchItems = useMemo(() => {
         const items = [];
         library.forEach(l => items.push({ ...l, _type: 'library', _label: l.name, _sub: l.category || '', _price: l.unitPrice }));
@@ -277,51 +383,95 @@ export default function useQuotationForm({ toast }) {
         return items;
     }, [library, products]);
 
-    // === Inline edit handlers ===
+    // ========================================
+    // Inline edit handlers (library/product names & categories)
+    // ========================================
     const saveLibItem = async () => {
         if (!editingLibItem) return;
-        await apiFetch(`/api/work-item-library/${editingLibItem.id}`, {
-            method: 'PUT', body: JSON.stringify({ name: editingLibItem.name }),
-        });
-        apiFetch('/api/work-item-library?limit=1000').then(d => setLibrary(d.data || []));
+        try {
+            await apiFetch(`/api/library/${editingLibItem.id}`, { method: 'PATCH', body: JSON.stringify({ name: editingLibItem.name }) });
+            setLibrary(prev => prev.map(l => l.id === editingLibItem.id ? { ...l, name: editingLibItem.name } : l));
+        } catch { }
         setEditingLibItem(null);
     };
 
     const saveLibCategory = async () => {
-        if (!editingLibCat || !editingLibCat.name.trim() || editingLibCat.old === editingLibCat.name) {
-            setEditingLibCat(null);
-            return;
-        }
-        await apiFetch('/api/work-item-library', {
-            method: 'PATCH', body: JSON.stringify({ oldCategory: editingLibCat.old, newCategory: editingLibCat.name }),
-        });
-        apiFetch('/api/work-item-library?limit=1000').then(d => setLibrary(d.data || []));
+        if (!editingLibCat || editingLibCat.old === editingLibCat.name) { setEditingLibCat(null); return; }
+        try {
+            await apiFetch('/api/library/rename-category', {
+                method: 'POST', body: JSON.stringify({ oldName: editingLibCat.old, newName: editingLibCat.name }),
+            });
+            setLibrary(prev => prev.map(l => l.category === editingLibCat.old ? { ...l, category: editingLibCat.name } : l));
+        } catch { }
         setEditingLibCat(null);
     };
 
     const saveProdCategory = async () => {
-        if (!editingProdCat || !editingProdCat.name.trim()) { setEditingProdCat(null); return; }
-        await apiFetch('/api/products', {
-            method: 'PATCH', body: JSON.stringify({ oldCategory: editingProdCat.old, newCategory: editingProdCat.name }),
-        });
-        apiFetch('/api/products?limit=1000').then(d => setProducts(d.data || []));
+        if (!editingProdCat || editingProdCat.old === editingProdCat.name) { setEditingProdCat(null); return; }
+        try {
+            await apiFetch('/api/products/rename-category', {
+                method: 'POST', body: JSON.stringify({ oldName: editingProdCat.old, newName: editingProdCat.name }),
+            });
+            setProducts(prev => prev.map(p => p.category === editingProdCat.old ? { ...p, category: editingProdCat.name } : p));
+        } catch { }
         setEditingProdCat(null);
     };
 
-    // === Build payload ===
-    const buildPayload = () => ({
-        ...form,
-        directCost,
-        managementFee,
-        adjustmentAmount,
-        total,
-        grandTotal,
-        categories: categories.map(cat => ({
-            name: cat.name,
-            subtotal: cat.subtotal,
-            items: cat.items.filter(i => i.name.trim()).map(({ _key, ...item }) => item),
-        })),
-    });
+    // ========================================
+    // CALCULATIONS
+    // ========================================
+    const directCost = mainCategories.reduce((s, mc) => s + mc.subtotal, 0);
+    const managementFee = directCost * (form.managementFeeRate || 0) / 100;
+    const beforeAdjust = directCost + managementFee + (form.designFee || 0) + (form.otherFee || 0);
+    const adjustmentAmount = form.adjustmentType === 'percent'
+        ? beforeAdjust * (form.adjustment || 0) / 100
+        : (form.adjustment || 0);
+    const total = beforeAdjust + adjustmentAmount;
+    const discountAmount = total * (form.discount || 0) / 100;
+    const afterDiscount = total - discountAmount;
+    const vatAmount = afterDiscount * (form.vat || 0) / 100;
+    const grandTotal = afterDiscount + vatAmount;
+
+    // ========================================
+    // BUILD PAYLOAD for API (flatten 3-level → categories with group)
+    // ========================================
+    const buildPayload = () => {
+        // Flatten mainCategories → categories array with group field
+        const categories = [];
+        mainCategories.forEach(mc => {
+            mc.subcategories.forEach(sub => {
+                categories.push({
+                    name: sub.name,
+                    group: mc.name,
+                    subtotal: sub.subtotal || 0,
+                    items: sub.items.filter(i => i.name.trim() !== '').map(item => ({
+                        name: item.name,
+                        unit: item.unit,
+                        quantity: Number(item.quantity) || 0,
+                        mainMaterial: Number(item.mainMaterial) || 0,
+                        auxMaterial: Number(item.auxMaterial) || 0,
+                        labor: Number(item.labor) || 0,
+                        unitPrice: Number(item.unitPrice) || 0,
+                        amount: Number(item.amount) || 0,
+                        description: item.description || '',
+                        length: Number(item.length) || 0,
+                        width: Number(item.width) || 0,
+                        height: Number(item.height) || 0,
+                        image: item.image || '',
+                        productId: item.productId || null,
+                    })),
+                });
+            });
+        });
+
+        return {
+            ...form,
+            categories,
+            directCost, managementFee, adjustmentAmount, total,
+            discount: form.discount, vat: form.vat,
+            grandTotal,
+        };
+    };
 
     return {
         // Reference data
@@ -329,7 +479,16 @@ export default function useQuotationForm({ toast }) {
         filteredProjects,
         // Form state
         form, setForm,
-        categories, setCategories,
+        // 3-level hierarchy
+        mainCategories, setMainCategories,
+        activeMainIdx, setActiveMainIdx,
+        activeSubIdx, setActiveSubIdx,
+        // Main category handlers
+        addMainCategory, removeMainCategory, updateMainCategoryName,
+        // Subcategory handlers
+        addSubcategory, removeSubcategory, updateSubcategoryName,
+        // Item handlers
+        addItem, removeItem, updateItem,
         // Tree state
         treeSearch, setTreeSearch,
         expandedNodes, toggleNode,
@@ -339,10 +498,6 @@ export default function useQuotationForm({ toast }) {
         editingLibItem, setEditingLibItem, saveLibItem,
         editingLibCat, setEditingLibCat, saveLibCategory,
         editingProdCat, setEditingProdCat, saveProdCategory,
-        // Category/Item state
-        activeCategoryIdx, setActiveCategoryIdx,
-        addCategory, removeCategory, updateCategoryName,
-        addItem, removeItem, updateItem,
         // Tree actions (single)
         addFromLibrary, addFromProduct,
         // Tree actions (bulk)

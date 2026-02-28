@@ -64,53 +64,55 @@ export const POST = withAuth(async (request) => {
         grandTotal: Number(validated.grandTotal) || 0,
     };
 
-    // Step 1: Create quotation without nested items
-    const quotation = await prisma.quotation.create({ data });
+    // Wrap in transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+        const quotation = await tx.quotation.create({ data });
 
-    // Step 2: Create categories + items with explicit quotationId
-    if (categories && categories.length > 0) {
-        for (let ci = 0; ci < categories.length; ci++) {
-            const cat = categories[ci];
-            const createdCat = await prisma.quotationCategory.create({
-                data: {
-                    name: cat.name || '',
-                    order: ci,
-                    subtotal: cat.subtotal || 0,
-                    quotationId: quotation.id,
-                },
-            });
-            if (cat.items && cat.items.length > 0) {
-                await prisma.quotationItem.createMany({
-                    data: cat.items.map((item, ii) => ({
-                        name: item.name || '',
-                        order: ii,
-                        unit: item.unit || '',
-                        quantity: Number(item.quantity) || 0,
-                        mainMaterial: Number(item.mainMaterial) || 0,
-                        auxMaterial: Number(item.auxMaterial) || 0,
-                        labor: Number(item.labor) || 0,
-                        unitPrice: Number(item.unitPrice) || 0,
-                        amount: Number(item.amount) || 0,
-                        description: item.description || '',
-                        length: Number(item.length) || 0,
-                        width: Number(item.width) || 0,
-                        height: Number(item.height) || 0,
-                        image: item.image || '',
-                        productId: item.productId || null,
-                        categoryId: createdCat.id,
+        if (categories && categories.length > 0) {
+            for (let ci = 0; ci < categories.length; ci++) {
+                const cat = categories[ci];
+                const createdCat = await tx.quotationCategory.create({
+                    data: {
+                        name: cat.name || '',
+                        group: cat.group || '',
+                        order: ci,
+                        subtotal: cat.subtotal || 0,
                         quotationId: quotation.id,
-                    })),
+                    },
                 });
+                if (cat.items && cat.items.length > 0) {
+                    await tx.quotationItem.createMany({
+                        data: cat.items.map((item, ii) => ({
+                            name: item.name || '',
+                            order: ii,
+                            unit: item.unit || '',
+                            quantity: Number(item.quantity) || 0,
+                            mainMaterial: Number(item.mainMaterial) || 0,
+                            auxMaterial: Number(item.auxMaterial) || 0,
+                            labor: Number(item.labor) || 0,
+                            unitPrice: Number(item.unitPrice) || 0,
+                            amount: Number(item.amount) || 0,
+                            description: item.description || '',
+                            length: Number(item.length) || 0,
+                            width: Number(item.width) || 0,
+                            height: Number(item.height) || 0,
+                            image: item.image || '',
+                            productId: item.productId || null,
+                            categoryId: createdCat.id,
+                            quotationId: quotation.id,
+                        })),
+                    });
+                }
             }
         }
-    }
 
-    const result = await prisma.quotation.findUnique({
-        where: { id: quotation.id },
-        include: {
-            categories: { include: { items: true }, orderBy: { order: 'asc' } },
-            items: true,
-        },
+        return await tx.quotation.findUnique({
+            where: { id: quotation.id },
+            include: {
+                categories: { include: { items: true }, orderBy: { order: 'asc' } },
+                items: true,
+            },
+        });
     });
 
     return NextResponse.json(result, { status: 201 });

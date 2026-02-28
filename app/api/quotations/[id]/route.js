@@ -56,6 +56,7 @@ export const PUT = withAuth(async (request, { params }) => {
                 const created = await tx.quotationCategory.create({
                     data: {
                         name: cat.name || '',
+                        group: cat.group || '',
                         order: ci,
                         subtotal: cat.subtotal || 0,
                         quotationId: id,
