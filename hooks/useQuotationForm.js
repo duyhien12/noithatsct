@@ -34,10 +34,10 @@ export default function useQuotationForm() {
 
     // Load reference data
     useEffect(() => {
-        apiFetch('/api/customers?limit=1000').then(r => r.ok && r.json().then(d => setCustomers(d.data || [])));
-        apiFetch('/api/projects?limit=1000').then(r => r.ok && r.json().then(d => setProjects(d.data || [])));
-        apiFetch('/api/products?limit=1000').then(r => r.ok && r.json().then(d => setProducts(d.data || [])));
-        apiFetch('/api/library?limit=1000').then(r => r.ok && r.json().then(d => setLibrary(d.data || d || [])));
+        apiFetch('/api/customers?limit=1000').then(d => setCustomers(d.data || [])).catch(() => { });
+        apiFetch('/api/projects?limit=1000').then(d => setProjects(d.data || [])).catch(() => { });
+        apiFetch('/api/products?limit=1000').then(d => setProducts(d.data || [])).catch(() => { });
+        apiFetch('/api/library?limit=1000').then(d => setLibrary(d.data || d || [])).catch(() => { });
     }, []);
 
     // Filtered projects
