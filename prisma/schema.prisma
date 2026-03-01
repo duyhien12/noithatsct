@@ -93,7 +93,7 @@ model Project {
   expenses        ProjectExpense[]
   trackingLogs    TrackingLog[]
   documents       ProjectDocument[]
-  folders         DocumentFolder[]
+  documentFolders DocumentFolder[]
   deletedAt       DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -497,44 +497,41 @@ model TrackingLog {
   createdAt   DateTime @default(now())
 }
 
-model DocumentFolder {
-  id         String   @id @default(cuid())
-  name       String
-  order      Int      @default(0)
-  visibility String   @default("internal")
-  parentId   String?
-  parent     DocumentFolder?  @relation("FolderTree", fields: [parentId], references: [id])
-  children   DocumentFolder[] @relation("FolderTree")
-  projectId  String
-  project    Project  @relation(fields: [projectId], references: [id])
-  documents  ProjectDocument[]
-  createdAt  DateTime @default(now())
+model ProjectDocument {
+  id          String   @id @default(cuid())
+  name        String
+  fileName    String   @default("")
+  category    String   @default("Khác")
+  fileSize    Int      @default(0)
+  fileUrl     String   @default("")
+  uploadedBy  String   @default("")
+  notes       String   @default("")
+  version     Int      @default(1)
+  status      String   @default("Bản Nháp")
+  accessLevel String   @default("internal")
+  folderId    String?
+  folder      DocumentFolder? @relation(fields: [folderId], references: [id])
+  parentDocId String?
+  parentDoc   ProjectDocument? @relation("DocVersions", fields: [parentDocId], references: [id])
+  versions    ProjectDocument[] @relation("DocVersions")
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id])
+  createdAt   DateTime @default(now())
 }
 
-model ProjectDocument {
-  id               String   @id @default(cuid())
-  name             String
-  fileName         String   @default("")
-  fileUrl          String   @default("")
-  mimeType         String   @default("")
-  category         String   @default("Khác")
-  fileSize         Int      @default(0)
-  status           String   @default("Nháp")
-  version          Int      @default(1)
-  uploadedBy       String   @default("")
-  notes            String   @default("")
-  parentDocumentId String?
-  parentDocument   ProjectDocument?  @relation("DocVersions", fields: [parentDocumentId], references: [id])
-  versions         ProjectDocument[] @relation("DocVersions")
-  folderId         String?
-  folder           DocumentFolder?   @relation(fields: [folderId], references: [id])
-  customerId       String?
-  customer         Customer? @relation(fields: [customerId], references: [id])
-  projectId        String?
-  project          Project?  @relation(fields: [projectId], references: [id])
-  deletedAt        DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+model DocumentFolder {
+  id          String   @id @default(cuid())
+  name        String
+  order       Int      @default(0)
+  parentId    String?
+  parent      DocumentFolder? @relation("FolderTree", fields: [parentId], references: [id])
+  children    DocumentFolder[] @relation("FolderTree")
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id])
+  documents   ProjectDocument[]
+  createdAt   DateTime @default(now())
 }
 
 // ============ THƯ VIỆN HẠNG MỤC THI CÔNG ============
