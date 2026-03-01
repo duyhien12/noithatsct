@@ -21,7 +21,7 @@ export const GET = withAuth(async (request, { params }) => {
             purchaseOrders: { include: { items: true }, orderBy: { createdAt: 'desc' } },
             expenses: { orderBy: { date: 'desc' } },
             trackingLogs: { orderBy: { createdAt: 'desc' } },
-            documents: { where: { parentDocumentId: null, deletedAt: null }, orderBy: { createdAt: 'desc' }, include: { folder: { select: { name: true } }, _count: { select: { versions: true } } } },
+            documents: { where: { parentDocumentId: null }, orderBy: { createdAt: 'desc' }, include: { folder: { select: { name: true } }, _count: { select: { versions: true } } } },
             folders: { where: { parentId: null }, orderBy: { order: 'asc' }, include: { _count: { select: { documents: true } }, children: { orderBy: { order: 'asc' }, include: { _count: { select: { documents: true } } } } } },
         },
     });

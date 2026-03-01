@@ -40,7 +40,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/motnhaerp?schema=public
         run: |
           npx prisma generate
-          npx prisma db push
+          npx prisma db push --accept-data-loss
 
       - name: Build and deploy app
         run: |
