@@ -360,13 +360,15 @@ export default function QuotationPDFPage() {
                     letter-spacing: 0.5px;
                 }
                 .mn-cat-main .mn-space-name {
-                    background: rgba(255,255,255,0.2);
-                    border: 1.5px solid #fff;
-                    padding: 3px 14px;
-                    font-weight: 800;
+                    background: #fff;
+                    color: ${BRAND.blue};
+                    border: 2px solid ${BRAND.gold};
+                    padding: 4px 18px;
+                    font-weight: 900;
                     font-size: 11px;
                     font-style: italic;
-                    letter-spacing: 1px;
+                    letter-spacing: 1.5px;
+                    text-transform: uppercase;
                 }
                 .mn-sub-total td {
                     background: ${BRAND.blue}08;
@@ -593,7 +595,6 @@ export default function QuotationPDFPage() {
                                             <div className="mn-cat-main" style={{ marginTop: (gi > 0 || ci > 0) ? 18 : 0 }}>
                                                 <span>#{gi + 1}.{ci + 1} {groupName}</span>
                                                 <span className="mn-space-name">{cat.name || `Khu vực ${ci + 1}`}</span>
-                                                <span>{fmt(cat.subtotal)}</span>
                                             </div>
                                             <div className={cat.image ? 'mn-sub-layout' : ''}>
                                                 <div className="mn-sub-table-area">
