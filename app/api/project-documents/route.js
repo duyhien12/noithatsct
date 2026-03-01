@@ -12,6 +12,7 @@ export const GET = withAuth(async (request) => {
     const folderId = searchParams.get('folderId');
     const status = searchParams.get('status');
     const search = searchParams.get('search') || '';
+    const space = searchParams.get('space') || '';
 
     const where = {
         parentDocumentId: null, // Only show latest (root) documents
@@ -19,6 +20,7 @@ export const GET = withAuth(async (request) => {
     if (projectId) where.projectId = projectId;
     if (customerId) where.customerId = customerId;
     if (status) where.status = status;
+    if (space) where.space = space;
 
     // folderId=null means unsorted, folderId=<id> means specific folder
     if (folderId === 'null' || folderId === 'unsorted') {

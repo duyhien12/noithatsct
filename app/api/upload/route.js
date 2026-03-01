@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { isR2Configured, uploadToR2 } from '@/lib/r2';
+import sharp from 'sharp';
 
 const ALLOWED_MIME_TYPES = [
     'image/jpeg',
@@ -30,7 +31,22 @@ const ALLOWED_EXTENSIONS = [
 const ALLOWED_UPLOAD_TYPES = ['products', 'library', 'proofs', 'documents'];
 
 const MAX_FILE_SIZE_DEFAULT = 5 * 1024 * 1024; // 5MB
-const MAX_FILE_SIZE_DOCUMENTS = 20 * 1024 * 1024; // 20MB
+const MAX_FILE_SIZE_DOCUMENTS = 50 * 1024 * 1024; // 50MB
+
+const THUMBNAIL_MIME = ['image/jpeg', 'image/png', 'image/webp'];
+
+async function generateThumbnail(buffer, mimeType) {
+    if (!THUMBNAIL_MIME.includes(mimeType)) return null;
+    try {
+        const thumbBuffer = await sharp(buffer)
+            .resize({ width: 480, height: 270, fit: 'cover', position: 'center' })
+            .jpeg({ quality: 70, progressive: true })
+            .toBuffer();
+        return thumbBuffer;
+    } catch {
+        return null;
+    }
+}
 
 export const POST = withAuth(async (request) => {
     const formData = await request.formData();
@@ -50,9 +66,9 @@ export const POST = withAuth(async (request) => {
         return NextResponse.json({ error: 'Loại file không được hỗ trợ' }, { status: 400 });
     }
 
-    // Validate file size (documents allow 20MB, others 5MB)
+    // Validate file size (documents allow 50MB, others 5MB)
     const maxSize = type === 'documents' ? MAX_FILE_SIZE_DOCUMENTS : MAX_FILE_SIZE_DEFAULT;
-    const maxLabel = type === 'documents' ? '20MB' : '5MB';
+    const maxLabel = type === 'documents' ? '50MB' : '5MB';
     const bytes = await file.arrayBuffer();
     if (bytes.byteLength > maxSize) {
         return NextResponse.json({ error: `File quá lớn (tối đa ${maxLabel})` }, { status: 400 });
@@ -65,19 +81,35 @@ export const POST = withAuth(async (request) => {
     const base = path.basename(file.name, fileExt).replace(/[^a-zA-Z0-9_-]/g, '_');
     const filename = `${base}_${Date.now()}${fileExt}`;
 
+    let url, thumbnailUrl = '';
+
+    // Generate thumbnail for images
+    const thumbBuffer = type === 'documents' ? await generateThumbnail(buffer, file.type) : null;
+    const thumbFilename = thumbBuffer ? `thumb_${base}_${Date.now()}.jpg` : null;
+
     // Upload to R2 if configured, otherwise local filesystem
     if (isR2Configured) {
         const key = `${type}/${filename}`;
-        const url = await uploadToR2(buffer, key, file.type);
-        return NextResponse.json({ url });
+        url = await uploadToR2(buffer, key, file.type);
+        if (thumbBuffer && thumbFilename) {
+            const thumbKey = `${type}/thumbnails/${thumbFilename}`;
+            thumbnailUrl = await uploadToR2(thumbBuffer, thumbKey, 'image/jpeg');
+        }
+    } else {
+        // Fallback: local filesystem
+        const uploadDir = path.join(process.cwd(), 'public', 'uploads', type);
+        await mkdir(uploadDir, { recursive: true });
+        const filepath = path.join(uploadDir, filename);
+        await writeFile(filepath, buffer);
+        url = `/uploads/${type}/${filename}`;
+
+        if (thumbBuffer && thumbFilename) {
+            const thumbDir = path.join(process.cwd(), 'public', 'uploads', type, 'thumbnails');
+            await mkdir(thumbDir, { recursive: true });
+            await writeFile(path.join(thumbDir, thumbFilename), thumbBuffer);
+            thumbnailUrl = `/uploads/${type}/thumbnails/${thumbFilename}`;
+        }
     }
 
-    // Fallback: local filesystem
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', type);
-    await mkdir(uploadDir, { recursive: true });
-    const filepath = path.join(uploadDir, filename);
-    await writeFile(filepath, buffer);
-
-    const url = `/uploads/${type}/${filename}`;
-    return NextResponse.json({ url });
+    return NextResponse.json({ url, thumbnailUrl });
 });

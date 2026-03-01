@@ -505,6 +505,8 @@ model ProjectDocument {
   fileSize    Int      @default(0)
   fileUrl     String   @default("")
   mimeType    String   @default("")
+  thumbnailUrl String  @default("")
+  space       String   @default("")
   uploadedBy  String   @default("")
   notes       String   @default("")
   version     Int      @default(1)
