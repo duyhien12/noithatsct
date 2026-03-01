@@ -1,6 +1,7 @@
 import { withAuth } from '@/lib/apiHandler';
 import { parsePagination, paginatedResponse } from '@/lib/pagination';
 import prisma from '@/lib/prisma';
+import { generateCode } from '@/lib/generateCode';
 import { NextResponse } from 'next/server';
 import { expenseCreateSchema, expenseUpdateSchema } from '@/lib/validations/expense';
 
@@ -8,7 +9,16 @@ export const GET = withAuth(async (request) => {
     const { searchParams } = new URL(request.url);
     const { page, limit, skip } = parsePagination(searchParams);
 
+    const status = searchParams.get('status');
+    const expenseType = searchParams.get('expenseType');
+    const search = searchParams.get('search');
+    const projectId = searchParams.get('projectId');
+
     const where = {};
+    if (status) where.status = status;
+    if (expenseType) where.expenseType = expenseType;
+    if (projectId) where.projectId = projectId;
+    if (search) where.description = { contains: search, mode: 'insensitive' };
 
     const [data, total] = await Promise.all([
         prisma.projectExpense.findMany({
@@ -26,10 +36,10 @@ export const GET = withAuth(async (request) => {
 export const POST = withAuth(async (request) => {
     const body = await request.json();
     const data = expenseCreateSchema.parse(body);
-    const count = await prisma.projectExpense.count();
+    const code = await generateCode('projectExpense', 'CP');
     const expense = await prisma.projectExpense.create({
         data: {
-            code: `CP${String(count + 1).padStart(3, '0')}`,
+            code,
             ...data,
         },
     });

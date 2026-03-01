@@ -57,6 +57,7 @@ export const PUT = withAuth(async (request, { params }) => {
                     data: {
                         name: cat.name || '',
                         group: cat.group || '',
+                        image: cat.image || '',
                         order: ci,
                         subtotal: cat.subtotal || 0,
                         quotationId: id,

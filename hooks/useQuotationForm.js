@@ -163,6 +163,15 @@ export default function useQuotationForm() {
         setMainCategories(mcs);
     };
 
+    const updateSubcategoryImage = (mi, si, image) => {
+        const mcs = [...mainCategories];
+        mcs[mi] = {
+            ...mcs[mi],
+            subcategories: mcs[mi].subcategories.map((s, i) => i === si ? { ...s, image } : s),
+        };
+        setMainCategories(mcs);
+    };
+
     // ========================================
     // ITEM handlers
     // ========================================
@@ -442,6 +451,7 @@ export default function useQuotationForm() {
                 categories.push({
                     name: sub.name,
                     group: mc.name,
+                    image: sub.image || '',
                     subtotal: sub.subtotal || 0,
                     items: sub.items.filter(i => i.name.trim() !== '').map(item => ({
                         name: item.name,
@@ -485,7 +495,7 @@ export default function useQuotationForm() {
         // Main category handlers
         addMainCategory, removeMainCategory, updateMainCategoryName,
         // Subcategory handlers
-        addSubcategory, removeSubcategory, updateSubcategoryName,
+        addSubcategory, removeSubcategory, updateSubcategoryName, updateSubcategoryImage,
         // Item handlers
         addItem, removeItem, updateItem,
         // Tree state

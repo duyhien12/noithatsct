@@ -65,6 +65,7 @@ export default function EditQuotationPage() {
                     subcategories: grouped[g].map(cat => ({
                         _key: Date.now() + Math.random(),
                         name: cat.name || '',
+                        image: cat.image || '',
                         subtotal: cat.subtotal || 0,
                         items: (cat.items || []).map(item => ({
                             _key: Date.now() + Math.random(),
@@ -106,9 +107,14 @@ export default function EditQuotationPage() {
         },
     });
 
-    // Image upload
+    // Image upload (items + subcategories)
     const handleImageClick = (mi, si, ii) => {
         imgUploadTarget.current = { mi, si, ii };
+        imgInputRef.current?.click();
+    };
+
+    const handleSubcategoryImageClick = (mi, si) => {
+        imgUploadTarget.current = { mi, si, ii: null, isSubcategory: true };
         imgInputRef.current?.click();
     };
 
@@ -125,11 +131,16 @@ export default function EditQuotationPage() {
             const res = await fetch('/api/upload', { method: 'POST', body: fd });
             if (!res.ok) throw new Error('Upload failed');
             const { url } = await res.json();
-            const mcs = [...mainCategories];
-            const sub = mcs[t.mi].subcategories[t.si];
-            sub.items[t.ii] = { ...sub.items[t.ii], image: url };
-            mcs[t.mi] = { ...mcs[t.mi], subcategories: [...mcs[t.mi].subcategories] };
-            setMainCategories(mcs);
+
+            if (t.isSubcategory) {
+                hook.updateSubcategoryImage(t.mi, t.si, url);
+            } else {
+                const mcs = [...mainCategories];
+                const sub = mcs[t.mi].subcategories[t.si];
+                sub.items[t.ii] = { ...sub.items[t.ii], image: url };
+                mcs[t.mi] = { ...mcs[t.mi], subcategories: [...mcs[t.mi].subcategories] };
+                setMainCategories(mcs);
+            }
             toast.success('Đã tải ảnh lên');
         } catch (err) {
             toast.error('Lỗi tải ảnh: ' + err.message);
@@ -212,32 +223,34 @@ export default function EditQuotationPage() {
                     </div>
                 </div>
 
-                {/* Main category tabs (Level 1) */}
-                <div className="quotation-category-tabs">
-                    {mainCategories.map((mc, mi) => (
-                        <button key={mc._key} className={`btn ${mi === activeMainIdx ? 'btn-primary' : 'btn-secondary'} btn-sm`}
-                            onClick={() => { setActiveMainIdx(mi); hook.setActiveSubIdx(0); }} style={{ fontSize: 12 }}>
-                            {mc.name || `Hạng mục #${mi + 1}`}
-                            <span style={{ opacity: 0.5, marginLeft: 4 }}>({fmt(mc.subtotal)}đ)</span>
-                            {mainCategories.length > 1 && mi === activeMainIdx && (
-                                <span onClick={(e) => { e.stopPropagation(); removeMainCategory(mi); }}
-                                    style={{ marginLeft: 6, opacity: 0.5, cursor: 'pointer' }}>✕</span>
-                            )}
-                        </button>
-                    ))}
-                    <button className="btn btn-ghost btn-sm" onClick={addMainCategory} style={{ fontSize: 18, padding: '2px 10px' }}>+</button>
-                </div>
+                {/* Main category tabs (Level 1) — sticky */}
+                <div className="quotation-sticky-bar">
+                    <div className="quotation-category-tabs">
+                        {mainCategories.map((mc, mi) => (
+                            <button key={mc._key} className={`btn ${mi === activeMainIdx ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                                onClick={() => { setActiveMainIdx(mi); hook.setActiveSubIdx(0); }} style={{ fontSize: 12 }}>
+                                {mc.name || `Hạng mục #${mi + 1}`}
+                                <span style={{ opacity: 0.5, marginLeft: 4 }}>({fmt(mc.subtotal)}đ)</span>
+                                {mainCategories.length > 1 && mi === activeMainIdx && (
+                                    <span onClick={(e) => { e.stopPropagation(); removeMainCategory(mi); }}
+                                        style={{ marginLeft: 6, opacity: 0.5, cursor: 'pointer' }}>✕</span>
+                                )}
+                            </button>
+                        ))}
+                        <button className="btn btn-ghost btn-sm" onClick={addMainCategory} style={{ fontSize: 18, padding: '2px 10px' }}>+</button>
+                    </div>
 
-                {/* Main category name input */}
-                <div style={{ marginBottom: 8 }}>
-                    <input className="form-input" placeholder="Tên hạng mục chính (VD: Thiết kế kiến trúc, Phòng ngủ 1...)"
-                        value={mainCategories[activeMainIdx]?.name || ''}
-                        onChange={e => updateMainCategoryName(activeMainIdx, e.target.value)}
-                        style={{ fontWeight: 600, fontSize: 15 }} />
+                    {/* Main category name input */}
+                    <div style={{ marginBottom: 4 }}>
+                        <input className="form-input" placeholder="Tên hạng mục chính (VD: Thiết kế kiến trúc, Phòng ngủ 1...)"
+                            value={mainCategories[activeMainIdx]?.name || ''}
+                            onChange={e => updateMainCategoryName(activeMainIdx, e.target.value)}
+                            style={{ fontWeight: 600, fontSize: 15 }} />
+                    </div>
                 </div>
 
                 {/* Subcategory sections (Level 2 + Level 3) */}
-                <CategoryTable mi={activeMainIdx} hook={hook} onImageClick={handleImageClick} />
+                <CategoryTable mi={activeMainIdx} hook={hook} onImageClick={handleImageClick} onSubcategoryImageClick={handleSubcategoryImageClick} />
 
                 {/* Upload indicator */}
                 {uploadingCell && (

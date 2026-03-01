@@ -2,6 +2,7 @@ import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { generateCode } from '@/lib/generateCode';
 import { NextResponse } from 'next/server';
+import { transactionCreateSchema } from '@/lib/validations/transaction';
 
 export const GET = withAuth(async (request) => {
     const { searchParams } = new URL(request.url);
@@ -64,18 +65,19 @@ export const GET = withAuth(async (request) => {
 });
 
 export const POST = withAuth(async (request) => {
-    const data = await request.json();
-    if (!data.description?.trim()) return NextResponse.json({ error: 'Mô tả bắt buộc' }, { status: 400 });
+    const body = await request.json();
+    const validated = transactionCreateSchema.parse(body);
+
     const code = await generateCode('transaction', 'GD');
     const tx = await prisma.transaction.create({
         data: {
             code,
-            type: data.type || 'Thu',
-            description: data.description.trim(),
-            amount: Number(data.amount) || 0,
-            category: data.category || '',
-            date: data.date ? new Date(data.date) : new Date(),
-            projectId: data.projectId || null,
+            type: validated.type,
+            description: validated.description,
+            amount: validated.amount,
+            category: validated.category,
+            date: validated.date || new Date(),
+            projectId: validated.projectId,
         },
     });
     return NextResponse.json(tx, { status: 201 });

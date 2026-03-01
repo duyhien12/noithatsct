@@ -2,6 +2,7 @@ import { withAuth } from '@/lib/apiHandler';
 import { NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
+import { isR2Configured, uploadToR2 } from '@/lib/r2';
 
 const ALLOWED_MIME_TYPES = [
     'image/jpeg',
@@ -40,16 +41,22 @@ export const POST = withAuth(async (request) => {
 
     const buffer = Buffer.from(bytes);
 
-    // Ensure upload dir exists
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', type);
-    await mkdir(uploadDir, { recursive: true });
-
     // Sanitize filename
     const ext = path.extname(file.name) || '.jpg';
     const base = path.basename(file.name, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
     const filename = `${base}_${Date.now()}${ext}`;
-    const filepath = path.join(uploadDir, filename);
 
+    // Upload to R2 if configured, otherwise local filesystem
+    if (isR2Configured) {
+        const key = `${type}/${filename}`;
+        const url = await uploadToR2(buffer, key, file.type);
+        return NextResponse.json({ url });
+    }
+
+    // Fallback: local filesystem
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', type);
+    await mkdir(uploadDir, { recursive: true });
+    const filepath = path.join(uploadDir, filename);
     await writeFile(filepath, buffer);
 
     const url = `/uploads/${type}/${filename}`;

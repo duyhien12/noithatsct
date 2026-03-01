@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { fmt, UNIT_OPTIONS } from '@/lib/quotation-constants';
 
-function SubcategorySection({ sub, mi, si, hook, onImageClick }) {
+function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImageClick }) {
     const { updateSubcategoryName, removeSubcategory, updateItem, removeItem, addItem, addFromLibrary, addFromProduct, allSearchItems, mainCategories } = hook;
 
     // Quick-add autocomplete state
@@ -73,6 +73,15 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick }) {
         <div className="card quotation-subcategory-card" style={{ marginBottom: 12 }}>
             <div className="subcategory-header">
                 <span style={{ fontWeight: 700, fontSize: 13, opacity: 0.4 }}>#{si + 1}</span>
+                {onSubcategoryImageClick && (
+                    <div className="subcategory-image-thumb" onClick={() => onSubcategoryImageClick(mi, si)} title="Ảnh khu vực">
+                        {sub.image ? (
+                            <img src={sub.image} alt="" />
+                        ) : (
+                            <span className="placeholder">🖼️</span>
+                        )}
+                    </div>
+                )}
                 <input className="form-input" placeholder="Tên khu vực (VD: Sảnh, Phòng khách...)" value={sub.name}
                     onChange={e => updateSubcategoryName(mi, si, e.target.value)}
                     style={{ flex: 1, fontWeight: 600, fontSize: 14 }} />
@@ -182,7 +191,7 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick }) {
     );
 }
 
-export default function CategoryTable({ mi, hook, onImageClick }) {
+export default function CategoryTable({ mi, hook, onImageClick, onSubcategoryImageClick }) {
     const { mainCategories, addSubcategory } = hook;
     const mc = mainCategories[mi];
     if (!mc) return null;
@@ -190,7 +199,7 @@ export default function CategoryTable({ mi, hook, onImageClick }) {
     return (
         <div>
             {mc.subcategories.map((sub, si) => (
-                <SubcategorySection key={sub._key} sub={sub} mi={mi} si={si} hook={hook} onImageClick={onImageClick} />
+                <SubcategorySection key={sub._key} sub={sub} mi={mi} si={si} hook={hook} onImageClick={onImageClick} onSubcategoryImageClick={onSubcategoryImageClick} />
             ))}
             <button className="btn btn-ghost" onClick={() => addSubcategory(mi)}
                 style={{ width: '100%', padding: '10px', border: '2px dashed var(--border-color)', borderRadius: 8, fontSize: 13 }}>

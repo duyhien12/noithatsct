@@ -166,6 +166,7 @@ model QuotationCategory {
   id            String          @id @default(cuid())
   name          String
   group         String          @default("")
+  image         String          @default("")
   order         Int             @default(0)
   subtotal      Float           @default(0)
   quotationId   String

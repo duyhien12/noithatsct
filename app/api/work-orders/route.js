@@ -1,6 +1,7 @@
 import { withAuth } from '@/lib/apiHandler';
 import { parsePagination, paginatedResponse } from '@/lib/pagination';
 import prisma from '@/lib/prisma';
+import { generateCode } from '@/lib/generateCode';
 import { NextResponse } from 'next/server';
 import { workOrderCreateSchema } from '@/lib/validations/workOrder';
 
@@ -8,7 +9,16 @@ export const GET = withAuth(async (request) => {
     const { searchParams } = new URL(request.url);
     const { page, limit, skip } = parsePagination(searchParams);
 
+    const status = searchParams.get('status');
+    const priority = searchParams.get('priority');
+    const search = searchParams.get('search');
+    const projectId = searchParams.get('projectId');
+
     const where = {};
+    if (status) where.status = status;
+    if (priority) where.priority = priority;
+    if (projectId) where.projectId = projectId;
+    if (search) where.title = { contains: search, mode: 'insensitive' };
 
     const [data, total] = await Promise.all([
         prisma.workOrder.findMany({
@@ -26,10 +36,10 @@ export const GET = withAuth(async (request) => {
 export const POST = withAuth(async (request) => {
     const body = await request.json();
     const data = workOrderCreateSchema.parse(body);
-    const count = await prisma.workOrder.count();
+    const code = await generateCode('workOrder', 'WO');
     const order = await prisma.workOrder.create({
         data: {
-            code: `WO${String(count + 1).padStart(3, '0')}`,
+            code,
             ...data,
         },
     });

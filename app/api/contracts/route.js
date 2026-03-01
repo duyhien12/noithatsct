@@ -34,7 +34,19 @@ export const GET = withAuth(async (request) => {
     const { searchParams } = new URL(request.url);
     const { page, limit, skip } = parsePagination(searchParams);
 
+    const status = searchParams.get('status');
+    const type = searchParams.get('type');
+    const search = searchParams.get('search');
+
     const where = {};
+    if (status) where.status = status;
+    if (type) where.type = type;
+    if (search) {
+        where.OR = [
+            { name: { contains: search, mode: 'insensitive' } },
+            { code: { contains: search, mode: 'insensitive' } },
+        ];
+    }
 
     const [contracts, total] = await Promise.all([
         prisma.contract.findMany({
