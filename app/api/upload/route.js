@@ -31,7 +31,7 @@ const ALLOWED_EXTENSIONS = [
 const ALLOWED_UPLOAD_TYPES = ['products', 'library', 'proofs', 'documents'];
 
 const MAX_FILE_SIZE_DEFAULT = 5 * 1024 * 1024; // 5MB
-const MAX_FILE_SIZE_DOCUMENTS = 50 * 1024 * 1024; // 50MB
+const MAX_FILE_SIZE_DOCUMENTS = 200 * 1024 * 1024; // 200MB
 
 const THUMBNAIL_MIME = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -68,7 +68,7 @@ export const POST = withAuth(async (request) => {
 
     // Validate file size (documents allow 50MB, others 5MB)
     const maxSize = type === 'documents' ? MAX_FILE_SIZE_DOCUMENTS : MAX_FILE_SIZE_DEFAULT;
-    const maxLabel = type === 'documents' ? '50MB' : '5MB';
+    const maxLabel = type === 'documents' ? '200MB' : '5MB';
     const bytes = await file.arrayBuffer();
     if (bytes.byteLength > maxSize) {
         return NextResponse.json({ error: `File quá lớn (tối đa ${maxLabel})` }, { status: 400 });

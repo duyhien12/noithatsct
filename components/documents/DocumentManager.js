@@ -244,7 +244,7 @@ function UploadModal({ onClose, onUpload, folders, preselectedFolderId, parentDo
                     >
                         <div style={{ fontSize: 32, marginBottom: 6 }}>📁</div>
                         <div style={{ fontSize: 14, fontWeight: 600 }}>Kéo thả file vào đây</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>hoặc click để chọn file (tối đa 50MB)</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>hoặc click để chọn file (tối đa 200MB)</div>
                         <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={e => handleFiles(e.target.files)} />
                     </div>
 
