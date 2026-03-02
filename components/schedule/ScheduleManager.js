@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import ScheduleListView from './ScheduleListView';
 import ScheduleGanttView from './ScheduleGanttView';
 import TemplateImportModal from './TemplateImportModal';
@@ -10,24 +10,37 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 export default function ScheduleManager({ projectId, projectCode, projectStartDate, onProgressUpdate }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [view, setView] = useState('list'); // list | gantt
     const [modal, setModal] = useState(null);
     const [alerts, setAlerts] = useState([]);
     const [addForm, setAddForm] = useState({ name: '', startDate: '', endDate: '', parentId: '', weight: 1, assignee: '' });
+    const onProgressRef = useRef(onProgressUpdate);
+    onProgressRef.current = onProgressUpdate;
 
     const fetchTasks = useCallback(async () => {
-        const res = await fetch(`/api/schedule-tasks?projectId=${projectId}`);
-        const d = await res.json();
-        setData(d);
-        setLoading(false);
-        if (onProgressUpdate) onProgressUpdate(d.totalProgress);
-        // Fetch material alerts
+        try {
+            const res = await fetch(`/api/schedule-tasks?projectId=${projectId}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const d = await res.json();
+            setData(d);
+            setError(null);
+            if (onProgressRef.current) onProgressRef.current(d.totalProgress);
+        } catch (err) {
+            console.error('fetchTasks error:', err);
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+        // Alerts (non-blocking)
         try {
             const alertRes = await fetch(`/api/schedule-tasks/alerts?projectId=${projectId}`);
-            const alertData = await alertRes.json();
-            setAlerts(alertData || []);
-        } catch { setAlerts([]); }
-    }, [projectId, onProgressUpdate]);
+            if (alertRes.ok) {
+                const alertData = await alertRes.json();
+                setAlerts(Array.isArray(alertData) ? alertData : []);
+            }
+        } catch { /* ignore alerts errors */ }
+    }, [projectId]);
 
     useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
@@ -79,6 +92,7 @@ export default function ScheduleManager({ projectId, projectCode, projectStartDa
     };
 
     if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải tiến độ...</div>;
+    if (error) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--status-danger)' }}><div style={{ fontSize: 32, marginBottom: 8 }}>⚠️</div>Lỗi tải tiến độ: {error}<br /><button className="btn btn-ghost btn-sm" style={{ marginTop: 12 }} onClick={fetchTasks}>Thử lại</button></div>;
 
     const totalProgress = data?.totalProgress || 0;
     const flat = data?.flat || [];
