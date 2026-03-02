@@ -201,7 +201,6 @@ export default function QuotationPDFPage() {
                     position: relative;
                     z-index: 1;
                     overflow: hidden;
-                    aspect-ratio: 5 / 2;
                 }
                 .mn-header-img img {
                     width: 100%;
@@ -511,7 +510,7 @@ export default function QuotationPDFPage() {
 
                 {/* ====== HEADER IMAGE ====== */}
                 <div className="mn-header-img">
-                    <img src="/motnha-header.png" alt="Một Nhà - Bảng Báo Giá" />
+                    <img src="https://pub-1e1be66737b446708af785e6cc8fe673.r2.dev/assets/motnha-header.jpg" alt="Một Nhà - Bảng Báo Giá" />
                 </div>
                 <div className="mn-doc-bar">
                     <span className="code">{q.code}</span>
