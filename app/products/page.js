@@ -6,11 +6,14 @@ import * as XLSX from 'xlsx';
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n);
 const fmtCur = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 
-const SUPPLY_TYPES = ['Vật tư lưu kho', 'Mua thương mại', 'Sản xuất nội bộ', 'Dịch vụ'];
-const SUPPLY_BADGE = { 'Sản xuất nội bộ': 'info', 'Mua thương mại': 'warning', 'Vật tư lưu kho': 'success', 'Dịch vụ': 'purple' };
-const SUPPLY_ICON = { 'Vật tư lưu kho': '📦', 'Mua thương mại': '🛒', 'Sản xuất nội bộ': '🔨', 'Dịch vụ': '🧠' };
+const SUPPLY_TYPES = ['Mua ngoài', 'Sản xuất nội bộ', 'Dịch vụ'];
+// Legacy values kept for backwards compat with existing DB records
+const SUPPLY_BADGE = { 'Sản xuất nội bộ': 'info', 'Mua ngoài': 'success', 'Dịch vụ': 'purple', 'Mua thương mại': 'success', 'Vật tư lưu kho': 'success' };
+const SUPPLY_ICON = { 'Mua ngoài': '🛒', 'Sản xuất nội bộ': '🔨', 'Dịch vụ': '🧠' };
+const normalizeSupply = (t) => (t === 'Mua thương mại' || t === 'Vật tư lưu kho') ? 'Mua ngoài' : (t || 'Mua ngoài');
 const CORE_BOARD_TYPES = ['MDF thường', 'MDF chống ẩm', 'MFC', 'Gỗ tự nhiên', 'Nhựa', 'Kính', 'Khác'];
-const stockStatus = (p) => p.supplyType === 'Dịch vụ' ? 'service' : p.stock === 0 ? 'out' : (p.minStock > 0 && p.stock <= p.minStock) ? 'low' : 'ok';
+const isService = (p) => normalizeSupply(p.supplyType) === 'Dịch vụ';
+const stockStatus = (p) => isService(p) ? 'service' : p.stock === 0 ? 'out' : (p.minStock > 0 && p.stock <= p.minStock) ? 'low' : 'ok';
 
 const BRANDS = [{ n: '', logo: '' }, { n: 'Dulux', logo: 'https://logo.clearbit.com/dulux.com' }, { n: 'Jotun', logo: 'https://logo.clearbit.com/jotun.com' }, { n: 'TOA', logo: 'https://logo.clearbit.com/toagroup.com' }, { n: 'Nippon', logo: 'https://logo.clearbit.com/nipponpaint.com' }, { n: 'Hafele', logo: 'https://logo.clearbit.com/hafele.com' }, { n: 'Blum', logo: 'https://logo.clearbit.com/blum.com' }, { n: 'Hettich', logo: 'https://logo.clearbit.com/hettich.com' }, { n: 'Panasonic', logo: 'https://logo.clearbit.com/panasonic.com' }, { n: 'Daikin', logo: 'https://logo.clearbit.com/daikin.com' }, { n: 'Mitsubishi', logo: 'https://logo.clearbit.com/mitsubishielectric.com' }, { n: 'Samsung', logo: 'https://logo.clearbit.com/samsung.com' }, { n: 'LG', logo: 'https://logo.clearbit.com/lg.com' }, { n: 'Rossi', logo: 'https://logo.clearbit.com/rossigroup.com.vn' }, { n: 'Caesar', logo: 'https://logo.clearbit.com/caesar.com.tw' }, { n: 'Toto', logo: 'https://logo.clearbit.com/toto.com' }, { n: 'Grohe', logo: 'https://logo.clearbit.com/grohe.com' }, { n: 'HMF', logo: '' }, { n: 'AA', logo: '' }, { n: 'Hoa Phat', logo: 'https://logo.clearbit.com/hoaphat.com.vn' }];
 const PRODUCT_CATS = ['Nội thất thành phẩm', 'Gỗ tự nhiên', 'Gỗ công nghiệp', 'Đá & Gạch', 'Sơn & Keo', 'Phụ kiện nội thất', 'Thiết bị điện', 'Vật liệu xây dựng', 'Rèm cửa', 'Thiết bị vệ sinh', 'Điều hòa', 'Decor', 'Đồ rời', 'Phòng thờ'];
@@ -40,7 +43,7 @@ export default function ProductsPage() {
     const [newProduct, setNewProduct] = useState(null);
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [showAddModal, setShowAddModal] = useState(false);
-    const [addForm, setAddForm] = useState({ name: '', category: 'Nội thất thành phẩm', unit: 'cái', salePrice: 0, importPrice: 0, brand: '', supplyType: 'Vật tư lưu kho', stock: 0, minStock: 0, supplier: '', coreBoard: '', surfaceCode: '', image: '' });
+    const [addForm, setAddForm] = useState({ name: '', category: 'Nội thất thành phẩm', unit: 'cái', salePrice: 0, importPrice: 0, brand: '', supplyType: 'Mua ngoài', stock: 0, minStock: 0, supplier: '', coreBoard: '', surfaceCode: '', image: '' });
 
     // Library
     const [library, setLibrary] = useState([]);
@@ -100,7 +103,7 @@ export default function ProductsPage() {
     const pCats = [...new Set([...PRODUCT_CATS, ...products.map(p => p.category), ...extraCats])].sort();
     const filteredP = products.filter(p =>
         (!filterCatP || p.category === filterCatP) &&
-        (!filterSupplyType || p.supplyType === filterSupplyType) &&
+        (!filterSupplyType || normalizeSupply(p.supplyType) === filterSupplyType) &&
         (!filterStockStatus || stockStatus(p) === filterStockStatus) &&
         (!searchP || p.name.toLowerCase().includes(searchP.toLowerCase()) || (p.code || '').toLowerCase().includes(searchP.toLowerCase()))
     );
@@ -121,7 +124,7 @@ export default function ProductsPage() {
         fetchProducts();
     };
 
-    const addNewProduct = () => { setAddForm({ name: '', category: filterCatP || 'Nội thất thành phẩm', unit: 'cái', salePrice: 0, importPrice: 0, brand: '', supplyType: 'Vật tư lưu kho', stock: 0, minStock: 0, supplier: '', coreBoard: '', surfaceCode: '', image: '' }); setShowAddModal(true); };
+    const addNewProduct = () => { setAddForm({ name: '', category: filterCatP || 'Nội thất thành phẩm', unit: 'cái', salePrice: 0, importPrice: 0, brand: '', supplyType: 'Mua ngoài', stock: 0, minStock: 0, supplier: '', coreBoard: '', surfaceCode: '', image: '' }); setShowAddModal(true); };
 
     // Upload ảnh sản phẩm
     const handleImgUpload = async (e) => {
@@ -461,7 +464,7 @@ export default function ProductsPage() {
                                                             {ss === 'low' && !isEditing && <span style={{ fontSize: 9, background: '#ea580c', color: '#fff', borderRadius: 3, padding: '1px 4px' }}>Sắp hết</span>}
                                                         </div>
                                                     </td>
-                                                    <td style={{ fontSize: 12 }}>{isEditing ? (<select value={d.supplyType || 'Vật tư lưu kho'} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, supplyType: e.target.value } }))} style={{ width: '100%', fontSize: 12, padding: '2px 4px', border: '1px solid var(--primary)', borderRadius: 4, background: 'var(--bg-input)' }}>{SUPPLY_TYPES.map(t => <option key={t}>{t}</option>)}</select>) : <span className={`badge ${SUPPLY_BADGE[p.supplyType] || 'muted'}`}>{p.supplyType || 'Vật tư lưu kho'}</span>}</td>
+                                                    <td style={{ fontSize: 12 }}>{isEditing ? (<select value={normalizeSupply(d.supplyType)} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, supplyType: e.target.value } }))} style={{ width: '100%', fontSize: 12, padding: '2px 4px', border: '1px solid var(--primary)', borderRadius: 4, background: 'var(--bg-input)' }}>{SUPPLY_TYPES.map(t => <option key={t}>{t}</option>)}</select>) : <span className={`badge ${SUPPLY_BADGE[p.supplyType] || 'muted'}`}>{normalizeSupply(p.supplyType)}</span>}</td>
                                                     <td style={{ fontSize: 12 }}>{isEditing ? (<select value={d.brand || ''} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, brand: e.target.value } }))} style={{ width: '100%', fontSize: 12, padding: '2px 4px', border: '1px solid var(--primary)', borderRadius: 4, background: 'var(--bg-input)' }}>{BRANDS.map(b => <option key={b.n} value={b.n}>{b.n || '-- Không --'}</option>)}</select>) : (() => { const br = BRANDS.find(b => b.n === p.brand); return p.brand ? (<div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>{br?.logo && <img src={br.logo} alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} onError={e => e.target.style.display = 'none'} />}<span>{p.brand}</span></div>) : <span style={{ opacity: 0.3 }}>-</span>; })()}</td>
                                                     <td><div style={{ display: 'flex', gap: 4 }}>
                                                         {isEditing
@@ -654,26 +657,20 @@ export default function ProductsPage() {
                                     ))}
                                 </div>
                             </div>
-                            {addForm.supplyType === 'Vật tư lưu kho' && (
+                            {addForm.supplyType === 'Mua ngoài' && (
                                 <div className="form-row">
                                     <div className="form-group">
                                         <label className="form-label">Tồn kho ban đầu</label>
                                         <input className="form-input" type="number" value={addForm.stock} onChange={e => setAddForm(f => ({ ...f, stock: Number(e.target.value) }))} />
                                     </div>
                                     <div className="form-group">
-                                        <label className="form-label">Tồn kho tối thiểu</label>
+                                        <label className="form-label">Tồn tối thiểu</label>
                                         <input className="form-input" type="number" value={addForm.minStock} onChange={e => setAddForm(f => ({ ...f, minStock: Number(e.target.value) }))} placeholder="Cảnh báo sắp hết" />
                                     </div>
                                     <div className="form-group" style={{ flex: 2 }}>
                                         <label className="form-label">Nhà cung cấp</label>
-                                        <input className="form-input" value={addForm.supplier} onChange={e => setAddForm(f => ({ ...f, supplier: e.target.value }))} />
+                                        <input className="form-input" value={addForm.supplier} onChange={e => setAddForm(f => ({ ...f, supplier: e.target.value }))} placeholder="VD: Hafele Vietnam, Blum..." />
                                     </div>
-                                </div>
-                            )}
-                            {addForm.supplyType === 'Mua thương mại' && (
-                                <div className="form-group">
-                                    <label className="form-label">Nhà cung cấp mặc định</label>
-                                    <input className="form-input" value={addForm.supplier} onChange={e => setAddForm(f => ({ ...f, supplier: e.target.value }))} placeholder="VD: Hafele Vietnam, Blum..." />
                                 </div>
                             )}
                             {addForm.supplyType === 'Sản xuất nội bộ' && (

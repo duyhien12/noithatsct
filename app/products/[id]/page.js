@@ -6,8 +6,9 @@ const fmtCur = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', curren
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n || 0);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 
-const SUPPLY_TYPES = ['Vật tư lưu kho', 'Mua thương mại', 'Sản xuất nội bộ', 'Dịch vụ'];
-const SUPPLY_BADGE = { 'Sản xuất nội bộ': 'info', 'Mua thương mại': 'warning', 'Vật tư lưu kho': 'success', 'Dịch vụ': 'purple' };
+const SUPPLY_TYPES = ['Mua ngoài', 'Sản xuất nội bộ', 'Dịch vụ'];
+const SUPPLY_BADGE = { 'Sản xuất nội bộ': 'info', 'Mua ngoài': 'success', 'Dịch vụ': 'purple', 'Mua thương mại': 'success', 'Vật tư lưu kho': 'success' };
+const normalizeSupply = (t) => (t === 'Mua thương mại' || t === 'Vật tư lưu kho') ? 'Mua ngoài' : (t || 'Mua ngoài');
 const CORE_BOARD_TYPES = ['MDF thường', 'MDF chống ẩm', 'MFC', 'Gỗ tự nhiên', 'Nhựa', 'Kính', 'Khác'];
 const PRODUCT_CATS = ['Nội thất thành phẩm', 'Gỗ tự nhiên', 'Gỗ công nghiệp', 'Đá & Gạch', 'Sơn & Keo', 'Phụ kiện nội thất', 'Thiết bị điện', 'Vật liệu xây dựng', 'Rèm cửa', 'Thiết bị vệ sinh', 'Điều hòa', 'Decor', 'Đồ rời', 'Phòng thờ'];
 
@@ -105,7 +106,7 @@ export default function ProductDetailPage() {
                 <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{product.name}</h2>
-                        <span className={`badge ${SUPPLY_BADGE[product.supplyType] || 'muted'}`}>{product.supplyType}</span>
+                        <span className={`badge ${SUPPLY_BADGE[product.supplyType] || 'muted'}`}>{normalizeSupply(product.supplyType)}</span>
                         {product.status && <span className="badge muted">{product.status}</span>}
                     </div>
                     <div style={{ fontSize: 12, opacity: 0.5, fontFamily: 'monospace', marginTop: 2 }}>{product.code} · {product.category} · {product.unit}</div>
@@ -116,8 +117,8 @@ export default function ProductDetailPage() {
             <div style={{ display: 'flex', borderBottom: '2px solid var(--border-color)', marginBottom: 20 }}>
                 {[
                     ['info', '📋 Thông tin'],
-                    ...(product.supplyType === 'Sản xuất nội bộ' ? [['bom', '🔩 Định mức BOM']] : []),
-                    ...(product.supplyType !== 'Dịch vụ' ? [['inventory', '📦 Lịch sử kho']] : []),
+                    ...(normalizeSupply(product.supplyType) === 'Sản xuất nội bộ' ? [['bom', '🔩 Định mức BOM']] : []),
+                    ...(normalizeSupply(product.supplyType) !== 'Dịch vụ' ? [['inventory', '📦 Lịch sử kho']] : []),
                 ].map(([key, label]) => (
                     <button key={key} onClick={() => setTab(key)}
                         style={{ padding: '9px 22px', border: 'none', borderBottom: tab === key ? '2px solid var(--primary)' : '2px solid transparent', background: 'none', marginBottom: -2, fontSize: 13, fontWeight: tab === key ? 700 : 400, color: tab === key ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>
@@ -154,7 +155,7 @@ export default function ProductDetailPage() {
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Nguồn cung</label>
-                                <select className="form-select" value={form.supplyType} onChange={e => setForm(f => ({ ...f, supplyType: e.target.value }))}>
+                                <select className="form-select" value={normalizeSupply(form.supplyType)} onChange={e => setForm(f => ({ ...f, supplyType: e.target.value }))}>
                                     {SUPPLY_TYPES.map(t => <option key={t}>{t}</option>)}
                                 </select>
                             </div>
@@ -169,7 +170,7 @@ export default function ProductDetailPage() {
                                 <input className="form-input" type="number" value={form.salePrice} onChange={e => setForm(f => ({ ...f, salePrice: Number(e.target.value) }))} />
                             </div>
                         </div>
-                        {form.supplyType !== 'Dịch vụ' && (
+                        {normalizeSupply(form.supplyType) !== 'Dịch vụ' && (
                             <div className="form-row">
                                 <div className="form-group">
                                     <label className="form-label">Tồn kho</label>
@@ -185,7 +186,7 @@ export default function ProductDetailPage() {
                                 </div>
                             </div>
                         )}
-                        {(form.supplyType === 'Sản xuất nội bộ') && (
+                        {normalizeSupply(form.supplyType) === 'Sản xuất nội bộ' && (
                             <div className="form-row">
                                 <div className="form-group">
                                     <label className="form-label">Chất liệu cốt</label>
