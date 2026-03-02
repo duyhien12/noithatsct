@@ -106,16 +106,16 @@ export default function PublicQuotationPage() {
                     .no-print { display: none !important; }
                     body { background: white !important; }
                     .pdf-page { box-shadow: none !important; margin: 0 !important; max-width: 100% !important; border-radius: 0 !important; }
-                    @page { size: A4 landscape; margin: 10mm; }
+                    @page { size: A4 landscape; margin: 0; }
                 }
                 .pdf-page { max-width: 1100px; margin: 20px auto 40px; background: #fff; box-shadow: 0 4px 40px rgba(0,0,0,0.12); border-radius: 4px; position: relative; overflow: hidden; }
                 .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 120px; font-weight: 900; color: ${BRAND.blue}; opacity: 0.025; pointer-events: none; white-space: nowrap; letter-spacing: 20px; z-index: 0; }
                 .mn-header-img { width: 100%; display: block; position: relative; z-index: 1; }
                 .mn-header-img img { width: 100%; height: auto; display: block; }
-                .mn-doc-bar { display: flex; justify-content: flex-end; align-items: center; gap: 20px; padding: 6px 36px; font-size: 10px; font-style: italic; color: ${BRAND.textMid}; position: relative; z-index: 1; }
+                .mn-doc-bar { display: flex; justify-content: flex-end; align-items: center; gap: 20px; padding: 6px 38px; font-size: 10px; font-style: italic; color: ${BRAND.textMid}; position: relative; z-index: 1; }
                 .mn-doc-bar .code { font-weight: 700; color: ${BRAND.blue}; font-style: italic; }
                 .mn-doc-bar .meta { font-weight: 400; font-style: italic; }
-                .mn-content { padding: 0 36px 28px; position: relative; z-index: 1; }
+                .mn-content { padding: 0 38px 28px; position: relative; z-index: 1; }
                 .mn-info-row { display: flex; align-items: stretch; margin: 20px 0; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; position: relative; z-index: 1; }
                 .mn-info-cell { padding: 14px 20px; flex: 1; }
                 .mn-info-cell + .mn-info-cell { border-left: 1px solid #e2e8f0; }

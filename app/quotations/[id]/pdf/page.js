@@ -164,7 +164,7 @@ export default function QuotationPDFPage() {
                     }
                     @page {
                         size: A4 landscape;
-                        margin: 10mm;
+                        margin: 0;
                     }
                 }
 
@@ -212,7 +212,7 @@ export default function QuotationPDFPage() {
                     justify-content: flex-end;
                     align-items: center;
                     gap: 20px;
-                    padding: 6px 36px;
+                    padding: 6px 38px;
                     font-size: 10px;
                     font-style: italic;
                     color: ${BRAND.textMid};
@@ -223,7 +223,7 @@ export default function QuotationPDFPage() {
                 .mn-doc-bar .meta { font-weight: 400; font-style: italic; }
 
                 /* ====== CONTENT AREA ====== */
-                .mn-content { padding: 0 36px 28px; position: relative; z-index: 1; }
+                .mn-content { padding: 0 38px 28px; position: relative; z-index: 1; }
 
                 /* ====== CUSTOMER + PROJECT + USP ROW ====== */
                 .mn-info-row {
