@@ -154,6 +154,36 @@ export default function ProjectDetailPage() {
         setModal(null); setPoItems([]); fetchData(); setTab('purchase');
     };
 
+    // Add Material Plan
+    const [mpForm, setMpForm] = useState({ productId: '', quantity: 1, unitPrice: 0, type: 'Chính', notes: '' });
+    const [mpProducts, setMpProducts] = useState([]);
+    const [mpSearch, setMpSearch] = useState('');
+    const openMPModal = async () => {
+        if (mpProducts.length === 0) {
+            const res = await fetch('/api/products?limit=500');
+            const json = await res.json();
+            setMpProducts(json.data || json || []);
+        }
+        setMpForm({ productId: '', quantity: 1, unitPrice: 0, type: 'Chính', notes: '' });
+        setMpSearch('');
+        setModal('mp');
+    };
+    const saveMaterialPlan = async () => {
+        if (!mpForm.productId) return alert('Chọn sản phẩm');
+        if (!mpForm.quantity || mpForm.quantity <= 0) return alert('Số lượng phải > 0');
+        const res = await fetch('/api/material-plans', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...mpForm, projectId: id, quantity: Number(mpForm.quantity), unitPrice: Number(mpForm.unitPrice) || 0 }),
+        });
+        if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi thêm vật tư'); }
+        setModal(null); fetchData();
+    };
+    const deleteMaterialPlan = async (planId) => {
+        if (!confirm('Xóa kế hoạch vật tư này?')) return;
+        await fetch(`/api/material-plans/${planId}`, { method: 'DELETE' });
+        fetchData();
+    };
+
     // Material Requisition
     const [reqForm, setReqForm] = useState({ materialPlanId: '', requestedQty: '', requestedDate: '', notes: '', createdBy: '' });
     const openReqModal = (plan) => {
@@ -585,6 +615,7 @@ export default function ProjectDetailPage() {
                     </div>
                     <div className="card">
                         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px 0', gap: 8, flexWrap: 'wrap' }}>
+                            <button className="btn btn-ghost btn-sm" onClick={openMPModal}>+ Thêm vật tư</button>
                             {p.materialPlans.filter(m => m.status === 'Chưa đặt' || m.status === 'Đặt một phần').length > 0 && (
                                 <button className="btn btn-primary btn-sm" onClick={openPOModal}>🛒 Tạo PO ({p.materialPlans.filter(m => m.status === 'Chưa đặt' || m.status === 'Đặt một phần').length} vật tư)</button>
                             )}
@@ -609,14 +640,15 @@ export default function ProjectDetailPage() {
                                         <td style={{ color: canRequest > 0 ? 'var(--text-secondary)' : 'var(--status-success)', fontSize: 12 }}>{canRequest > 0 ? canRequest : '—'}</td>
                                         <td style={{ fontSize: 12 }}>{fmt(m.unitPrice)}</td>
                                         <td><span className={`badge ${m.status === 'Đã đặt đủ' || m.status === 'Đã nhận đủ' ? 'success' : m.status === 'Đặt một phần' || m.status === 'Nhận một phần' ? 'warning' : 'danger'}`} style={{ fontSize: 11 }}>{m.status}</span></td>
-                                        <td>
+                                        <td style={{ display: 'flex', gap: 4 }}>
                                             <button className="btn btn-ghost btn-sm" title="Lập phiếu yêu cầu vật tư" style={{ fontSize: 11 }} onClick={() => openReqModal(m)}>📋 YC</button>
+                                            {m.orderedQty === 0 && <button className="btn btn-ghost btn-sm" title="Xóa" style={{ fontSize: 11, color: 'var(--status-danger)' }} onClick={() => deleteMaterialPlan(m.id)}>🗑</button>}
                                         </td>
                                     </tr>
                                 );
                             })}</tbody>
                         </table></div>
-                        {p.materialPlans.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có kế hoạch vật tư — Lập kế hoạch từ tab Mua hàng</div>}
+                        {p.materialPlans.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có kế hoạch vật tư — bấm "+ Thêm vật tư" để bắt đầu</div>}
                     </div>
                 </div>
             )}
@@ -825,6 +857,70 @@ export default function ProjectDetailPage() {
                     </div>
                 </div>
             )}
+            {modal === 'mp' && (() => {
+                const filtered = mpProducts.filter(pr => {
+                    const q = mpSearch.toLowerCase();
+                    return !q || pr.name?.toLowerCase().includes(q) || pr.code?.toLowerCase().includes(q);
+                });
+                const selected = mpProducts.find(pr => pr.id === mpForm.productId);
+                return (
+                    <div className="modal-overlay" onClick={() => setModal(null)}>
+                        <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+                            <div className="modal-header"><h3>+ Thêm kế hoạch vật tư</h3><button className="modal-close" onClick={() => setModal(null)}>×</button></div>
+                            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                <div className="form-group">
+                                    <label className="form-label">Tìm sản phẩm <span style={{ color: 'red' }}>*</span></label>
+                                    <input className="form-input" placeholder="Tìm theo tên hoặc mã..." value={mpSearch} onChange={e => setMpSearch(e.target.value)} autoFocus />
+                                    {mpSearch && !selected && (
+                                        <div style={{ border: '1px solid var(--border)', borderRadius: 6, maxHeight: 200, overflowY: 'auto', marginTop: 4, background: 'var(--bg-card)' }}>
+                                            {filtered.slice(0, 20).map(pr => (
+                                                <div key={pr.id} onClick={() => { setMpForm(f => ({ ...f, productId: pr.id, unitPrice: pr.price || 0 })); setMpSearch(pr.name); }}
+                                                    style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)', fontSize: 13 }}
+                                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                                    onMouseLeave={e => e.currentTarget.style.background = ''}>
+                                                    <span style={{ fontWeight: 600 }}>{pr.name}</span>
+                                                    <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{pr.code} · {pr.unit}</span>
+                                                </div>
+                                            ))}
+                                            {filtered.length === 0 && <div style={{ padding: '8px 12px', color: 'var(--text-muted)', fontSize: 13 }}>Không tìm thấy sản phẩm</div>}
+                                        </div>
+                                    )}
+                                    {selected && <div style={{ marginTop: 6, padding: '6px 10px', background: 'var(--bg-hover)', borderRadius: 6, fontSize: 13 }}>
+                                        ✓ <strong>{selected.name}</strong> <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{selected.code} · {selected.unit}</span>
+                                        <button style={{ marginLeft: 8, fontSize: 11, color: 'var(--status-danger)', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => { setMpForm(f => ({ ...f, productId: '' })); setMpSearch(''); }}>✕ Bỏ chọn</button>
+                                    </div>}
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                    <div className="form-group">
+                                        <label className="form-label">Số lượng <span style={{ color: 'red' }}>*</span></label>
+                                        <input className="form-input" type="number" min="0" step="any" value={mpForm.quantity} onChange={e => setMpForm(f => ({ ...f, quantity: e.target.value }))} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Đơn giá dự toán</label>
+                                        <input className="form-input" type="number" min="0" step="1000" value={mpForm.unitPrice} onChange={e => setMpForm(f => ({ ...f, unitPrice: e.target.value }))} />
+                                    </div>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Loại</label>
+                                    <select className="form-select" value={mpForm.type} onChange={e => setMpForm(f => ({ ...f, type: e.target.value }))}>
+                                        <option>Chính</option>
+                                        <option>Phụ</option>
+                                        <option>Dự phòng</option>
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Ghi chú</label>
+                                    <input className="form-input" value={mpForm.notes} onChange={e => setMpForm(f => ({ ...f, notes: e.target.value }))} />
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <button className="btn btn-ghost" onClick={() => setModal(null)}>Hủy</button>
+                                <button className="btn btn-primary" onClick={saveMaterialPlan} disabled={!mpForm.productId}>+ Thêm vật tư</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
             {modal === 'po' && (
                 <div className="modal-overlay" onClick={() => setModal(null)}>
                     <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 820 }}>
@@ -870,7 +966,7 @@ export default function ProjectDetailPage() {
                                     ))}</tbody>
                                     <tfoot><tr><td colSpan={4} style={{ textAlign: 'right', fontWeight: 700, padding: '8px 12px' }}>Tổng cộng:</td><td className="amount" style={{ fontWeight: 700, color: 'var(--accent-primary)', fontSize: 15 }}>{fmt(poItems.reduce((s, i) => s + (Number(i.amount) || 0), 0))}</td><td></td></tr></tfoot>
                                 </table></div>
-                                {poItems.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 16, textAlign: 'center' }}>Không có vật tư nào — vào Tab Vật tư để thêm kế hoạch</div>}
+                                {poItems.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 16, textAlign: 'center' }}>Không có vật tư chưa đặt — vào Tab Vật tư để thêm vật tư trước</div>}
                             </div>
                         </div>
                         <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setModal(null)}>Hủy</button><button className="btn btn-primary" onClick={createPO}>🛒 Tạo đơn mua hàng</button></div>

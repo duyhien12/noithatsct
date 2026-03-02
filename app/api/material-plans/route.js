@@ -36,9 +36,19 @@ export const GET = withAuth(async (request) => {
 
 export const POST = withAuth(async (request) => {
     const body = await request.json();
-    const { projectId, productId, quantity, unitPrice, type, status, notes } = body;
+    const { projectId, productId, quantity, unitPrice, type, notes } = body;
+    if (!projectId || !productId) return NextResponse.json({ error: 'projectId và productId bắt buộc' }, { status: 400 });
+    const qty = Number(quantity) || 0;
+    const price = Number(unitPrice) || 0;
     const plan = await prisma.materialPlan.create({
-        data: { projectId, productId, quantity, unitPrice, type, status, notes },
+        data: {
+            projectId, productId,
+            quantity: qty, unitPrice: price, totalAmount: qty * price,
+            type: type || 'Chính',
+            status: 'Chưa đặt',
+            notes: notes || '',
+        },
+        include: { product: { select: { name: true, code: true, unit: true } } },
     });
-    return NextResponse.json(plan);
+    return NextResponse.json(plan, { status: 201 });
 });
