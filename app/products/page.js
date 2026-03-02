@@ -100,7 +100,10 @@ export default function ProductsPage() {
     const [extraCats, setExtraCats] = useState([]);
     const [addingCat, setAddingCat] = useState(false);
     const [newCatName, setNewCatName] = useState('');
-    const pCats = [...new Set([...PRODUCT_CATS, ...products.map(p => p.category), ...extraCats])].sort();
+    // Pill bar: only categories that have products (or user-added extra cats)
+    const pCats = [...new Set([...products.map(p => p.category).filter(Boolean), ...extraCats])].sort();
+    // Dropdown: full list for add/edit forms
+    const allCats = [...new Set([...PRODUCT_CATS, ...pCats])].sort();
     const filteredP = products.filter(p =>
         (!filterCatP || p.category === filterCatP) &&
         (!filterSupplyType || normalizeSupply(p.supplyType) === filterSupplyType) &&
@@ -363,36 +366,32 @@ export default function ProductsPage() {
                                 </button>
                             )}
                         </div>
-                        <div className="card-header" style={{ borderTop: 'none', flexWrap: 'wrap', gap: 8 }}>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1, flexWrap: 'wrap' }}>
-                                <input className="form-input" placeholder="Tìm kiếm..." value={searchP} onChange={e => setSearchP(e.target.value)} style={{ maxWidth: 220, fontSize: 13 }} />
-                                <select className="form-select" value={filterSupplyType} onChange={e => setFilterSupplyType(e.target.value)} style={{ fontSize: 12, maxWidth: 160 }}>
-                                    <option value="">Tất cả nguồn cung</option>
-                                    {SUPPLY_TYPES.map(t => <option key={t}>{t}</option>)}
-                                </select>
-                                <div style={{ display: 'flex', gap: 4 }}>
-                                    {[['', 'Tất cả'], ['ok', 'Sẵn kho'], ['low', 'Sắp hết'], ['out', 'Hết hàng']].map(([v, label]) => (
-                                        <button key={v} onClick={() => setFilterStockStatus(v)}
-                                            className={`btn btn-sm ${filterStockStatus === v ? 'btn-primary' : 'btn-ghost'}`}
-                                            style={{ fontSize: 11, padding: '3px 10px' }}>{label}</button>
-                                    ))}
-                                </div>
+                        <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <input className="form-input" placeholder="🔍 Tìm kiếm..." value={searchP} onChange={e => setSearchP(e.target.value)} style={{ width: 200, fontSize: 13 }} />
+                            <select className="form-select" value={filterSupplyType} onChange={e => setFilterSupplyType(e.target.value)} style={{ fontSize: 12, width: 140 }}>
+                                <option value="">Nguồn cung</option>
+                                {SUPPLY_TYPES.map(t => <option key={t}>{t}</option>)}
+                            </select>
+                            <div style={{ display: 'flex', gap: 3, background: 'var(--surface-alt)', borderRadius: 8, padding: 3 }}>
+                                {[['', 'Tất cả'], ['ok', 'Sẵn kho'], ['low', 'Sắp hết'], ['out', 'Hết hàng']].map(([v, label]) => (
+                                    <button key={v} onClick={() => setFilterStockStatus(v)}
+                                        style={{ fontSize: 11, padding: '4px 10px', border: 'none', borderRadius: 6, cursor: 'pointer', background: filterStockStatus === v ? '#fff' : 'transparent', color: filterStockStatus === v ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: filterStockStatus === v ? 600 : 400, boxShadow: filterStockStatus === v ? '0 1px 3px rgba(0,0,0,0.12)' : 'none', transition: 'all 0.15s' }}>{label}</button>
+                                ))}
                             </div>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
                                 {selectedIds.size > 0 && (
                                     <button className="btn btn-sm" style={{ fontSize: 12, background: '#ea580c', color: '#fff', border: 'none' }}
                                         onClick={() => {
-                                            const nonBuy = [...selectedIds].filter(id => products.find(p => p.id === id)?.supplyType !== 'Mua thương mại');
-                                            if (nonBuy.length > 0) return alert('Vui lòng chỉ chọn sản phẩm có nguồn cung "Mua thương mại"');
+                                            const nonBuy = [...selectedIds].filter(id => normalizeSupply(products.find(p => p.id === id)?.supplyType) !== 'Mua ngoài');
+                                            if (nonBuy.length > 0) return alert('Vui lòng chỉ chọn sản phẩm "Mua ngoài"');
                                             router.push('/purchasing?createPO=1&products=' + [...selectedIds].join(','));
                                         }}>
-                                        🛒 Tạo Đề xuất Mua hàng ({selectedIds.size})
+                                        🛒 Tạo PO ({selectedIds.size})
                                     </button>
                                 )}
                                 <button className="btn btn-primary btn-sm" onClick={addNewProduct}>+ Thêm SP</button>
-                                <button className="btn btn-secondary btn-sm" onClick={() => excelInputRef.current?.click()}>📥 Import Excel</button>
+                                <button className="btn btn-ghost btn-sm" onClick={() => excelInputRef.current?.click()} title="Import Excel">📥</button>
                                 <input ref={excelInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleExcelFile} />
-                                <a href="data:text/csv;charset=utf-8,%EF%BB%BFT%C3%AAn%2CDanh%20m%E1%BB%A5c%2C%C4%90VT%2CG%C3%ADa%20nh%E1%BA%ADp%2CG%C3%ADa%20b%C3%A1n%2CT%E1%BB%93n%20kho%2CTh%C6%B0%C6%A1ng%20hi%E1%BB%87u%0ASofa%20g%E1%BB%97%2CN%E1%BB%99i%20th%E1%BA%A5t%20th%C3%A0nh%20ph%E1%BA%A9m%2CC%C3%A1i%2C5000000%2C7500000%2C10%2CHM" download="mau-import-sp.csv" style={{ fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none' }}>⬇ Tải mẫu</a>
                             </div>
                         </div>
                         {loadingP ? <div style={{ padding: 40, textAlign: 'center', opacity: 0.4 }}>Đang tải...</div> : (
@@ -408,14 +407,13 @@ export default function ProductsPage() {
                                                 }} />
                                         </th>
                                         <th style={{ width: 44 }}>Ảnh</th>
-                                        <th style={{ minWidth: 180 }}>Tên sản phẩm</th>
-                                        <th>Danh mục</th>
-                                        <th style={{ width: 60 }}>ĐVT</th>
-                                        <th style={{ width: 100 }}>Giá bán</th>
-                                        <th style={{ width: 60 }}>Tồn</th>
-                                        <th style={{ width: 110 }}>Nguồn cung</th>
-                                        <th style={{ width: 120 }}>Thương hiệu</th>
-                                        <th style={{ width: 100 }}></th>
+                                        <th style={{ minWidth: 200 }}>Tên sản phẩm</th>
+                                        <th style={{ width: 55 }}>ĐVT</th>
+                                        <th style={{ width: 110 }}>Giá bán</th>
+                                        <th style={{ width: 65 }}>Tồn</th>
+                                        <th style={{ width: 120 }}>Nguồn cung</th>
+                                        <th style={{ width: 110 }}>Thương hiệu</th>
+                                        <th style={{ width: 90 }}></th>
                                     </tr></thead>
                                     <tbody>
                                         {filteredP.map(p => {
@@ -445,16 +443,14 @@ export default function ProductsPage() {
                                                     <td>{isEditing
                                                         ? <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                                                             <EditCell value={d.name} onChange={v => setEditingP(e => ({ ...e, data: { ...e.data, name: v } }))} />
-                                                            <EditCell value={d.description || ''} onChange={v => setEditingP(e => ({ ...e, data: { ...e.data, description: v } }))} style={{ fontSize: 11 }} />
+                                                            <EditCell value={d.category} onChange={v => setEditingP(e => ({ ...e, data: { ...e.data, category: v } }))} options={allCats} />
                                                         </div>
                                                         : <div>
                                                             <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--primary)', cursor: 'pointer' }}
                                                                 onClick={() => router.push(`/products/${p.id}`)}>{p.name}</div>
-                                                            <div style={{ fontSize: 11, opacity: 0.45, fontFamily: 'monospace' }}>{p.code}</div>
-                                                            {p.description && <div style={{ fontSize: 11, opacity: 0.45, maxWidth: 380, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</div>}
+                                                            <div style={{ fontSize: 11, opacity: 0.45 }}><span style={{ fontFamily: 'monospace' }}>{p.code}</span>{p.category && <span style={{ marginLeft: 6, background: 'var(--surface-alt)', borderRadius: 3, padding: '0 5px' }}>{p.category}</span>}</div>
                                                         </div>}
                                                     </td>
-                                                    <td>{isEditing ? <EditCell value={d.category} onChange={v => setEditingP(e => ({ ...e, data: { ...e.data, category: v } }))} options={pCats} /> : <span className="badge badge-default">{p.category}</span>}</td>
                                                     <td>{isEditing ? <EditCell value={d.unit} onChange={v => setEditingP(e => ({ ...e, data: { ...e.data, unit: v } }))} /> : p.unit}</td>
                                                     <td style={{ fontWeight: 600 }}>{isEditing ? <EditCell value={d.salePrice} onChange={v => setEditingP(e => ({ ...e, data: { ...e.data, salePrice: v } }))} type="number" /> : fmtCur(p.salePrice)}</td>
                                                     <td>
@@ -628,7 +624,7 @@ export default function ProductsPage() {
                                 <div className="form-group" style={{ flex: 2 }}>
                                     <label className="form-label">Danh mục *</label>
                                     <select className="form-select" value={addForm.category} onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))}>
-                                        {pCats.map(c => <option key={c}>{c}</option>)}
+                                        {allCats.map(c => <option key={c}>{c}</option>)}
                                     </select>
                                 </div>
                                 <div className="form-group">
