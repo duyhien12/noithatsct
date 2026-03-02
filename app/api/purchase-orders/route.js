@@ -23,7 +23,7 @@ export const GET = withAuth(async (request) => {
             where,
             include: {
                 items: true,
-                project: { select: { name: true, code: true } },
+                project: { select: { name: true, code: true, address: true } },
             },
             orderBy: { createdAt: 'desc' },
             skip,
@@ -37,18 +37,42 @@ export const GET = withAuth(async (request) => {
 
 export const POST = withAuth(async (request) => {
     const data = await request.json();
-    const { items, ...poData } = data;
+    const { items, requisitionIds, ...poData } = data;
     const code = await generateCode('purchaseOrder', 'PO');
+
+    // Clean items: strip internal fields not in schema
+    const cleanItems = (items || []).map(({ _mpId, ...rest }) => ({
+        ...rest,
+        quantity: Number(rest.quantity) || 0,
+        unitPrice: Number(rest.unitPrice) || 0,
+        amount: Number(rest.amount) || 0,
+        materialPlanId: _mpId || rest.materialPlanId || undefined,
+    }));
+
     const order = await prisma.purchaseOrder.create({
         data: {
             code,
-            ...poData,
+            supplier: poData.supplier,
+            totalAmount: Number(poData.totalAmount) || 0,
+            status: 'Chờ duyệt',
+            deliveryType: poData.deliveryType || 'Giao thẳng dự án',
+            deliveryAddress: poData.deliveryAddress || '',
+            notes: poData.notes || '',
             projectId: poData.projectId || null,
             orderDate: poData.orderDate ? new Date(poData.orderDate) : new Date(),
             deliveryDate: poData.deliveryDate ? new Date(poData.deliveryDate) : null,
-            items: items ? { create: items } : undefined,
+            items: cleanItems.length > 0 ? { create: cleanItems } : undefined,
         },
-        include: { items: true, project: { select: { name: true, code: true } } },
+        include: { items: true, project: { select: { name: true, code: true, address: true } } },
     });
+
+    // Link requisitions to this PO if provided
+    if (requisitionIds?.length) {
+        await prisma.materialRequisition.updateMany({
+            where: { id: { in: requisitionIds } },
+            data: { purchaseOrderId: order.id, status: 'Đã lên đơn' },
+        });
+    }
+
     return NextResponse.json(order);
 });

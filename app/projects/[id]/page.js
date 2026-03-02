@@ -118,12 +118,12 @@ export default function ProjectDetailPage() {
     };
 
     // PO from materials
-    const [poForm, setPoForm] = useState({ supplier: '', deliveryDate: '', notes: '' });
+    const [poForm, setPoForm] = useState({ supplier: '', deliveryDate: '', notes: '', deliveryType: 'Giao thẳng dự án', deliveryAddress: '' });
     const [poItems, setPoItems] = useState([]);
     const openPOModal = () => {
         const unordered = (data?.materialPlans || []).filter(m => m.status === 'Chưa đặt' || m.status === 'Đặt một phần');
         setPoItems(unordered.map(m => ({ productName: m.product?.name || '', unit: m.product?.unit || '', quantity: m.quantity - m.orderedQty, unitPrice: m.unitPrice, amount: (m.quantity - m.orderedQty) * m.unitPrice, productId: m.productId, _mpId: m.id })));
-        setPoForm({ supplier: '', deliveryDate: '', notes: '' });
+        setPoForm({ supplier: '', deliveryDate: '', notes: '', deliveryType: 'Giao thẳng dự án', deliveryAddress: data?.address || '' });
         setModal('po');
     };
     const updatePOItem = (idx, field, value) => {
@@ -134,15 +134,59 @@ export default function ProjectDetailPage() {
         if (!poForm.supplier.trim()) return alert('Vui lòng nhập tên nhà cung cấp');
         if (poItems.length === 0) return alert('Không có vật tư nào để đặt');
         const totalAmount = poItems.reduce((s, i) => s + (Number(i.amount) || 0), 0);
-        const res = await fetch('/api/purchase-orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...poForm, projectId: id, totalAmount, items: poItems.map(({ _mpId, ...rest }) => ({ ...rest, quantity: Number(rest.quantity), unitPrice: Number(rest.unitPrice), amount: Number(rest.amount) })) }) });
+        const res = await fetch('/api/purchase-orders', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ...poForm, projectId: id, totalAmount,
+                items: poItems.map(({ _mpId, ...rest }) => ({ ...rest, quantity: Number(rest.quantity), unitPrice: Number(rest.unitPrice), amount: Number(rest.amount), materialPlanId: _mpId || undefined })),
+            }),
+        });
         if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi tạo PO'); }
-        // Update material plan statuses
+        // Update material plan ordered quantities
         for (const item of poItems) {
             if (item._mpId) {
-                await fetch(`/api/material-plans/${item._mpId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderedQty: Number(item.quantity), status: 'Đã đặt đủ' }) }).catch(() => { });
+                const plan = data.materialPlans.find(m => m.id === item._mpId);
+                const newOrdered = (plan?.orderedQty || 0) + Number(item.quantity);
+                const newStatus = newOrdered >= (plan?.quantity || 0) ? 'Đã đặt đủ' : 'Đặt một phần';
+                await fetch(`/api/material-plans/${item._mpId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderedQty: newOrdered, status: newStatus }) }).catch(() => { });
             }
         }
         setModal(null); setPoItems([]); fetchData(); setTab('purchase');
+    };
+
+    // Material Requisition
+    const [reqForm, setReqForm] = useState({ materialPlanId: '', requestedQty: '', requestedDate: '', notes: '', createdBy: '' });
+    const openReqModal = (plan) => {
+        const remaining = plan.quantity - plan.orderedQty;
+        setReqForm({ materialPlanId: plan.id, requestedQty: remaining > 0 ? remaining : 1, requestedDate: '', notes: '', createdBy: '' });
+        setModal('req');
+    };
+    const createRequisition = async () => {
+        if (!reqForm.requestedQty || reqForm.requestedQty <= 0) return alert('Số lượng không hợp lệ');
+        const res = await fetch('/api/material-requisitions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...reqForm, requestedQty: Number(reqForm.requestedQty), projectId: id }) });
+        if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi tạo phiếu yêu cầu'); }
+        const result = await res.json();
+        if (result.overBudget) alert('⚠️ Yêu cầu vượt dự toán! Phiếu cần được PM phê duyệt trước khi Kế toán mua hàng.');
+        setModal(null); fetchData();
+    };
+
+    // GRN - Goods Receipt Note (Nghiệm thu)
+    const [grn, setGrn] = useState(null); // { po, items: [{...poItem, actualQty}] }
+    const openGRN = (po) => {
+        setGrn({ po, items: po.items.map(i => ({ ...i, actualQty: i.quantity - i.receivedQty })) });
+        setModal('grn');
+    };
+    const updateGRNItem = (idx, val) => setGrn(g => { const items = [...g.items]; items[idx] = { ...items[idx], actualQty: val }; return { ...g, items }; });
+    const confirmGRN = async () => {
+        const itemsToReceive = grn.items.filter(i => Number(i.actualQty) > 0).map(i => ({ id: i.id, receivedQty: Number(i.actualQty) }));
+        if (itemsToReceive.length === 0) return alert('Nhập số lượng thực nhận');
+        const res = await fetch(`/api/purchase-orders/${grn.po.id}/receive`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: itemsToReceive, note: grn.note || '' }) });
+        if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi nghiệm thu'); }
+        setModal(null); setGrn(null); fetchData();
+    };
+    const approvePO = async (poId) => {
+        await fetch(`/api/purchase-orders/${poId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'Đang giao' }) });
+        fetchData();
     };
 
     if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>;
@@ -533,38 +577,46 @@ export default function ProjectDetailPage() {
             {/* TAB: Vật tư */}
             {tab === 'materials' && (
                 <div>
-                    <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', marginBottom: 24 }}>
+                    <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', marginBottom: 24 }}>
                         <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700 }}>{p.materialPlans.length}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loại vật tư</div></div>
-                        <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-danger)' }}>{fmt(p.materialPlans.reduce((s, m) => s + m.totalAmount, 0))}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Tổng giá trị</div></div>
-                        <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-warning)' }}>{p.materialPlans.filter(m => m.status === 'Chưa đặt').length}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Chưa đặt</div></div>
+                        <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-info)' }}>{fmt(p.materialPlans.reduce((s, m) => s + m.totalAmount, 0))}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Tổng dự toán</div></div>
+                        <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-warning)' }}>{p.materialPlans.filter(m => m.status === 'Chưa đặt' || m.status === 'Đặt một phần').length}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Cần đặt thêm</div></div>
+                        <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-danger)' }}>{p.materialPlans.filter(m => m.receivedQty > m.quantity).length}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>⚠ Vượt dự toán</div></div>
                     </div>
                     <div className="card">
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px 0', gap: 8 }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px 0', gap: 8, flexWrap: 'wrap' }}>
                             {p.materialPlans.filter(m => m.status === 'Chưa đặt' || m.status === 'Đặt một phần').length > 0 && (
-                                <button className="btn btn-primary btn-sm" onClick={openPOModal}>🛒 Tạo PO từ vật tư chưa đặt ({p.materialPlans.filter(m => m.status === 'Chưa đặt' || m.status === 'Đặt một phần').length})</button>
+                                <button className="btn btn-primary btn-sm" onClick={openPOModal}>🛒 Tạo PO ({p.materialPlans.filter(m => m.status === 'Chưa đặt' || m.status === 'Đặt một phần').length} vật tư)</button>
                             )}
                         </div>
                         <div className="table-container"><table className="data-table">
-                            <thead><tr><th>Mã</th><th>Vật tư</th><th>Loại</th><th>SL cần</th><th>Đã đặt</th><th>Đã nhận</th><th>Còn thiếu</th><th>Đơn giá</th><th>Tổng</th><th>TT</th></tr></thead>
+                            <thead><tr><th>Mã</th><th>Vật tư</th><th>SL cần</th><th>Đã đặt</th><th>Đã nhận</th><th>Còn thiếu</th><th title="Số lượng còn được yêu cầu = SL Cần - Đã Đặt">Được gọi</th><th>Đơn giá</th><th>TT</th><th></th></tr></thead>
                             <tbody>{p.materialPlans.map(m => {
                                 const missing = m.quantity - m.receivedQty;
+                                const canRequest = m.quantity - m.orderedQty;
+                                const overReceived = m.receivedQty > m.quantity;
                                 return (
-                                    <tr key={m.id}>
-                                        <td className="accent">{m.product?.code}</td>
-                                        <td className="primary">{m.product?.name}</td>
-                                        <td><span className="badge muted">{m.type}</span></td>
-                                        <td>{m.quantity} {m.product?.unit}</td>
+                                    <tr key={m.id} style={{ background: overReceived ? 'rgba(239,68,68,0.08)' : '' }}>
+                                        <td className="accent" style={{ fontSize: 11 }}>{m.product?.code}</td>
+                                        <td>
+                                            <div style={{ fontWeight: 600, fontSize: 13 }}>{m.product?.name}</div>
+                                            {overReceived && <div style={{ fontSize: 11, color: 'var(--status-danger)', fontWeight: 600 }}>⚠ Nhận vượt {m.receivedQty - m.quantity} {m.product?.unit}</div>}
+                                        </td>
+                                        <td style={{ fontWeight: 600 }}>{m.quantity} <span style={{ fontSize: 11, opacity: 0.6 }}>{m.product?.unit}</span></td>
                                         <td style={{ color: 'var(--status-info)' }}>{m.orderedQty}</td>
-                                        <td style={{ color: 'var(--status-success)' }}>{m.receivedQty}</td>
-                                        <td style={{ color: missing > 0 ? 'var(--status-danger)' : 'var(--status-success)', fontWeight: 600 }}>{missing}</td>
-                                        <td>{fmt(m.unitPrice)}</td>
-                                        <td className="amount">{fmt(m.totalAmount)}</td>
-                                        <td><span className={`badge ${m.status === 'Đã đặt đủ' ? 'success' : m.status === 'Đặt một phần' ? 'warning' : 'danger'}`}>{m.status}</span></td>
+                                        <td style={{ color: overReceived ? 'var(--status-danger)' : 'var(--status-success)', fontWeight: 600 }}>{m.receivedQty}</td>
+                                        <td style={{ color: missing > 0 ? 'var(--status-danger)' : 'var(--status-success)', fontWeight: 700 }}>{missing > 0 ? missing : '✓'}</td>
+                                        <td style={{ color: canRequest > 0 ? 'var(--text-secondary)' : 'var(--status-success)', fontSize: 12 }}>{canRequest > 0 ? canRequest : '—'}</td>
+                                        <td style={{ fontSize: 12 }}>{fmt(m.unitPrice)}</td>
+                                        <td><span className={`badge ${m.status === 'Đã đặt đủ' || m.status === 'Đã nhận đủ' ? 'success' : m.status === 'Đặt một phần' || m.status === 'Nhận một phần' ? 'warning' : 'danger'}`} style={{ fontSize: 11 }}>{m.status}</span></td>
+                                        <td>
+                                            <button className="btn btn-ghost btn-sm" title="Lập phiếu yêu cầu vật tư" style={{ fontSize: 11 }} onClick={() => openReqModal(m)}>📋 YC</button>
+                                        </td>
                                     </tr>
                                 );
                             })}</tbody>
                         </table></div>
-                        {p.materialPlans.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có kế hoạch vật tư</div>}
+                        {p.materialPlans.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có kế hoạch vật tư — Lập kế hoạch từ tab Mua hàng</div>}
                     </div>
                 </div>
             )}
@@ -572,39 +624,67 @@ export default function ProjectDetailPage() {
             {/* TAB: Mua hàng */}
             {tab === 'purchase' && (
                 <div>
-                    {p.purchaseOrders.map(po => (
-                        <div key={po.id} className="card" style={{ marginBottom: 20, padding: 24 }}>
-                            <div className="card-header">
-                                <div>
-                                    <span className="card-title">🛒 {po.code} — {po.supplier}</span>
-                                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Đặt: {fmtDate(po.orderDate)} • Giao: {fmtDate(po.deliveryDate)} • Nhận: {fmtDate(po.receivedDate)}</div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                        <button className="btn btn-primary btn-sm" onClick={openPOModal}>+ Tạo PO mới</button>
+                    </div>
+                    {p.purchaseOrders.map(po => {
+                        const isDirect = po.deliveryType === 'Giao thẳng dự án';
+                        const canReceive = po.status === 'Đang giao' || po.status === 'Nhận một phần';
+                        const canApprove = po.status === 'Chờ duyệt';
+                        const statusColor = po.status === 'Hoàn thành' ? 'success' : po.status === 'Đang giao' ? 'info' : po.status === 'Nhận một phần' ? 'warning' : po.status === 'Chờ duyệt' ? 'warning' : 'muted';
+                        return (
+                            <div key={po.id} className="card" style={{ marginBottom: 16 }}>
+                                <div className="card-header">
+                                    <div>
+                                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                            <span className="card-title" style={{ fontSize: 14 }}>🛒 {po.code}</span>
+                                            <strong style={{ fontSize: 14 }}>{po.supplier}</strong>
+                                            <span className={`badge ${statusColor}`}>{po.status}</span>
+                                            <span className={`badge ${isDirect ? 'info' : 'muted'}`} title={po.deliveryAddress}>{isDirect ? '🏗 Giao thẳng CT' : '🏢 Nhập kho'}</span>
+                                        </div>
+                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
+                                            Đặt: {fmtDate(po.orderDate)} • Giao dự kiến: {fmtDate(po.deliveryDate)}
+                                            {po.deliveryAddress && <span> • 📍 {po.deliveryAddress}</span>}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <span className="badge purple">{fmt(po.totalAmount)}</span>
+                                        {canApprove && <button className="btn btn-sm btn-info" onClick={() => approvePO(po.id)}>✓ Duyệt / Đặt hàng</button>}
+                                        {canReceive && <button className="btn btn-sm btn-success" onClick={() => openGRN(po)}>📦 Nghiệm thu</button>}
+                                    </div>
                                 </div>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                    <span className={`badge ${po.status === 'Hoàn thành' ? 'success' : po.status === 'Đang giao' ? 'info' : po.status === 'Chờ duyệt' ? 'warning' : 'muted'}`}>{po.status}</span>
-                                    <span className="badge purple">{fmt(po.totalAmount)}</span>
+                                {/* PO status flow */}
+                                <div style={{ padding: '8px 16px', display: 'flex', gap: 4, alignItems: 'center', fontSize: 11, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)' }}>
+                                    {['Chờ duyệt', 'Đang giao', 'Nhận một phần', 'Hoàn thành'].map((s, i, arr) => (
+                                        <span key={s} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                            <span style={{ padding: '2px 8px', borderRadius: 10, background: po.status === s ? 'var(--primary)' : 'var(--surface-alt)', color: po.status === s ? '#fff' : 'var(--text-secondary)', fontWeight: po.status === s ? 600 : 400 }}>{s}</span>
+                                            {i < arr.length - 1 && <span>→</span>}
+                                        </span>
+                                    ))}
+                                </div>
+                                <div className="table-container"><table className="data-table">
+                                    <thead><tr><th>Sản phẩm</th><th>ĐVT</th><th>SL đặt</th><th>Đơn giá</th><th>Thành tiền</th><th>Đã nhận</th><th>Còn lại</th></tr></thead>
+                                    <tbody>{po.items.map(item => (
+                                        <tr key={item.id}>
+                                            <td className="primary">{item.productName}</td>
+                                            <td>{item.unit}</td>
+                                            <td>{item.quantity}</td>
+                                            <td style={{ fontSize: 12 }}>{fmt(item.unitPrice)}</td>
+                                            <td className="amount">{fmt(item.amount)}</td>
+                                            <td style={{ color: item.receivedQty >= item.quantity ? 'var(--status-success)' : 'var(--status-warning)', fontWeight: 600 }}>{item.receivedQty}</td>
+                                            <td style={{ color: item.quantity - item.receivedQty > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>{item.quantity - item.receivedQty > 0 ? item.quantity - item.receivedQty : '✓'}</td>
+                                        </tr>
+                                    ))}</tbody>
+                                </table></div>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, padding: '10px 16px', fontSize: 13, borderTop: '1px solid var(--border-color)' }}>
+                                    <span>Tổng: <strong>{fmt(po.totalAmount)}</strong></span>
+                                    <span>Đã TT: <strong style={{ color: 'var(--status-success)' }}>{fmt(po.paidAmount)}</strong></span>
+                                    <span style={{ color: po.totalAmount - po.paidAmount > 0 ? 'var(--status-danger)' : '' }}>Còn nợ: <strong>{fmt(po.totalAmount - po.paidAmount)}</strong></span>
                                 </div>
                             </div>
-                            <div className="table-container"><table className="data-table">
-                                <thead><tr><th>Sản phẩm</th><th>ĐVT</th><th>SL đặt</th><th>Đơn giá</th><th>Thành tiền</th><th>Đã nhận</th></tr></thead>
-                                <tbody>{po.items.map(item => (
-                                    <tr key={item.id}>
-                                        <td className="primary">{item.productName}</td>
-                                        <td>{item.unit}</td>
-                                        <td>{item.quantity}</td>
-                                        <td>{fmt(item.unitPrice)}</td>
-                                        <td className="amount">{fmt(item.amount)}</td>
-                                        <td style={{ color: item.receivedQty >= item.quantity ? 'var(--status-success)' : 'var(--status-warning)', fontWeight: 600 }}>{item.receivedQty}/{item.quantity}</td>
-                                    </tr>
-                                ))}</tbody>
-                            </table></div>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginTop: 12, fontSize: 13 }}>
-                                <span>Tổng: <strong>{fmt(po.totalAmount)}</strong></span>
-                                <span>Đã TT: <strong style={{ color: 'var(--status-success)' }}>{fmt(po.paidAmount)}</strong></span>
-                                <span>Còn: <strong style={{ color: po.totalAmount - po.paidAmount > 0 ? 'var(--status-danger)' : '' }}>{fmt(po.totalAmount - po.paidAmount)}</strong></span>
-                            </div>
-                        </div>
-                    ))}
-                    {p.purchaseOrders.length === 0 && <div className="card" style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>Chưa có đơn mua hàng</div>}
+                        );
+                    })}
+                    {p.purchaseOrders.length === 0 && <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Chưa có đơn mua hàng — Tạo PO từ Tab Vật tư hoặc bấm "+ Tạo PO mới"</div>}
                 </div>
             )}
 
@@ -747,15 +827,34 @@ export default function ProjectDetailPage() {
             )}
             {modal === 'po' && (
                 <div className="modal-overlay" onClick={() => setModal(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 800 }}>
-                        <div className="modal-header"><h3>🛒 Tạo đơn mua hàng từ vật tư</h3><button className="modal-close" onClick={() => setModal(null)}>×</button></div>
+                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 820 }}>
+                        <div className="modal-header"><h3>🛒 Tạo đơn mua hàng</h3><button className="modal-close" onClick={() => setModal(null)}>×</button></div>
                         <div className="modal-body">
                             <div className="form-row">
-                                <div className="form-group"><label className="form-label">Nhà cung cấp *</label><input className="form-input" value={poForm.supplier} onChange={e => setPoForm({ ...poForm, supplier: e.target.value })} placeholder="Tên NCC" /></div>
+                                <div className="form-group" style={{ flex: 2 }}><label className="form-label">Nhà cung cấp *</label><input className="form-input" value={poForm.supplier} onChange={e => setPoForm({ ...poForm, supplier: e.target.value })} placeholder="VD: Đại lý VLXD Hồng Hà" autoFocus /></div>
                                 <div className="form-group"><label className="form-label">Ngày giao dự kiến</label><input type="date" className="form-input" value={poForm.deliveryDate} onChange={e => setPoForm({ ...poForm, deliveryDate: e.target.value })} /></div>
                             </div>
+                            {/* Delivery type - core feature */}
+                            <div className="form-group">
+                                <label className="form-label">Điểm nhận hàng *</label>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    {[['Giao thẳng dự án', '🏗', 'Xe chở thẳng đến công trình — không qua kho công ty'], ['Nhập kho công ty', '🏢', 'Nhập vào kho tổng của công ty trước']].map(([val, icon, desc]) => (
+                                        <button key={val} type="button" onClick={() => setPoForm(f => ({ ...f, deliveryType: val, deliveryAddress: val === 'Giao thẳng dự án' ? (p.address || '') : '' }))}
+                                            style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: `2px solid ${poForm.deliveryType === val ? 'var(--primary)' : 'var(--border-color)'}`, background: poForm.deliveryType === val ? 'rgba(35,64,147,0.06)' : 'transparent', cursor: 'pointer', textAlign: 'left' }}>
+                                            <div style={{ fontWeight: 600, fontSize: 13 }}>{icon} {val}</div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{desc}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            {poForm.deliveryType === 'Giao thẳng dự án' && (
+                                <div className="form-group">
+                                    <label className="form-label">Địa chỉ công trình</label>
+                                    <input className="form-input" value={poForm.deliveryAddress} onChange={e => setPoForm(f => ({ ...f, deliveryAddress: e.target.value }))} placeholder="Địa chỉ tự động lấy từ dự án" />
+                                </div>
+                            )}
                             <div className="form-group"><label className="form-label">Ghi chú</label><textarea className="form-input" rows={2} value={poForm.notes} onChange={e => setPoForm({ ...poForm, notes: e.target.value })} /></div>
-                            <div style={{ marginTop: 16 }}>
+                            <div style={{ marginTop: 8 }}>
                                 <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>📦 Danh sách vật tư ({poItems.length} mục)</div>
                                 <div className="table-container"><table className="data-table">
                                     <thead><tr><th>Sản phẩm</th><th>ĐVT</th><th>SL đặt</th><th>Đơn giá</th><th>Thành tiền</th><th></th></tr></thead>
@@ -769,12 +868,87 @@ export default function ProjectDetailPage() {
                                             <td><button className="btn btn-ghost btn-sm" onClick={() => removePOItem(idx)} style={{ color: 'var(--status-danger)' }}>✕</button></td>
                                         </tr>
                                     ))}</tbody>
-                                    <tfoot><tr><td colSpan={4} style={{ textAlign: 'right', fontWeight: 700 }}>Tổng cộng:</td><td className="amount" style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>{fmt(poItems.reduce((s, i) => s + (Number(i.amount) || 0), 0))}</td><td></td></tr></tfoot>
+                                    <tfoot><tr><td colSpan={4} style={{ textAlign: 'right', fontWeight: 700, padding: '8px 12px' }}>Tổng cộng:</td><td className="amount" style={{ fontWeight: 700, color: 'var(--accent-primary)', fontSize: 15 }}>{fmt(poItems.reduce((s, i) => s + (Number(i.amount) || 0), 0))}</td><td></td></tr></tfoot>
                                 </table></div>
-                                {poItems.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 16, textAlign: 'center' }}>Không có vật tư nào cần đặt</div>}
+                                {poItems.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 16, textAlign: 'center' }}>Không có vật tư nào — vào Tab Vật tư để thêm kế hoạch</div>}
                             </div>
                         </div>
                         <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setModal(null)}>Hủy</button><button className="btn btn-primary" onClick={createPO}>🛒 Tạo đơn mua hàng</button></div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL: Yêu cầu vật tư */}
+            {modal === 'req' && (() => {
+                const plan = p.materialPlans.find(m => m.id === reqForm.materialPlanId);
+                const remaining = plan ? plan.quantity - plan.orderedQty : 0;
+                return (
+                    <div className="modal-overlay" onClick={() => setModal(null)}>
+                        <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                            <div className="modal-header"><h3>📋 Phiếu Yêu cầu Vật tư</h3><button className="modal-close" onClick={() => setModal(null)}>×</button></div>
+                            <div className="modal-body">
+                                {plan && (
+                                    <div style={{ padding: '10px 14px', background: 'var(--surface-alt)', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
+                                        <div style={{ fontWeight: 700 }}>{plan.product?.name}</div>
+                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                                            SL Cần: <strong>{plan.quantity}</strong> · Đã đặt: <strong>{plan.orderedQty}</strong> · Còn được gọi: <strong style={{ color: remaining > 0 ? 'var(--status-info)' : 'var(--status-success)' }}>{remaining}</strong> {plan.product?.unit}
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="form-row">
+                                    <div className="form-group">
+                                        <label className="form-label">Số lượng yêu cầu *</label>
+                                        <input className="form-input" type="number" value={reqForm.requestedQty} onChange={e => setReqForm(f => ({ ...f, requestedQty: e.target.value }))} autoFocus />
+                                        {Number(reqForm.requestedQty) > remaining && remaining > 0 && <div style={{ fontSize: 11, color: 'var(--status-danger)', marginTop: 4 }}>⚠ Vượt dự toán — cần PM phê duyệt</div>}
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Ngày cần hàng</label>
+                                        <input className="form-input" type="datetime-local" value={reqForm.requestedDate} onChange={e => setReqForm(f => ({ ...f, requestedDate: e.target.value }))} />
+                                    </div>
+                                </div>
+                                <div className="form-group"><label className="form-label">Người yêu cầu</label><input className="form-input" value={reqForm.createdBy} onChange={e => setReqForm(f => ({ ...f, createdBy: e.target.value }))} placeholder="Tên giám sát / QS" /></div>
+                                <div className="form-group"><label className="form-label">Ghi chú cho tài xế / NCC</label><textarea className="form-input" rows={2} value={reqForm.notes} onChange={e => setReqForm(f => ({ ...f, notes: e.target.value }))} placeholder="VD: Đổ ở ngõ sau, xe 1.2 tấn mới vào được" /></div>
+                            </div>
+                            <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setModal(null)}>Hủy</button><button className="btn btn-primary" onClick={createRequisition}>Gửi yêu cầu</button></div>
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* MODAL: Nghiệm thu (GRN) */}
+            {modal === 'grn' && grn && (
+                <div className="modal-overlay" onClick={() => setModal(null)}>
+                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
+                        <div className="modal-header"><h3>📦 Nghiệm thu hàng — {grn.po.code}</h3><button className="modal-close" onClick={() => setModal(null)}>×</button></div>
+                        <div className="modal-body">
+                            <div style={{ padding: '8px 14px', background: grn.po.deliveryType === 'Giao thẳng dự án' ? 'rgba(14,165,233,0.08)' : 'var(--surface-alt)', borderRadius: 8, marginBottom: 16, fontSize: 13, borderLeft: `3px solid ${grn.po.deliveryType === 'Giao thẳng dự án' ? 'var(--status-info)' : 'var(--border-color)'}` }}>
+                                <strong>{grn.po.deliveryType === 'Giao thẳng dự án' ? '🏗 Giao thẳng công trình' : '🏢 Nhập kho công ty'}</strong>
+                                {grn.po.deliveryType === 'Giao thẳng dự án' && <div style={{ fontSize: 12, marginTop: 2, color: 'var(--text-muted)' }}>Số lượng nhận sẽ cập nhật cột "Đã nhận" trong Tab Vật tư. Không ảnh hưởng tồn kho tổng.</div>}
+                                <div style={{ marginTop: 4, fontSize: 12 }}>NCC: <strong>{grn.po.supplier}</strong> · {grn.po.deliveryAddress && <span>📍 {grn.po.deliveryAddress}</span>}</div>
+                            </div>
+                            <table className="data-table">
+                                <thead><tr><th>Vật tư</th><th>ĐVT</th><th>SL đặt</th><th>Đã nhận</th><th>Thực nhận lần này</th></tr></thead>
+                                <tbody>{grn.items.map((item, idx) => (
+                                    <tr key={item.id}>
+                                        <td className="primary">{item.productName}</td>
+                                        <td>{item.unit}</td>
+                                        <td>{item.quantity}</td>
+                                        <td style={{ color: 'var(--status-success)' }}>{item.receivedQty}</td>
+                                        <td><input type="number" className="form-input" style={{ width: 90, padding: '4px 8px' }} value={item.actualQty} min={0} max={item.quantity - item.receivedQty} onChange={e => updateGRNItem(idx, e.target.value)} /></td>
+                                    </tr>
+                                ))}</tbody>
+                            </table>
+                            <div className="form-group" style={{ marginTop: 12 }}>
+                                <label className="form-label">Ghi chú nghiệm thu</label>
+                                <input className="form-input" value={grn.note || ''} onChange={e => setGrn(g => ({ ...g, note: e.target.value }))} placeholder="VD: Thiếu 5 bao, hẹn bổ sung chiều mai" />
+                            </div>
+                            {grn.po.deliveryType === 'Giao thẳng dự án' && (
+                                <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 12px', background: 'rgba(16,185,129,0.06)', borderRadius: 6, marginTop: 8 }}>
+                                    ✅ Sau khi xác nhận: Hệ thống tự động ghi nhận <strong>Chi phí trực tiếp</strong> vào Tab Tài chính dự án.
+                                </div>
+                            )}
+                        </div>
+                        <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setModal(null)}>Hủy</button><button className="btn btn-primary btn-success" onClick={confirmGRN}>✓ Xác nhận đã nhận hàng</button></div>
                     </div>
                 </div>
             )}

@@ -91,6 +91,7 @@ model Project {
   workOrders      WorkOrder[]
   materialPlans   MaterialPlan[]
   purchaseOrders  PurchaseOrder[]
+  requisitions    MaterialRequisition[]
   expenses        ProjectExpense[]
   trackingLogs    TrackingLog[]
   documents       ProjectDocument[]
@@ -441,12 +442,33 @@ model MaterialPlan {
   type            String   @default("Chính")
   notes           String   @default("")
   productId       String
-  product         Product  @relation(fields: [productId], references: [id])
+  product         Product       @relation(fields: [productId], references: [id])
   projectId       String
-  project         Project  @relation(fields: [projectId], references: [id])
+  project         Project       @relation(fields: [projectId], references: [id])
+  requisitions    MaterialRequisition[]
+  purchaseItems   PurchaseOrderItem[]
   createdAt       DateTime @default(now())
   @@index([projectId])
   @@index([productId])
+}
+
+model MaterialRequisition {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  requestedQty    Float    @default(0)
+  requestedDate   DateTime?
+  notes           String   @default("") @db.Text
+  status          String   @default("Chờ xử lý")
+  createdBy       String   @default("")
+  materialPlanId  String
+  materialPlan    MaterialPlan  @relation(fields: [materialPlanId], references: [id])
+  projectId       String
+  project         Project       @relation(fields: [projectId], references: [id])
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  createdAt       DateTime @default(now())
+  @@index([projectId])
+  @@index([materialPlanId])
 }
 
 model PurchaseOrder {
@@ -455,7 +477,9 @@ model PurchaseOrder {
   supplier        String
   totalAmount     Float    @default(0)
   paidAmount      Float    @default(0)
-  status          String   @default("Nháp")
+  status          String   @default("Chờ duyệt")
+  deliveryType    String   @default("Giao thẳng dự án")
+  deliveryAddress String   @default("")
   orderDate       DateTime @default(now())
   deliveryDate    DateTime?
   receivedDate    DateTime?
@@ -463,6 +487,7 @@ model PurchaseOrder {
   projectId       String?
   project         Project?  @relation(fields: [projectId], references: [id])
   items           PurchaseOrderItem[]
+  requisitions    MaterialRequisition[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   @@index([projectId])
@@ -478,10 +503,13 @@ model PurchaseOrderItem {
   receivedQty     Float    @default(0)
   notes           String   @default("")
   productId       String?
-  product         Product?  @relation(fields: [productId], references: [id])
+  product         Product?      @relation(fields: [productId], references: [id])
+  materialPlanId  String?
+  materialPlan    MaterialPlan? @relation(fields: [materialPlanId], references: [id])
   purchaseOrderId String
   purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   @@index([purchaseOrderId])
+  @@index([materialPlanId])
 }
 
 model ProjectExpense {

@@ -18,6 +18,7 @@ export const GET = withAuth(async (request, { params }) => {
             contracts: { include: { payments: { orderBy: { createdAt: 'asc' } }, quotation: { select: { code: true } } } },
             workOrders: { orderBy: { createdAt: 'desc' } },
             materialPlans: { include: { product: { select: { name: true, code: true, unit: true } } } },
+            requisitions: { orderBy: { createdAt: 'desc' } },
             purchaseOrders: { include: { items: true }, orderBy: { createdAt: 'desc' } },
             expenses: { orderBy: { date: 'desc' } },
             trackingLogs: { orderBy: { createdAt: 'desc' } },
