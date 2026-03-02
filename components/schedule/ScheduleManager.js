@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import ScheduleListView from './ScheduleListView';
+import ScheduleGanttView from './ScheduleGanttView';
 import TemplateImportModal from './TemplateImportModal';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n);
@@ -11,6 +12,7 @@ export default function ScheduleManager({ projectId, projectCode, projectStartDa
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState('list'); // list | gantt
     const [modal, setModal] = useState(null);
+    const [alerts, setAlerts] = useState([]);
     const [addForm, setAddForm] = useState({ name: '', startDate: '', endDate: '', parentId: '', weight: 1, assignee: '' });
 
     const fetchTasks = useCallback(async () => {
@@ -19,6 +21,12 @@ export default function ScheduleManager({ projectId, projectCode, projectStartDa
         setData(d);
         setLoading(false);
         if (onProgressUpdate) onProgressUpdate(d.totalProgress);
+        // Fetch material alerts
+        try {
+            const alertRes = await fetch(`/api/schedule-tasks/alerts?projectId=${projectId}`);
+            const alertData = await alertRes.json();
+            setAlerts(alertData || []);
+        } catch { setAlerts([]); }
     }, [projectId, onProgressUpdate]);
 
     useEffect(() => { fetchTasks(); }, [fetchTasks]);
@@ -101,6 +109,24 @@ export default function ScheduleManager({ projectId, projectCode, projectStartDa
                 </div>
             </div>
 
+            {/* Material Alerts */}
+            {alerts.length > 0 && (
+                <div style={{ marginBottom: 16, padding: '12px 16px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 10 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--status-warning)', marginBottom: 8 }}>⚠️ Cảnh báo vật tư ({alerts.reduce((s, a) => s + a.alerts.length, 0)})</div>
+                    {alerts.map(a => (
+                        <div key={a.taskId} style={{ marginBottom: 6 }}>
+                            <span style={{ fontSize: 12, fontWeight: 600 }}>{a.taskName}</span>
+                            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>bắt đầu {fmtDate(a.startDate)}</span>
+                            {a.alerts.map((al, i) => (
+                                <div key={i} style={{ paddingLeft: 16, fontSize: 11, color: al.type === 'danger' ? 'var(--status-danger)' : 'var(--status-warning)', marginTop: 2 }}>
+                                    ⚠ {al.productName}: {al.message}
+                                </div>
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            )}
+
             {/* Toolbar */}
             <div className="card" style={{ padding: '12px 20px', marginBottom: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
@@ -126,12 +152,12 @@ export default function ScheduleManager({ projectId, projectCode, projectStartDa
                     onDelete={deleteTask}
                 />
             )}
-            {view === 'gantt' && (
-                <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-                    <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
-                    <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Gantt Chart</div>
-                    <div style={{ fontSize: 13 }}>Sẽ có trong Phase 2 — đang phát triển</div>
-                </div>
+            {view === 'gantt' && flat.length > 0 && (
+                <ScheduleGanttView
+                    tasks={tasks}
+                    flat={flat}
+                    onUpdate={updateTask}
+                />
             )}
 
             {flat.length === 0 && (
