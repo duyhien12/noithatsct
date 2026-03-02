@@ -447,27 +447,67 @@ export default function QuotationPDFPage() {
                 }
 
                 /* ====== SUMMARY BOX ====== */
-                .mn-summary-wrap { display: flex; justify-content: flex-end; margin: 20px 0; }
+                .mn-summary-wrap {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-end;
+                    gap: 20px;
+                    margin: 20px 0;
+                }
+                .mn-sum-words {
+                    flex: 1;
+                    padding: 12px 16px;
+                    background: ${BRAND.blue}05;
+                    border: 1px solid ${BRAND.blue}20;
+                    border-left: 3px solid ${BRAND.blue};
+                    border-radius: 6px;
+                    font-size: 10.5px;
+                    color: ${BRAND.textMid};
+                    line-height: 1.6;
+                }
+                .mn-sum-words-label {
+                    display: block;
+                    font-size: 8px;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 1.5px;
+                    color: ${BRAND.blue};
+                    margin-bottom: 5px;
+                    opacity: 0.8;
+                }
+                .mn-sum-words-text {
+                    color: ${BRAND.textDark};
+                    font-weight: 600;
+                    font-style: italic;
+                }
                 .mn-sum-box {
-                    width: 340px;
+                    width: 310px;
+                    flex-shrink: 0;
                     border: 1px solid ${BRAND.grey};
+                    border-radius: 6px;
                     overflow: hidden;
                 }
                 .mn-sum-row {
                     display: flex;
                     justify-content: space-between;
-                    padding: 8px 16px;
-                    font-size: 11px;
+                    padding: 7px 14px;
+                    font-size: 10.5px;
                     font-weight: 500;
                     border-bottom: 1px solid #f1f5f9;
                 }
                 .mn-sum-row.total {
-                    background: ${BRAND.gold};
-                    color: #fff;
-                    font-weight: 900;
-                    font-size: 14px;
+                    background: linear-gradient(135deg, ${BRAND.blue} 0%, #1a327a 100%);
+                    color: rgba(255,255,255,0.85);
+                    font-weight: 700;
+                    font-size: 11.5px;
                     border: none;
-                    letter-spacing: 0.5px;
+                    letter-spacing: 0.3px;
+                    padding: 11px 14px;
+                }
+                .mn-sum-row.total span:last-child {
+                    color: ${BRAND.gold};
+                    font-weight: 900;
+                    font-size: 13px;
                 }
                 .mn-sum-row.discount span:last-child { color: #dc2626; font-weight: 600; }
 
@@ -739,6 +779,10 @@ export default function QuotationPDFPage() {
 
                     {/* ====== SUMMARY ====== */}
                     <div className="mn-summary-wrap">
+                        <div className="mn-sum-words">
+                            <span className="mn-sum-words-label">Tổng giá trị bằng chữ</span>
+                            <span className="mn-sum-words-text">{numberToWords(Math.round(q.grandTotal))}</span>
+                        </div>
                         <div className="mn-sum-box">
                             {q.directCost > 0 && <div className="mn-sum-row"><span>Chi phí trực tiếp</span><span>{fmt(q.directCost)}</span></div>}
                             {q.managementFee > 0 && <div className="mn-sum-row"><span>Phí quản lý ({q.managementFeeRate}%)</span><span>{fmt(q.managementFee)}</span></div>}
@@ -748,9 +792,6 @@ export default function QuotationPDFPage() {
                             {q.discount > 0 && <div className="mn-sum-row discount"><span>Chiết khấu ({q.discount}%)</span><span>-{fmt(q.total * q.discount / 100)}</span></div>}
                             <div className="mn-sum-row"><span>VAT ({q.vat}%)</span><span>{fmt(vatAmount)}</span></div>
                             <div className="mn-sum-row total"><span>TỔNG GIÁ TRỊ</span><span>{fmt(q.grandTotal)}</span></div>
-                            <div style={{ padding: '8px 16px', fontSize: 10, fontStyle: 'italic', color: BRAND.textMid, borderTop: `1px solid ${BRAND.grey}` }}>
-                                Bằng chữ: <em style={{ color: BRAND.textDark, fontWeight: 600 }}>{numberToWords(Math.round(q.grandTotal))}</em>
-                            </div>
                         </div>
                     </div>
 
