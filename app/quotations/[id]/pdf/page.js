@@ -237,7 +237,7 @@ export default function QuotationPDFPage() {
                     justify-content: flex-end;
                     align-items: center;
                     gap: 20px;
-                    padding: 12px 38px 6px;
+                    padding: 6px 38px;
                     font-size: 10px;
                     font-style: italic;
                     color: ${BRAND.textMid};
