@@ -164,7 +164,7 @@ export default function QuotationPDFPage() {
                     }
                     @page {
                         size: A4 landscape;
-                        margin: 8mm 10mm;
+                        margin: 10mm;
                     }
                 }
 

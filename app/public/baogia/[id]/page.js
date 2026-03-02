@@ -106,7 +106,7 @@ export default function PublicQuotationPage() {
                     .no-print { display: none !important; }
                     body { background: white !important; }
                     .pdf-page { box-shadow: none !important; margin: 0 !important; max-width: 100% !important; border-radius: 0 !important; }
-                    @page { size: A4 landscape; margin: 8mm 10mm; }
+                    @page { size: A4 landscape; margin: 10mm; }
                 }
                 .pdf-page { max-width: 1100px; margin: 20px auto 40px; background: #fff; box-shadow: 0 4px 40px rgba(0,0,0,0.12); border-radius: 4px; position: relative; overflow: hidden; }
                 .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 120px; font-weight: 900; color: ${BRAND.blue}; opacity: 0.025; pointer-events: none; white-space: nowrap; letter-spacing: 20px; z-index: 0; }
