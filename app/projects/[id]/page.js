@@ -118,20 +118,95 @@ export default function ProjectDetailPage() {
     };
 
     // PO from materials
-    const [poForm, setPoForm] = useState({ supplier: '', deliveryDate: '', notes: '', deliveryType: 'Giao thẳng dự án', deliveryAddress: '' });
+    const [poForm, setPoForm] = useState({ supplier: '', supplierId: '', deliveryDate: '', notes: '', deliveryType: 'Giao thẳng dự án', deliveryAddress: '' });
     const [poItems, setPoItems] = useState([]);
-    const openPOModal = () => {
+    const [suppliers, setSuppliers] = useState([]);
+    const [supplierSearch, setSupplierSearch] = useState('');
+    const openPOModal = async () => {
+        if (suppliers.length === 0) {
+            const res = await fetch('/api/suppliers?limit=500');
+            const json = await res.json();
+            setSuppliers(json.data || json || []);
+        }
         const unordered = (data?.materialPlans || []).filter(m => m.status === 'Chưa đặt' || m.status === 'Đặt một phần');
-        setPoItems(unordered.map(m => ({ productName: m.product?.name || '', unit: m.product?.unit || '', quantity: m.quantity - m.orderedQty, unitPrice: m.unitPrice, amount: (m.quantity - m.orderedQty) * m.unitPrice, productId: m.productId, _mpId: m.id })));
-        setPoForm({ supplier: '', deliveryDate: '', notes: '', deliveryType: 'Giao thẳng dự án', deliveryAddress: data?.address || '' });
+        setPoItems(unordered.map(m => ({ productName: m.product?.name || '', unit: m.product?.unit || '', quantity: m.quantity - m.orderedQty, unitPrice: m.unitPrice || 0, amount: (m.quantity - m.orderedQty) * (m.unitPrice || 0), productId: m.productId, _mpId: m.id })));
+        setPoForm({ supplier: '', supplierId: '', deliveryDate: '', notes: '', deliveryType: 'Giao thẳng dự án', deliveryAddress: data?.address || '' });
+        setSupplierSearch('');
         setModal('po');
+    };
+    const printPO = (po) => {
+        const sup = po.supplierRel || {};
+        const fmtN = (n) => new Intl.NumberFormat('vi-VN').format(n || 0);
+        const fmtD = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+        const rows = (po.items || []).map((it, i) => `
+            <tr>
+                <td class="center">${i + 1}</td>
+                <td>${it.productName}</td>
+                <td class="center">${it.unit}</td>
+                <td class="num">${fmtN(it.quantity)}</td>
+                <td class="num">${fmtN(it.unitPrice)}</td>
+                <td class="num">${fmtN(it.amount)}</td>
+            </tr>`).join('');
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Phiếu mua hàng ${po.code}</title>
+<style>
+  *{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:13px;color:#000;margin:15mm 20mm}
+  h2{text-align:center;font-size:17px;margin:0 0 2px;text-transform:uppercase}
+  .sub{text-align:center;font-size:12px;color:#555;margin-bottom:16px}
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+  .info-box{border:1px solid #bbb;padding:8px 12px;border-radius:3px}
+  .info-box h4{margin:0 0 6px;font-size:11px;text-transform:uppercase;color:#666;border-bottom:1px solid #ddd;padding-bottom:3px}
+  .row{display:flex;gap:6px;margin-bottom:3px;font-size:12px}
+  .lbl{font-weight:bold;min-width:80px;flex-shrink:0}
+  table{width:100%;border-collapse:collapse;margin:10px 0}
+  th{background:#e8e8e8;padding:7px 8px;text-align:left;border:1px solid #bbb;font-size:11px}
+  td{padding:6px 8px;border:1px solid #ccc;font-size:12px}
+  .center{text-align:center}.num{text-align:right}
+  tfoot td{font-weight:bold;background:#f0f0f0}
+  .sigs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:36px;text-align:center}
+  .sig h4{font-size:12px;margin:0 0 4px}.sig p{font-size:11px;color:#666;margin:0 0 50px}
+  .notes-box{border:1px solid #ddd;padding:8px 12px;border-radius:3px;font-size:12px;margin-top:10px}
+  .print-btn{display:block;margin:16px auto;padding:8px 24px;background:#1a3a8f;color:#fff;border:none;border-radius:4px;font-size:13px;cursor:pointer}
+  @media print{.print-btn{display:none}body{margin:10mm 15mm}}
+</style></head><body>
+<h2>Phiếu Mua Hàng</h2>
+<p class="sub">Số: <strong>${po.code}</strong> &nbsp;·&nbsp; Ngày đặt: <strong>${fmtD(po.orderDate)}</strong>${po.deliveryDate ? ` &nbsp;·&nbsp; Giao dự kiến: <strong>${fmtD(po.deliveryDate)}</strong>` : ''}</p>
+<div class="info-grid">
+  <div class="info-box"><h4>Nhà cung cấp</h4>
+    <div class="row"><span class="lbl">Tên NCC:</span><strong>${po.supplier}</strong></div>
+    ${sup.phone ? `<div class="row"><span class="lbl">Điện thoại:</span>${sup.phone}</div>` : ''}
+    ${sup.address ? `<div class="row"><span class="lbl">Địa chỉ:</span>${sup.address}</div>` : ''}
+    ${sup.taxCode ? `<div class="row"><span class="lbl">MST:</span>${sup.taxCode}</div>` : ''}
+    ${sup.bankAccount ? `<div class="row"><span class="lbl">TK Ngân hàng:</span>${sup.bankAccount}${sup.bankName ? ` — ${sup.bankName}` : ''}</div>` : ''}
+  </div>
+  <div class="info-box"><h4>Thông tin giao hàng</h4>
+    ${po.project ? `<div class="row"><span class="lbl">Dự án:</span>${po.project.name || ''}</div>` : ''}
+    <div class="row"><span class="lbl">Hình thức:</span>${po.deliveryType}</div>
+    ${po.deliveryAddress ? `<div class="row"><span class="lbl">Địa chỉ:</span>${po.deliveryAddress}</div>` : ''}
+  </div>
+</div>
+<table>
+  <thead><tr><th style="width:36px">#</th><th>Tên hàng hóa / Vật tư</th><th style="width:50px">ĐVT</th><th style="width:70px">SL</th><th style="width:110px">Đơn giá (VNĐ)</th><th style="width:120px">Thành tiền (VNĐ)</th></tr></thead>
+  <tbody>${rows}</tbody>
+  <tfoot><tr><td colspan="5" class="num">Tổng cộng:</td><td class="num">${fmtN(po.totalAmount)}</td></tr></tfoot>
+</table>
+${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div>` : ''}
+<div class="sigs">
+  <div class="sig"><h4>Người lập phiếu</h4><p>(Ký, ghi rõ họ tên)</p></div>
+  <div class="sig"><h4>Giám đốc</h4><p>(Ký, đóng dấu)</p></div>
+  <div class="sig"><h4>Đại diện NCC</h4><p>(Ký, ghi rõ họ tên)</p></div>
+</div>
+<button class="print-btn" onclick="window.print()">🖨 In phiếu mua hàng</button>
+</body></html>`;
+        const w = window.open('', '_blank', 'width=850,height=700');
+        w.document.write(html);
+        w.document.close();
     };
     const updatePOItem = (idx, field, value) => {
         setPoItems(prev => { const u = [...prev]; u[idx] = { ...u[idx], [field]: value }; if (field === 'quantity' || field === 'unitPrice') u[idx].amount = (Number(u[idx].quantity) || 0) * (Number(u[idx].unitPrice) || 0); return u; });
     };
     const removePOItem = (idx) => setPoItems(prev => prev.filter((_, i) => i !== idx));
     const createPO = async () => {
-        if (!poForm.supplier.trim()) return alert('Vui lòng nhập tên nhà cung cấp');
+        if (!poForm.supplierId) return alert('Vui lòng chọn nhà cung cấp');
         if (poItems.length === 0) return alert('Không có vật tư nào để đặt');
         const totalAmount = poItems.reduce((s, i) => s + (Number(i.amount) || 0), 0);
         const res = await fetch('/api/purchase-orders', {
@@ -681,6 +756,7 @@ export default function ProjectDetailPage() {
                                     </div>
                                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                                         <span className="badge purple">{fmt(po.totalAmount)}</span>
+                                        <button className="btn btn-ghost btn-sm" title="In phiếu mua hàng" onClick={() => printPO(po)}>🖨 In phiếu</button>
                                         {canApprove && <button className="btn btn-sm btn-info" onClick={() => approvePO(po.id)}>✓ Duyệt / Đặt hàng</button>}
                                         {canReceive && <button className="btn btn-sm btn-success" onClick={() => openGRN(po)}>📦 Nghiệm thu</button>}
                                     </div>
@@ -927,7 +1003,39 @@ export default function ProjectDetailPage() {
                         <div className="modal-header"><h3>🛒 Tạo đơn mua hàng</h3><button className="modal-close" onClick={() => setModal(null)}>×</button></div>
                         <div className="modal-body">
                             <div className="form-row">
-                                <div className="form-group" style={{ flex: 2 }}><label className="form-label">Nhà cung cấp *</label><input className="form-input" value={poForm.supplier} onChange={e => setPoForm({ ...poForm, supplier: e.target.value })} placeholder="VD: Đại lý VLXD Hồng Hà" autoFocus /></div>
+                                <div className="form-group" style={{ flex: 2 }}>
+                                    <label className="form-label">Nhà cung cấp *</label>
+                                    {poForm.supplierId ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--bg-hover)', borderRadius: 6, border: '1px solid var(--border-color)' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <strong style={{ fontSize: 13 }}>{poForm.supplier}</strong>
+                                                {(() => { const s = suppliers.find(x => x.id === poForm.supplierId); return s ? <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>{s.code} · {s.phone}</span> : null; })()}
+                                            </div>
+                                            <button type="button" style={{ fontSize: 11, color: 'var(--status-danger)', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => { setPoForm(f => ({ ...f, supplierId: '', supplier: '' })); setSupplierSearch(''); }}>✕ Đổi</button>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <input className="form-input" autoFocus placeholder="Tìm tên hoặc mã nhà cung cấp..." value={supplierSearch} onChange={e => setSupplierSearch(e.target.value)} />
+                                            {supplierSearch && (
+                                                <div style={{ border: '1px solid var(--border-color)', borderRadius: 6, maxHeight: 180, overflowY: 'auto', marginTop: 4, background: 'var(--bg-card)', position: 'relative', zIndex: 10 }}>
+                                                    {suppliers.filter(s => { const q = supplierSearch.toLowerCase(); return s.name?.toLowerCase().includes(q) || s.code?.toLowerCase().includes(q); }).slice(0, 15).map(s => (
+                                                        <div key={s.id} onClick={() => { setPoForm(f => ({ ...f, supplierId: s.id, supplier: s.name })); setSupplierSearch(s.name); }}
+                                                            style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border-color)', fontSize: 13 }}
+                                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                                            onMouseLeave={e => e.currentTarget.style.background = ''}>
+                                                            <span style={{ fontWeight: 600 }}>{s.name}</span>
+                                                            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>{s.code}</span>
+                                                            {s.phone && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>· {s.phone}</span>}
+                                                        </div>
+                                                    ))}
+                                                    {suppliers.filter(s => { const q = supplierSearch.toLowerCase(); return s.name?.toLowerCase().includes(q) || s.code?.toLowerCase().includes(q); }).length === 0 && (
+                                                        <div style={{ padding: '8px 12px', color: 'var(--text-muted)', fontSize: 13 }}>Không tìm thấy — kiểm tra danh sách NCC</div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="form-group"><label className="form-label">Ngày giao dự kiến</label><input type="date" className="form-input" value={poForm.deliveryDate} onChange={e => setPoForm({ ...poForm, deliveryDate: e.target.value })} /></div>
                             </div>
                             {/* Delivery type - core feature */}

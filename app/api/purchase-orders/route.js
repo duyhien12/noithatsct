@@ -24,6 +24,7 @@ export const GET = withAuth(async (request) => {
             include: {
                 items: true,
                 project: { select: { name: true, code: true, address: true } },
+                supplierRel: { select: { id: true, name: true, code: true, phone: true, address: true, taxCode: true, bankAccount: true, bankName: true } },
             },
             orderBy: { createdAt: 'desc' },
             skip,
@@ -59,11 +60,16 @@ export const POST = withAuth(async (request) => {
             deliveryAddress: poData.deliveryAddress || '',
             notes: poData.notes || '',
             projectId: poData.projectId || null,
+            supplierId: poData.supplierId || null,
             orderDate: poData.orderDate ? new Date(poData.orderDate) : new Date(),
             deliveryDate: poData.deliveryDate ? new Date(poData.deliveryDate) : null,
             items: cleanItems.length > 0 ? { create: cleanItems } : undefined,
         },
-        include: { items: true, project: { select: { name: true, code: true, address: true } } },
+        include: {
+            items: true,
+            project: { select: { name: true, code: true, address: true } },
+            supplierRel: { select: { id: true, name: true, code: true, phone: true, address: true, taxCode: true, bankAccount: true, bankName: true } },
+        },
     });
 
     // Link requisitions to this PO if provided

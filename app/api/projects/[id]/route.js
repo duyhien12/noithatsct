@@ -19,7 +19,7 @@ export const GET = withAuth(async (request, { params }) => {
             workOrders: { orderBy: { createdAt: 'desc' } },
             materialPlans: { include: { product: { select: { name: true, code: true, unit: true } } } },
             requisitions: { orderBy: { createdAt: 'desc' } },
-            purchaseOrders: { include: { items: true }, orderBy: { createdAt: 'desc' } },
+            purchaseOrders: { include: { items: true, supplierRel: { select: { name: true, phone: true, address: true, taxCode: true, bankAccount: true, bankName: true } } }, orderBy: { createdAt: 'desc' } },
             expenses: { orderBy: { date: 'desc' } },
             trackingLogs: { orderBy: { createdAt: 'desc' } },
             documents: { where: { parentDocumentId: null }, orderBy: { createdAt: 'desc' }, include: { folder: { select: { name: true } }, _count: { select: { versions: true } } } },
