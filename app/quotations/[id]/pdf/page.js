@@ -380,29 +380,51 @@ export default function QuotationPDFPage() {
 
                 /* Category header (main group) */
                 .mn-cat-main {
+                    background: linear-gradient(135deg, ${BRAND.blue} 0%, #1a327a 100%);
+                    color: #fff;
+                    padding: 0;
+                    border-radius: 8px 8px 0 0;
+                    overflow: hidden;
+                    display: flex;
+                    align-items: stretch;
+                }
+                .mn-cat-group-label {
                     background: ${BRAND.gold};
                     color: #fff;
-                    padding: 9px 14px;
+                    padding: 0 14px;
+                    font-size: 10px;
                     font-weight: 800;
-                    font-size: 12px;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
                     letter-spacing: 0.5px;
-                    border-radius: 8px 8px 0 0;
+                    display: flex;
+                    align-items: center;
+                    white-space: nowrap;
+                    min-width: 36px;
+                    justify-content: center;
                 }
-                .mn-cat-main .mn-space-name {
-                    color: ${BRAND.gold};
-                    background: transparent;
-                    border: none;
-                    padding: 4px 0;
-                    font-weight: 900;
-                    font-size: 12px;
-                    font-style: italic;
-                    letter-spacing: 1.5px;
+                .mn-cat-room-block {
+                    flex: 1;
+                    padding: 10px 18px;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    gap: 2px;
+                }
+                .mn-cat-room-subtitle {
+                    font-size: 8px;
+                    font-weight: 600;
                     text-transform: uppercase;
-                    text-shadow: 0 1px 3px rgba(0,0,0,0.15);
-                    border-bottom: 2px solid ${BRAND.gold};
+                    letter-spacing: 2px;
+                    color: ${BRAND.gold};
+                    opacity: 0.9;
+                }
+                .mn-space-name {
+                    font-weight: 900;
+                    font-size: 15px;
+                    letter-spacing: 1px;
+                    text-transform: uppercase;
+                    color: #ffffff;
+                    text-shadow: 0 1px 4px rgba(0,0,0,0.25);
+                    line-height: 1.2;
                 }
                 .mn-sub-total td {
                     background: ${BRAND.blue}08;
@@ -651,8 +673,11 @@ export default function QuotationPDFPage() {
                                         <div key={cat.id || ci}>
                                             {/* Main category + space name merged */}
                                             <div className="mn-cat-main" style={{ marginTop: (gi > 0 || ci > 0) ? 18 : 0 }}>
-                                                <span>#{gi + 1}.{ci + 1} {groupName}</span>
-                                                <span className="mn-space-name">{cat.name || `Khu vực ${ci + 1}`}</span>
+                                                <div className="mn-cat-group-label">#{gi + 1}.{ci + 1}</div>
+                                                <div className="mn-cat-room-block">
+                                                    <div className="mn-cat-room-subtitle">{groupName}</div>
+                                                    <div className="mn-space-name">{cat.name || `Khu vực ${ci + 1}`}</div>
+                                                </div>
                                             </div>
                                             <div className={cat.image ? 'mn-sub-layout' : ''}>
                                                 <div className="mn-sub-table-area">
