@@ -313,20 +313,21 @@ export default function QuotationPDFPage() {
                     border-spacing: 0;
                     font-size: 10.5px;
                     margin-bottom: 2px;
-                    border-radius: 8px;
+                    border-radius: 0 0 6px 6px;
                     overflow: hidden;
                     border: 1px solid ${BRAND.grey};
+                    border-top: none;
                 }
                 .mn-table th {
-                    background: ${BRAND.blue};
-                    color: #fff;
+                    background: #e8ecf4;
+                    color: ${BRAND.blue};
                     font-weight: 700;
                     padding: 8px 6px;
                     font-size: 9px;
                     text-transform: uppercase;
                     letter-spacing: 0.3px;
                     white-space: nowrap;
-                    border-bottom: 1px solid ${BRAND.blue};
+                    border-bottom: 2px solid ${BRAND.blue}30;
                 }
                 .mn-table td {
                     border-bottom: 1px solid ${BRAND.grey};
