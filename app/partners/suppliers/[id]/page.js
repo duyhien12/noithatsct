@@ -1,13 +1,28 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useRole } from '@/contexts/RoleContext';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const FINANCE_ROLES = ['giam_doc', 'pho_gd', 'ke_toan'];
-
 const SUPPLIER_TYPES = ['Vật tư xây dựng', 'Thiết bị vệ sinh', 'Thiết bị điện', 'Nội thất', 'Sắt thép', 'Gạch ốp lát', 'Sơn', 'Nhôm kính', 'Cơ khí', 'Khác'];
+const DOC_CATEGORIES = ['Hợp đồng', 'Báo giá', 'Hóa đơn', 'Biên bản', 'Chứng từ', 'Khác'];
+const FILE_ICONS = { pdf: '📄', doc: '📝', docx: '📝', xls: '📊', xlsx: '📊', jpg: '🖼️', jpeg: '🖼️', png: '🖼️', zip: '📦', rar: '📦', default: '📎' };
+const fileIcon = (name = '') => FILE_ICONS[name.split('.').pop()?.toLowerCase()] || FILE_ICONS.default;
+
+const AGING_ORDER = ['0–30 ngày', '31–60 ngày', '61–90 ngày', '>90 ngày'];
+const AGING_COLORS = ['var(--status-success)', 'var(--accent-primary)', 'var(--status-warning)', 'var(--status-danger)'];
+
+function getAgingBucket(po) {
+    const debt = (po.totalAmount || 0) - (po.paidAmount || 0);
+    if (debt <= 0) return null;
+    const days = Math.floor((Date.now() - new Date(po.orderDate || po.createdAt).getTime()) / 86400000);
+    if (days <= 30) return '0–30 ngày';
+    if (days <= 60) return '31–60 ngày';
+    if (days <= 90) return '61–90 ngày';
+    return '>90 ngày';
+}
 
 export default function SupplierDetailPage() {
     const { id } = useParams();
@@ -21,6 +36,14 @@ export default function SupplierDetailPage() {
     const [editing, setEditing] = useState(false);
     const [form, setForm] = useState({});
     const [saving, setSaving] = useState(false);
+
+    const [docs, setDocs] = useState([]);
+    const [docsLoading, setDocsLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [docName, setDocName] = useState('');
+    const [docCategory, setDocCategory] = useState('Khác');
+    const [docNotes, setDocNotes] = useState('');
+    const fileInputRef = useRef();
 
     const fetchSupplier = async () => {
         setLoading(true);
@@ -39,7 +62,15 @@ export default function SupplierDetailPage() {
         setLoading(false);
     };
 
+    const fetchDocs = async () => {
+        setDocsLoading(true);
+        const res = await fetch(`/api/suppliers/${id}/documents`);
+        if (res.ok) setDocs(await res.json());
+        setDocsLoading(false);
+    };
+
     useEffect(() => { fetchSupplier(); }, [id]);
+    useEffect(() => { if (tab === 'docs') fetchDocs(); }, [tab]);
 
     const handleSave = async () => {
         setSaving(true);
@@ -49,31 +80,57 @@ export default function SupplierDetailPage() {
         fetchSupplier();
     };
 
-    // Build ledger from purchaseOrders
+    const handleUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!docName.trim()) { alert('Nhập tên tài liệu!'); return; }
+        setUploading(true);
+        try {
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('type', 'documents');
+            const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
+            if (!upRes.ok) { alert('Upload thất bại'); return; }
+            const { url } = await upRes.json();
+            await fetch(`/api/suppliers/${id}/documents`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: docName.trim(), fileName: file.name, category: docCategory, fileSize: file.size, fileUrl: url, mimeType: file.type, notes: docNotes }),
+            });
+            setDocName(''); setDocNotes(''); setDocCategory('Khác');
+            fileInputRef.current.value = '';
+            fetchDocs();
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleDeleteDoc = async (docId) => {
+        if (!confirm('Xóa tài liệu này?')) return;
+        await fetch(`/api/partner-documents/${docId}`, { method: 'DELETE' });
+        setDocs(prev => prev.filter(d => d.id !== docId));
+    };
+
     const buildLedger = () => {
-        if (!supplier?.purchaseOrders?.length) return { rows: [], totalDebt: 0 };
+        if (!supplier?.purchaseOrders?.length) return { rows: [], totalDebt: 0, aging: {} };
         const rows = [];
         let balance = 0;
         for (const po of supplier.purchaseOrders) {
-            // Phát sinh nợ
             balance += po.totalAmount || 0;
-            rows.push({
-                date: po.createdAt, desc: `${po.code} — ${po.project?.name || 'Không rõ DA'}`,
-                debit: po.totalAmount || 0, credit: 0, balance,
-            });
-            // Thanh toán
+            rows.push({ date: po.createdAt, desc: `${po.code} — ${po.project?.name || 'Không rõ DA'}`, debit: po.totalAmount || 0, credit: 0, balance });
             if ((po.paidAmount || 0) > 0) {
                 balance -= po.paidAmount;
-                rows.push({
-                    date: po.updatedAt, desc: `Thanh toán — PO ${po.code}`,
-                    debit: 0, credit: po.paidAmount, balance,
-                });
+                rows.push({ date: po.updatedAt, desc: `Thanh toán — PO ${po.code}`, debit: 0, credit: po.paidAmount, balance });
             }
         }
-        return { rows, totalDebt: balance };
+        const aging = {};
+        for (const po of supplier.purchaseOrders) {
+            const bucket = getAgingBucket(po);
+            if (bucket) aging[bucket] = (aging[bucket] || 0) + (po.totalAmount || 0) - (po.paidAmount || 0);
+        }
+        return { rows, totalDebt: balance, aging };
     };
 
-    // Distinct projects from POs
     const getProjects = () => {
         if (!supplier?.purchaseOrders?.length) return [];
         const map = {};
@@ -86,7 +143,7 @@ export default function SupplierDetailPage() {
     if (loading) return <div style={{ padding: 40, textAlign: 'center' }}>Đang tải...</div>;
     if (!supplier) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--status-danger)' }}>Không tìm thấy nhà cung cấp</div>;
 
-    const { rows: ledgerRows, totalDebt } = buildLedger();
+    const { rows: ledgerRows, totalDebt, aging } = buildLedger();
     const projects = getProjects();
     const totalPurchase = supplier.purchaseOrders?.reduce((s, p) => s + (p.totalAmount || 0), 0) || 0;
     const totalPaid = supplier.purchaseOrders?.reduce((s, p) => s + (p.paidAmount || 0), 0) || 0;
@@ -222,36 +279,49 @@ export default function SupplierDetailPage() {
 
                 {/* Tab: Sổ công nợ */}
                 {tab === 'ledger' && (
-                    <div style={{ overflowX: 'auto' }}>
-                        {ledgerRows.length === 0 ? (
-                            <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Chưa có giao dịch nào</div>
-                        ) : (
-                            <table className="data-table" style={{ margin: 0 }}>
-                                <thead><tr>
-                                    <th>Ngày</th><th>Diễn giải</th>
-                                    <th style={{ textAlign: 'right' }}>+Phát sinh</th>
-                                    <th style={{ textAlign: 'right' }}>-Thanh toán</th>
-                                    <th style={{ textAlign: 'right' }}>Tồn nợ</th>
-                                </tr></thead>
-                                <tbody>
-                                    {ledgerRows.map((row, i) => (
-                                        <tr key={i}>
-                                            <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(row.date)}</td>
-                                            <td style={{ fontSize: 13 }}>{row.desc}</td>
-                                            <td style={{ textAlign: 'right', fontSize: 12, color: row.debit > 0 ? 'var(--status-danger)' : 'var(--text-muted)' }}>{row.debit > 0 ? fmt(row.debit) : '—'}</td>
-                                            <td style={{ textAlign: 'right', fontSize: 12, color: row.credit > 0 ? 'var(--status-success)' : 'var(--text-muted)' }}>{row.credit > 0 ? fmt(row.credit) : '—'}</td>
-                                            <td style={{ textAlign: 'right', fontSize: 12, fontWeight: 600, color: row.balance > 0 ? 'var(--status-danger)' : 'var(--text-muted)' }}>{fmt(row.balance)}</td>
-                                        </tr>
-                                    ))}
-                                    <tr style={{ background: 'var(--bg-secondary)', fontWeight: 700 }}>
-                                        <td colSpan={2} style={{ textAlign: 'right', fontSize: 13 }}>Tổng tồn nợ</td>
-                                        <td style={{ textAlign: 'right', fontSize: 13, color: 'var(--status-danger)' }}>{fmt(totalPurchase)}</td>
-                                        <td style={{ textAlign: 'right', fontSize: 13, color: 'var(--status-success)' }}>{fmt(totalPaid)}</td>
-                                        <td style={{ textAlign: 'right', fontSize: 13, color: totalDebt > 0 ? 'var(--status-danger)' : 'var(--text-muted)' }}>{fmt(totalDebt)}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                    <div>
+                        {Object.keys(aging).length > 0 && (
+                            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Phân kỳ tồn nợ:</span>
+                                {AGING_ORDER.filter(b => aging[b]).map(b => (
+                                    <div key={b} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{b}</div>
+                                        <div style={{ fontWeight: 700, fontSize: 13, color: AGING_COLORS[AGING_ORDER.indexOf(b)] }}>{fmt(aging[b])}</div>
+                                    </div>
+                                ))}
+                            </div>
                         )}
+                        <div style={{ overflowX: 'auto' }}>
+                            {ledgerRows.length === 0 ? (
+                                <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Chưa có giao dịch nào</div>
+                            ) : (
+                                <table className="data-table" style={{ margin: 0 }}>
+                                    <thead><tr>
+                                        <th>Ngày</th><th>Diễn giải</th>
+                                        <th style={{ textAlign: 'right' }}>+Phát sinh</th>
+                                        <th style={{ textAlign: 'right' }}>-Thanh toán</th>
+                                        <th style={{ textAlign: 'right' }}>Tồn nợ</th>
+                                    </tr></thead>
+                                    <tbody>
+                                        {ledgerRows.map((row, i) => (
+                                            <tr key={i}>
+                                                <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(row.date)}</td>
+                                                <td style={{ fontSize: 13 }}>{row.desc}</td>
+                                                <td style={{ textAlign: 'right', fontSize: 12, color: row.debit > 0 ? 'var(--status-danger)' : 'var(--text-muted)' }}>{row.debit > 0 ? fmt(row.debit) : '—'}</td>
+                                                <td style={{ textAlign: 'right', fontSize: 12, color: row.credit > 0 ? 'var(--status-success)' : 'var(--text-muted)' }}>{row.credit > 0 ? fmt(row.credit) : '—'}</td>
+                                                <td style={{ textAlign: 'right', fontSize: 12, fontWeight: 600, color: row.balance > 0 ? 'var(--status-danger)' : 'var(--text-muted)' }}>{fmt(row.balance)}</td>
+                                            </tr>
+                                        ))}
+                                        <tr style={{ background: 'var(--bg-secondary)', fontWeight: 700 }}>
+                                            <td colSpan={2} style={{ textAlign: 'right', fontSize: 13 }}>Tổng tồn nợ</td>
+                                            <td style={{ textAlign: 'right', fontSize: 13, color: 'var(--status-danger)' }}>{fmt(totalPurchase)}</td>
+                                            <td style={{ textAlign: 'right', fontSize: 13, color: 'var(--status-success)' }}>{fmt(totalPaid)}</td>
+                                            <td style={{ textAlign: 'right', fontSize: 13, color: totalDebt > 0 ? 'var(--status-danger)' : 'var(--text-muted)' }}>{fmt(totalDebt)}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -278,10 +348,62 @@ export default function SupplierDetailPage() {
 
                 {/* Tab: Tài liệu */}
                 {tab === 'docs' && (
-                    <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-                        <div style={{ fontSize: 40, marginBottom: 12 }}>📁</div>
-                        <div style={{ fontWeight: 600, marginBottom: 6 }}>Tài liệu đính kèm</div>
-                        <div style={{ fontSize: 13 }}>Phase B: Lưu file báo giá, hợp đồng nguyên tắc và tài liệu liên quan</div>
+                    <div style={{ padding: 20 }}>
+                        <div style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: 16, marginBottom: 20, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                            <div style={{ flex: '1 1 200px' }}>
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>TÊN TÀI LIỆU</div>
+                                <input style={iS} placeholder="Nhập tên tài liệu..." value={docName} onChange={e => setDocName(e.target.value)} />
+                            </div>
+                            <div style={{ flex: '0 1 150px' }}>
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>DANH MỤC</div>
+                                <select style={iS} value={docCategory} onChange={e => setDocCategory(e.target.value)}>
+                                    {DOC_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                                </select>
+                            </div>
+                            <div style={{ flex: '1 1 160px' }}>
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>GHI CHÚ</div>
+                                <input style={iS} placeholder="Ghi chú (tuỳ chọn)" value={docNotes} onChange={e => setDocNotes(e.target.value)} />
+                            </div>
+                            <div>
+                                <input ref={fileInputRef} type="file" style={{ display: 'none' }} onChange={handleUpload}
+                                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip,.rar,.dwg,.dxf" />
+                                <button className="btn btn-primary" onClick={() => fileInputRef.current?.click()} disabled={uploading || !docName.trim()}>
+                                    {uploading ? 'Đang tải...' : '📎 Chọn file & Upload'}
+                                </button>
+                            </div>
+                        </div>
+                        {docsLoading ? (
+                            <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-muted)' }}>Đang tải...</div>
+                        ) : docs.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                                <div style={{ fontSize: 36, marginBottom: 8 }}>📁</div>
+                                <div>Chưa có tài liệu nào. Upload file đầu tiên!</div>
+                            </div>
+                        ) : (
+                            <table className="data-table" style={{ margin: 0 }}>
+                                <thead><tr>
+                                    <th>Tên tài liệu</th><th>Danh mục</th><th>Kích thước</th><th>Ngày tải</th><th>Ghi chú</th><th></th>
+                                </tr></thead>
+                                <tbody>
+                                    {docs.map(doc => (
+                                        <tr key={doc.id}>
+                                            <td>
+                                                <a href={doc.fileUrl} target="_blank" rel="noreferrer"
+                                                    style={{ color: 'var(--accent-primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                                                    <span>{fileIcon(doc.fileName)}</span><span>{doc.name}</span>
+                                                </a>
+                                                {doc.fileName !== doc.name && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{doc.fileName}</div>}
+                                            </td>
+                                            <td><span className="badge muted" style={{ fontSize: 11 }}>{doc.category}</span></td>
+                                            <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{doc.fileSize > 0 ? (doc.fileSize > 1048576 ? `${(doc.fileSize / 1048576).toFixed(1)} MB` : `${Math.round(doc.fileSize / 1024)} KB`) : '—'}</td>
+                                            <td style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fmtDate(doc.createdAt)}</td>
+                                            <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{doc.notes || '—'}</td>
+                                            <td><button className="btn btn-ghost btn-sm" style={{ color: 'var(--status-danger)' }} onClick={() => handleDeleteDoc(doc.id)}>Xóa</button></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
                 )}
             </div>

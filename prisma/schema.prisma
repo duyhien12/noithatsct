@@ -302,6 +302,7 @@ model Contractor {
   isBlacklisted Boolean  @default(false)
   creditLimit   Float    @default(0)
   payments      ContractorPayment[]
+  documents     ProjectDocument[]
   deletedAt     DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -359,6 +360,7 @@ model Supplier {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   purchaseOrders PurchaseOrder[]
+  documents      ProjectDocument[]
 }
 
 model ProjectMilestone {
@@ -598,13 +600,19 @@ model ProjectDocument {
   parentDocumentId String?
   parentDoc   ProjectDocument? @relation("DocVersions", fields: [parentDocumentId], references: [id])
   versions    ProjectDocument[] @relation("DocVersions")
-  customerId  String?
-  customer    Customer? @relation(fields: [customerId], references: [id])
-  projectId   String?
-  project     Project?  @relation(fields: [projectId], references: [id])
-  createdAt   DateTime @default(now())
+  customerId   String?
+  customer     Customer?  @relation(fields: [customerId], references: [id])
+  projectId    String?
+  project      Project?   @relation(fields: [projectId], references: [id])
+  supplierId   String?
+  supplier     Supplier?  @relation(fields: [supplierId], references: [id])
+  contractorId String?
+  contractor   Contractor? @relation(fields: [contractorId], references: [id])
+  createdAt    DateTime @default(now())
   @@index([projectId])
   @@index([customerId])
+  @@index([supplierId])
+  @@index([contractorId])
 }
 
 model DocumentFolder {
