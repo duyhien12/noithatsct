@@ -10,7 +10,7 @@ const SUPPLY_TYPES = ['Mua ngoài', 'Sản xuất nội bộ', 'Dịch vụ'];
 const SUPPLY_BADGE = { 'Sản xuất nội bộ': 'info', 'Mua ngoài': 'success', 'Dịch vụ': 'purple', 'Mua thương mại': 'success', 'Vật tư lưu kho': 'success' };
 const normalizeSupply = (t) => (t === 'Mua thương mại' || t === 'Vật tư lưu kho') ? 'Mua ngoài' : (t || 'Mua ngoài');
 const CORE_BOARD_TYPES = ['MDF thường', 'MDF chống ẩm', 'MFC', 'Gỗ tự nhiên', 'Nhựa', 'Kính', 'Khác'];
-import { PRODUCT_CATS } from '@/lib/quotation-constants';
+import { CUSTOM_FURNITURE_CAT } from '@/lib/quotation-constants';
 
 export default function ProductDetailPage() {
     const { id } = useParams();
@@ -40,6 +40,15 @@ export default function ProductDetailPage() {
     const [showOptionForm, setShowOptionForm] = useState({});
     const [variantTemplates, setVariantTemplates] = useState([]);
     const [showTemplateMenu, setShowTemplateMenu] = useState(false);
+
+    // Dynamic categories from DB
+    const [allCats, setAllCats] = useState([CUSTOM_FURNITURE_CAT]);
+    useEffect(() => {
+        fetch('/api/products?limit=1000').then(r => r.json()).then(d => {
+            const cats = [...new Set((d.data || []).map(p => p.category).filter(Boolean)), CUSTOM_FURNITURE_CAT].sort();
+            setAllCats([...new Set(cats)]);
+        }).catch(() => { });
+    }, []);
 
     const fetchProduct = async () => {
         const res = await fetch(`/api/products/${id}`);
@@ -225,7 +234,7 @@ export default function ProductDetailPage() {
                             <div className="form-group">
                                 <label className="form-label">Danh mục</label>
                                 <select className="form-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                                    {PRODUCT_CATS.map(c => <option key={c}>{c}</option>)}
+                                    {allCats.map(c => <option key={c}>{c}</option>)}
                                 </select>
                             </div>
                             <div className="form-group">

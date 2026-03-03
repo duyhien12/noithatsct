@@ -16,7 +16,7 @@ const isService = (p) => normalizeSupply(p.supplyType) === 'Dịch vụ';
 const stockStatus = (p) => isService(p) ? 'service' : p.stock === 0 ? 'out' : (p.minStock > 0 && p.stock <= p.minStock) ? 'low' : 'ok';
 
 const BRANDS = [{ n: '', logo: '' }, { n: 'Dulux', logo: 'https://logo.clearbit.com/dulux.com' }, { n: 'Jotun', logo: 'https://logo.clearbit.com/jotun.com' }, { n: 'TOA', logo: 'https://logo.clearbit.com/toagroup.com' }, { n: 'Nippon', logo: 'https://logo.clearbit.com/nipponpaint.com' }, { n: 'Hafele', logo: 'https://logo.clearbit.com/hafele.com' }, { n: 'Blum', logo: 'https://logo.clearbit.com/blum.com' }, { n: 'Hettich', logo: 'https://logo.clearbit.com/hettich.com' }, { n: 'Panasonic', logo: 'https://logo.clearbit.com/panasonic.com' }, { n: 'Daikin', logo: 'https://logo.clearbit.com/daikin.com' }, { n: 'Mitsubishi', logo: 'https://logo.clearbit.com/mitsubishielectric.com' }, { n: 'Samsung', logo: 'https://logo.clearbit.com/samsung.com' }, { n: 'LG', logo: 'https://logo.clearbit.com/lg.com' }, { n: 'Rossi', logo: 'https://logo.clearbit.com/rossigroup.com.vn' }, { n: 'Caesar', logo: 'https://logo.clearbit.com/caesar.com.tw' }, { n: 'Toto', logo: 'https://logo.clearbit.com/toto.com' }, { n: 'Grohe', logo: 'https://logo.clearbit.com/grohe.com' }, { n: 'HMF', logo: '' }, { n: 'AA', logo: '' }, { n: 'Hoa Phat', logo: 'https://logo.clearbit.com/hoaphat.com.vn' }];
-import { PRODUCT_CATS } from '@/lib/quotation-constants';
+import { CUSTOM_FURNITURE_CAT } from '@/lib/quotation-constants';
 
 // Editable cell
 function EditCell({ value, onChange, type = 'text', style = {}, options }) {
@@ -118,8 +118,8 @@ export default function ProductsPage() {
     const [newCatName, setNewCatName] = useState('');
     // Pill bar: only categories that have products (or user-added extra cats)
     const pCats = [...new Set([...products.map(p => p.category).filter(Boolean), ...extraCats])].sort();
-    // Dropdown: full list for add/edit forms
-    const allCats = [...new Set([...PRODUCT_CATS, ...pCats])].sort();
+    // Dropdown: actual DB categories + ensure 'Nội thất' always exists
+    const allCats = [...new Set([CUSTOM_FURNITURE_CAT, ...pCats])].sort();
     const filteredP = products.filter(p =>
         (!filterCatP || p.category === filterCatP) &&
         (!filterSupplyType || normalizeSupply(p.supplyType) === filterSupplyType) &&
