@@ -797,7 +797,7 @@ export default function ProductsPage() {
             {/* Import preview modal */}
             {importPreview && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 24, maxWidth: 960, width: '95%', maxHeight: '80vh', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0 20px 60px rgba(0,0,0,.4)' }}>
+                    <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 24, maxWidth: 1100, width: '95%', maxHeight: '80vh', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '0 20px 60px rgba(0,0,0,.4)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h3 style={{ margin: 0 }}>📥 Preview Import — {importPreview.length} sản phẩm</h3>
                             <button className="btn btn-ghost btn-sm" onClick={() => setImportPreview(null)}>✕</button>
