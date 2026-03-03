@@ -837,11 +837,10 @@ export default function QuotationPDFPage() {
                         <div className="mn-sum-box">
                             {q.directCost > 0 && <div className="mn-sum-row"><span>Chi phí trực tiếp</span><span>{fmt(q.directCost)}</span></div>}
                             {q.managementFee > 0 && <div className="mn-sum-row"><span>Phí quản lý ({q.managementFeeRate}%)</span><span>{fmt(q.managementFee)}</span></div>}
-                            {q.designFee > 0 && <div className="mn-sum-row"><span>Phí thiết kế</span><span>{fmt(q.designFee)}</span></div>}
-                            {q.otherFee > 0 && <div className="mn-sum-row"><span>Chi phí khác</span><span>{fmt(q.otherFee)}</span></div>}
+                            {q.otherFee > 0 && <div className="mn-sum-row"><span>Vận chuyển, lắp đặt</span><span>{fmt(q.otherFee)}</span></div>}
                             <div className="mn-sum-row"><span>Tổng trước thuế</span><span style={{ fontWeight: 700 }}>{fmt(q.total)}</span></div>
                             {q.discount > 0 && <div className="mn-sum-row discount"><span>Chiết khấu ({q.discount}%)</span><span>-{fmt(q.total * q.discount / 100)}</span></div>}
-                            <div className="mn-sum-row"><span>VAT ({q.vat}%)</span><span>{fmt(vatAmount)}</span></div>
+                            <div className="mn-sum-row"><span>VAT ({q.vat}%) <span style={{ fontSize: 8, opacity: 0.6, fontStyle: 'italic' }}>(Đơn giá đã bao gồm VAT)</span></span><span>{fmt(vatAmount)}</span></div>
                             <div className="mn-sum-row total"><span>TỔNG GIÁ TRỊ</span><span>{fmt(q.grandTotal)}</span></div>
                         </div>
                     </div>
