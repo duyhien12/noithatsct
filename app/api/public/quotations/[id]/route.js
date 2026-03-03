@@ -11,10 +11,10 @@ export const GET = withAuth(async (request, { params }) => {
             customer: { select: { name: true, phone: true, email: true, address: true } },
             project: { select: { name: true, address: true, code: true } },
             categories: {
-                include: { items: { orderBy: { order: 'asc' } } },
+                include: { items: { where: { parentItemId: null }, orderBy: { order: 'asc' }, include: { subItems: { orderBy: { order: 'asc' } } } } },
                 orderBy: { order: 'asc' },
             },
-            items: { orderBy: { order: 'asc' } },
+            items: { where: { parentItemId: null }, orderBy: { order: 'asc' }, include: { subItems: { orderBy: { order: 'asc' } } } },
         },
     });
     if (!quotation) return NextResponse.json({ error: 'Báo giá không tồn tại' }, { status: 404 });

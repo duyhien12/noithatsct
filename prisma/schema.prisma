@@ -199,6 +199,7 @@ model QuotationItem {
   order        Int                 @default(0)
   unit         String              @default("")
   quantity     Float               @default(0)
+  volume       Float               @default(0)
   mainMaterial Float               @default(0)
   auxMaterial  Float               @default(0)
   labor        Float               @default(0)
@@ -211,11 +212,15 @@ model QuotationItem {
   image        String              @default("")
   productId    String?
   product      Product?            @relation(fields: [productId], references: [id])
+  parentItemId String?
+  parentItem   QuotationItem?      @relation("SubItems", fields: [parentItemId], references: [id], onDelete: Cascade)
+  subItems     QuotationItem[]     @relation("SubItems")
   quotationId  String
   quotation    Quotation           @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   categoryId   String?
   category     QuotationCategory?  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   @@index([quotationId])
+  @@index([parentItemId])
 }
 
 model Warehouse {

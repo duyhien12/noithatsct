@@ -85,21 +85,34 @@ export default function useQuotationForm() {
     const toggleNode = (key) => setExpandedNodes(prev => ({ ...prev, [key]: !prev[key] }));
 
     // ========================================
-    // RECALC: Calculate all totals
+    // RECALC: Calculate all totals (volume-based)
     // ========================================
+    const calcVolume = (item) => {
+        const l = Number(item.length) || 0;
+        const w = Number(item.width) || 0;
+        const h = Number(item.height) || 0;
+        const qty = Number(item.quantity) || 0;
+        const hasDim = l > 0 || w > 0 || h > 0;
+        return hasDim ? (l || 1) * (w || 1) * (h || 1) * qty : qty;
+    };
+
     const recalc = useCallback((mcs) => {
         return mcs.map(mc => {
             const subs = mc.subcategories.map(sub => {
                 const items = sub.items.map(item => {
-                    const l = Number(item.length) || 0;
-                    const w = Number(item.width) || 0;
-                    const h = Number(item.height) || 0;
-                    let qty = Number(item.quantity) || 0;
-                    if (l && w) qty = l * w * (h || 1);
+                    const volume = calcVolume(item);
                     const unitPrice = Number(item.unitPrice) || 0;
-                    return { ...item, quantity: qty, amount: qty * unitPrice };
+                    const amount = volume * unitPrice;
+                    // Sub-items
+                    const subItems = (item.subItems || []).map(si => {
+                        const sv = calcVolume(si);
+                        const sp = Number(si.unitPrice) || 0;
+                        return { ...si, volume: sv, amount: sv * sp };
+                    });
+                    const subTotal = subItems.reduce((s, si) => s + si.amount, 0);
+                    return { ...item, volume, amount, subItems };
                 });
-                const subtotal = items.reduce((s, i) => s + i.amount, 0);
+                const subtotal = items.reduce((s, i) => s + i.amount + (i.subItems || []).reduce((ss, si) => ss + si.amount, 0), 0);
                 return { ...sub, items, subtotal };
             });
             const subtotal = subs.reduce((s, sub) => s + sub.subtotal, 0);
@@ -233,7 +246,7 @@ export default function useQuotationForm() {
         mainMaterial: libItem.mainMaterial || 0, auxMaterial: libItem.auxMaterial || 0,
         labor: libItem.labor || 0, unitPrice: libItem.unitPrice || 0, amount: 0,
         description: libItem.description || '', image: libItem.image || '',
-        length: 0, width: 0, height: 0,
+        length: 0, width: 0, height: 0, volume: 0, subItems: [],
     });
 
     const prodToQuotationItem = (prod) => ({
@@ -243,8 +256,50 @@ export default function useQuotationForm() {
         unitPrice: prod.salePrice || 0, amount: 0,
         description: `${prod.brand ? prod.brand + ' - ' : ''}${prod.description || ''}`.trim(),
         image: prod.image || '', length: 0, width: 0, height: 0,
-        productId: prod.id || null,
+        productId: prod.id || null, volume: 0, subItems: [],
     });
+
+    // ========================================
+    // SUB-ITEM handlers (phụ kiện đi kèm)
+    // ========================================
+    const addSubItem = (mi, si, ii) => {
+        const mcs = [...mainCategories];
+        const item = { ...mcs[mi].subcategories[si].items[ii] };
+        item.subItems = [...(item.subItems || []), { ...emptyItem(), _key: Date.now() + Math.random() }];
+        const newItems = [...mcs[mi].subcategories[si].items];
+        newItems[ii] = item;
+        mcs[mi] = { ...mcs[mi], subcategories: mcs[mi].subcategories.map((s, i) => i === si ? { ...s, items: newItems } : s) };
+        setMainCategories(mcs);
+    };
+
+    const removeSubItem = (mi, si, ii, sii) => {
+        const mcs = [...mainCategories];
+        const item = { ...mcs[mi].subcategories[si].items[ii] };
+        item.subItems = (item.subItems || []).filter((_, j) => j !== sii);
+        const newItems = [...mcs[mi].subcategories[si].items];
+        newItems[ii] = item;
+        mcs[mi] = { ...mcs[mi], subcategories: mcs[mi].subcategories.map((s, i) => i === si ? { ...s, items: newItems } : s) };
+        setMainCategories(recalc(mcs));
+    };
+
+    const updateSubItem = (mi, si, ii, sii, field, value) => {
+        const mcs = [...mainCategories];
+        const item = { ...mcs[mi].subcategories[si].items[ii] };
+        const subItems = [...(item.subItems || [])];
+        const sub = { ...subItems[sii] };
+        if (['quantity', 'unitPrice', 'length', 'width', 'height', 'mainMaterial', 'auxMaterial', 'labor'].includes(field)) {
+            sub[field] = parseFloat(value) || 0;
+            if (['mainMaterial', 'auxMaterial', 'labor'].includes(field)) {
+                sub.unitPrice = (sub.mainMaterial || 0) + (sub.auxMaterial || 0) + (sub.labor || 0);
+            }
+        } else { sub[field] = value; }
+        subItems[sii] = sub;
+        item.subItems = subItems;
+        const newItems = [...mcs[mi].subcategories[si].items];
+        newItems[ii] = item;
+        mcs[mi] = { ...mcs[mi], subcategories: mcs[mi].subcategories.map((s, i) => i === si ? { ...s, items: newItems } : s) };
+        setMainCategories(recalc(mcs));
+    };
 
     // ========================================
     // Tree add handlers (single)
@@ -467,10 +522,11 @@ export default function useQuotationForm() {
                     group: mc.name,
                     image: sub.image || '',
                     subtotal: sub.subtotal || 0,
-                    items: sub.items.filter(i => i.name.trim() !== '').map(item => ({
+                    items: sub.items.filter(i => i.name.trim() !== '').map((item, idx) => ({
                         name: item.name,
                         unit: item.unit,
                         quantity: Number(item.quantity) || 0,
+                        volume: Number(item.volume) || 0,
                         mainMaterial: Number(item.mainMaterial) || 0,
                         auxMaterial: Number(item.auxMaterial) || 0,
                         labor: Number(item.labor) || 0,
@@ -482,6 +538,13 @@ export default function useQuotationForm() {
                         height: Number(item.height) || 0,
                         image: item.image || '',
                         productId: item.productId || null,
+                        subItems: (item.subItems || []).filter(si => si.name.trim() !== '').map(si => ({
+                            name: si.name, unit: si.unit,
+                            quantity: Number(si.quantity) || 0, volume: Number(si.volume) || 0,
+                            unitPrice: Number(si.unitPrice) || 0, amount: Number(si.amount) || 0,
+                            description: si.description || '', image: si.image || '',
+                            length: Number(si.length) || 0, width: Number(si.width) || 0, height: Number(si.height) || 0,
+                        })),
                     })),
                 });
             });
@@ -513,6 +576,8 @@ export default function useQuotationForm() {
         addSubcategory, removeSubcategory, updateSubcategoryName, updateSubcategoryImage,
         // Item handlers
         addItem, removeItem, updateItem,
+        // Sub-item handlers
+        addSubItem, removeSubItem, updateSubItem,
         // Tree state
         treeSearch, setTreeSearch,
         expandedNodes, toggleNode,

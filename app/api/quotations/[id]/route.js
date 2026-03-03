@@ -14,10 +14,10 @@ export const GET = withAuth(async (request, { params }) => {
             customer: true,
             project: true,
             categories: {
-                include: { items: true },
+                include: { items: { where: { parentItemId: null }, orderBy: { order: 'asc' }, include: { subItems: { orderBy: { order: 'asc' } } } } },
                 orderBy: { order: 'asc' },
             },
-            items: true,
+            items: { where: { parentItemId: null }, include: { subItems: true } },
             children: { select: { id: true, code: true, status: true }, where: { deletedAt: null } },
         },
     });
@@ -82,27 +82,53 @@ export const PUT = withAuth(async (request, { params }) => {
                     },
                 });
                 if (cat.items && cat.items.length > 0) {
-                    await tx.quotationItem.createMany({
-                        data: cat.items.map((item, ii) => ({
-                            name: item.name || '',
-                            order: item.order ?? ii,
-                            unit: item.unit || '',
-                            quantity: Number(item.quantity) || 0,
-                            mainMaterial: Number(item.mainMaterial) || 0,
-                            auxMaterial: Number(item.auxMaterial) || 0,
-                            labor: Number(item.labor) || 0,
-                            unitPrice: Number(item.unitPrice) || 0,
-                            amount: Number(item.amount) || 0,
-                            description: item.description || '',
-                            length: Number(item.length) || 0,
-                            width: Number(item.width) || 0,
-                            height: Number(item.height) || 0,
-                            image: item.image || '',
-                            productId: item.productId || null,
-                            quotationId: id,
-                            categoryId: created.id,
-                        })),
-                    });
+                    for (let ii = 0; ii < cat.items.length; ii++) {
+                        const item = cat.items[ii];
+                        const parentItem = await tx.quotationItem.create({
+                            data: {
+                                name: item.name || '',
+                                order: item.order ?? ii,
+                                unit: item.unit || '',
+                                quantity: Number(item.quantity) || 0,
+                                volume: Number(item.volume) || 0,
+                                mainMaterial: Number(item.mainMaterial) || 0,
+                                auxMaterial: Number(item.auxMaterial) || 0,
+                                labor: Number(item.labor) || 0,
+                                unitPrice: Number(item.unitPrice) || 0,
+                                amount: Number(item.amount) || 0,
+                                description: item.description || '',
+                                length: Number(item.length) || 0,
+                                width: Number(item.width) || 0,
+                                height: Number(item.height) || 0,
+                                image: item.image || '',
+                                productId: item.productId || null,
+                                quotationId: id,
+                                categoryId: created.id,
+                            },
+                        });
+                        // Create sub-items
+                        if (item.subItems && item.subItems.length > 0) {
+                            await tx.quotationItem.createMany({
+                                data: item.subItems.map((si, sii) => ({
+                                    name: si.name || '',
+                                    order: sii,
+                                    unit: si.unit || '',
+                                    quantity: Number(si.quantity) || 0,
+                                    volume: Number(si.volume) || 0,
+                                    unitPrice: Number(si.unitPrice) || 0,
+                                    amount: Number(si.amount) || 0,
+                                    description: si.description || '',
+                                    length: Number(si.length) || 0,
+                                    width: Number(si.width) || 0,
+                                    height: Number(si.height) || 0,
+                                    image: si.image || '',
+                                    parentItemId: parentItem.id,
+                                    quotationId: id,
+                                    categoryId: created.id,
+                                })),
+                            });
+                        }
+                    }
                 }
             }
         }

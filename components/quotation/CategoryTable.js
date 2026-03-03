@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { fmt, UNIT_OPTIONS } from '@/lib/quotation-constants';
 import { apiFetch } from '@/lib/fetchClient';
 
@@ -69,7 +69,7 @@ function InlineVariants({ productId, basePrice, onPriceChange, onDescChange }) {
 }
 
 function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImageClick }) {
-    const { updateSubcategoryName, removeSubcategory, updateItem, removeItem, addItem, addFromLibrary, addFromProduct, allSearchItems, mainCategories } = hook;
+    const { updateSubcategoryName, removeSubcategory, updateItem, removeItem, addItem, addFromLibrary, addFromProduct, allSearchItems, mainCategories, addSubItem, removeSubItem, updateSubItem } = hook;
 
     // Quick-add autocomplete state
     const [quickSearch, setQuickSearch] = useState('');
@@ -144,7 +144,7 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                         {sub.image ? (
                             <img src={sub.image} alt="" />
                         ) : (
-                            <span className="placeholder">🖼️</span>
+                            <span className="placeholder" style={{ fontSize: 10, textAlign: 'center', lineHeight: 1.3 }}>🖼️<br />Kéo thả hoặc<br />Click tải ảnh</span>
                         )}
                     </div>
                 )}
@@ -166,10 +166,11 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                             <th style={{ width: 30 }}>#</th>
                             <th style={{ width: 36 }}></th>
                             <th style={{ minWidth: 160 }}>HẠNG MỤC / SẢN PHẨM</th>
-                            <th style={{ width: 65 }}>DÀI (M)</th>
-                            <th style={{ width: 65 }}>RỘNG (M)</th>
-                            <th style={{ width: 65 }}>CAO (M)</th>
-                            <th style={{ width: 65 }}>SL</th>
+                            <th style={{ width: 60 }}>DÀI</th>
+                            <th style={{ width: 60 }}>RỘNG</th>
+                            <th style={{ width: 60 }}>CAO</th>
+                            <th style={{ width: 55 }}>SL</th>
+                            <th style={{ width: 60 }}>KL</th>
                             <th style={{ width: 55 }}>ĐVT</th>
                             <th style={{ width: 90 }}>ĐƠN GIÁ</th>
                             <th style={{ width: 100 }}>THÀNH TIỀN</th>
@@ -179,52 +180,84 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                     </thead>
                     <tbody>
                         {sub.items.map((item, ii) => {
-                            const isAutoQty = !!(item.length && item.width);
+                            const hasDim = item.length > 0 || item.width > 0 || item.height > 0;
                             return (
-                                <tr key={item._key}>
-                                    <td style={{ textAlign: 'center', opacity: 0.4, fontSize: 11 }}>{ii + 1}</td>
-                                    <td style={{ textAlign: 'center', padding: 2, cursor: onImageClick ? 'pointer' : 'default' }}
-                                        onClick={() => onImageClick && onImageClick(mi, si, ii)}>
-                                        {item.image ? (
-                                            <img src={item.image} alt="" style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--border-color)' }} />
-                                        ) : (
-                                            <div style={{ width: 28, height: 28, borderRadius: 4, border: '2px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, opacity: 0.25 }}>
-                                                {onImageClick ? '📷' : '🖼️'}
+                                <React.Fragment key={item._key}>
+                                    <tr>
+                                        <td style={{ textAlign: 'center', opacity: 0.4, fontSize: 11 }}>{ii + 1}</td>
+                                        <td style={{ textAlign: 'center', padding: 2, cursor: onImageClick ? 'pointer' : 'default' }}
+                                            onClick={() => onImageClick && onImageClick(mi, si, ii)}>
+                                            {item.image ? (
+                                                <img src={item.image} alt="" style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--border-color)' }} />
+                                            ) : (
+                                                <div style={{ width: 28, height: 28, borderRadius: 4, border: '2px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, opacity: 0.25 }}>
+                                                    {onImageClick ? '📷' : '🖼️'}
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td>
+                                            <input className="form-input form-input-compact" value={item.name} onChange={e => updateItem(mi, si, ii, 'name', e.target.value)} placeholder="Tên" />
+                                            <InlineVariants
+                                                productId={item.productId}
+                                                basePrice={item.mainMaterial || 0}
+                                                onPriceChange={(price) => updateItem(mi, si, ii, 'unitPrice', price)}
+                                                onDescChange={(desc) => updateItem(mi, si, ii, 'description', desc)}
+                                            />
+                                        </td>
+                                        <td><input className="form-input form-input-compact" type="number" value={item.length || ''} onChange={e => updateItem(mi, si, ii, 'length', e.target.value)} placeholder="0" /></td>
+                                        <td><input className="form-input form-input-compact" type="number" value={item.width || ''} onChange={e => updateItem(mi, si, ii, 'width', e.target.value)} placeholder="0" /></td>
+                                        <td><input className="form-input form-input-compact" type="number" value={item.height || ''} onChange={e => updateItem(mi, si, ii, 'height', e.target.value)} placeholder="0" /></td>
+                                        <td><input className="form-input form-input-compact" type="number" value={item.quantity || ''} onChange={e => updateItem(mi, si, ii, 'quantity', e.target.value)} placeholder="0" /></td>
+                                        <td style={{ textAlign: 'right', fontSize: 12, fontWeight: 500 }}>
+                                            {hasDim ? (
+                                                <span title={`(${item.length || 1} × ${item.width || 1} × ${item.height || 1}) × ${item.quantity || 0}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3 }}>
+                                                    {fmt(item.volume || 0)}
+                                                    <span style={{ fontSize: 8, background: 'var(--accent-primary)', color: '#fff', padding: '1px 3px', borderRadius: 3, lineHeight: 1 }}>auto</span>
+                                                </span>
+                                            ) : (
+                                                <span style={{ opacity: 0.3, fontSize: 11 }}>{fmt(item.volume || 0)}</span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            <select className="form-select form-input-compact" value={item.unit} onChange={e => updateItem(mi, si, ii, 'unit', e.target.value)}>
+                                                {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                                            </select>
+                                        </td>
+                                        <td><input className="form-input form-input-compact" type="number" value={item.unitPrice || ''} onChange={e => updateItem(mi, si, ii, 'unitPrice', e.target.value)} /></td>
+                                        <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-primary)', fontSize: 12 }}>{fmt(item.amount)}</td>
+                                        <td><input className="form-input form-input-compact" value={item.description} onChange={e => updateItem(mi, si, ii, 'description', e.target.value)} /></td>
+                                        <td>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                <button className="btn btn-ghost" onClick={() => removeItem(mi, si, ii)} style={{ padding: '2px 4px', fontSize: 11 }}>✕</button>
+                                                <button className="btn btn-ghost" onClick={() => addSubItem(mi, si, ii)} style={{ padding: '1px 3px', fontSize: 9, opacity: 0.5 }} title="Thêm phụ kiện">+PK</button>
                                             </div>
-                                        )}
-                                    </td>
-                                    <td>
-                                        <input className="form-input form-input-compact" value={item.name} onChange={e => updateItem(mi, si, ii, 'name', e.target.value)} placeholder="Tên" />
-                                        <InlineVariants
-                                            productId={item.productId}
-                                            basePrice={item.mainMaterial || 0}
-                                            onPriceChange={(price) => updateItem(mi, si, ii, 'unitPrice', price)}
-                                            onDescChange={(desc) => updateItem(mi, si, ii, 'description', desc)}
-                                        />
-                                    </td>
-                                    <td><input className="form-input form-input-compact" type="number" value={item.length || ''} onChange={e => updateItem(mi, si, ii, 'length', e.target.value)} placeholder="0" /></td>
-                                    <td><input className="form-input form-input-compact" type="number" value={item.width || ''} onChange={e => updateItem(mi, si, ii, 'width', e.target.value)} placeholder="0" /></td>
-                                    <td><input className="form-input form-input-compact" type="number" value={item.height || ''} onChange={e => updateItem(mi, si, ii, 'height', e.target.value)} placeholder="0" /></td>
-                                    <td style={{ textAlign: 'right', fontSize: 12, fontWeight: 500 }}>
-                                        {isAutoQty ? (
-                                            <span title="Tự động tính từ Dài × Rộng × Cao" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                                                {fmt(item.quantity)}
-                                                <span style={{ fontSize: 9, background: 'var(--accent-primary)', color: '#fff', padding: '1px 4px', borderRadius: 3, lineHeight: 1 }}>auto</span>
-                                            </span>
-                                        ) : (
-                                            <input className="form-input form-input-compact" type="number" value={item.quantity || ''} onChange={e => updateItem(mi, si, ii, 'quantity', e.target.value)} />
-                                        )}
-                                    </td>
-                                    <td>
-                                        <select className="form-select form-input-compact" value={item.unit} onChange={e => updateItem(mi, si, ii, 'unit', e.target.value)}>
-                                            {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
-                                        </select>
-                                    </td>
-                                    <td><input className="form-input form-input-compact" type="number" value={item.unitPrice || ''} onChange={e => updateItem(mi, si, ii, 'unitPrice', e.target.value)} /></td>
-                                    <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-primary)', fontSize: 12 }}>{fmt(item.amount)}</td>
-                                    <td><input className="form-input form-input-compact" value={item.description} onChange={e => updateItem(mi, si, ii, 'description', e.target.value)} /></td>
-                                    <td><button className="btn btn-ghost" onClick={() => removeItem(mi, si, ii)} style={{ padding: '2px 4px', fontSize: 11 }}>✕</button></td>
-                                </tr>
+                                        </td>
+                                    </tr>
+                                    {/* Sub-items (phụ kiện) */}
+                                    {(item.subItems || []).map((si_item, sii) => (
+                                        <tr key={`sub-${item._key}-${sii}`} style={{ background: 'rgba(35,64,147,0.03)' }}>
+                                            <td></td>
+                                            <td style={{ textAlign: 'center', opacity: 0.3, fontSize: 9 }}>↳</td>
+                                            <td style={{ paddingLeft: 24 }}>
+                                                <input className="form-input form-input-compact" value={si_item.name} onChange={e => updateSubItem(mi, si, ii, sii, 'name', e.target.value)} placeholder="Phụ kiện" style={{ fontSize: 12, fontStyle: 'italic' }} />
+                                            </td>
+                                            <td><input className="form-input form-input-compact" type="number" value={si_item.length || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'length', e.target.value)} placeholder="0" /></td>
+                                            <td><input className="form-input form-input-compact" type="number" value={si_item.width || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'width', e.target.value)} placeholder="0" /></td>
+                                            <td><input className="form-input form-input-compact" type="number" value={si_item.height || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'height', e.target.value)} placeholder="0" /></td>
+                                            <td><input className="form-input form-input-compact" type="number" value={si_item.quantity || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'quantity', e.target.value)} placeholder="0" /></td>
+                                            <td style={{ textAlign: 'right', fontSize: 11, opacity: 0.6 }}>{fmt(si_item.volume || 0)}</td>
+                                            <td>
+                                                <select className="form-select form-input-compact" value={si_item.unit || 'cái'} onChange={e => updateSubItem(mi, si, ii, sii, 'unit', e.target.value)}>
+                                                    {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                                                </select>
+                                            </td>
+                                            <td><input className="form-input form-input-compact" type="number" value={si_item.unitPrice || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'unitPrice', e.target.value)} /></td>
+                                            <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 11, opacity: 0.7 }}>{fmt(si_item.amount || 0)}</td>
+                                            <td><input className="form-input form-input-compact" value={si_item.description || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'description', e.target.value)} /></td>
+                                            <td><button className="btn btn-ghost" onClick={() => removeSubItem(mi, si, ii, sii)} style={{ padding: '2px 4px', fontSize: 10 }}>✕</button></td>
+                                        </tr>
+                                    ))}
+                                </React.Fragment>
                             );
                         })}
                     </tbody>

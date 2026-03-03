@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 
 /* =============================================
@@ -710,66 +710,98 @@ export default function QuotationPDFPage() {
                             const groupTotal = subs.reduce((s, c) => s + (c.subtotal || 0), 0);
                             return (
                                 <div key={gi}>
-                                    {subs.map((cat, ci) => (
-                                        <div key={cat.id || ci}>
-                                            {/* Main category + space name merged */}
-                                            <div className="mn-cat-main" style={{ marginTop: (gi > 0 || ci > 0) ? 18 : 0 }}>
-                                                <div className="mn-cat-group-label">#{gi + 1}.{ci + 1}</div>
-                                                <div className="mn-cat-room-block">
-                                                    <div className="mn-cat-room-subtitle">{groupName}</div>
-                                                    <div className="mn-space-name">{cat.name || `Khu vực ${ci + 1}`}</div>
+                                    {subs.map((cat, ci) => {
+                                        const items = cat.items || [];
+                                        const hasAnyImage = items.some(i => i.image);
+                                        const hasAnyDim = items.some(i => i.length || i.width || i.height);
+                                        const hasAnyVolDiff = items.some(i => {
+                                            const v = Number(i.volume) || Number(i.quantity) || 0;
+                                            const q = Number(i.quantity) || 0;
+                                            return v !== q;
+                                        });
+                                        return (
+                                            <div key={cat.id || ci}>
+                                                {/* Block 1: Header */}
+                                                <div className="mn-cat-main" style={{ marginTop: (gi > 0 || ci > 0) ? 18 : 0 }}>
+                                                    <div className="mn-cat-group-label">#{gi + 1}.{ci + 1}</div>
+                                                    <div className="mn-cat-room-block">
+                                                        <div className="mn-cat-room-subtitle">{DOC_TITLE_MAP[q.type] || (q.type || '').toUpperCase()}</div>
+                                                        <div className="mn-space-name">{cat.name || `Khu vực ${ci + 1}`}</div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className={cat.image ? 'mn-sub-layout' : ''}>
-                                                <div className="mn-sub-table-area">
-                                                    <table className="mn-table">
-                                                        <thead><tr>
-                                                            <th className="c" style={{ width: 28 }}>STT</th>
-                                                            <th className="c" style={{ width: 38 }}>Ảnh</th>
-                                                            <th>Hạng mục / Sản phẩm</th>
-                                                            <th>Diễn giải</th>
-                                                            <th className="c" style={{ width: 38 }}>ĐVT</th>
-                                                            <th className="r" style={{ width: 40 }}>Dài</th>
-                                                            <th className="r" style={{ width: 40 }}>Rộng</th>
-                                                            <th className="r" style={{ width: 40 }}>Cao</th>
-                                                            <th className="r" style={{ width: 40 }}>SL</th>
-                                                            <th className="r" style={{ width: 80 }}>Đơn giá</th>
-                                                            <th className="r" style={{ width: 88 }}>Thành tiền</th>
-                                                        </tr></thead>
-                                                        <tbody>
-                                                            {(cat.items || []).map((item, ii) => (
-                                                                <tr key={item.id || ii} style={{ background: ii % 2 === 1 ? '#fafbfc' : '#fff' }}>
-                                                                    <td className="c" style={{ color: BRAND.textLight, fontSize: 9 }}>{ii + 1}</td>
-                                                                    <td className="c">
-                                                                        {item.image ? <img src={item.image} className="item-img" alt="" /> : <div className="no-img">—</div>}
-                                                                    </td>
-                                                                    <td style={{ fontWeight: 600, fontSize: 11 }}>{item.name}</td>
-                                                                    <td><span className="mn-desc">{item.description || ''}</span></td>
-                                                                    <td className="c">{item.unit}</td>
-                                                                    <td className="r">{item.length ? fmtNum(item.length) : ''}</td>
-                                                                    <td className="r">{item.width ? fmtNum(item.width) : ''}</td>
-                                                                    <td className="r">{item.height ? fmtNum(item.height) : ''}</td>
-                                                                    <td className="r">{fmtNum(item.quantity)}</td>
-                                                                    <td className="r">{fmt(item.unitPrice)}</td>
-                                                                    <td className="r amt">{fmt(item.amount)}</td>
-                                                                </tr>
-                                                            ))}
-                                                            <tr className="mn-sub-total">
-                                                                <td colSpan={10} className="r" style={{ paddingRight: 10 }}>Tổng {cat.name || `khu vực #${ci + 1}`}</td>
-                                                                <td className="r">{fmt(cat.subtotal)}</td>
-                                                            </tr>
-                                                        </tbody>
-                                                    </table>
-                                                </div>
+                                                {/* Block 2: Image (centered, max 70%) */}
                                                 {cat.image && (
-                                                    <div className="mn-room-image-area">
-                                                        <img src={cat.image} className="mn-room-img" alt={cat.name || ''} />
-                                                        <div className="mn-room-caption">{cat.name || 'Hình ảnh phòng'}</div>
+                                                    <div style={{ textAlign: 'center', margin: '10px 0' }}>
+                                                        <img src={cat.image} alt={cat.name || ''} style={{ maxWidth: '70%', borderRadius: 6, border: `2px solid ${BRAND.blue}20` }} />
+                                                        <div style={{ fontSize: 8, color: BRAND.textMid, fontStyle: 'italic', marginTop: 4 }}>{cat.name || 'Hình ảnh phối cảnh'}</div>
                                                     </div>
                                                 )}
+                                                {/* Block 3: Table (100% width, no side image) */}
+                                                <table className="mn-table">
+                                                    <thead><tr>
+                                                        <th className="c" style={{ width: 28 }}>STT</th>
+                                                        {hasAnyImage && <th className="c" style={{ width: 38 }}>Ảnh</th>}
+                                                        <th>Hạng mục / Sản phẩm</th>
+                                                        <th style={{ minWidth: 80 }}>Diễn giải</th>
+                                                        <th className="c" style={{ width: 38 }}>ĐVT</th>
+                                                        {hasAnyDim && <th className="r" style={{ width: 36 }}>Dài</th>}
+                                                        {hasAnyDim && <th className="r" style={{ width: 36 }}>Rộng</th>}
+                                                        {hasAnyDim && <th className="r" style={{ width: 36 }}>Cao</th>}
+                                                        <th className="r" style={{ width: 36 }}>SL</th>
+                                                        {hasAnyVolDiff && <th className="r" style={{ width: 40 }}>KL</th>}
+                                                        <th className="r" style={{ width: 80 }}>Đơn giá</th>
+                                                        <th className="r" style={{ width: 88 }}>Thành tiền</th>
+                                                    </tr></thead>
+                                                    <tbody>
+                                                        {items.map((item, ii) => {
+                                                            const colCount = 5 + (hasAnyImage ? 1 : 0) + (hasAnyDim ? 3 : 0) + (hasAnyVolDiff ? 1 : 0);
+                                                            return (
+                                                                <React.Fragment key={item.id || ii}>
+                                                                    <tr style={{ background: ii % 2 === 1 ? '#fafbfc' : '#fff' }}>
+                                                                        <td className="c" style={{ color: BRAND.textLight, fontSize: 9 }}>{ii + 1}</td>
+                                                                        {hasAnyImage && <td className="c">
+                                                                            {item.image ? <img src={item.image} className="item-img" alt="" /> : <div className="no-img">—</div>}
+                                                                        </td>}
+                                                                        <td style={{ fontWeight: 600, fontSize: 11 }}>{item.name}</td>
+                                                                        <td><span className="mn-desc" style={{ wordWrap: 'break-word', whiteSpace: 'normal', display: 'block', maxWidth: 200 }}>{item.description || ''}</span></td>
+                                                                        <td className="c">{item.unit}</td>
+                                                                        {hasAnyDim && <td className="r">{item.length ? fmtNum(item.length) : ''}</td>}
+                                                                        {hasAnyDim && <td className="r">{item.width ? fmtNum(item.width) : ''}</td>}
+                                                                        {hasAnyDim && <td className="r">{item.height ? fmtNum(item.height) : ''}</td>}
+                                                                        <td className="r">{fmtNum(item.quantity)}</td>
+                                                                        {hasAnyVolDiff && <td className="r">{fmtNum(item.volume || item.quantity)}</td>}
+                                                                        <td className="r">{fmt(item.unitPrice)}</td>
+                                                                        <td className="r amt">{fmt(item.amount)}</td>
+                                                                    </tr>
+                                                                    {/* Sub-items (phụ kiện) */}
+                                                                    {(item.subItems || []).map((si, sii) => (
+                                                                        <tr key={`sub-${ii}-${sii}`} style={{ background: '#f8f9fc' }}>
+                                                                            <td className="c" style={{ fontSize: 8, opacity: 0.3 }}>↳</td>
+                                                                            {hasAnyImage && <td></td>}
+                                                                            <td style={{ paddingLeft: 18, fontSize: 10, fontStyle: 'italic', color: BRAND.textMid }}>{si.name}</td>
+                                                                            <td><span className="mn-desc" style={{ wordWrap: 'break-word', whiteSpace: 'normal', display: 'block' }}>{si.description || ''}</span></td>
+                                                                            <td className="c">{si.unit}</td>
+                                                                            {hasAnyDim && <td className="r">{si.length ? fmtNum(si.length) : ''}</td>}
+                                                                            {hasAnyDim && <td className="r">{si.width ? fmtNum(si.width) : ''}</td>}
+                                                                            {hasAnyDim && <td className="r">{si.height ? fmtNum(si.height) : ''}</td>}
+                                                                            <td className="r">{fmtNum(si.quantity)}</td>
+                                                                            {hasAnyVolDiff && <td className="r">{fmtNum(si.volume || si.quantity)}</td>}
+                                                                            <td className="r">{fmt(si.unitPrice)}</td>
+                                                                            <td className="r">{fmt(si.amount)}</td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </React.Fragment>
+                                                            );
+                                                        })}
+                                                        <tr className="mn-sub-total">
+                                                            <td colSpan={4 + (hasAnyImage ? 1 : 0) + (hasAnyDim ? 3 : 0) + (hasAnyVolDiff ? 1 : 0)} className="r" style={{ paddingRight: 10 }}>Tổng {cat.name || `khu vực #${ci + 1}`}</td>
+                                                            <td className="r">{fmt(cat.subtotal)}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             );
                         });
