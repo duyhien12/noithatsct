@@ -171,7 +171,7 @@ export const POST = withAuth(async (request, { params }) => {
     const body = await request.json().catch(() => ({}));
     const isSupplemental = body.type === 'supplemental'; // BG bổ sung vs copy
 
-    const code = await generateCode('BG');
+    const code = await generateCode('quotation', 'BG');
     const clone = await prisma.quotation.create({
         data: {
             code,
