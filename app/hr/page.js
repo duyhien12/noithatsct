@@ -48,7 +48,8 @@ export default function HRPage() {
     };
 
     const handleSubmit = async () => {
-        const payload = { ...form, salary: Number(form.salary) || 0 };
+        const joinDate = form.joinDate ? new Date(form.joinDate).toISOString() : null;
+        const payload = { ...form, salary: Number(form.salary) || 0, joinDate };
         if (editTarget) {
             await fetch(`/api/employees/${editTarget.id}`, {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' },

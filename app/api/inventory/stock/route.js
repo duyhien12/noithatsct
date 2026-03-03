@@ -4,7 +4,6 @@ import { NextResponse } from 'next/server';
 
 export const GET = withAuth(async () => {
     const products = await prisma.product.findMany({
-        where: { stock: { gt: -9999 } },
         select: {
             id: true, code: true, name: true, category: true,
             unit: true, stock: true, minStock: true,

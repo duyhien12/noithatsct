@@ -81,11 +81,6 @@ export default function InventoryPage() {
     );
 
     const totalStockValue = stockData.products.reduce((s, p) => s + (p.stock || 0) * (p.importPrice || 0), 0);
-    const inThisMonth = txData.transactions.filter(t => {
-        const d = new Date(t.date); const now = new Date();
-        return t.type === 'Nhập' && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    }).reduce((s, t) => s + (t.quantity || 0), 0);
-
     return (
         <div>
             {/* KPI */}
