@@ -78,6 +78,7 @@ export default function EditQuotationPage() {
                             name: item.name || '',
                             unit: item.unit || 'm²',
                             quantity: item.quantity || 0,
+                            volume: item.volume || 0,
                             mainMaterial: item.mainMaterial || 0,
                             auxMaterial: item.auxMaterial || 0,
                             labor: item.labor || 0,
@@ -89,6 +90,15 @@ export default function EditQuotationPage() {
                             height: item.height || 0,
                             image: item.image || '',
                             productId: item.productId || null,
+                            subItems: (item.subItems || []).map(si => ({
+                                _key: Date.now() + Math.random(),
+                                name: si.name || '', unit: si.unit || 'cái',
+                                quantity: si.quantity || 0, volume: si.volume || 0,
+                                unitPrice: si.unitPrice || 0, amount: si.amount || 0,
+                                description: si.description || '',
+                                length: si.length || 0, width: si.width || 0, height: si.height || 0,
+                                image: si.image || '',
+                            })),
                         })),
                     })),
                 }));
