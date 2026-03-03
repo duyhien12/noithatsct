@@ -787,7 +787,7 @@ export default function ProductsPage() {
                         </div>
                         <div style={{ overflowY: 'auto', flex: 1, border: '1px solid var(--border-color)', borderRadius: 6 }}>
                             <table className="data-table" style={{ fontSize: 12 }}>
-                                <thead><tr><th>#</th><th>Tên</th><th>Danh mục</th><th>ĐVT</th><th>Giá bán</th><th>Tồn</th><th>TH</th></tr></thead>
+                                <thead><tr><th>#</th><th>Tên</th><th>Danh mục</th><th>ĐVT</th><th>Giá bán</th><th>Tồn</th><th>TH</th><th style={{ width: 36 }}></th></tr></thead>
                                 <tbody>{importPreview.map((p, i) => (
                                     <tr key={i}>
                                         <td style={{ opacity: .4 }}>{i + 1}</td>
@@ -797,6 +797,7 @@ export default function ProductsPage() {
                                         <td>{fmtCur(p.salePrice)}</td>
                                         <td>{p.stock}</td>
                                         <td>{p.brand || '-'}</td>
+                                        <td><button onClick={() => setImportPreview(prev => prev.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-danger)', fontSize: 14, padding: 2, opacity: 0.6 }} title="Xóa dòng này">✕</button></td>
                                     </tr>
                                 ))}</tbody>
                             </table>
