@@ -17,6 +17,8 @@ export const GET = withAuth(async (request, { params }) => {
             items: { where: { parentItemId: null }, orderBy: { order: 'asc' }, include: { subItems: { orderBy: { order: 'asc' } } } },
         },
     });
-    if (!quotation) return NextResponse.json({ error: 'Báo giá không tồn tại' }, { status: 404 });
+    if (!quotation || quotation.status === 'Nháp') {
+        return NextResponse.json({ error: 'Báo giá không tồn tại' }, { status: 404 });
+    }
     return NextResponse.json(quotation);
 }, { public: true });
