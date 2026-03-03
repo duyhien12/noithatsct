@@ -44,7 +44,12 @@ export default function PartnersPage() {
         else await fetch('/api/suppliers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(supForm) });
         setShowModal(false); fetchData();
     };
-    const delSup = async (id) => { if (!confirm('Xóa NCC này?')) return; await fetch(`/api/suppliers/${id}`, { method: 'DELETE' }); fetchData(); };
+    const delSup = async (id) => {
+        if (!confirm('Xóa NCC này?')) return;
+        setSuppliers(prev => prev.filter(s => s.id !== id));
+        const res = await fetch(`/api/suppliers/${id}`, { method: 'DELETE' });
+        if (!res.ok) fetchData();
+    };
 
     // === Contractors CRUD ===
     const openCreateCon = () => { setEditing(null); setConForm(emptyCon); setShowModal('tp'); };
@@ -55,7 +60,12 @@ export default function PartnersPage() {
         else await fetch('/api/contractors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(conForm) });
         setShowModal(false); fetchData();
     };
-    const delCon = async (id) => { if (!confirm('Xóa thầu phụ này?')) return; await fetch(`/api/contractors/${id}`, { method: 'DELETE' }); fetchData(); };
+    const delCon = async (id) => {
+        if (!confirm('Xóa thầu phụ này?')) return;
+        setContractors(prev => prev.filter(c => c.id !== id));
+        const res = await fetch(`/api/contractors/${id}`, { method: 'DELETE' });
+        if (!res.ok) fetchData();
+    };
 
     // === Paste from Excel ===
     const openPaste = (type) => { setShowPasteModal(type); setPasteText(''); setPastePreview([]); };
