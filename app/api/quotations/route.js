@@ -61,6 +61,7 @@ export const POST = withAuth(async (request) => {
             directCost: Number(validated.directCost) || 0,
             total: Number(validated.total) || 0,
             grandTotal: Number(validated.grandTotal) || 0,
+            deductions: validated.deductions || [],
         };
 
         return prisma.$transaction(async (tx) => {

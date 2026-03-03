@@ -42,7 +42,7 @@ export const PUT = withAuth(async (request, { params }) => {
     const ALLOWED = ['customerId', 'projectId', 'type', 'notes', 'status', 'validUntil',
         'vat', 'discount', 'managementFeeRate', 'managementFee', 'designFee', 'otherFee',
         'adjustment', 'adjustmentType', 'adjustmentAmount',
-        'directCost', 'total', 'grandTotal'];
+        'directCost', 'total', 'grandTotal', 'deductions'];
     const data = {};
     for (const key of ALLOWED) {
         if (key in validated) data[key] = validated[key];

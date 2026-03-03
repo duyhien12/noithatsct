@@ -31,6 +31,7 @@ export default function useQuotationForm() {
     const [mainCategories, setMainCategories] = useState([emptyMainCategory()]);
     const [activeMainIdx, setActiveMainIdx] = useState(0);
     const [activeSubIdx, setActiveSubIdx] = useState(0);
+    const [deductions, setDeductions] = useState([]);
 
     // Load reference data
     useEffect(() => {
@@ -534,8 +535,23 @@ export default function useQuotationForm() {
     const total = beforeAdjust + adjustmentAmount;
     const discountAmount = total * (form.discount || 0) / 100;
     const afterDiscount = total - discountAmount;
-    const vatAmount = afterDiscount * (form.vat || 0) / 100;
-    const grandTotal = afterDiscount + vatAmount;
+    const totalDeductions = deductions.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+    const grandTotal = afterDiscount - totalDeductions;
+
+    // Deduction handlers
+    const addDeduction = (type) => {
+        setDeductions(prev => [...prev, {
+            _key: Date.now() + Math.random(),
+            type, // 'khuyến mại' or 'giảm trừ'
+            name: '',
+            amount: 0,
+            productId: null,
+        }]);
+    };
+    const removeDeduction = (idx) => setDeductions(prev => prev.filter((_, i) => i !== idx));
+    const updateDeduction = (idx, field, value) => {
+        setDeductions(prev => prev.map((d, i) => i === idx ? { ...d, [field]: value } : d));
+    };
 
     // ========================================
     // BUILD PAYLOAD for API (flatten 3-level → categories with group)
@@ -581,8 +597,9 @@ export default function useQuotationForm() {
         return {
             ...form,
             categories,
+            deductions: deductions.filter(d => d.name.trim() !== '').map(({ _key, ...d }) => d),
             directCost, managementFee, adjustmentAmount, total,
-            discount: form.discount, vat: form.vat,
+            discount: form.discount, vat: form.vat || 0,
             grandTotal,
         };
     };
@@ -629,7 +646,10 @@ export default function useQuotationForm() {
         // Calculation
         recalc,
         directCost, managementFee, adjustmentAmount, total,
-        discountAmount, afterDiscount, vatAmount, grandTotal,
+        discountAmount, afterDiscount, totalDeductions, grandTotal,
+        // Deductions
+        deductions, setDeductions,
+        addDeduction, removeDeduction, updateDeduction,
         // Build
         buildPayload,
     };

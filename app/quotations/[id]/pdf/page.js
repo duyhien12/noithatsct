@@ -838,9 +838,16 @@ export default function QuotationPDFPage() {
                             {q.directCost > 0 && <div className="mn-sum-row"><span>Chi phí trực tiếp</span><span>{fmt(q.directCost)}</span></div>}
                             {q.managementFee > 0 && <div className="mn-sum-row"><span>Phí quản lý ({q.managementFeeRate}%)</span><span>{fmt(q.managementFee)}</span></div>}
                             {q.otherFee > 0 && <div className="mn-sum-row"><span>Vận chuyển, lắp đặt</span><span>{fmt(q.otherFee)}</span></div>}
-                            <div className="mn-sum-row"><span>Tổng trước thuế</span><span style={{ fontWeight: 700 }}>{fmt(q.total)}</span></div>
+                            <div className="mn-sum-row"><span>Tổng cộng</span><span style={{ fontWeight: 700 }}>{fmt(q.total)}</span></div>
                             {q.discount > 0 && <div className="mn-sum-row discount"><span>Chiết khấu ({q.discount}%)</span><span>-{fmt(q.total * q.discount / 100)}</span></div>}
-                            <div className="mn-sum-row"><span>VAT ({q.vat}%) <span style={{ fontSize: 8, opacity: 0.6, fontStyle: 'italic' }}>(Đơn giá đã bao gồm VAT)</span></span><span>{fmt(vatAmount)}</span></div>
+                            {/* Deductions / Promotions */}
+                            {(q.deductions || []).length > 0 && (q.deductions || []).map((d, di) => (
+                                <div key={di} className="mn-sum-row discount">
+                                    <span>{d.type === 'khuyến mại' ? '🎁 KM' : '📉 GT'} {d.name}</span>
+                                    <span>-{fmt(d.amount)}</span>
+                                </div>
+                            ))}
+                            <div style={{ fontSize: 8, color: '#888', fontStyle: 'italic', textAlign: 'right', padding: '3px 0' }}>* Đơn giá đã bao gồm VAT</div>
                             <div className="mn-sum-row total"><span>TỔNG GIÁ TRỊ</span><span>{fmt(q.grandTotal)}</span></div>
                         </div>
                     </div>

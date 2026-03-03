@@ -103,6 +103,7 @@ export default function EditQuotationPage() {
                     })),
                 }));
                 setMainCategories(recalc(mcs));
+                if (q.deductions) hook.setDeductions((q.deductions || []).map(d => ({ ...d, _key: Date.now() + Math.random() })));
             }
             setLoading(false);
         }).catch(e => {
