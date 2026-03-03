@@ -670,6 +670,25 @@ model ProductAttributeOption {
   @@index([attributeId])
 }
 
+model VariantTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  inputType String   @default("select")
+  required  Boolean  @default(true)
+  options   VariantTemplateOption[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VariantTemplateOption {
+  id         String          @id @default(cuid())
+  label      String
+  priceAddon Float           @default(0)
+  order      Int             @default(0)
+  templateId String
+  template   VariantTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  @@index([templateId])
+}
 // ============ THƯ VIỆN HẠNG MỤC THI CÔNG ============
 
 model WorkItemLibrary {

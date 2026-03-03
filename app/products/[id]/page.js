@@ -38,6 +38,8 @@ export default function ProductDetailPage() {
     const [showAttrForm, setShowAttrForm] = useState(false);
     const [optionForms, setOptionForms] = useState({});
     const [showOptionForm, setShowOptionForm] = useState({});
+    const [variantTemplates, setVariantTemplates] = useState([]);
+    const [showTemplateMenu, setShowTemplateMenu] = useState(false);
 
     const fetchProduct = async () => {
         const res = await fetch(`/api/products/${id}`);
@@ -74,7 +76,10 @@ export default function ProductDetailPage() {
             fetch('/api/products?limit=1000').then(r => r.json()).then(d => setAllProducts(d.data || []));
         }
         if (tab === 'inventory') fetchTx();
-        if (tab === 'attributes') fetchAttributes();
+        if (tab === 'attributes') {
+            fetchAttributes();
+            fetch('/api/variant-templates').then(r => r.json()).then(setVariantTemplates).catch(() => { });
+        }
     }, [tab]);
 
     const addAttribute = async () => {
@@ -111,6 +116,31 @@ export default function ProductDetailPage() {
         if (!confirm('Xóa tùy chọn này?')) return;
         await fetch(`/api/products/${id}/attributes/${attrId}/options/${optionId}`, { method: 'DELETE' });
         fetchAttributes();
+    };
+
+    const applyTemplate = async (templateId) => {
+        const res = await fetch(`/api/products/${id}/attributes`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ templateId }),
+        });
+        if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi'); }
+        fetchAttributes();
+        setShowTemplateMenu(false);
+    };
+
+    const saveAsTemplate = async (attr) => {
+        const res = await fetch('/api/variant-templates', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: attr.name,
+                inputType: attr.inputType,
+                required: attr.required,
+                options: attr.options.map(o => ({ label: o.label, priceAddon: o.priceAddon })),
+            }),
+        });
+        if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi'); }
+        alert(`Đã lưu "${attr.name}" thành mẫu!`);
+        fetch('/api/variant-templates').then(r => r.json()).then(setVariantTemplates).catch(() => { });
     };
 
     const saveInfo = async () => {
@@ -386,6 +416,24 @@ export default function ProductDetailPage() {
                                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>Khai báo các tùy chọn (Loại thùng, Loại cánh, Mã màu...) cho: <strong>{product.name}</strong></div>
                             </div>
                             <button className="btn btn-ghost btn-sm" onClick={() => setShowAttrForm(v => !v)}>+ Thêm thuộc tính</button>
+                            <div style={{ position: 'relative' }}>
+                                <button className="btn btn-ghost btn-sm" onClick={() => setShowTemplateMenu(v => !v)}>📦 Áp dụng mẫu</button>
+                                {showTemplateMenu && (
+                                    <div style={{ position: 'absolute', top: '100%', right: 0, zIndex: 10, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.15)', minWidth: 220, padding: 4 }}>
+                                        {variantTemplates.length === 0 ? (
+                                            <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--text-muted)' }}>Chưa có mẫu nào. Lưu thuộc tính hiện có thành mẫu trước.</div>
+                                        ) : variantTemplates.map(t => (
+                                            <div key={t.id} onClick={() => applyTemplate(t.id)}
+                                                style={{ padding: '8px 12px', cursor: 'pointer', borderRadius: 6, fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                                                onMouseOver={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                                onMouseOut={e => e.currentTarget.style.background = ''}>
+                                                <span style={{ fontWeight: 500 }}>{t.name}</span>
+                                                <span style={{ fontSize: 11, opacity: 0.5 }}>{t.options?.length || 0} options</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         {showAttrForm && (
                             <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-color)', background: 'var(--bg-hover)', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -425,6 +473,7 @@ export default function ProductDetailPage() {
                                     <span className={`badge ${attr.required ? 'warning' : 'muted'}`} style={{ fontSize: 11 }}>{attr.required ? 'Bắt buộc' : 'Tùy chọn'}</span>
                                 </div>
                                 <button className="btn btn-ghost btn-sm" style={{ color: 'var(--status-danger)' }} onClick={() => deleteAttribute(attr.id)}>🗑 Xóa</button>
+                                <button className="btn btn-ghost btn-sm" onClick={() => saveAsTemplate(attr)} title="Lưu thành mẫu">💾 Lưu mẫu</button>
                             </div>
 
                             {attr.inputType === 'select' ? (
