@@ -249,15 +249,19 @@ export default function useQuotationForm() {
         length: 0, width: 0, height: 0, volume: 0, subItems: [],
     });
 
-    const prodToQuotationItem = (prod) => ({
-        _key: Date.now() + Math.random(),
-        name: prod.name, unit: prod.unit || 'cái', quantity: 0,
-        mainMaterial: prod.salePrice || 0, auxMaterial: 0, labor: 0,
-        unitPrice: prod.salePrice || 0, amount: 0,
-        description: `${prod.brand ? prod.brand + ' - ' : ''}${prod.description || ''}`.trim(),
-        image: prod.image || '', length: 0, width: 0, height: 0,
-        productId: prod.id || null, volume: 0, subItems: [],
-    });
+    const prodToQuotationItem = (prod) => {
+        const isCustomFurniture = (prod.category || '').toLowerCase() === 'nội thất';
+        return {
+            _key: Date.now() + Math.random(),
+            name: prod.name, unit: prod.unit || 'cái', quantity: 0,
+            mainMaterial: prod.salePrice || 0, auxMaterial: 0, labor: 0,
+            unitPrice: prod.salePrice || 0, amount: 0,
+            description: `${prod.brand ? prod.brand + ' - ' : ''}${prod.description || ''}`.trim(),
+            image: isCustomFurniture ? '' : (prod.image || ''),
+            length: 0, width: 0, height: 0,
+            productId: prod.id || null, volume: 0, subItems: [],
+        };
+    };
 
     // ========================================
     // SUB-ITEM handlers (phụ kiện đi kèm)
