@@ -84,6 +84,9 @@ export default function ProjectDetailPage() {
     const [woForm, setWoForm] = useState({ title: '', category: 'Thi công', priority: 'Trung bình', assignee: '', dueDate: '', description: '' });
     const [expenseForm, setExpenseForm] = useState({ description: '', category: 'Vận chuyển', amount: '', submittedBy: '' });
     const [logForm, setLogForm] = useState({ type: 'Điện thoại', content: '', createdBy: '' });
+    const [cpForm, setCpForm] = useState({ contractorId: '', contractAmount: '', paidAmount: '0', description: '', dueDate: '', status: 'Chưa TT' });
+    const [contractorList, setContractorList] = useState([]);
+    const [editCp, setEditCp] = useState(null); // { id, paidAmount, status }
     const fetchData = () => { fetch(`/api/projects/${id}`).then(r => r.json()).then(d => { setData(d); setLoading(false); }); };
     useEffect(fetchData, [id]);
 
@@ -115,6 +118,33 @@ export default function ProjectDetailPage() {
     const createTrackingLog = async () => {
         await fetch('/api/tracking-logs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...logForm, projectId: id }) });
         setModal(null); setLogForm({ type: 'Điện thoại', content: '', createdBy: '' }); fetchData();
+    };
+
+    const openCpModal = async () => {
+        if (contractorList.length === 0) {
+            const res = await fetch('/api/contractors?limit=500');
+            const json = await res.json();
+            setContractorList(json.data || []);
+        }
+        setCpForm({ contractorId: '', contractAmount: '', paidAmount: '0', description: '', dueDate: '', status: 'Chưa TT' });
+        setModal('contractor_pay');
+    };
+    const createContractorPayment = async () => {
+        if (!cpForm.contractorId) return alert('Chọn thầu phụ!');
+        if (!cpForm.contractAmount) return alert('Nhập giá trị hợp đồng!');
+        const res = await fetch('/api/contractor-payments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...cpForm, projectId: id, contractAmount: Number(cpForm.contractAmount), paidAmount: Number(cpForm.paidAmount) || 0 }) });
+        if (!res.ok) return alert('Lỗi tạo thầu phụ');
+        setModal(null); fetchData();
+    };
+    const updateCpPaid = async () => {
+        if (!editCp) return;
+        await fetch(`/api/contractor-payments/${editCp.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paidAmount: Number(editCp.paidAmount), status: editCp.status }) });
+        setEditCp(null); fetchData();
+    };
+    const deleteCp = async (cpId) => {
+        if (!confirm('Xóa thầu phụ này khỏi dự án?')) return;
+        await fetch(`/api/contractor-payments/${cpId}`, { method: 'DELETE' });
+        fetchData();
     };
 
     // PO from materials
@@ -800,22 +830,52 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             {/* TAB: Thầu phụ */}
             {tab === 'contractors' && (
                 <div className="card">
-                    <div className="card-header"><span className="card-title">👷 Thầu phụ & Công nợ</span><span className="badge warning">Tổng nợ thầu: {fmt(pnl.debtToContractors)}</span></div>
+                    <div className="card-header">
+                        <span className="card-title">👷 Thầu phụ & Công nợ</span>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <span className="badge warning">Tổng nợ thầu: {fmt(pnl.debtToContractors)}</span>
+                            <button className="btn btn-primary btn-sm" onClick={openCpModal}>+ Thêm thầu phụ</button>
+                        </div>
+                    </div>
                     <div className="table-container"><table className="data-table">
-                        <thead><tr><th>Thầu phụ</th><th>Loại</th><th>Mô tả</th><th>HĐ thầu</th><th>Đã TT</th><th>Còn nợ</th><th>TT</th></tr></thead>
-                        <tbody>{p.contractorPays.map(cp => (
-                            <tr key={cp.id}>
+                        <thead><tr><th>Thầu phụ</th><th>Loại</th><th>Mô tả</th><th>HĐ thầu</th><th>Đã TT</th><th>Còn nợ</th><th>TT</th><th style={{ width: 80 }}></th></tr></thead>
+                        <tbody>{p.contractorPays.map(cp => {
+                            const ec = editCp?.id === cp.id ? editCp : null;
+                            const iS = { padding: '3px 6px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg-primary)', color: 'var(--text-primary)' };
+                            return (
+                            <tr key={cp.id} style={{ background: ec ? 'rgba(59,130,246,0.05)' : '' }}>
                                 <td className="primary">{cp.contractor.name}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{cp.contractor.phone}</div></td>
                                 <td><span className="badge muted">{cp.contractor.type}</span></td>
                                 <td style={{ fontSize: 12 }}>{cp.description}</td>
                                 <td className="amount">{fmt(cp.contractAmount)}</td>
-                                <td style={{ color: 'var(--status-success)', fontWeight: 600 }}>{fmt(cp.paidAmount)}</td>
+                                <td style={{ color: 'var(--status-success)', fontWeight: 600 }}>
+                                    {ec ? <input style={{ ...iS, width: 110 }} type="number" min="0" value={ec.paidAmount} onChange={e => setEditCp({ ...ec, paidAmount: e.target.value })} /> : fmt(cp.paidAmount)}
+                                </td>
                                 <td style={{ fontWeight: 700, color: cp.contractAmount - cp.paidAmount > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>{fmt(cp.contractAmount - cp.paidAmount)}</td>
-                                <td><span className={`badge ${cp.status === 'Đã TT' ? 'success' : 'warning'}`}>{cp.status}</span></td>
+                                <td>
+                                    {ec
+                                        ? <select style={iS} value={ec.status} onChange={e => setEditCp({ ...ec, status: e.target.value })}>
+                                            {['Chưa TT', 'Tạm ứng', 'Đang TT', 'Hoàn thành'].map(s => <option key={s}>{s}</option>)}
+                                          </select>
+                                        : <span className={`badge ${cp.status === 'Hoàn thành' ? 'success' : cp.status === 'Tạm ứng' ? 'info' : 'warning'}`}>{cp.status}</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div style={{ display: 'flex', gap: 3 }}>
+                                        {ec ? (<>
+                                            <button className="btn btn-primary btn-sm" onClick={updateCpPaid}>✅</button>
+                                            <button className="btn btn-ghost btn-sm" onClick={() => setEditCp(null)}>✕</button>
+                                        </>) : (<>
+                                            <button className="btn btn-ghost btn-sm" title="Cập nhật thanh toán" onClick={() => setEditCp({ id: cp.id, paidAmount: cp.paidAmount, status: cp.status })}>✏️</button>
+                                            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--status-danger)' }} onClick={() => deleteCp(cp.id)}>🗑️</button>
+                                        </>)}
+                                    </div>
+                                </td>
                             </tr>
-                        ))}</tbody>
+                            );
+                        })}</tbody>
                     </table></div>
-                    {p.contractorPays.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có thầu phụ</div>}
+                    {p.contractorPays.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có thầu phụ — <button className="btn btn-ghost btn-sm" onClick={openCpModal}>+ Thêm ngay</button></div>}
                 </div>
             )}
 
@@ -823,6 +883,58 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             {tab === 'documents' && <DocumentManager projectId={id} onRefresh={fetchData} />}
 
             {/* MODALS */}
+
+            {/* Modal: Thêm thầu phụ */}
+            {modal === 'contractor_pay' && (
+                <div className="modal-overlay" onClick={() => setModal(null)}>
+                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+                        <div className="modal-header">
+                            <h3>👷 Thêm thầu phụ vào dự án</h3>
+                            <button className="modal-close" onClick={() => setModal(null)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="form-group">
+                                <label className="form-label">Thầu phụ *</label>
+                                <select className="form-select" value={cpForm.contractorId} onChange={e => setCpForm({ ...cpForm, contractorId: e.target.value })} autoFocus>
+                                    <option value="">-- Chọn thầu phụ --</option>
+                                    {contractorList.map(c => <option key={c.id} value={c.id}>{c.name} — {c.type}</option>)}
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Mô tả hợp đồng</label>
+                                <input className="form-input" value={cpForm.description} onChange={e => setCpForm({ ...cpForm, description: e.target.value })} placeholder="VD: Thầu xây thô, Thầu điện nước..." />
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Giá trị hợp đồng *</label>
+                                    <input className="form-input" type="number" min="0" value={cpForm.contractAmount} onChange={e => setCpForm({ ...cpForm, contractAmount: e.target.value })} placeholder="VNĐ" />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Tạm ứng (nếu có)</label>
+                                    <input className="form-input" type="number" min="0" value={cpForm.paidAmount} onChange={e => setCpForm({ ...cpForm, paidAmount: e.target.value })} />
+                                </div>
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Hạn thanh toán</label>
+                                    <input className="form-input" type="date" value={cpForm.dueDate} onChange={e => setCpForm({ ...cpForm, dueDate: e.target.value })} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Trạng thái</label>
+                                    <select className="form-select" value={cpForm.status} onChange={e => setCpForm({ ...cpForm, status: e.target.value })}>
+                                        {['Chưa TT', 'Tạm ứng', 'Đang TT', 'Hoàn thành'].map(s => <option key={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setModal(null)}>Hủy</button>
+                            <button className="btn btn-primary" onClick={createContractorPayment}>Lưu</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {modal === 'contract' && (
                 <div className="modal-overlay" onClick={() => setModal(null)}>
                     <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 720 }}>
