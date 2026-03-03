@@ -183,10 +183,7 @@ export default function TreeSidebar({ hook, onClose, onConfigurableProduct }) {
                                         </button>
                                     )}
                                 </div>
-                                {expandedNodes[cat] && items.map(item => renderTreeLeaf(item, (p) => {
-                                    if (onConfigurableProduct) { onConfigurableProduct(p, activeMainIdx, activeSubIdx); return; }
-                                    addFromProduct(p);
-                                }, 'products'))}
+                                {expandedNodes[cat] && items.map(item => renderTreeLeaf(item, addFromProduct, 'products'))}
                             </div>
                         );
                     })

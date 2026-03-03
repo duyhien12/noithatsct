@@ -1,10 +1,74 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { fmt, UNIT_OPTIONS } from '@/lib/quotation-constants';
+import { apiFetch } from '@/lib/fetchClient';
 
 const normalizeSupply = (t) => (t === 'Mua thương mại' || t === 'Vật tư lưu kho') ? 'Mua ngoài' : (t || 'Mua ngoài');
 
-function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImageClick, onConfigurableProduct }) {
+// Inline variant selector for product rows
+function InlineVariants({ productId, basePrice, onPriceChange, onDescChange }) {
+    const [attrs, setAttrs] = useState(null); // null=not loaded, []=no variants
+    const [selections, setSelections] = useState({});
+
+    useEffect(() => {
+        if (!productId) return;
+        apiFetch(`/api/products/${productId}/attributes`)
+            .then(data => {
+                setAttrs(data || []);
+                const init = {};
+                (data || []).forEach(a => {
+                    if (a.inputType === 'select' && a.options.length > 0) init[a.id] = a.options[0].id;
+                    else init[a.id] = '';
+                });
+                setSelections(init);
+            })
+            .catch(() => setAttrs([]));
+    }, [productId]);
+
+    useEffect(() => {
+        if (!attrs || attrs.length === 0) return;
+        let addon = 0;
+        const descParts = [];
+        attrs.forEach(a => {
+            if (a.inputType === 'select') {
+                const opt = a.options.find(o => o.id === selections[a.id]);
+                if (opt) { addon += opt.priceAddon; descParts.push(`${a.name}: ${opt.label}`); }
+            } else if (selections[a.id]?.trim()) {
+                descParts.push(`${a.name}: ${selections[a.id]}`);
+            }
+        });
+        onPriceChange(basePrice + addon);
+        onDescChange(descParts.join(', '));
+    }, [selections, attrs]);
+
+    if (!productId || attrs === null || attrs.length === 0) return null;
+
+    return (
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 3 }}>
+            {attrs.map(a => (
+                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <span style={{ fontSize: 10, opacity: 0.5, whiteSpace: 'nowrap' }}>{a.name}:</span>
+                    {a.inputType === 'select' ? (
+                        <select value={selections[a.id] || ''} onChange={e => setSelections(s => ({ ...s, [a.id]: e.target.value }))}
+                            style={{ fontSize: 11, padding: '1px 2px', border: '1px solid var(--border-color)', borderRadius: 3, background: 'var(--bg-input)', maxWidth: 130 }}>
+                            {!a.required && <option value="">—</option>}
+                            {a.options.map(o => (
+                                <option key={o.id} value={o.id}>
+                                    {o.label}{o.priceAddon > 0 ? ` +${new Intl.NumberFormat('vi-VN').format(o.priceAddon)}` : o.priceAddon < 0 ? ` ${new Intl.NumberFormat('vi-VN').format(o.priceAddon)}` : ''}
+                                </option>
+                            ))}
+                        </select>
+                    ) : (
+                        <input value={selections[a.id] || ''} onChange={e => setSelections(s => ({ ...s, [a.id]: e.target.value }))}
+                            placeholder={a.name} style={{ fontSize: 11, padding: '1px 3px', border: '1px solid var(--border-color)', borderRadius: 3, width: 80 }} />
+                    )}
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImageClick }) {
     const { updateSubcategoryName, removeSubcategory, updateItem, removeItem, addItem, addFromLibrary, addFromProduct, allSearchItems, mainCategories } = hook;
 
     // Quick-add autocomplete state
@@ -41,17 +105,7 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
     }, []);
 
     const handleQuickAdd = useCallback((item) => {
-        // Intercept configurable products (Sản xuất nội bộ)
-        if (item._type === 'product' && onConfigurableProduct) {
-            setQuickSearch('');
-            setQuickResults([]);
-            setShowQuickDrop(false);
-            hook.setActiveMainIdx(mi);
-            hook.setActiveSubIdx(si);
-            onConfigurableProduct(item, mi, si);
-            return;
-        }
-        // Temporarily set active indices to target this subcategory
+        // Directly add — variant selection will be inline in the table
         hook.setActiveMainIdx(mi);
         hook.setActiveSubIdx(si);
         setTimeout(() => {
@@ -62,7 +116,7 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
         setQuickResults([]);
         setShowQuickDrop(false);
         setTimeout(() => quickRef.current?.focus(), 50);
-    }, [addFromLibrary, addFromProduct, mi, si, hook, onConfigurableProduct]);
+    }, [addFromLibrary, addFromProduct, mi, si, hook]);
 
     const handleQuickKeyDown = (e) => {
         if (e.key === 'ArrowDown') {
@@ -139,7 +193,15 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                             </div>
                                         )}
                                     </td>
-                                    <td><input className="form-input form-input-compact" value={item.name} onChange={e => updateItem(mi, si, ii, 'name', e.target.value)} placeholder="Tên" /></td>
+                                    <td>
+                                        <input className="form-input form-input-compact" value={item.name} onChange={e => updateItem(mi, si, ii, 'name', e.target.value)} placeholder="Tên" />
+                                        <InlineVariants
+                                            productId={item.productId}
+                                            basePrice={item.mainMaterial || 0}
+                                            onPriceChange={(price) => updateItem(mi, si, ii, 'unitPrice', price)}
+                                            onDescChange={(desc) => updateItem(mi, si, ii, 'description', desc)}
+                                        />
+                                    </td>
                                     <td><input className="form-input form-input-compact" type="number" value={item.length || ''} onChange={e => updateItem(mi, si, ii, 'length', e.target.value)} placeholder="0" /></td>
                                     <td><input className="form-input form-input-compact" type="number" value={item.width || ''} onChange={e => updateItem(mi, si, ii, 'width', e.target.value)} placeholder="0" /></td>
                                     <td><input className="form-input form-input-compact" type="number" value={item.height || ''} onChange={e => updateItem(mi, si, ii, 'height', e.target.value)} placeholder="0" /></td>
@@ -203,7 +265,7 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
     );
 }
 
-export default function CategoryTable({ mi, hook, onImageClick, onSubcategoryImageClick, onConfigurableProduct }) {
+export default function CategoryTable({ mi, hook, onImageClick, onSubcategoryImageClick }) {
     const { mainCategories, addSubcategory } = hook;
     const mc = mainCategories[mi];
     if (!mc) return null;
@@ -211,7 +273,7 @@ export default function CategoryTable({ mi, hook, onImageClick, onSubcategoryIma
     return (
         <div>
             {mc.subcategories.map((sub, si) => (
-                <SubcategorySection key={sub._key} sub={sub} mi={mi} si={si} hook={hook} onImageClick={onImageClick} onSubcategoryImageClick={onSubcategoryImageClick} onConfigurableProduct={onConfigurableProduct} />
+                <SubcategorySection key={sub._key} sub={sub} mi={mi} si={si} hook={hook} onImageClick={onImageClick} onSubcategoryImageClick={onSubcategoryImageClick} />
             ))}
             <button className="btn btn-ghost" onClick={() => addSubcategory(mi)}
                 style={{ width: '100%', padding: '10px', border: '2px dashed var(--border-color)', borderRadius: 8, fontSize: 13 }}>
