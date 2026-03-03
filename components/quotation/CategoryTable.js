@@ -50,6 +50,7 @@ function SubItemSearch({ value, onChange, onSelect, products }) {
 function InlineVariants({ productId, basePrice, onPriceChange, onDescChange }) {
     const [attrs, setAttrs] = useState(null); // null=not loaded, []=no variants
     const [selections, setSelections] = useState({});
+    const userChanged = useRef(false);
 
     useEffect(() => {
         if (!productId) return;
@@ -68,19 +69,25 @@ function InlineVariants({ productId, basePrice, onPriceChange, onDescChange }) {
 
     useEffect(() => {
         if (!attrs || attrs.length === 0) return;
+        if (!userChanged.current) return; // Don't override price on initial load
         let addon = 0;
         const descParts = [];
         attrs.forEach(a => {
             if (a.inputType === 'select') {
                 const opt = a.options.find(o => o.id === selections[a.id]);
-                if (opt) { addon += opt.priceAddon; descParts.push(`${a.name}: ${opt.label}`); }
+                if (opt) { addon += (opt.priceAddon || 0); descParts.push(`${a.name}: ${opt.label}`); }
             } else if (selections[a.id]?.trim()) {
                 descParts.push(`${a.name}: ${selections[a.id]}`);
             }
         });
         onPriceChange(basePrice + addon);
         onDescChange(descParts.join(', '));
-    }, [selections, attrs]);
+    }, [selections, attrs, basePrice, onPriceChange, onDescChange]);
+
+    const handleChange = (attrId, value) => {
+        userChanged.current = true;
+        setSelections(s => ({ ...s, [attrId]: value }));
+    };
 
     if (!productId || attrs === null || attrs.length === 0) return null;
 
@@ -90,7 +97,7 @@ function InlineVariants({ productId, basePrice, onPriceChange, onDescChange }) {
                 <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <span style={{ fontSize: 10, opacity: 0.5, whiteSpace: 'nowrap' }}>{a.name}:</span>
                     {a.inputType === 'select' ? (
-                        <select value={selections[a.id] || ''} onChange={e => setSelections(s => ({ ...s, [a.id]: e.target.value }))}
+                        <select value={selections[a.id] || ''} onChange={e => handleChange(a.id, e.target.value)}
                             style={{ fontSize: 11, padding: '1px 2px', border: '1px solid var(--border-color)', borderRadius: 3, background: 'var(--bg-input)', maxWidth: 130 }}>
                             {!a.required && <option value="">—</option>}
                             {a.options.map(o => (
@@ -100,7 +107,7 @@ function InlineVariants({ productId, basePrice, onPriceChange, onDescChange }) {
                             ))}
                         </select>
                     ) : (
-                        <input value={selections[a.id] || ''} onChange={e => setSelections(s => ({ ...s, [a.id]: e.target.value }))}
+                        <input value={selections[a.id] || ''} onChange={e => handleChange(a.id, e.target.value)}
                             placeholder={a.name} style={{ fontSize: 11, padding: '1px 3px', border: '1px solid var(--border-color)', borderRadius: 3, width: 80 }} />
                     )}
                 </div>
@@ -270,9 +277,14 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                             })()}
                                         </td>
                                         <td>
-                                            <select className="form-select form-input-compact" value={item.unit} onChange={e => updateItem(mi, si, ii, 'unit', e.target.value)}>
-                                                {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
-                                            </select>
+                                            {(() => {
+                                                const opts = UNIT_OPTIONS.includes(item.unit) ? UNIT_OPTIONS : [item.unit, ...UNIT_OPTIONS];
+                                                return (
+                                                    <select className="form-select form-input-compact" value={item.unit} onChange={e => updateItem(mi, si, ii, 'unit', e.target.value)}>
+                                                        {opts.map(u => <option key={u} value={u}>{u}</option>)}
+                                                    </select>
+                                                );
+                                            })()}
                                         </td>
                                         <td><input className="form-input form-input-compact" type="number" value={item.unitPrice || ''} onChange={e => updateItem(mi, si, ii, 'unitPrice', e.target.value)} /></td>
                                         <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-primary)', fontSize: 12 }}>{fmt(item.amount)}</td>
