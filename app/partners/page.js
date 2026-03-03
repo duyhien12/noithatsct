@@ -20,6 +20,10 @@ export default function PartnersPage() {
     const [conForm, setConForm] = useState(emptyCon);
     const [search, setSearch] = useState('');
     const [filterType, setFilterType] = useState('');
+    const [showPasteModal, setShowPasteModal] = useState(''); // 'ncc' | 'tp' | ''
+    const [pasteText, setPasteText] = useState('');
+    const [pastePreview, setPastePreview] = useState([]);
+    const [importing, setImporting] = useState(false);
 
     const fetchData = async () => {
         setLoading(true);
@@ -52,6 +56,52 @@ export default function PartnersPage() {
         setShowModal(false); fetchData();
     };
     const delCon = async (id) => { if (!confirm('Xóa thầu phụ này?')) return; await fetch(`/api/contractors/${id}`, { method: 'DELETE' }); fetchData(); };
+
+    // === Paste from Excel ===
+    const openPaste = (type) => { setShowPasteModal(type); setPasteText(''); setPastePreview([]); };
+    const closePaste = () => { setShowPasteModal(''); setPasteText(''); setPastePreview([]); };
+
+    const parsePaste = () => {
+        if (showPasteModal === 'ncc') {
+            const existingNames = new Set(suppliers.map(s => s.name.toLowerCase().trim()));
+            const rows = pasteText.trim().split('\n').map(row => {
+                const c = row.split('\t');
+                const name = c[0]?.trim() || '';
+                return {
+                    name, type: SUPPLIER_TYPES.includes(c[1]?.trim()) ? c[1].trim() : 'Vật tư xây dựng',
+                    phone: c[2]?.trim() || '', address: c[3]?.trim() || '', taxCode: c[4]?.trim() || '',
+                    bankAccount: c[5]?.trim() || '', bankName: c[6]?.trim() || '',
+                    contact: c[7]?.trim() || '', email: c[8]?.trim() || '',
+                    _isDup: existingNames.has(name.toLowerCase()),
+                };
+            }).filter(r => r.name);
+            setPastePreview(rows);
+        } else {
+            const existingNames = new Set(contractors.map(c => c.name.toLowerCase().trim()));
+            const rows = pasteText.trim().split('\n').map(row => {
+                const c = row.split('\t');
+                const name = c[0]?.trim() || '';
+                return {
+                    name, type: CONTRACTOR_TYPES.includes(c[1]?.trim()) ? c[1].trim() : 'Thầu xây dựng',
+                    phone: c[2]?.trim() || '', address: c[3]?.trim() || '', taxCode: c[4]?.trim() || '',
+                    bankAccount: c[5]?.trim() || '', bankName: c[6]?.trim() || '',
+                    _isDup: existingNames.has(name.toLowerCase()),
+                };
+            }).filter(r => r.name);
+            setPastePreview(rows);
+        }
+    };
+
+    const confirmPaste = async () => {
+        if (!pastePreview.length) return;
+        setImporting(true);
+        const endpoint = showPasteModal === 'ncc' ? '/api/suppliers/bulk' : '/api/contractors/bulk';
+        const payload = pastePreview.map(({ _isDup, ...r }) => r);
+        await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        setImporting(false);
+        closePaste();
+        fetchData();
+    };
 
     // === Filter ===
     const filteredSup = suppliers.filter(s => {
@@ -97,9 +147,12 @@ export default function PartnersPage() {
                                 {(tab === 'ncc' ? SUPPLIER_TYPES : CONTRACTOR_TYPES).map(t => <option key={t}>{t}</option>)}
                             </select>
                         </div>
-                        <button className="btn btn-primary" onClick={tab === 'ncc' ? openCreateSup : openCreateCon}>
-                            + Thêm {tab === 'ncc' ? 'NCC' : 'Thầu phụ'}
-                        </button>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                            <button className="btn btn-ghost" onClick={() => openPaste(tab === 'ncc' ? 'ncc' : 'tp')}>📋 Dán Excel</button>
+                            <button className="btn btn-primary" onClick={tab === 'ncc' ? openCreateSup : openCreateCon}>
+                                + Thêm {tab === 'ncc' ? 'NCC' : 'Thầu phụ'}
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -167,6 +220,72 @@ export default function PartnersPage() {
                     </div>
                 )}
             </div>
+
+            {/* Paste Modal — step 1: input */}
+            {showPasteModal && !pastePreview.length && (
+                <div className="modal-overlay" onClick={closePaste}>
+                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
+                        <div className="modal-header">
+                            <h3>📋 Dán {showPasteModal === 'ncc' ? 'nhà cung cấp' : 'thầu phụ'} từ Excel</h3>
+                            <button className="modal-close" onClick={closePaste}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>
+                                Copy các hàng từ Excel (không cần tiêu đề) và dán vào đây.<br />
+                                {showPasteModal === 'ncc'
+                                    ? <><strong>Thứ tự cột:</strong> Tên* | Loại | SĐT | Địa chỉ | MST | STK ngân hàng | Tên ngân hàng | Người liên hệ | Email</>
+                                    : <><strong>Thứ tự cột:</strong> Tên* | Loại | SĐT | Địa chỉ | MST | STK ngân hàng | Tên ngân hàng</>}
+                            </p>
+                            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+                                <strong>Giá trị Loại hợp lệ:</strong> {(showPasteModal === 'ncc' ? SUPPLIER_TYPES : CONTRACTOR_TYPES).join(', ')}
+                            </p>
+                            <textarea className="form-input" rows={10} style={{ fontFamily: 'monospace', fontSize: 12 }}
+                                placeholder="Dán dữ liệu Excel vào đây..."
+                                value={pasteText} onChange={e => setPasteText(e.target.value)} />
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={closePaste}>Hủy</button>
+                            <button className="btn btn-primary" onClick={parsePaste} disabled={!pasteText.trim()}>Xem trước</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Paste Modal — step 2: preview */}
+            {pastePreview.length > 0 && (
+                <div className="modal-overlay" onClick={() => setPastePreview([])}>
+                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 820 }}>
+                        <div className="modal-header">
+                            <h3>Xem trước — {pastePreview.length} {showPasteModal === 'ncc' ? 'NCC' : 'thầu phụ'}</h3>
+                            <button className="modal-close" onClick={() => setPastePreview([])}>×</button>
+                        </div>
+                        <div className="modal-body" style={{ maxHeight: 420, overflowY: 'auto' }}>
+                            <table className="data-table">
+                                <thead><tr>
+                                    <th>Tên</th><th>Loại</th><th>SĐT</th><th>Địa chỉ</th><th>Ngân hàng</th>
+                                    {showPasteModal === 'ncc' && <th>Liên hệ</th>}
+                                </tr></thead>
+                                <tbody>{pastePreview.map((r, i) => (
+                                    <tr key={i} style={{ background: r._isDup ? 'rgba(255,165,0,0.08)' : '' }}>
+                                        <td>{r.name} {r._isDup && <span style={{ fontSize: 11, color: 'orange', fontWeight: 600 }}>trùng</span>}</td>
+                                        <td><span className={`badge ${showPasteModal === 'ncc' ? 'info' : 'warning'}`}>{r.type}</span></td>
+                                        <td>{r.phone || '—'}</td>
+                                        <td style={{ fontSize: 12 }}>{r.address || '—'}</td>
+                                        <td style={{ fontSize: 12 }}>{r.bankAccount ? `${r.bankName} - ${r.bankAccount}` : '—'}</td>
+                                        {showPasteModal === 'ncc' && <td style={{ fontSize: 12 }}>{r.contact || '—'}</td>}
+                                    </tr>
+                                ))}</tbody>
+                            </table>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setPastePreview([])}>← Sửa lại</button>
+                            <button className="btn btn-primary" onClick={confirmPaste} disabled={importing}>
+                                {importing ? 'Đang nhập...' : `✅ Nhập ${pastePreview.length} ${showPasteModal === 'ncc' ? 'NCC' : 'thầu phụ'}`}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Modal NCC */}
             {showModal === 'ncc' && (
