@@ -117,7 +117,7 @@ export default function ProductsPage() {
         await fetch(`/api/products/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
         setEditingP(null); fetchProducts();
     };
-    const deleteP = async (id) => { if (!confirm('Xóa sản phẩm?')) return; await fetch(`/api/products/${id}`, { method: 'DELETE' }); fetchProducts(); };
+    const deleteP = async (id) => { if (!confirm('Xóa sản phẩm?')) return; const res = await fetch(`/api/products/${id}`, { method: 'DELETE' }); if (res.ok) setProducts(prev => prev.filter(p => p.id !== id)); else fetchProducts(); };
     const duplicateP = async (p) => {
         const { id, code, createdAt, updatedAt, ...rest } = p;
         await fetch('/api/products', {
@@ -206,7 +206,7 @@ export default function ProductsPage() {
         await fetch(`/api/work-item-library/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
         setEditingL(null); fetchLibrary();
     };
-    const deleteL = async (id) => { if (!confirm('Xóa hạng mục?')) return; await fetch(`/api/work-item-library/${id}`, { method: 'DELETE' }); fetchLibrary(); };
+    const deleteL = async (id) => { if (!confirm('Xóa hạng mục?')) return; const res = await fetch(`/api/work-item-library/${id}`, { method: 'DELETE' }); if (res.ok) setLibrary(prev => prev.filter(l => l.id !== id)); else fetchLibrary(); };
     const addNewLib = () => setNewLibItem({ name: '', category: filterCatL || '', subcategory: '', unit: 'cái', mainMaterial: 0, auxMaterial: 0, labor: 0, unitPrice: 0, description: '', image: '' });
     const saveNewLib = async () => {
         await fetch('/api/work-item-library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...newLibItem, mainMaterial: Number(newLibItem.mainMaterial), auxMaterial: Number(newLibItem.auxMaterial), labor: Number(newLibItem.labor), unitPrice: Number(newLibItem.unitPrice) }) });
