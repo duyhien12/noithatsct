@@ -19,8 +19,8 @@ const menuItems = [
     },
     {
         section: 'Quản lý', items: [
-            { href: '/customers', icon: Users, label: 'Khách hàng', badge: 3, roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
-            { href: '/projects', icon: Building2, label: 'Dự án', badge: 4 },
+            { href: '/customers', icon: Users, label: 'Khách hàng', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
+            { href: '/projects', icon: Building2, label: 'Dự án' },
             { href: '/contracts', icon: FileText, label: 'Hợp đồng', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
             { href: '/products', icon: Package, label: 'Sản phẩm & Vật tư' },
             { href: '/quotations', icon: ClipboardList, label: 'Báo giá', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
