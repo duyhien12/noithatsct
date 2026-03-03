@@ -164,7 +164,7 @@ export const POST = withAuth(async (request, { params }) => {
     const { id } = await params;
     const original = await prisma.quotation.findUnique({
         where: { id },
-        include: { categories: { include: { items: true }, orderBy: { order: 'asc' } } },
+        include: { categories: { include: { items: { where: { parentItemId: null }, orderBy: { order: 'asc' }, include: { subItems: { orderBy: { order: 'asc' } } } } }, orderBy: { order: 'asc' } } },
     });
     if (!original) return NextResponse.json({ error: 'Không tìm thấy' }, { status: 404 });
 
@@ -195,22 +195,36 @@ export const POST = withAuth(async (request, { params }) => {
         for (const cat of original.categories) {
             const newCat = await prisma.quotationCategory.create({
                 data: {
-                    name: cat.name, group: cat.group, image: cat.image,
+                    name: cat.name, group: cat.group, image: cat.image || '',
                     order: cat.order, subtotal: cat.subtotal, quotationId: clone.id,
                 },
             });
             if (cat.items.length > 0) {
-                await prisma.quotationItem.createMany({
-                    data: cat.items.map(item => ({
-                        name: item.name, order: item.order, unit: item.unit,
-                        quantity: item.quantity, mainMaterial: item.mainMaterial,
-                        auxMaterial: item.auxMaterial, labor: item.labor,
-                        unitPrice: item.unitPrice, amount: item.amount,
-                        description: item.description, length: item.length,
-                        width: item.width, height: item.height, image: item.image,
-                        productId: item.productId, quotationId: clone.id, categoryId: newCat.id,
-                    })),
-                });
+                for (const item of cat.items) {
+                    const newItem = await prisma.quotationItem.create({
+                        data: {
+                            name: item.name, order: item.order, unit: item.unit,
+                            quantity: item.quantity, volume: item.volume || 0,
+                            mainMaterial: item.mainMaterial, auxMaterial: item.auxMaterial, labor: item.labor,
+                            unitPrice: item.unitPrice, amount: item.amount,
+                            description: item.description, length: item.length,
+                            width: item.width, height: item.height, image: item.image,
+                            productId: item.productId, quotationId: clone.id, categoryId: newCat.id,
+                        },
+                    });
+                    if (item.subItems && item.subItems.length > 0) {
+                        await prisma.quotationItem.createMany({
+                            data: item.subItems.map(si => ({
+                                name: si.name, order: si.order, unit: si.unit,
+                                quantity: si.quantity, volume: si.volume || 0,
+                                unitPrice: si.unitPrice, amount: si.amount,
+                                description: si.description, length: si.length,
+                                width: si.width, height: si.height, image: si.image || '',
+                                parentItemId: newItem.id, quotationId: clone.id, categoryId: newCat.id,
+                            })),
+                        });
+                    }
+                }
             }
         }
     }
