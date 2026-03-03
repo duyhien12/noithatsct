@@ -50,7 +50,7 @@ export default function ProductConfigurator({ product, onConfirm, onCancel }) {
         }).filter(Boolean).join(', ');
     };
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
         for (const attr of attributes) {
             if (!attr.required) continue;
             if (attr.inputType === 'select' && !selections[attr.id]) {
@@ -63,6 +63,28 @@ export default function ProductConfigurator({ product, onConfirm, onCancel }) {
             }
         }
         const qty = Number(quantity) || 0;
+        // Fetch BOM to populate sub-items (phụ kiện)
+        let subItems = [];
+        if (product.id) {
+            try {
+                const bom = await apiFetch(`/api/products/${product.id}/bom`);
+                if (bom && bom.length > 0) {
+                    subItems = bom.map(b => ({
+                        _key: Date.now() + Math.random(),
+                        name: b.component?.name || b.notes || '',
+                        unit: b.unit || b.component?.unit || 'cái',
+                        quantity: b.quantity || 0,
+                        unitPrice: b.component?.salePrice || 0,
+                        amount: (b.quantity || 0) * (b.component?.salePrice || 0),
+                        description: b.notes || '',
+                        image: b.component?.image || '',
+                        productId: b.component?.id || null,
+                        length: 0, width: 0, height: 0, volume: 0,
+                        mainMaterial: 0, auxMaterial: 0, labor: 0,
+                    }));
+                }
+            } catch { /* no BOM, that's fine */ }
+        }
         onConfirm({
             _key: Date.now() + Math.random(),
             name: product.name,
@@ -77,6 +99,7 @@ export default function ProductConfigurator({ product, onConfirm, onCancel }) {
             image: product.image || '',
             length: 0, width: 0, height: 0,
             productId: product.id,
+            subItems,
         });
     };
 
