@@ -22,6 +22,9 @@ export default function CreateQuotationPage() {
     const [uploadingCell, setUploadingCell] = useState(null);
     const imgInputRef = useRef(null);
     const imgUploadTarget = useRef(null);
+    const [showQuickCustomer, setShowQuickCustomer] = useState(false);
+    const [quickCust, setQuickCust] = useState({ name: '', phone: '' });
+    const [creatingCust, setCreatingCust] = useState(false);
 
     const {
         form, setForm, mainCategories, setMainCategories,
@@ -193,17 +196,54 @@ export default function CreateQuotationPage() {
                     <div className="card-header"><h3>Thông tin chung</h3></div>
                     <div className="card-body">
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-                            <div>
+                            <div style={{ gridColumn: 'span 2' }}>
                                 <label className="form-label">Khách hàng *</label>
-                                <select className="form-select" value={form.customerId} onChange={e => setForm({ ...form, customerId: e.target.value, projectId: '' })}>
-                                    <option value="">-- Chọn KH --</option>
-                                    {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                                    <select className="form-select" value={form.customerId} onChange={e => setForm({ ...form, customerId: e.target.value, projectId: '' })} style={{ flex: 1 }}>
+                                        <option value="">-- Chọn KH --</option>
+                                        {customers.map(c => <option key={c.id} value={c.id}>{c.name} — {c.phone}</option>)}
+                                    </select>
+                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowQuickCustomer(v => !v)}
+                                        style={{ whiteSpace: 'nowrap', fontSize: 12 }}>
+                                        {showQuickCustomer ? '✕' : '+ KH mới'}
+                                    </button>
+                                </div>
+                                {showQuickCustomer && (
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                                        <div>
+                                            <label className="form-label" style={{ fontSize: 11 }}>Tên KH</label>
+                                            <input className="form-input form-input-compact" value={quickCust.name}
+                                                onChange={e => setQuickCust(q => ({ ...q, name: e.target.value }))} placeholder="Nguyễn Văn A" />
+                                        </div>
+                                        <div>
+                                            <label className="form-label" style={{ fontSize: 11 }}>SĐT</label>
+                                            <input className="form-input form-input-compact" value={quickCust.phone}
+                                                onChange={e => setQuickCust(q => ({ ...q, phone: e.target.value }))} placeholder="0901..." />
+                                        </div>
+                                        <button type="button" className="btn btn-primary btn-sm" disabled={creatingCust} onClick={async () => {
+                                            if (!quickCust.name.trim() || !quickCust.phone.trim()) return toast.warning('Nhập tên + SĐT');
+                                            setCreatingCust(true);
+                                            try {
+                                                const c = await apiFetch('/api/customers', {
+                                                    method: 'POST', body: JSON.stringify({ name: quickCust.name.trim(), phone: quickCust.phone.trim(), type: 'Cá nhân', status: 'Lead' }),
+                                                });
+                                                hook.refreshCustomers?.();
+                                                setForm(f => ({ ...f, customerId: c.id, projectId: '' }));
+                                                setQuickCust({ name: '', phone: '' });
+                                                setShowQuickCustomer(false);
+                                                toast.success(`Đã tạo KH "${c.name}"`);
+                                            } catch (e) { toast.error(e.message); }
+                                            setCreatingCust(false);
+                                        }} style={{ fontSize: 12 }}>
+                                            {creatingCust ? '...' : '✓ Tạo & chọn'}
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                             <div>
-                                <label className="form-label">Dự án</label>
+                                <label className="form-label">Dự án <span style={{ fontSize: 11, opacity: 0.4 }}>(không bắt buộc)</span></label>
                                 <select className="form-select" value={form.projectId || ''} onChange={e => setForm({ ...form, projectId: e.target.value || null })}>
-                                    <option value="">-- Chọn DA --</option>
+                                    <option value="">-- Không chọn --</option>
                                     {filteredProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                 </select>
                             </div>

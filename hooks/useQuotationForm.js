@@ -500,6 +500,7 @@ export default function useQuotationForm() {
         // Reference data
         customers, projects, products, library,
         filteredProjects,
+        refreshCustomers: () => apiFetch('/api/customers?limit=1000').then(d => setCustomers(d.data || [])).catch(() => { }),
         // Form state
         form, setForm,
         // 3-level hierarchy
