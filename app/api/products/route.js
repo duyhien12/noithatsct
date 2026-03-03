@@ -33,7 +33,17 @@ export const POST = withAuth(async (request) => {
 });
 
 export const PATCH = withAuth(async (request) => {
-    const { oldCategory, newCategory } = await request.json();
+    const body = await request.json();
+    // Delete category: move products to targetCategory or clear category
+    if (body.deleteCategory) {
+        const result = await prisma.product.updateMany({
+            where: { category: body.deleteCategory },
+            data: { category: body.targetCategory?.trim() || '' },
+        });
+        return NextResponse.json({ updated: result.count });
+    }
+    // Rename category
+    const { oldCategory, newCategory } = body;
     if (!oldCategory || !newCategory?.trim()) {
         return NextResponse.json({ error: 'Thiếu tên danh mục' }, { status: 400 });
     }

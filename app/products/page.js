@@ -56,6 +56,8 @@ export default function ProductsPage() {
     // Upload
     const [editingCatName, setEditingCatName] = useState(null);
     const [editingLibCat, setEditingLibCat] = useState(null); // {old, new} for library category rename
+    const [deletingCat, setDeletingCat] = useState(null); // category name being deleted
+    const [deleteCatTarget, setDeleteCatTarget] = useState(''); // target category to move products to
     const excelInputRef = useRef(null);
     const [importPreview, setImportPreview] = useState(null);
     const [importing, setImporting] = useState(false);
@@ -149,6 +151,16 @@ export default function ProductsPage() {
         if (!editingCatName || editingCatName.new === editingCatName.old) { setEditingCatName(null); return; }
         await fetch('/api/products', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ oldCategory: editingCatName.old, newCategory: editingCatName.new }) });
         setEditingCatName(null); fetchProducts();
+    };
+    const handleDeleteCategory = async () => {
+        const count = products.filter(p => p.category === deletingCat).length;
+        if (count > 0) {
+            await fetch('/api/products', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deleteCategory: deletingCat, targetCategory: deleteCatTarget }) });
+        }
+        setExtraCats(prev => prev.filter(c => c !== deletingCat));
+        if (filterCatP === deletingCat) setFilterCatP('');
+        setDeletingCat(null); setDeleteCatTarget('');
+        fetchProducts();
     };
     const saveRenameLibCat = async () => {
         if (!editingLibCat || editingLibCat.new === editingLibCat.old) { setEditingLibCat(null); return; }
@@ -354,9 +366,10 @@ export default function ProductsPage() {
                                                     {c}
                                                     <span style={{ background: active ? 'rgba(255,255,255,0.25)' : 'var(--surface-alt)', color: active ? '#fff' : 'var(--text-secondary)', borderRadius: 10, padding: '1px 6px', fontSize: 11, fontWeight: 600 }}>{count}</span>
                                                 </button>
-                                                {active && (
-                                                    <button onClick={() => setEditingCatName({ old: c, new: c })} title="Đổi tên danh mục" style={{ padding: '5px 9px', borderRadius: '0 20px 20px 0', border: 'none', background: 'var(--primary)', color: 'rgba(255,255,255,0.75)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'opacity 0.15s' }}>✏️</button>
-                                                )}
+                                                {active && (<>
+                                                    <button onClick={() => setEditingCatName({ old: c, new: c })} title="Đổi tên danh mục" style={{ padding: '5px 8px', border: 'none', borderLeft: '1px solid rgba(255,255,255,0.2)', background: 'var(--primary)', color: 'rgba(255,255,255,0.75)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'opacity 0.15s' }}>✏️</button>
+                                                    <button onClick={() => { setDeletingCat(c); setDeleteCatTarget(''); }} title="Xóa danh mục" style={{ padding: '5px 9px', borderRadius: '0 20px 20px 0', border: 'none', borderLeft: '1px solid rgba(255,255,255,0.2)', background: 'var(--primary)', color: 'rgba(255,255,255,0.6)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'opacity 0.15s' }}>🗑️</button>
+                                                </>)}
                                             </div>
                                         )}
                                     </div>
@@ -797,6 +810,39 @@ export default function ProductsPage() {
                     </div>
                 </div>
             )}
+
+            {/* Delete category modal */}
+            {deletingCat && (() => {
+                const count = products.filter(p => p.category === deletingCat).length;
+                return (
+                    <div className="modal-overlay" onClick={() => setDeletingCat(null)}>
+                        <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+                            <div className="modal-header">
+                                <h3>🗑️ Xóa danh mục</h3>
+                                <button className="modal-close" onClick={() => setDeletingCat(null)}>×</button>
+                            </div>
+                            <div className="modal-body">
+                                <p style={{ marginBottom: 12 }}>Xóa danh mục <strong>"{deletingCat}"</strong>?</p>
+                                {count > 0 ? (
+                                    <div>
+                                        <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 8 }}><strong>{count}</strong> sản phẩm sẽ được chuyển sang danh mục:</p>
+                                        <select className="form-select" value={deleteCatTarget} onChange={e => setDeleteCatTarget(e.target.value)}>
+                                            <option value="">— Bỏ phân loại —</option>
+                                            {pCats.filter(c => c !== deletingCat).map(c => <option key={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+                                ) : (
+                                    <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Danh mục trống, sẽ xóa ngay.</p>
+                                )}
+                            </div>
+                            <div className="modal-footer">
+                                <button className="btn btn-ghost" onClick={() => setDeletingCat(null)}>Hủy</button>
+                                <button className="btn btn-primary" style={{ background: 'var(--status-danger)', borderColor: 'var(--status-danger)' }} onClick={handleDeleteCategory}>Xóa danh mục</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* Hidden image upload input (product images) */}
             <input ref={imgUpRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImgUpload} />
