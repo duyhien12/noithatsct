@@ -10,7 +10,7 @@ const DEDUCTION_PRESETS = [
 export default function QuotationSummary({ hook }) {
     const {
         form, setForm,
-        directCost, managementFee, adjustmentAmount, total,
+        directCost, adjustmentAmount, total,
         discountAmount, afterDiscount, totalDeductions, grandTotal,
         deductions, addDeduction, removeDeduction, updateDeduction,
         products,

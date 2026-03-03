@@ -608,7 +608,7 @@ export default function useQuotationForm() {
             ...form,
             categories,
             deductions: deductions.filter(d => d.name.trim() !== '').map(({ _key, ...d }) => d),
-            directCost, managementFee, adjustmentAmount, total,
+            directCost, adjustmentAmount, total,
             discount: form.discount, vat: form.vat || 0,
             grandTotal,
         };
@@ -655,7 +655,7 @@ export default function useQuotationForm() {
         allSearchItems,
         // Calculation
         recalc,
-        directCost, managementFee, adjustmentAmount, total,
+        directCost, adjustmentAmount, total,
         discountAmount, afterDiscount, totalDeductions, grandTotal,
         // Deductions
         deductions, setDeductions,
