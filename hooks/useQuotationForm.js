@@ -94,15 +94,15 @@ export default function useQuotationForm() {
         const h = Number(item.height) || 0;
         const qty = Number(item.quantity) || 0;
         const unit = (item.unit || '').toLowerCase().trim();
-        // Unit-aware volume calculation
+        // Unit-aware volume calculation (default qty=1 when dims entered)
         if (unit === 'md' || unit === 'mét dài' || unit === 'm') {
-            return l > 0 ? l * qty : qty;
+            return l > 0 ? l * (qty || 1) : qty;
         }
         if (unit === 'm²' || unit === 'm2') {
-            return (l > 0 && w > 0) ? l * w * qty : qty;
+            return (l > 0 && w > 0) ? l * w * (qty || 1) : qty;
         }
         if (unit === 'm³' || unit === 'm3') {
-            return (l > 0 && w > 0 && h > 0) ? l * w * h * qty : qty;
+            return (l > 0 && w > 0 && h > 0) ? l * w * h * (qty || 1) : qty;
         }
         // For bộ, cái, chiếc, etc.: volume = quantity
         return qty;
