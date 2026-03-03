@@ -48,12 +48,7 @@ export default function QuotationSummary({ hook }) {
                         <span>{isInterior ? 'Tổng sản phẩm nội thất' : 'Chi phí trực tiếp'}</span>
                         <span className="quotation-summary-value">{fmt(directCost)} đ</span>
                     </div>
-                    <div className="quotation-summary-row">
-                        <span>Phí quản lý <input className="form-input form-input-compact" type="number"
-                            value={form.managementFeeRate || ''} onChange={e => setForm({ ...form, managementFeeRate: parseFloat(e.target.value) || 0 })}
-                            style={{ width: 50, display: 'inline-block', margin: '0 4px' }} />%</span>
-                        <span className="quotation-summary-value">{fmt(managementFee)} đ</span>
-                    </div>
+
                     <div className="quotation-summary-row">
                         <span>Chi phí vận chuyển, lắp đặt <input className="form-input form-input-compact" type="number"
                             value={form.otherFee || ''} onChange={e => setForm({ ...form, otherFee: parseFloat(e.target.value) || 0 })}
