@@ -2503,7 +2503,10 @@ select.form-input-compact {
   font-weight: 600;
   transition: all var(--transition-fast);
 }
-.btn-success:hover { background: #059669; }
+
+.btn-success:hover {
+  background: #059669;
+}
 
 .btn-info {
   background: #0ea5e9;
@@ -2514,7 +2517,10 @@ select.form-input-compact {
   font-weight: 600;
   transition: all var(--transition-fast);
 }
-.btn-info:hover { background: #0284c7; }
+
+.btn-info:hover {
+  background: #0284c7;
+}
 
 .btn-purple {
   background: #8b5cf6;
@@ -2525,7 +2531,10 @@ select.form-input-compact {
   font-weight: 600;
   transition: all var(--transition-fast);
 }
-.btn-purple:hover { background: #7c3aed; }
+
+.btn-purple:hover {
+  background: #7c3aed;
+}
 
 /* Quick-add autocomplete input */
 .quick-add-input {
@@ -2945,5 +2954,145 @@ select.form-input-compact {
 
   .quotation-page-header>div {
     justify-content: flex-end;
+  }
+}
+
+/* ========================================
+   JOURNAL & COMMITMENT BOARD
+   ======================================== */
+
+/* Timeline */
+.journal-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.journal-entry-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 16px 20px;
+  position: relative;
+  transition: box-shadow 0.2s;
+}
+
+.journal-entry-card:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.journal-entry-card::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 16px;
+  bottom: 16px;
+  width: 3px;
+  background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary, #6366f1));
+  border-radius: 2px;
+}
+
+.journal-entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.journal-ai-summary {
+  padding: 10px 14px;
+  background: rgba(99, 102, 241, 0.05);
+  border-left: 3px solid var(--accent-primary);
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.journal-raw-input {
+  margin-top: 8px;
+}
+
+/* Commitment Board */
+.commitment-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  min-height: 300px;
+}
+
+.commitment-column {
+  background: var(--bg-secondary, #f8fafc);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.commitment-column-pending {
+  border-top: 3px solid #f59e0b;
+}
+
+.commitment-column-committed {
+  border-top: 3px solid #3b82f6;
+}
+
+.commitment-column-done {
+  border-top: 3px solid #10b981;
+}
+
+.commitment-column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 4px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.commitment-column-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.commitment-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 10px 12px;
+  transition: all 0.15s;
+}
+
+.commitment-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.commitment-overdue {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.commitment-overdue::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #ef4444;
+  border-radius: 8px 0 0 8px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .commitment-board {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 }

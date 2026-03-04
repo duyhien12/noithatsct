@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import DocumentManager from '@/components/documents/DocumentManager';
 import ScheduleManager from '@/components/schedule/ScheduleManager';
+import JournalTab from '@/components/journal/JournalTab';
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const pct = (a, b) => b > 0 ? Math.round((a / b) * 100) : 0;
@@ -367,6 +368,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
         { key: 'contractors', label: 'Thầu phụ', icon: '👷', count: p.contractorPays?.length },
         { key: 'finance', label: 'Tài chính', icon: '💰' },
         { key: 'documents', label: 'Tài liệu', icon: '📁', count: p.documents?.length },
+        { key: 'journal', label: 'Nhật ký AI', icon: '🤖' },
     ];
 
     return (
@@ -484,6 +486,13 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                         </div>
                     ))}
                     {p.trackingLogs.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có nhật ký theo dõi</div>}
+                </div>
+            )}
+
+            {/* TAB: Nhật ký AI */}
+            {tab === 'journal' && (
+                <div className="card" style={{ padding: 24 }}>
+                    <JournalTab projectId={id} />
                 </div>
             )}
 
@@ -871,40 +880,40 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                             const itemCount = cp.items?.length || 0;
                             const ntTotal = cp.items?.reduce((s, it) => s + it.amount, 0) || 0;
                             return (
-                            <tr key={cp.id} style={{ background: ec ? 'rgba(59,130,246,0.05)' : '' }}>
-                                <td className="primary">{cp.contractor.name}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{cp.contractor.phone}</div></td>
-                                <td><span className="badge muted">{cp.contractor.type}</span></td>
-                                <td style={{ fontSize: 12 }}>{cp.description}</td>
-                                <td>
-                                    <div style={{ fontSize: 13 }}>{fmt(cp.contractAmount)}</div>
-                                    <button style={{ fontSize: 11, color: 'var(--accent-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }} onClick={() => openNtModal(cp)}>
-                                        📋 {itemCount > 0 ? `${itemCount} hạng mục NT` : 'Thêm nghiệm thu'}
-                                    </button>
-                                </td>
-                                <td style={{ color: 'var(--status-success)', fontWeight: 600 }}>
-                                    {ec ? <input style={{ ...iS, width: 110 }} type="number" min="0" value={ec.paidAmount} onChange={e => setEditCp({ ...ec, paidAmount: e.target.value })} /> : fmt(cp.paidAmount)}
-                                </td>
-                                <td style={{ fontWeight: 700, color: cp.contractAmount - cp.paidAmount > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>{fmt(cp.contractAmount - cp.paidAmount)}</td>
-                                <td>
-                                    {ec
-                                        ? <select style={iS} value={ec.status} onChange={e => setEditCp({ ...ec, status: e.target.value })}>
-                                            {['Chưa TT', 'Tạm ứng', 'Đang TT', 'Hoàn thành'].map(s => <option key={s}>{s}</option>)}
-                                          </select>
-                                        : <span className={`badge ${cp.status === 'Hoàn thành' ? 'success' : cp.status === 'Tạm ứng' ? 'info' : 'warning'}`}>{cp.status}</span>
-                                    }
-                                </td>
-                                <td>
-                                    <div style={{ display: 'flex', gap: 3 }}>
-                                        {ec ? (<>
-                                            <button className="btn btn-primary btn-sm" onClick={updateCpPaid}>✅</button>
-                                            <button className="btn btn-ghost btn-sm" onClick={() => setEditCp(null)}>✕</button>
-                                        </>) : (<>
-                                            <button className="btn btn-ghost btn-sm" title="Cập nhật thanh toán" onClick={() => setEditCp({ id: cp.id, paidAmount: cp.paidAmount, status: cp.status })}>✏️</button>
-                                            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--status-danger)' }} onClick={() => deleteCp(cp.id)}>🗑️</button>
-                                        </>)}
-                                    </div>
-                                </td>
-                            </tr>
+                                <tr key={cp.id} style={{ background: ec ? 'rgba(59,130,246,0.05)' : '' }}>
+                                    <td className="primary">{cp.contractor.name}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{cp.contractor.phone}</div></td>
+                                    <td><span className="badge muted">{cp.contractor.type}</span></td>
+                                    <td style={{ fontSize: 12 }}>{cp.description}</td>
+                                    <td>
+                                        <div style={{ fontSize: 13 }}>{fmt(cp.contractAmount)}</div>
+                                        <button style={{ fontSize: 11, color: 'var(--accent-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }} onClick={() => openNtModal(cp)}>
+                                            📋 {itemCount > 0 ? `${itemCount} hạng mục NT` : 'Thêm nghiệm thu'}
+                                        </button>
+                                    </td>
+                                    <td style={{ color: 'var(--status-success)', fontWeight: 600 }}>
+                                        {ec ? <input style={{ ...iS, width: 110 }} type="number" min="0" value={ec.paidAmount} onChange={e => setEditCp({ ...ec, paidAmount: e.target.value })} /> : fmt(cp.paidAmount)}
+                                    </td>
+                                    <td style={{ fontWeight: 700, color: cp.contractAmount - cp.paidAmount > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>{fmt(cp.contractAmount - cp.paidAmount)}</td>
+                                    <td>
+                                        {ec
+                                            ? <select style={iS} value={ec.status} onChange={e => setEditCp({ ...ec, status: e.target.value })}>
+                                                {['Chưa TT', 'Tạm ứng', 'Đang TT', 'Hoàn thành'].map(s => <option key={s}>{s}</option>)}
+                                            </select>
+                                            : <span className={`badge ${cp.status === 'Hoàn thành' ? 'success' : cp.status === 'Tạm ứng' ? 'info' : 'warning'}`}>{cp.status}</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div style={{ display: 'flex', gap: 3 }}>
+                                            {ec ? (<>
+                                                <button className="btn btn-primary btn-sm" onClick={updateCpPaid}>✅</button>
+                                                <button className="btn btn-ghost btn-sm" onClick={() => setEditCp(null)}>✕</button>
+                                            </>) : (<>
+                                                <button className="btn btn-ghost btn-sm" title="Cập nhật thanh toán" onClick={() => setEditCp({ id: cp.id, paidAmount: cp.paidAmount, status: cp.status })}>✏️</button>
+                                                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--status-danger)' }} onClick={() => deleteCp(cp.id)}>🗑️</button>
+                                            </>)}
+                                        </div>
+                                    </td>
+                                </tr>
                             );
                         })}</tbody>
                     </table></div>

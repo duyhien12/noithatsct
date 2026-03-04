@@ -98,6 +98,8 @@ model Project {
   documentFolders DocumentFolder[]
   scheduleTasks   ScheduleTask[]
   progressReports ProgressReport[]
+  journalEntries  JournalEntry[]
+  commitments     Commitment[]
   deletedAt       DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -857,3 +859,36 @@ model ScheduleTemplateItem {
   template      ScheduleTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 }
 
+model JournalEntry {
+  id          String       @id @default(cuid())
+  projectId   String
+  project     Project      @relation(fields: [projectId], references: [id])
+  source      String       @default("paste")
+  rawInput    String       @db.Text
+  aiSummary   String?      @db.Text
+  aiRaw       Json?
+  createdBy   String       @default("")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  commitments Commitment[]
+  @@index([projectId])
+}
+
+model Commitment {
+  id             String        @id @default(cuid())
+  journalEntryId String?
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  projectId      String
+  project        Project       @relation(fields: [projectId], references: [id])
+  title          String
+  type           String        @default("y\u00eau c\u1ea7u")
+  assignee       String        @default("")
+  deadline       DateTime?
+  status         String        @default("pending")
+  notes          String        @default("") @db.Text
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  @@index([projectId])
+  @@index([journalEntryId])
+  @@index([status])
+}
