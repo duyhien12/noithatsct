@@ -336,6 +336,8 @@ model Contractor {
   notes         String   @default("") @db.Text
   isBlacklisted Boolean  @default(false)
   creditLimit   Float    @default(0)
+  category      String   @default("")
+  advanceAmount Float    @default(0)
   payments      ContractorPayment[]
   documents     ProjectDocument[]
   deletedAt     DateTime?
@@ -347,9 +349,14 @@ model ContractorPayment {
   id              String   @id @default(cuid())
   contractAmount  Float    @default(0)
   paidAmount      Float    @default(0)
-  status          String   @default("Chưa TT")
+  netAmount       Float    @default(0)
+  status          String   @default("pending_technical")
+  phase           String   @default("")
   description     String   @default("")
   dueDate         DateTime?
+  approvedBy      String   @default("")
+  approvedAt      DateTime?
+  attachments     Json?
   contractorId    String
   contractor      Contractor @relation(fields: [contractorId], references: [id])
   projectId       String

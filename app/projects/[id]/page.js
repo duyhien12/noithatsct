@@ -7,6 +7,7 @@ import JournalTab from '@/components/journal/JournalTab';
 import BudgetLockBar from '@/components/budget/BudgetLockBar';
 import VarianceTable from '@/components/budget/VarianceTable';
 import ProfitabilityWidget from '@/components/budget/ProfitabilityWidget';
+import MeasurementSheet, { MeasurementActions } from '@/components/contractor/MeasurementSheet';
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const pct = (a, b) => b > 0 ? Math.round((a / b) * 100) : 0;
@@ -29,6 +30,7 @@ export default function ProjectDetailPage() {
     const [tab, setTab] = useState('overview');
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState(null);
+    const [msSheet, setMsSheet] = useState(null);
     const [financeSubTab, setFinanceSubTab] = useState('payments');
     const [contractForm, setContractForm] = useState({ name: '', type: 'Thi công thô', contractValue: '', signDate: '', startDate: '', endDate: '', paymentTerms: '', notes: '' });
     const [paymentPhases, setPaymentPhases] = useState([]);
@@ -950,6 +952,17 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             {tab === 'documents' && <DocumentManager projectId={id} onRefresh={fetchData} />}
 
             {/* MODALS */}
+
+            {/* MeasurementSheet modal */}
+            {msSheet && (
+                <MeasurementSheet
+                    projectId={id}
+                    contractorId={msSheet.contractorId}
+                    contractorName={msSheet.contractorName}
+                    onSaved={fetchData}
+                    onClose={() => setMsSheet(null)}
+                />
+            )}
 
             {/* Modal: Nghiệm thu hạng mục */}
             {ntModal && (
