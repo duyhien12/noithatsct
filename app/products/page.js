@@ -527,77 +527,169 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* Quick Edit Product Modal */}
-            {editingP && (
-                <div className="modal-overlay" onClick={() => setEditingP(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
-                        <div className="modal-header">
-                            <h3>✏️ Chỉnh sửa nhanh</h3>
-                            <button className="modal-close" onClick={() => setEditingP(null)}>×</button>
-                        </div>
-                        <div className="modal-body">
-                            <div className="form-row">
-                                <div className="form-group" style={{ flex: 2 }}>
-                                    <label className="form-label">Tên sản phẩm</label>
-                                    <input className="form-input" value={editingP.data.name || ''} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, name: e.target.value } }))} autoFocus />
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">ĐVT</label>
-                                    <input className="form-input" value={editingP.data.unit || ''} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, unit: e.target.value } }))} />
+            {/* Edit Product Modal — Full */}
+            {editingP && (() => {
+                const ep = editingP;
+                const d = ep.data;
+                const set = (field, value) => setEditingP(prev => ({ ...prev, data: { ...prev.data, [field]: value } }));
+                const isManuf = normalizeSupply(d.supplyType) === 'Sản xuất nội bộ';
+                const isSvc = normalizeSupply(d.supplyType) === 'Dịch vụ';
+                return (
+                    <div className="modal-overlay" onClick={() => setEditingP(null)}>
+                        <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 680, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
+                            <div className="modal-header">
+                                <h3 style={{ margin: 0, fontSize: 15 }}>✏️ Sửa: {d.name || 'Sản phẩm'}</h3>
+                                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                    <button className="btn btn-ghost btn-sm" onClick={() => router.push(`/products/${ep.id}`)} style={{ fontSize: 11 }}>🔗 Chi tiết</button>
+                                    <button className="modal-close" onClick={() => setEditingP(null)}>×</button>
                                 </div>
                             </div>
-                            <div className="form-row">
-                                <div className="form-group" style={{ flex: 2 }}>
-                                    <label className="form-label">Danh mục</label>
-                                    <select className="form-select" value={editingP.data.category || ''} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, category: e.target.value } }))}>
-                                        {allCats.map(c => <option key={c}>{c}</option>)}
-                                    </select>
+                            <div className="modal-body" style={{ overflowY: 'auto', flex: 1 }}>
+                                {/* Image + Name row */}
+                                <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+                                    <div style={{ flexShrink: 0 }}>
+                                        <div onClick={() => { imgUpTarget.current = ep.id; imgUpRef.current?.click(); }}
+                                            style={{ width: 80, height: 80, borderRadius: 8, border: '2px dashed var(--border-color)', overflow: 'hidden', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-alt)', position: 'relative' }}
+                                            title="Click để đổi ảnh">
+                                            {d.image
+                                                ? <img src={d.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                : <span style={{ fontSize: 28, opacity: 0.2 }}>📷</span>}
+                                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity .15s', color: '#fff', fontSize: 18 }}
+                                                onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                                                onMouseLeave={e => e.currentTarget.style.opacity = 0}>📤</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                        <div className="form-group" style={{ margin: 0 }}>
+                                            <label className="form-label">Tên sản phẩm</label>
+                                            <input className="form-input" value={d.name || ''} onChange={e => set('name', e.target.value)} autoFocus style={{ fontWeight: 600 }} />
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                                                <label className="form-label">ĐVT</label>
+                                                <input className="form-input" value={d.unit || ''} onChange={e => set('unit', e.target.value)} />
+                                            </div>
+                                            <div className="form-group" style={{ margin: 0, flex: 2 }}>
+                                                <label className="form-label">Danh mục</label>
+                                                <select className="form-select" value={d.category || ''} onChange={e => set('category', e.target.value)}>
+                                                    {allCats.map(c => <option key={c}>{c}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="form-group">
+
+                                {/* Nguồn cung */}
+                                <div className="form-group" style={{ marginBottom: 10 }}>
                                     <label className="form-label">Nguồn cung</label>
-                                    <select className="form-select" value={normalizeSupply(editingP.data.supplyType)} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, supplyType: e.target.value } }))}>
-                                        {SUPPLY_TYPES.map(t => <option key={t}>{t}</option>)}
-                                    </select>
+                                    <div style={{ display: 'flex', gap: 4 }}>
+                                        {SUPPLY_TYPES.map(t => (
+                                            <button key={t} type="button"
+                                                className={`btn btn-sm ${normalizeSupply(d.supplyType) === t ? `btn-${SUPPLY_BADGE[t] || 'primary'}` : 'btn-ghost'}`}
+                                                style={{ fontSize: 11, flex: 1 }}
+                                                onClick={() => set('supplyType', t)}>
+                                                {SUPPLY_ICON[t]} {t}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Giá & Tồn */}
+                                <div className="form-row">
+                                    <div className="form-group">
+                                        <label className="form-label">Giá nhập</label>
+                                        <input className="form-input" type="number" value={d.importPrice || 0} onChange={e => set('importPrice', Number(e.target.value))} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Giá bán</label>
+                                        <input className="form-input" type="number" value={d.salePrice || 0} onChange={e => set('salePrice', Number(e.target.value))} />
+                                    </div>
+                                    {!isSvc && <>
+                                        <div className="form-group">
+                                            <label className="form-label">Tồn kho</label>
+                                            <input className="form-input" type="number" value={d.stock ?? 0} onChange={e => set('stock', Number(e.target.value))} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Tồn tối thiểu</label>
+                                            <input className="form-input" type="number" value={d.minStock ?? 0} onChange={e => set('minStock', Number(e.target.value))} />
+                                        </div>
+                                    </>}
+                                </div>
+
+                                {/* Thương hiệu & NCC */}
+                                <div className="form-row">
+                                    <div className="form-group" style={{ flex: 1 }}>
+                                        <label className="form-label">Thương hiệu</label>
+                                        <select className="form-select" value={d.brand || ''} onChange={e => set('brand', e.target.value)}>
+                                            {BRANDS.map(b => <option key={b.n} value={b.n}>{b.n || '-- Không --'}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="form-group" style={{ flex: 1 }}>
+                                        <label className="form-label">Nhà cung cấp</label>
+                                        <input className="form-input" value={d.supplier || ''} onChange={e => set('supplier', e.target.value)} />
+                                    </div>
+                                </div>
+
+                                {/* Kích thước & Vật liệu */}
+                                <div style={{ borderTop: '1px solid var(--border-color)', marginTop: 8, paddingTop: 10 }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, letterSpacing: 0.5 }}>CHI TIẾT</div>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label className="form-label">Kích thước</label>
+                                            <input className="form-input" value={d.dimensions || ''} onChange={e => set('dimensions', e.target.value)} placeholder="DxRxC" />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Trọng lượng (kg)</label>
+                                            <input className="form-input" type="number" value={d.weight || 0} onChange={e => set('weight', Number(e.target.value))} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Màu sắc</label>
+                                            <input className="form-input" value={d.color || ''} onChange={e => set('color', e.target.value)} />
+                                        </div>
+                                    </div>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label className="form-label">Chất liệu</label>
+                                            <input className="form-input" value={d.material || ''} onChange={e => set('material', e.target.value)} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Xuất xứ</label>
+                                            <input className="form-input" value={d.origin || ''} onChange={e => set('origin', e.target.value)} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Bảo hành</label>
+                                            <input className="form-input" value={d.warranty || ''} onChange={e => set('warranty', e.target.value)} placeholder="VD: 12 tháng" />
+                                        </div>
+                                    </div>
+                                    {isManuf && (
+                                        <div className="form-row">
+                                            <div className="form-group">
+                                                <label className="form-label">Chất liệu cốt</label>
+                                                <select className="form-select" value={d.coreBoard || ''} onChange={e => set('coreBoard', e.target.value)}>
+                                                    <option value="">-- Chọn --</option>
+                                                    {CORE_BOARD_TYPES.map(c => <option key={c}>{c}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="form-label">Mã bề mặt</label>
+                                                <input className="form-input" value={d.surfaceCode || ''} onChange={e => set('surfaceCode', e.target.value)} placeholder="VD: 388EV" />
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="form-group">
+                                        <label className="form-label">Mô tả</label>
+                                        <textarea className="form-input" rows={2} value={d.description || ''} onChange={e => set('description', e.target.value)} style={{ resize: 'vertical' }} />
+                                    </div>
                                 </div>
                             </div>
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label className="form-label">Giá nhập</label>
-                                    <input className="form-input" type="number" value={editingP.data.importPrice || 0} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, importPrice: Number(e.target.value) } }))} />
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Giá bán</label>
-                                    <input className="form-input" type="number" value={editingP.data.salePrice || 0} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, salePrice: Number(e.target.value) } }))} />
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Tồn kho</label>
-                                    <input className="form-input" type="number" value={editingP.data.stock ?? 0} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, stock: Number(e.target.value) } }))} />
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Tồn tối thiểu</label>
-                                    <input className="form-input" type="number" value={editingP.data.minStock ?? 0} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, minStock: Number(e.target.value) } }))} />
-                                </div>
+                            <div className="modal-footer">
+                                <button className="btn btn-ghost" onClick={() => setEditingP(null)}>Hủy</button>
+                                <button className="btn btn-primary" onClick={saveP}>💾 Lưu thay đổi</button>
                             </div>
-                            <div className="form-row">
-                                <div className="form-group" style={{ flex: 2 }}>
-                                    <label className="form-label">Thương hiệu</label>
-                                    <select className="form-select" value={editingP.data.brand || ''} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, brand: e.target.value } }))}>
-                                        {BRANDS.map(b => <option key={b.n} value={b.n}>{b.n || '-- Không --'}</option>)}
-                                    </select>
-                                </div>
-                                <div className="form-group" style={{ flex: 2 }}>
-                                    <label className="form-label">Nhà cung cấp</label>
-                                    <input className="form-input" value={editingP.data.supplier || ''} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, supplier: e.target.value } }))} />
-                                </div>
-                            </div>
-                        </div>
-                        <div className="modal-footer">
-                            <button className="btn btn-ghost" onClick={() => setEditingP(null)}>Hủy</button>
-                            <button className="btn btn-primary" onClick={saveP}>Lưu thay đổi</button>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* Add Product Modal */}
             {showAddModal && (
