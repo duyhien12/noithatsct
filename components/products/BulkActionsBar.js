@@ -31,6 +31,17 @@ export default function BulkActionsBar({ selectedIds, onDone, categories }) {
                 <button className="btn btn-sm" style={{ fontSize: 12 }} onClick={() => setMode('price')}>💰 Cập nhật giá</button>
                 <button className="btn btn-sm" style={{ fontSize: 12 }} onClick={() => setMode('status')}>🏷️ Đổi trạng thái</button>
                 <button className="btn btn-sm" style={{ fontSize: 12 }} onClick={() => setMode('category')}>📁 Gán danh mục</button>
+                <button className="btn btn-sm" style={{ fontSize: 12, background: '#ef4444', color: '#fff', border: 'none' }}
+                    onClick={async () => {
+                        if (!confirm(`Xóa ${count} sản phẩm đã chọn? Hành động này không thể hoàn tác.`)) return;
+                        setLoading(true);
+                        await Promise.all([...selectedIds].map(id =>
+                            fetch(`/api/products/${id}`, { method: 'DELETE' })
+                        ));
+                        setLoading(false);
+                        onDone();
+                    }}
+                    disabled={loading}>{loading ? '⏳' : '🗑️ Xóa'}</button>
             </>}
 
             {mode === 'price' && (
