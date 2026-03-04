@@ -324,6 +324,42 @@ export default function ProductsPage() {
         setImportPreview(mapped);
         e.target.value = '';
     };
+    const handlePasteExcel = async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            if (!text?.trim()) return alert('Clipboard trống! Copy dữ liệu từ Excel trước.');
+            const lines = text.split('\n').map(l => l.split('\t').map(c => c.trim()));
+            if (lines.length < 2) return alert('Cần ít nhất 2 dòng (header + data)');
+            const headerMap = { 'tên': 'name', 'tên sản phẩm': 'name', 'name': 'name', 'tên sp': 'name', 'danh mục': 'category', 'category': 'category', 'đvt': 'unit', 'unit': 'unit', 'đơn vị': 'unit', 'giá bán': 'salePrice', 'saleprice': 'salePrice', 'giá nhập': 'importPrice', 'importprice': 'importPrice', 'tồn kho': 'stock', 'stock': 'stock', 'tồn': 'stock', 'thương hiệu': 'brand', 'brand': 'brand', 'nguồn cung': 'supplyType', 'supplytype': 'supplyType', 'nhà cung cấp': 'supplier', 'supplier': 'supplier', 'tồn tối thiểu': 'minStock', 'minstock': 'minStock' };
+            const headers = lines[0].map(h => headerMap[h.toLowerCase()] || null);
+            if (!headers.includes('name')) return alert('Không tìm thấy cột "Tên" trong header. Hàng đầu phải là tiêu đề.');
+            const existingNames = new Set(products.map(p => p.name.toLowerCase().trim()));
+            const seenNames = new Set();
+            const mapped = lines.slice(1).filter(cols => cols.some(c => c)).map((cols, idx) => {
+                const row = {};
+                headers.forEach((key, i) => { if (key && cols[i]) row[key] = cols[i]; });
+                const name = (row.name || '').trim();
+                const salePrice = Number(row.salePrice || 0);
+                const importPrice = Number(row.importPrice || 0);
+                const stock = Number(row.stock || 0);
+                const errors = [];
+                if (!name) errors.push('Thiếu tên');
+                if (name && existingNames.has(name.toLowerCase())) errors.push('Trùng SP đã có');
+                if (name && seenNames.has(name.toLowerCase())) errors.push('Trùng trong paste');
+                if (name) seenNames.add(name.toLowerCase());
+                return {
+                    name, category: row.category || '', unit: row.unit || 'cái', salePrice, importPrice,
+                    stock, minStock: Number(row.minStock || 0), brand: row.brand || '',
+                    supplyType: row.supplyType || 'Mua ngoài', supplier: row.supplier || '',
+                    _errors: errors, _enabled: errors.length === 0, _row: idx + 2,
+                };
+            }).filter(p => p.name || p._errors.length > 0);
+            if (!mapped.length) return alert('Không parse được dữ liệu nào từ clipboard');
+            setImportPreview(mapped);
+        } catch (err) {
+            alert('Lỗi đọc clipboard: ' + err.message + '\nHãy cho phép trình duyệt truy cập clipboard.');
+        }
+    };
     const toggleImportRow = (idx) => setImportPreview(prev => prev.map((p, i) => i === idx ? { ...p, _enabled: !p._enabled } : p));
     const confirmImport = async () => {
         const toImport = importPreview.filter(p => p._enabled && p._errors.length === 0);
@@ -424,6 +460,7 @@ export default function ProductsPage() {
                                 <button className="btn btn-sm" onClick={addNewProduct} style={{ fontSize: 11, background: '#DBB35E', color: '#fff', border: 'none', fontWeight: 700, borderRadius: 6, padding: '5px 14px' }}>+ THÊM SẢN PHẨM</button>
                                 <button className="btn btn-ghost btn-sm" onClick={() => excelInputRef.current?.click()} title="Import Excel">📥</button>
                                 <input ref={excelInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleExcelFile} />
+                                <button className="btn btn-ghost btn-sm" onClick={handlePasteExcel} title="Paste từ Excel (Ctrl+V)">📋 Paste</button>
                             </div>
                         </div>
                         <BulkActionsBar selectedIds={selectedIds} categories={flatCats} onDone={() => { setSelectedIds(new Set()); fetchProducts(); fetchCategories(); }} />
