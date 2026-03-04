@@ -83,22 +83,24 @@ export default function ProductsPage() {
     const imgUpRef = useRef(null);
     const imgUpTarget = useRef(null);
 
-    const fetchCategories = useCallback((productList) => {
-        fetch('/api/product-categories').then(r => r.json()).then(cats => {
+    const fetchCategories = useCallback(() => {
+        fetch('/api/product-categories').then(r => r.json()).then(async cats => {
             if (cats && cats.length > 0) {
                 setCategories(cats);
             } else {
-                // Fallback: build flat categories from products' category string
-                const src = productList || products;
-                const names = [...new Set([...PRODUCT_CATS, ...src.map(p => p.category).filter(Boolean)])].sort();
+                // Fallback: fetch ALL products to build categories (independent of current filter)
+                const res = await fetch('/api/products?limit=9999');
+                const d = await res.json();
+                const allP = d.data || [];
+                const names = [...new Set([...PRODUCT_CATS, ...allP.map(p => p.category).filter(Boolean)])].sort();
                 const fakeCats = names.map(name => ({
-                    id: `__str__${name}`, name, _count: { products: src.filter(p => p.category === name).length },
+                    id: `__str__${name}`, name, _count: { products: allP.filter(p => p.category === name).length },
                     children: [],
                 }));
                 setCategories(fakeCats);
             }
         }).catch(() => { });
-    }, [products]);
+    }, []);
 
     const fetchProducts = useCallback((reset = true) => {
         if (reset) { setLoadingP(true); setProducts([]); setCursor(null); setHasMore(true); }
@@ -137,8 +139,7 @@ export default function ProductsPage() {
 
     useEffect(() => { fetchCategories(); fetchLibrary(); }, []);
     useEffect(() => { fetchProducts(); }, [fetchProducts]);
-    // Re-build fallback categories when products change
-    useEffect(() => { if (products.length > 0) fetchCategories(products); }, [products.length]);
+
     useEffect(() => {
         if (!sentinelRef.current) return;
         const obs = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) loadMore(); }, { threshold: 0.1 });
@@ -174,19 +175,21 @@ export default function ProductsPage() {
     const allCats = [...new Set([...PRODUCT_CATS, ...flatCats.map(c => c.name)])].sort();
     const filteredP = products.filter(p => (!filterStockStatus || stockStatus(p) === filterStockStatus));
 
-    const startEditP = (p) => setEditingP({ id: p.id, data: { ...p } });
+    const startEditP = (p) => {
+        const { id, code, createdAt, updatedAt, deletedAt, inventoryTx, quotationItems, materialPlans, purchaseItems, bomComponents, bomUsedIn, categoryRef, ...clean } = p;
+        setEditingP({ id, data: { ...clean } });
+    };
     const saveP = async () => {
         const { id, data } = editingP;
-        const { id: _, code, createdAt, updatedAt, deletedAt, inventoryTx, quotationItems, materialPlans, purchaseItems, bomComponents, bomUsedIn, categoryRef, ...clean } = data;
-        const res = await fetch(`/api/products/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(clean) });
+        const res = await fetch(`/api/products/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
         if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi cập nhật'); }
-        setEditingP(null); fetchProducts();
+        setEditingP(null); fetchProducts(); fetchCategories();
     };
-    const deleteP = async (id) => { if (!confirm('Xóa sản phẩm?')) return; await fetch(`/api/products/${id}`, { method: 'DELETE' }); fetchProducts(); };
+    const deleteP = async (id) => { if (!confirm('Xóa sản phẩm?')) return; await fetch(`/api/products/${id}`, { method: 'DELETE' }); fetchProducts(); fetchCategories(); };
     const duplicateP = async (p) => {
         const { id, code, createdAt, updatedAt, categoryRef, ...rest } = p;
         await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...rest, name: rest.name + ' (2)', stock: 0 }) });
-        fetchProducts();
+        fetchProducts(); fetchCategories();
     };
     const quickUpdateStock = async (productId, newStock) => {
         await fetch(`/api/products/${productId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stock: Number(newStock) }) });
@@ -379,17 +382,17 @@ export default function ProductsPage() {
                                         <th style={{ width: 95 }}>Giá bán</th><th style={{ width: 55 }}>Tồn</th><th style={{ width: 95 }}>Nguồn</th><th style={{ width: 85 }}>TH</th><th style={{ width: 75 }}></th>
                                     </tr></thead>
                                     <tbody>{filteredP.map(p => {
-                                        const isE = editingP?.id === p.id, d = isE ? editingP.data : p, ss = stockStatus(p);
-                                        return (<tr key={p.id} style={{ background: isE ? 'rgba(99,102,241,0.04)' : ss === 'out' ? 'rgba(231,76,60,0.03)' : ss === 'low' ? 'rgba(234,88,12,0.02)' : '' }}>
+                                        const ss = stockStatus(p);
+                                        return (<tr key={p.id} style={{ background: ss === 'out' ? 'rgba(231,76,60,0.03)' : ss === 'low' ? 'rgba(234,88,12,0.02)' : '' }}>
                                             <td style={{ padding: 4, textAlign: 'center' }}><input type="checkbox" checked={selectedIds.has(p.id)} onChange={e => { const n = new Set(selectedIds); e.target.checked ? n.add(p.id) : n.delete(p.id); setSelectedIds(n); }} /></td>
-                                            <td style={{ padding: 3, cursor: 'pointer' }} onClick={() => { imgUpTarget.current = p.id; imgUpRef.current?.click(); }}><div style={{ width: 30, height: 30, borderRadius: 4, overflow: 'hidden', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{d.image ? <img src={d.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <span style={{ fontSize: 12, opacity: 0.2 }}>📷</span>}</div></td>
-                                            <td style={{ padding: '3px 6px' }}>{isE ? <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}><EditCell value={d.name} onChange={v => setEditingP(e => ({ ...e, data: { ...e.data, name: v } }))} /><EditCell value={d.category} onChange={v => setEditingP(e => ({ ...e, data: { ...e.data, category: v } }))} options={allCats} /></div> : <div><div style={{ fontWeight: 600, fontSize: 12, color: 'var(--primary)', cursor: 'pointer' }} onClick={() => router.push(`/products/${p.id}`)}>{p.name}</div><div style={{ fontSize: 10, opacity: 0.4 }}><span style={{ fontFamily: 'monospace' }}>{p.code}</span>{p.category && <span style={{ marginLeft: 4, background: 'var(--surface-alt)', borderRadius: 3, padding: '0 4px' }}>{p.category}</span>}</div></div>}</td>
-                                            <td style={{ padding: '3px 4px' }}>{isE ? <EditCell value={d.unit} onChange={v => setEditingP(e => ({ ...e, data: { ...e.data, unit: v } }))} /> : p.unit}</td>
-                                            <td style={{ fontWeight: 600, padding: '3px 4px' }}>{isE ? <EditCell value={d.salePrice} onChange={v => setEditingP(e => ({ ...e, data: { ...e.data, salePrice: v } }))} type="number" /> : fmtCur(p.salePrice)}</td>
+                                            <td style={{ padding: 3, cursor: 'pointer' }} onClick={() => { imgUpTarget.current = p.id; imgUpRef.current?.click(); }}><div style={{ width: 30, height: 30, borderRadius: 4, overflow: 'hidden', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{p.image ? <img src={p.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <span style={{ fontSize: 12, opacity: 0.2 }}>📷</span>}</div></td>
+                                            <td style={{ padding: '3px 6px' }}><div><div style={{ fontWeight: 600, fontSize: 12, color: 'var(--primary)', cursor: 'pointer' }} onClick={() => router.push(`/products/${p.id}`)}>{p.name}</div><div style={{ fontSize: 10, opacity: 0.4 }}><span style={{ fontFamily: 'monospace' }}>{p.code}</span>{p.category && <span style={{ marginLeft: 4, background: 'var(--surface-alt)', borderRadius: 3, padding: '0 4px' }}>{p.category}</span>}</div></div></td>
+                                            <td style={{ padding: '3px 4px' }}>{p.unit}</td>
+                                            <td style={{ fontWeight: 600, padding: '3px 4px' }}>{fmtCur(p.salePrice)}</td>
                                             <td style={{ padding: '3px 4px' }}>{isService(p) ? <span style={{ opacity: 0.3 }}>—</span> : <StockCell value={p.stock} status={ss} onSave={v => quickUpdateStock(p.id, v)} />}</td>
-                                            <td style={{ padding: '3px 4px' }}>{isE ? <select value={normalizeSupply(d.supplyType)} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, supplyType: e.target.value } }))} style={{ width: '100%', fontSize: 11, padding: '1px 2px', border: '1px solid var(--primary)', borderRadius: 4 }}>{SUPPLY_TYPES.map(t => <option key={t}>{t}</option>)}</select> : <span className={`badge ${SUPPLY_BADGE[p.supplyType] || 'muted'}`} style={{ fontSize: 10 }}>{normalizeSupply(p.supplyType)}</span>}</td>
-                                            <td style={{ fontSize: 11, padding: '3px 4px' }}>{isE ? <select value={d.brand || ''} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, brand: e.target.value } }))} style={{ width: '100%', fontSize: 11, padding: '1px 2px', border: '1px solid var(--primary)', borderRadius: 4 }}>{BRANDS.map(b => <option key={b.n} value={b.n}>{b.n || '—'}</option>)}</select> : (p.brand || <span style={{ opacity: 0.2 }}>-</span>)}</td>
-                                            <td style={{ padding: '3px 4px' }}><div style={{ display: 'flex', gap: 1 }}>{isE ? <><button className="btn btn-primary btn-sm" onClick={saveP} style={{ fontSize: 10, padding: '1px 5px' }}>✓</button><button className="btn btn-ghost btn-sm" onClick={() => setEditingP(null)} style={{ fontSize: 10, padding: '1px 3px' }}>✕</button></> : <><button className="btn btn-ghost btn-sm" onClick={() => startEditP(p)} style={{ fontSize: 11, padding: '1px 3px' }}>✏️</button><button className="btn btn-ghost btn-sm" onClick={() => duplicateP(p)} style={{ fontSize: 11, padding: '1px 3px' }}>📋</button><button className="btn btn-ghost btn-sm" onClick={() => deleteP(p.id)} style={{ fontSize: 11, padding: '1px 3px' }}>🗑️</button></>}</div></td>
+                                            <td style={{ padding: '3px 4px' }}><span className={`badge ${SUPPLY_BADGE[p.supplyType] || 'muted'}`} style={{ fontSize: 10 }}>{normalizeSupply(p.supplyType)}</span></td>
+                                            <td style={{ fontSize: 11, padding: '3px 4px' }}>{p.brand || <span style={{ opacity: 0.2 }}>-</span>}</td>
+                                            <td style={{ padding: '3px 4px' }}><div style={{ display: 'flex', gap: 1 }}><button className="btn btn-ghost btn-sm" onClick={() => startEditP(p)} style={{ fontSize: 11, padding: '1px 3px' }}>✏️</button><button className="btn btn-ghost btn-sm" onClick={() => duplicateP(p)} style={{ fontSize: 11, padding: '1px 3px' }}>📋</button><button className="btn btn-ghost btn-sm" onClick={() => deleteP(p.id)} style={{ fontSize: 11, padding: '1px 3px' }}>🗑️</button></div></td>
                                         </tr>);
                                     })}</tbody>
                                 </table>
@@ -520,6 +523,78 @@ export default function ProductsPage() {
                                 </table>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Quick Edit Product Modal */}
+            {editingP && (
+                <div className="modal-overlay" onClick={() => setEditingP(null)}>
+                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
+                        <div className="modal-header">
+                            <h3>✏️ Chỉnh sửa nhanh</h3>
+                            <button className="modal-close" onClick={() => setEditingP(null)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="form-row">
+                                <div className="form-group" style={{ flex: 2 }}>
+                                    <label className="form-label">Tên sản phẩm</label>
+                                    <input className="form-input" value={editingP.data.name || ''} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, name: e.target.value } }))} autoFocus />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">ĐVT</label>
+                                    <input className="form-input" value={editingP.data.unit || ''} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, unit: e.target.value } }))} />
+                                </div>
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group" style={{ flex: 2 }}>
+                                    <label className="form-label">Danh mục</label>
+                                    <select className="form-select" value={editingP.data.category || ''} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, category: e.target.value } }))}>
+                                        {allCats.map(c => <option key={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Nguồn cung</label>
+                                    <select className="form-select" value={normalizeSupply(editingP.data.supplyType)} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, supplyType: e.target.value } }))}>
+                                        {SUPPLY_TYPES.map(t => <option key={t}>{t}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Giá nhập</label>
+                                    <input className="form-input" type="number" value={editingP.data.importPrice || 0} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, importPrice: Number(e.target.value) } }))} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Giá bán</label>
+                                    <input className="form-input" type="number" value={editingP.data.salePrice || 0} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, salePrice: Number(e.target.value) } }))} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Tồn kho</label>
+                                    <input className="form-input" type="number" value={editingP.data.stock ?? 0} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, stock: Number(e.target.value) } }))} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Tồn tối thiểu</label>
+                                    <input className="form-input" type="number" value={editingP.data.minStock ?? 0} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, minStock: Number(e.target.value) } }))} />
+                                </div>
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group" style={{ flex: 2 }}>
+                                    <label className="form-label">Thương hiệu</label>
+                                    <select className="form-select" value={editingP.data.brand || ''} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, brand: e.target.value } }))}>
+                                        {BRANDS.map(b => <option key={b.n} value={b.n}>{b.n || '-- Không --'}</option>)}
+                                    </select>
+                                </div>
+                                <div className="form-group" style={{ flex: 2 }}>
+                                    <label className="form-label">Nhà cung cấp</label>
+                                    <input className="form-input" value={editingP.data.supplier || ''} onChange={e => setEditingP(ep => ({ ...ep, data: { ...ep.data, supplier: e.target.value } }))} />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setEditingP(null)}>Hủy</button>
+                            <button className="btn btn-primary" onClick={saveP}>Lưu thay đổi</button>
+                        </div>
                     </div>
                 </div>
             )}
