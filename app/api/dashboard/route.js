@@ -6,7 +6,7 @@ export const GET = withAuth(async (request) => {
     const [
         customerCount, projectCount, productCount, quotationCount, contractCount, workOrderCount,
         income, expense, activeProjects, pendingWorkOrders, contractValueAgg,
-        recentProjects, projectsByStatus,
+        recentProjects, projectsByStatus, lowStockProducts,
     ] = await Promise.all([
         prisma.customer.count(),
         prisma.project.count(),
@@ -25,6 +25,12 @@ export const GET = withAuth(async (request) => {
             include: { customer: { select: { name: true } } },
         }),
         prisma.project.groupBy({ by: ['status'], _count: true }),
+        // Low stock alert: out of stock (non-service)
+        prisma.product.findMany({
+            where: { stock: 0, supplyType: { not: 'Dịch vụ' } },
+            select: { id: true, name: true, code: true, stock: true, minStock: true, category: true, image: true },
+            take: 10,
+        }).catch(() => []),
     ]);
 
     return NextResponse.json({
@@ -44,5 +50,6 @@ export const GET = withAuth(async (request) => {
         },
         recentProjects,
         projectsByStatus,
+        lowStockProducts,
     });
 });

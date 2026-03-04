@@ -46,6 +46,28 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      {/* Low stock alert */}
+      {data.lowStockProducts?.length > 0 && (
+        <div className="card" style={{ marginTop: 24, borderLeft: '3px solid #dc2626' }}>
+          <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>⚠️ Sản phẩm hết hàng <span className="badge" style={{ background: '#dc2626', color: '#fff', fontSize: 11 }}>{data.lowStockProducts.length}</span></h3>
+            <a href="/products" style={{ fontSize: 12, color: 'var(--primary)', textDecoration: 'none' }}>Xem tất cả →</a>
+          </div>
+          <div style={{ padding: '8px 16px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {data.lowStockProducts.map(p => (
+                <a key={p.id} href={`/products/${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'rgba(231,76,60,0.06)', borderRadius: 8, border: '1px solid rgba(231,76,60,0.15)', textDecoration: 'none', color: 'inherit', fontSize: 12 }}>
+                  {p.image && <img src={p.image} style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover' }} alt="" />}
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{p.name}</div>
+                    <div style={{ fontSize: 10, color: '#dc2626' }}>Tồn: {p.stock}{p.minStock > 0 && ` / min ${p.minStock}`}</div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="card" style={{ marginTop: 24 }}>
         <div className="card-header"><h3>Dự án gần đây</h3></div>
         <div className="table-container">
