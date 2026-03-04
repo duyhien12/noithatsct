@@ -151,45 +151,84 @@ export default function TreeSidebar({ hook, onClose, onConfigurableProduct }) {
                         );
                     })
                 ) : (
-                    Object.entries(prodTree).map(([cat, items]) => {
-                        const allCatSelected = selectMode && items.every(i => selectedItems.has(i.id));
+                    prodTree.map(cat => {
+                        const allProds = (() => { let p = [...(cat.products || [])]; (cat.children || []).forEach(c => { p = p.concat(c.products || []); (c.children || []).forEach(gc => { p = p.concat(gc.products || []); }); }); return p; })();
+                        const allCatSelected = selectMode && allProds.length > 0 && allProds.every(i => selectedItems.has(i.id));
+                        const catKey = `prod:${cat.id || cat.name}`;
                         return (
-                            <div key={cat}>
+                            <div key={cat.id || cat.name}>
                                 <div className="tree-node tree-sub"
-                                    onClick={() => editingProdCat?.old !== cat && toggleNode(cat)}
-                                    title="Double-click để đổi tên danh mục">
-                                    <span className="tree-arrow">{expandedNodes[cat] ? '▾' : '▸'}</span>
+                                    onClick={() => toggleNode(catKey)}>
+                                    <span className="tree-arrow">{expandedNodes[catKey] ? '▾' : '▸'}</span>
                                     {selectMode && (
                                         <input type="checkbox" checked={allCatSelected} readOnly
-                                            onClick={e => { e.stopPropagation(); selectAllInCategory(items); }}
+                                            onClick={e => { e.stopPropagation(); selectAllInCategory(allProds); }}
                                             style={{ marginRight: 4, accentColor: 'var(--accent-primary)' }} />
                                     )}
                                     {!selectMode && <span className="tree-icon">📦</span>}
-                                    {editingProdCat?.old === cat ? (
-                                        <input autoFocus value={editingProdCat.name}
-                                            onChange={e => setEditingProdCat(p => ({ ...p, name: e.target.value }))}
-                                            onBlur={saveProdCategory}
-                                            onKeyDown={e => { if (e.key === 'Enter') saveProdCategory(); if (e.key === 'Escape') setEditingProdCat(null); }}
-                                            onClick={e => e.stopPropagation()}
-                                            style={{ flex: 1, fontSize: 12, padding: '1px 4px', border: '1px solid var(--primary)', borderRadius: 3 }} />
-                                    ) : (
-                                        <span className="tree-label" onDoubleClick={e => { e.stopPropagation(); setEditingProdCat({ old: cat, name: cat }); }}>{cat}</span>
-                                    )}
-                                    <span className="tree-count">{items.length}</span>
-                                    {!selectMode && (
-                                        <button className="btn-tree-add" title={`Thêm toàn bộ "${cat}" vào BG`}
-                                            onClick={e => { e.stopPropagation(); addCategoryFromProducts(cat, items); }}>
+                                    <span className="tree-label">{cat.name}</span>
+                                    <span className="tree-count">{allProds.length}</span>
+                                    {!selectMode && allProds.length > 0 && (
+                                        <button className="btn-tree-add" title={`Thêm toàn bộ "${cat.name}" vào BG`}
+                                            onClick={e => { e.stopPropagation(); addCategoryFromProducts(cat.name, allProds); }}>
                                             ⊕
                                         </button>
                                     )}
                                 </div>
-                                {expandedNodes[cat] && items.map(item => renderTreeLeaf(item, addFromProduct, 'products'))}
+                                {expandedNodes[catKey] && (
+                                    <>
+                                        {/* Direct products of parent */}
+                                        {(cat.products || []).map(item => renderTreeLeaf(item, addFromProduct, 'products'))}
+                                        {/* Child categories */}
+                                        {(cat.children || []).map(child => {
+                                            const childProds = (() => { let p = [...(child.products || [])]; (child.children || []).forEach(gc => { p = p.concat(gc.products || []); }); return p; })();
+                                            if (childProds.length === 0) return null;
+                                            const childKey = `prod:${child.id}`;
+                                            return (
+                                                <div key={child.id} style={{ paddingLeft: 14 }}>
+                                                    <div className="tree-node tree-sub" onClick={() => toggleNode(childKey)} style={{ fontSize: 12 }}>
+                                                        <span className="tree-arrow">{expandedNodes[childKey] ? '▾' : '▸'}</span>
+                                                        <span className="tree-icon" style={{ fontSize: 11 }}>📁</span>
+                                                        <span className="tree-label">{child.name}</span>
+                                                        <span className="tree-count">{childProds.length}</span>
+                                                        {!selectMode && childProds.length > 0 && (
+                                                            <button className="btn-tree-add" title={`Thêm "${child.name}"`}
+                                                                onClick={e => { e.stopPropagation(); addCategoryFromProducts(child.name, childProds); }}>
+                                                                ⊕
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    {expandedNodes[childKey] && (
+                                                        <>
+                                                            {(child.products || []).map(item => renderTreeLeaf(item, addFromProduct, 'products'))}
+                                                            {/* Grandchild categories */}
+                                                            {(child.children || []).map(gc => {
+                                                                if ((gc.products || []).length === 0) return null;
+                                                                const gcKey = `prod:${gc.id}`;
+                                                                return (
+                                                                    <div key={gc.id} style={{ paddingLeft: 14 }}>
+                                                                        <div className="tree-node tree-sub" onClick={() => toggleNode(gcKey)} style={{ fontSize: 11 }}>
+                                                                            <span className="tree-arrow">{expandedNodes[gcKey] ? '▾' : '▸'}</span>
+                                                                            <span className="tree-label" style={{ opacity: 0.8 }}>{gc.name}</span>
+                                                                            <span className="tree-count">{gc.products.length}</span>
+                                                                        </div>
+                                                                        {expandedNodes[gcKey] && gc.products.map(item => renderTreeLeaf(item, addFromProduct, 'products'))}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </>
+                                )}
                             </div>
                         );
                     })
                 )}
                 {((treeTab === 'library' && Object.keys(libTree).length === 0) ||
-                    (treeTab === 'products' && Object.keys(prodTree).length === 0)) && (
+                    (treeTab === 'products' && prodTree.length === 0)) && (
                         <div style={{ padding: 20, textAlign: 'center', opacity: 0.4, fontSize: 12 }}>
                             {treeSearch ? 'Không tìm thấy' : 'Chưa có dữ liệu'}
                         </div>

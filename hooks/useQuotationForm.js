@@ -9,6 +9,7 @@ export default function useQuotationForm() {
     const [projects, setProjects] = useState([]);
     const [products, setProducts] = useState([]);
     const [library, setLibrary] = useState([]);
+    const [prodCategories, setProdCategories] = useState([]);
 
     // Tree sidebar state
     const [expandedNodes, setExpandedNodes] = useState({});
@@ -41,6 +42,7 @@ export default function useQuotationForm() {
         apiFetch('/api/projects?limit=1000').then(d => setProjects(d.data || [])).catch(() => { });
         apiFetch('/api/products?limit=1000').then(d => setProducts(d.data || [])).catch(() => { });
         apiFetch('/api/work-item-library?limit=1000').then(d => setLibrary(d.data || d || [])).catch(() => { });
+        apiFetch('/api/product-categories').then(cats => setProdCategories(cats || [])).catch(() => { });
     }, []);
 
     // Filtered projects
@@ -75,15 +77,56 @@ export default function useQuotationForm() {
         return tree;
     }, [filteredLibrary]);
 
+    // Build hierarchical product tree from categories
     const prodTree = useMemo(() => {
-        const tree = {};
-        filteredProducts.forEach(item => {
-            const cat = item.category || 'Khác';
-            if (!tree[cat]) tree[cat] = [];
-            tree[cat].push(item);
+        if (prodCategories.length === 0) {
+            // Fallback: flat tree from category string
+            const tree = {};
+            filteredProducts.forEach(item => {
+                const cat = item.category || 'Khác';
+                if (!tree[cat]) tree[cat] = { name: cat, children: [], products: [] };
+                tree[cat].products.push(item);
+            });
+            return Object.values(tree);
+        }
+        // Build from ProductCategory hierarchy
+        const prodByCatId = {};
+        const prodNoCat = [];
+        filteredProducts.forEach(p => {
+            if (p.categoryId) {
+                if (!prodByCatId[p.categoryId]) prodByCatId[p.categoryId] = [];
+                prodByCatId[p.categoryId].push(p);
+            } else {
+                prodNoCat.push(p);
+            }
         });
+        // Collect products for a category and all its descendants
+        const collectProducts = (cat) => {
+            let prods = [...(prodByCatId[cat.id] || [])];
+            (cat.children || []).forEach(c => { prods = prods.concat(collectProducts(c)); });
+            return prods;
+        };
+        const tree = prodCategories.map(parent => ({
+            id: parent.id,
+            name: parent.name,
+            products: prodByCatId[parent.id] || [],
+            children: (parent.children || []).map(child => ({
+                id: child.id,
+                name: child.name,
+                products: prodByCatId[child.id] || [],
+                children: (child.children || []).map(gc => ({
+                    id: gc.id,
+                    name: gc.name,
+                    products: prodByCatId[gc.id] || [],
+                })),
+            })),
+            totalProducts: collectProducts(parent).length,
+        })).filter(c => c.totalProducts > 0 || c.children.some(ch => (prodByCatId[ch.id] || []).length > 0));
+        if (prodNoCat.length > 0) {
+            tree.push({ id: '__nocat', name: 'Chưa phân loại', products: prodNoCat, children: [], totalProducts: prodNoCat.length });
+        }
         return tree;
-    }, [filteredProducts]);
+    }, [filteredProducts, prodCategories]);
 
     const toggleNode = (key) => setExpandedNodes(prev => ({ ...prev, [key]: !prev[key] }));
 
