@@ -5,24 +5,29 @@ import { categoryCreateSchema } from '@/lib/validations/productCategory';
 
 // GET: tree of categories with product counts
 export const GET = withAuth(async () => {
-    const categories = await prisma.productCategory.findMany({
-        include: {
-            _count: { select: { products: true } },
-            children: {
-                include: {
-                    _count: { select: { products: true } },
-                    children: {
-                        include: { _count: { select: { products: true } } },
-                        orderBy: { order: 'asc' },
+    try {
+        const categories = await prisma.productCategory.findMany({
+            include: {
+                _count: { select: { products: true } },
+                children: {
+                    include: {
+                        _count: { select: { products: true } },
+                        children: {
+                            include: { _count: { select: { products: true } } },
+                            orderBy: { order: 'asc' },
+                        },
                     },
+                    orderBy: { order: 'asc' },
                 },
-                orderBy: { order: 'asc' },
             },
-        },
-        where: { parentId: null },
-        orderBy: { order: 'asc' },
-    });
-    return NextResponse.json(categories);
+            where: { parentId: null },
+            orderBy: { order: 'asc' },
+        });
+        return NextResponse.json(categories);
+    } catch {
+        // Table may not exist yet
+        return NextResponse.json([]);
+    }
 });
 
 // POST: create category

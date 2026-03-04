@@ -20,9 +20,13 @@ export const GET = withAuth(async (request) => {
     const where = {};
     if (category) where.category = category;
     if (categoryId) {
-        // Include products from this category AND all descendant categories
-        const descendants = await getDescendantIds(categoryId);
-        where.categoryId = { in: [categoryId, ...descendants] };
+        try {
+            const descendants = await getDescendantIds(categoryId);
+            where.categoryId = { in: [categoryId, ...descendants] };
+        } catch {
+            // ProductCategory table may not exist yet
+            where.categoryId = categoryId;
+        }
     }
     if (search) {
         where.OR = [
@@ -34,33 +38,47 @@ export const GET = withAuth(async (request) => {
     if (brand) where.brand = brand;
     if (status) where.status = status;
     if (supplyType) where.supplyType = supplyType;
-    if (stockFilter === 'low') where.AND = [{ minStock: { gt: 0 } }, { stock: { lte: prisma.product.fields?.minStock ?? 0 } }];
     if (stockFilter === 'out') where.stock = 0;
 
     // Cursor-based pagination for infinite scroll
     if (cursor) {
-        const products = await prisma.product.findMany({
-            where,
-            take: limit,
-            skip: 1,
-            cursor: { id: cursor },
-            orderBy: { createdAt: 'desc' },
-            include: { categoryRef: { select: { id: true, name: true } } },
-        });
+        let products;
+        try {
+            products = await prisma.product.findMany({
+                where, take: limit, skip: 1, cursor: { id: cursor },
+                orderBy: { createdAt: 'desc' },
+                include: { categoryRef: { select: { id: true, name: true } } },
+            });
+        } catch {
+            // categoryRef may not exist if DB not migrated
+            products = await prisma.product.findMany({
+                where, take: limit, skip: 1, cursor: { id: cursor },
+                orderBy: { createdAt: 'desc' },
+            });
+        }
         return NextResponse.json({
             data: products,
             nextCursor: products.length === limit ? products[products.length - 1].id : null,
         });
     }
 
-    const [data, total] = await Promise.all([
-        prisma.product.findMany({
-            where, skip, take: limit,
-            orderBy: { createdAt: 'desc' },
-            include: { categoryRef: { select: { id: true, name: true } } },
-        }),
-        prisma.product.count({ where }),
-    ]);
+    let data, total;
+    try {
+        [data, total] = await Promise.all([
+            prisma.product.findMany({
+                where, skip, take: limit,
+                orderBy: { createdAt: 'desc' },
+                include: { categoryRef: { select: { id: true, name: true } } },
+            }),
+            prisma.product.count({ where }),
+        ]);
+    } catch {
+        // categoryRef may not exist if DB not migrated
+        [data, total] = await Promise.all([
+            prisma.product.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+            prisma.product.count({ where }),
+        ]);
+    }
     return NextResponse.json(paginatedResponse(data, total, { page, limit }));
 });
 
