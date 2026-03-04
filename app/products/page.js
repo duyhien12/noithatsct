@@ -374,12 +374,10 @@ export default function ProductsPage() {
         const toImport = importPreview.filter(p => p._enabled && p._errors.length === 0);
         if (!toImport.length) return alert('Không có sản phẩm hợp lệ để import');
         setImporting(true);
-        // Batch: POST 10 at a time
-        for (let i = 0; i < toImport.length; i += 10) {
-            const batch = toImport.slice(i, i + 10);
-            await Promise.all(batch.map(({ _errors, _enabled, _row, ...p }) =>
-                fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) })
-            ));
+        // Sequential: send one at a time to avoid generateCode race condition (duplicate code)
+        for (const item of toImport) {
+            const { _errors, _enabled, _row, ...p } = item;
+            await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
         }
         setImporting(false); setImportPreview(null); fetchProducts(); fetchCategories();
     };
