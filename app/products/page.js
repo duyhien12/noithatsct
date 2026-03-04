@@ -61,6 +61,7 @@ export default function ProductsPage() {
     const [addForm, setAddForm] = useState({ name: '', category: 'Nội thất thành phẩm', unit: 'cái', salePrice: 0, importPrice: 0, brand: '', supplyType: 'Mua ngoài', stock: 0, minStock: 0, supplier: '', coreBoard: '', surfaceCode: '', image: '' });
     const [categories, setCategories] = useState([]);
     const [activeCatId, setActiveCatId] = useState(null);
+    const [activeCatName, setActiveCatName] = useState(null);
     const [cursor, setCursor] = useState(null);
     const [hasMore, setHasMore] = useState(true);
     const sentinelRef = useRef(null);
@@ -82,14 +83,29 @@ export default function ProductsPage() {
     const imgUpRef = useRef(null);
     const imgUpTarget = useRef(null);
 
-    const fetchCategories = useCallback(() => {
-        fetch('/api/product-categories').then(r => r.json()).then(setCategories).catch(() => { });
-    }, []);
+    const fetchCategories = useCallback((productList) => {
+        fetch('/api/product-categories').then(r => r.json()).then(cats => {
+            if (cats && cats.length > 0) {
+                setCategories(cats);
+            } else {
+                // Fallback: build flat categories from products' category string
+                const src = productList || products;
+                const names = [...new Set([...PRODUCT_CATS, ...src.map(p => p.category).filter(Boolean)])].sort();
+                const fakeCats = names.map(name => ({
+                    id: `__str__${name}`, name, _count: { products: src.filter(p => p.category === name).length },
+                    children: [],
+                }));
+                setCategories(fakeCats);
+            }
+        }).catch(() => { });
+    }, [products]);
 
     const fetchProducts = useCallback((reset = true) => {
         if (reset) { setLoadingP(true); setProducts([]); setCursor(null); setHasMore(true); }
         const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
-        if (activeCatId) params.set('categoryId', activeCatId);
+        // Use categoryId for real categories, category string for fallback
+        if (activeCatId && !activeCatId.startsWith('__str__')) params.set('categoryId', activeCatId);
+        else if (activeCatName) params.set('category', activeCatName);
         if (searchP) params.set('search', searchP);
         if (filterSupplyType) params.set('supplyType', filterSupplyType);
         fetch(`/api/products?${params}`).then(r => r.json()).then(d => {
@@ -99,13 +115,14 @@ export default function ProductsPage() {
             setHasMore(items.length === PAGE_SIZE);
             setLoadingP(false);
         });
-    }, [activeCatId, searchP, filterSupplyType]);
+    }, [activeCatId, activeCatName, searchP, filterSupplyType]);
 
     const loadMore = useCallback(() => {
         if (!cursor || !hasMore || loadingMore.current) return;
         loadingMore.current = true;
         const params = new URLSearchParams({ limit: String(PAGE_SIZE), cursor });
-        if (activeCatId) params.set('categoryId', activeCatId);
+        if (activeCatId && !activeCatId.startsWith('__str__')) params.set('categoryId', activeCatId);
+        else if (activeCatName) params.set('category', activeCatName);
         if (searchP) params.set('search', searchP);
         fetch(`/api/products?${params}`).then(r => r.json()).then(d => {
             const items = d.data || [];
@@ -114,12 +131,14 @@ export default function ProductsPage() {
             setHasMore(!!d.nextCursor);
             loadingMore.current = false;
         });
-    }, [cursor, hasMore, activeCatId, searchP]);
+    }, [cursor, hasMore, activeCatId, activeCatName, searchP]);
 
     const fetchLibrary = () => { setLoadingL(true); fetch('/api/work-item-library?limit=1000').then(r => r.json()).then(d => { setLibrary(d.data || []); setLoadingL(false); }); };
 
     useEffect(() => { fetchCategories(); fetchLibrary(); }, []);
     useEffect(() => { fetchProducts(); }, [fetchProducts]);
+    // Re-build fallback categories when products change
+    useEffect(() => { if (products.length > 0) fetchCategories(products); }, [products.length]);
     useEffect(() => {
         if (!sentinelRef.current) return;
         const obs = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) loadMore(); }, { threshold: 0.1 });
@@ -315,7 +334,17 @@ export default function ProductsPage() {
             {tab === 'products' && (
                 <div style={{ display: 'flex', minHeight: 'calc(100vh - 200px)', border: '1px solid var(--border-color)', borderRadius: 8, overflow: 'hidden' }}>
                     <CategorySidebar categories={categories} activeCatId={activeCatId}
-                        onSelect={id => { setActiveCatId(id); setSelectedIds(new Set()); }}
+                        onSelect={id => {
+                            setActiveCatId(id);
+                            // If it's a fake string category, set name for filtering
+                            if (id?.startsWith('__str__')) {
+                                const cat = categories.find(c => c.id === id);
+                                setActiveCatName(cat?.name || null);
+                            } else {
+                                setActiveCatName(null);
+                            }
+                            setSelectedIds(new Set());
+                        }}
                         totalCount={products.length} onRefresh={() => { fetchCategories(); fetchProducts(); }} />
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                         <div style={{ display: 'flex', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--border-color)', fontSize: 12, color: 'var(--text-muted)', alignItems: 'center' }}>
