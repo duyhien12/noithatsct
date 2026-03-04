@@ -58,7 +58,7 @@ export default function ProductsPage() {
     const [filterStockStatus, setFilterStockStatus] = useState('');
     const [viewMode, setViewMode] = useState('list');
     const [editingP, setEditingP] = useState(null);
-    const [quickEditP, setQuickEditP] = useState(null);
+    const [quickEditP, setQuickEditP] = useState(new Map());
     const [newProduct, setNewProduct] = useState(null);
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [showAddModal, setShowAddModal] = useState(false);
@@ -190,13 +190,44 @@ export default function ProductsPage() {
         setEditingP(null); fetchProducts(); fetchCategories();
     };
     const startQuickEditP = (p) => {
-        setQuickEditP({ id: p.id, salePrice: p.salePrice || 0, importPrice: p.importPrice || 0, stock: p.stock ?? 0, minStock: p.minStock ?? 0, supplyType: normalizeSupply(p.supplyType), brand: p.brand || '', supplier: p.supplier || '' });
+        setQuickEditP(prev => {
+            const m = new Map(prev);
+            if (m.has(p.id)) { m.delete(p.id); } else {
+                m.set(p.id, { name: p.name || '', unit: p.unit || 'cái', category: p.category || '', salePrice: p.salePrice || 0, importPrice: p.importPrice || 0, stock: p.stock ?? 0, minStock: p.minStock ?? 0, supplyType: normalizeSupply(p.supplyType), brand: p.brand || '', supplier: p.supplier || '' });
+            }
+            return m;
+        });
     };
-    const saveQuickP = async () => {
-        const { id, ...data } = quickEditP;
+    const updateQuickField = (id, field, value) => {
+        setQuickEditP(prev => {
+            const m = new Map(prev);
+            const row = { ...m.get(id), [field]: value };
+            m.set(id, row);
+            return m;
+        });
+    };
+    const cancelQuickEditP = (id) => {
+        setQuickEditP(prev => { const m = new Map(prev); m.delete(id); return m; });
+    };
+    const saveQuickP = async (id) => {
+        const data = quickEditP.get(id);
+        if (!data) return;
         const res = await fetch(`/api/products/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
         if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi cập nhật'); }
-        setQuickEditP(null); fetchProducts(); fetchCategories();
+        cancelQuickEditP(id);
+        fetchProducts(); fetchCategories();
+    };
+    const saveAllQuickP = async () => {
+        const entries = [...quickEditP.entries()];
+        if (!entries.length) return;
+        let ok = 0, fail = 0;
+        for (const [id, data] of entries) {
+            const res = await fetch(`/api/products/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+            if (res.ok) ok++; else fail++;
+        }
+        setQuickEditP(new Map());
+        fetchProducts(); fetchCategories();
+        if (fail) alert(`Đã lưu ${ok}, lỗi ${fail}`);
     };
     const deleteP = async (id) => { if (!confirm('Xóa sản phẩm?')) return; await fetch(`/api/products/${id}`, { method: 'DELETE' }); fetchProducts(); fetchCategories(); };
     const duplicateP = async (p) => {
@@ -396,6 +427,13 @@ export default function ProductsPage() {
                             </div>
                         </div>
                         <BulkActionsBar selectedIds={selectedIds} categories={flatCats} onDone={() => { setSelectedIds(new Set()); fetchProducts(); fetchCategories(); }} />
+                        {quickEditP.size > 0 && (
+                            <div style={{ padding: '6px 16px', background: 'linear-gradient(90deg, #234093, #3b5998)', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--border-color)' }}>
+                                <span style={{ fontSize: 12, color: '#fff', fontWeight: 600 }}>✏️ Đang sửa {quickEditP.size} sản phẩm</span>
+                                <button className="btn btn-sm" onClick={saveAllQuickP} style={{ fontSize: 11, padding: '3px 12px', background: '#DBB35E', color: '#fff', border: 'none', borderRadius: 4, fontWeight: 700 }}>💾 Lưu tất cả</button>
+                                <button className="btn btn-ghost btn-sm" onClick={() => setQuickEditP(new Map())} style={{ fontSize: 11, color: '#fff', opacity: 0.8 }}>✕ Hủy tất cả</button>
+                            </div>
+                        )}
                         {loadingP ? <div style={{ padding: 40, textAlign: 'center', opacity: 0.4 }}>Đang tải...</div> : (
                             <div style={{ flex: 1, overflowY: 'auto' }}>
 
@@ -409,29 +447,34 @@ export default function ProductsPage() {
                                         </tr></thead>
                                         <tbody>{filteredP.map(p => {
                                             const ss = stockStatus(p);
-                                            const isQE = quickEditP?.id === p.id;
+                                            const qe = quickEditP.get(p.id);
+                                            const isQE = !!qe;
                                             const sc = SUPPLY_COLOR[normalizeSupply(p.supplyType)] || { bg: '#f5f5f5', color: '#666' };
                                             const sd = STOCK_DOT[ss] || STOCK_DOT.ok;
                                             return (<tr key={p.id} style={{ background: isQE ? 'rgba(99,102,241,0.06)' : '' }}>
                                                 <td style={{ padding: 4, textAlign: 'center' }}><input type="checkbox" checked={selectedIds.has(p.id)} onChange={e => { const n = new Set(selectedIds); e.target.checked ? n.add(p.id) : n.delete(p.id); setSelectedIds(n); }} /></td>
                                                 <td style={{ padding: 3, cursor: 'pointer' }} onClick={() => { imgUpTarget.current = p.id; imgUpRef.current?.click(); }}><div style={{ width: 34, height: 34, borderRadius: 5, overflow: 'hidden', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9f9f9' }}>{p.image ? <img src={p.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <span style={{ fontSize: 14, opacity: 0.15 }}>📷</span>}</div></td>
-                                                <td style={{ padding: '4px 6px' }}><div style={{ fontWeight: 600, fontSize: 12.5, color: '#234093', cursor: 'pointer' }} onClick={() => startEditP(p)}>{p.name}</div>{p.category && <span style={{ fontSize: 10, opacity: 0.45, background: 'var(--surface-alt)', borderRadius: 3, padding: '0 4px' }}>{p.category}</span>}</td>
+                                                <td style={{ padding: '4px 6px' }}>{isQE
+                                                    ? <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}><input value={qe.name} onChange={e => updateQuickField(p.id, 'name', e.target.value)} style={{ width: '100%', fontSize: 12, padding: '2px 4px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)', fontWeight: 600 }} /><select value={qe.category} onChange={e => updateQuickField(p.id, 'category', e.target.value)} style={{ fontSize: 10, padding: '1px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }}>{allCats.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                                                    : <><div style={{ fontWeight: 600, fontSize: 12.5, color: '#234093', cursor: 'pointer' }} onClick={() => startEditP(p)}>{p.name}</div>{p.category && <span style={{ fontSize: 10, opacity: 0.45, background: 'var(--surface-alt)', borderRadius: 3, padding: '0 4px' }}>{p.category}</span>}</>}</td>
                                                 <td style={{ padding: '4px 4px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 2 }}><span style={{ fontFamily: 'monospace', fontSize: 10.5, opacity: 0.55 }}>{p.code}</span><button onClick={() => copyCode(p.code)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 10, opacity: 0.3, padding: 0 }} title="Copy mã SP">📋</button></div></td>
-                                                <td style={{ padding: '4px 4px', fontSize: 11 }}>{p.unit}</td>
+                                                <td style={{ padding: '4px 4px', fontSize: 11 }}>{isQE
+                                                    ? <input value={qe.unit} onChange={e => updateQuickField(p.id, 'unit', e.target.value)} style={{ width: 40, fontSize: 11, padding: '2px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }} />
+                                                    : p.unit}</td>
                                                 <td style={{ fontWeight: 600, padding: '4px 4px' }}>{isQE
-                                                    ? <input type="number" value={quickEditP.salePrice} onChange={e => setQuickEditP(q => ({ ...q, salePrice: Number(e.target.value) }))} style={{ width: 85, fontSize: 12, padding: '2px 4px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)', fontWeight: 600 }} />
+                                                    ? <input type="number" value={qe.salePrice} onChange={e => updateQuickField(p.id, 'salePrice', Number(e.target.value))} style={{ width: 85, fontSize: 12, padding: '2px 4px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)', fontWeight: 600 }} />
                                                     : fmtCur(p.salePrice)}</td>
                                                 <td style={{ padding: '4px 4px' }}>{isService(p) ? <span style={{ opacity: 0.3 }}>—</span> : isQE
-                                                    ? <input type="number" value={quickEditP.stock} onChange={e => setQuickEditP(q => ({ ...q, stock: Number(e.target.value) }))} style={{ width: 55, fontSize: 12, padding: '2px 4px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }} />
+                                                    ? <input type="number" value={qe.stock} onChange={e => updateQuickField(p.id, 'stock', Number(e.target.value))} style={{ width: 55, fontSize: 12, padding: '2px 4px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }} />
                                                     : <div style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }} onClick={() => { /* StockCell handles click */ }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: sd.color, display: 'inline-block', flexShrink: 0 }} /><StockCell value={p.stock} status={ss} onSave={v => quickUpdateStock(p.id, v)} /></div>}</td>
                                                 <td style={{ padding: '4px 4px' }}>{isQE
-                                                    ? <select value={quickEditP.supplyType} onChange={e => setQuickEditP(q => ({ ...q, supplyType: e.target.value }))} style={{ fontSize: 10, padding: '2px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }}>{SUPPLY_TYPES.map(t => <option key={t}>{t}</option>)}</select>
+                                                    ? <select value={qe.supplyType} onChange={e => updateQuickField(p.id, 'supplyType', e.target.value)} style={{ fontSize: 10, padding: '2px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }}>{SUPPLY_TYPES.map(t => <option key={t}>{t}</option>)}</select>
                                                     : <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: sc.bg, color: sc.color, fontWeight: 600, whiteSpace: 'nowrap' }}>{normalizeSupply(p.supplyType)}</span>}</td>
                                                 <td style={{ fontSize: 11, padding: '4px 4px' }}>{isQE
-                                                    ? <select value={quickEditP.brand} onChange={e => setQuickEditP(q => ({ ...q, brand: e.target.value }))} style={{ fontSize: 10, padding: '2px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)', maxWidth: 80 }}>{BRANDS.map(b => <option key={b.n} value={b.n}>{b.n || '-'}</option>)}</select>
+                                                    ? <select value={qe.brand} onChange={e => updateQuickField(p.id, 'brand', e.target.value)} style={{ fontSize: 10, padding: '2px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)', maxWidth: 80 }}>{BRANDS.map(b => <option key={b.n} value={b.n}>{b.n || '-'}</option>)}</select>
                                                     : (p.brand || <span style={{ opacity: 0.2 }}>-</span>)}</td>
                                                 <td style={{ padding: '4px 4px' }}>{isQE
-                                                    ? <div style={{ display: 'flex', gap: 2 }}><button className="btn btn-sm" onClick={saveQuickP} style={{ fontSize: 11, padding: '2px 6px', background: '#234093', color: '#fff', border: 'none', borderRadius: 4 }}>✓</button><button className="btn btn-ghost btn-sm" onClick={() => setQuickEditP(null)} style={{ fontSize: 11, padding: '2px 4px' }}>✕</button></div>
+                                                    ? <div style={{ display: 'flex', gap: 2 }}><button className="btn btn-sm" onClick={() => saveQuickP(p.id)} style={{ fontSize: 11, padding: '2px 6px', background: '#234093', color: '#fff', border: 'none', borderRadius: 4 }}>✓</button><button className="btn btn-ghost btn-sm" onClick={() => cancelQuickEditP(p.id)} style={{ fontSize: 11, padding: '2px 4px' }}>✕</button></div>
                                                     : <div style={{ display: 'flex', gap: 1 }}><button className="btn btn-ghost btn-sm" onClick={() => startQuickEditP(p)} style={{ fontSize: 11, padding: '1px 3px' }} title="Sửa nhanh">✏️</button><button className="btn btn-ghost btn-sm" onClick={() => duplicateP(p)} style={{ fontSize: 11, padding: '1px 3px' }}>📋</button><button className="btn btn-ghost btn-sm" onClick={() => deleteP(p.id)} style={{ fontSize: 11, padding: '1px 3px' }}>🗑️</button></div>}</td>
                                             </tr>);
                                         })}</tbody>
