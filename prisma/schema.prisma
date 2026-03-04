@@ -101,6 +101,19 @@ model Project {
   updatedAt       DateTime    @updatedAt
 }
 
+model ProductCategory {
+  id        String            @id @default(cuid())
+  name      String
+  slug      String            @default("")
+  order     Int               @default(0)
+  parentId  String?
+  parent    ProductCategory?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  ProductCategory[] @relation("CategoryTree")
+  products  Product[]
+  createdAt DateTime          @default(now())
+  @@index([parentId])
+}
+
 model Product {
   id            String      @id @default(cuid())
   code          String      @unique
@@ -127,6 +140,8 @@ model Product {
   image         String      @default("")
   coreBoard     String      @default("")
   surfaceCode   String      @default("")
+  categoryId    String?
+  categoryRef   ProductCategory? @relation(fields: [categoryId], references: [id])
   inventoryTx   InventoryTransaction[]
   quotationItems QuotationItem[]
   materialPlans MaterialPlan[]
@@ -136,6 +151,7 @@ model Product {
   deletedAt     DateTime?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+  @@index([categoryId])
 }
 
 model Quotation {
