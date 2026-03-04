@@ -1,28 +1,83 @@
 'use client';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
-function TreeNode({ cat, activeCatId, onSelect, onRename, onDelete, onAdd, depth = 0 }) {
+function TreeNode({ cat, activeCatId, onSelect, onRename, onDelete, onAdd, onMove, depth = 0, dragState, setDragState }) {
     const [open, setOpen] = useState(true);
     const [editing, setEditing] = useState(false);
     const [name, setName] = useState(cat.name);
     const active = activeCatId === cat.id;
     const count = (cat._count?.products || 0) + (cat.children || []).reduce((s, c) => s + (c._count?.products || 0), 0);
+    const isDragging = dragState?.dragId === cat.id;
+    const isDropTarget = dragState?.dropId === cat.id;
+    const isDropRoot = dragState?.dropId === '__root__';
 
     const save = () => {
         if (name.trim() && name !== cat.name) onRename(cat.id, name.trim());
         setEditing(false);
     };
 
+    const handleDragStart = (e) => {
+        e.stopPropagation();
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', cat.id);
+        setDragState({ dragId: cat.id, dropId: null });
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (dragState?.dragId === cat.id) return;
+        // Don't allow dropping on own children
+        if (isChildOf(cat, dragState?.dragId)) return;
+        e.dataTransfer.dropEffect = 'move';
+        setDragState(prev => prev ? { ...prev, dropId: cat.id } : null);
+    };
+
+    const handleDragLeave = (e) => {
+        e.stopPropagation();
+        if (dragState?.dropId === cat.id) {
+            setDragState(prev => prev ? { ...prev, dropId: null } : null);
+        }
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const dragId = dragState?.dragId;
+        if (dragId && dragId !== cat.id && !isChildOf(cat, dragId)) {
+            onMove(dragId, cat.id);
+        }
+        setDragState(null);
+    };
+
+    // Check if node is a child of dragId (prevent dropping parent into its own child)
+    function isChildOf(node, dragId) {
+        if (!node.children) return false;
+        for (const child of node.children) {
+            if (child.id === dragId) return true;
+            if (isChildOf(child, dragId)) return true;
+        }
+        return false;
+    }
+
     return (
         <div>
             <div
+                draggable={!editing}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onDragEnd={() => setDragState(null)}
                 onClick={() => onSelect(active ? null : cat.id)}
                 style={{
-                    padding: '7px 12px', paddingLeft: 12 + depth * 16, cursor: 'pointer', fontSize: 13,
+                    padding: '7px 12px', paddingLeft: 12 + depth * 16, cursor: isDragging ? 'grabbing' : 'pointer', fontSize: 13,
                     display: 'flex', alignItems: 'center', gap: 6, borderRadius: 6, margin: '1px 4px',
-                    background: active ? 'var(--accent-primary)' : 'transparent',
+                    background: isDropTarget ? 'rgba(35,64,147,0.15)' : active ? 'var(--accent-primary)' : 'transparent',
                     color: active ? '#fff' : 'var(--text-primary)',
                     fontWeight: active ? 700 : 400, transition: 'all 0.12s',
+                    opacity: isDragging ? 0.4 : 1,
+                    border: isDropTarget ? '2px dashed var(--accent-primary)' : '2px solid transparent',
                 }}
             >
                 {cat.children?.length > 0 && (
@@ -56,7 +111,8 @@ function TreeNode({ cat, activeCatId, onSelect, onRename, onDelete, onAdd, depth
             </div>
             {open && cat.children?.map(child => (
                 <TreeNode key={child.id} cat={child} activeCatId={activeCatId} onSelect={onSelect}
-                    onRename={onRename} onDelete={onDelete} onAdd={onAdd} depth={depth + 1} />
+                    onRename={onRename} onDelete={onDelete} onAdd={onAdd} onMove={onMove} depth={depth + 1}
+                    dragState={dragState} setDragState={setDragState} />
             ))}
         </div>
     );
@@ -65,6 +121,7 @@ function TreeNode({ cat, activeCatId, onSelect, onRename, onDelete, onAdd, depth
 export default function CategorySidebar({ categories, activeCatId, onSelect, totalCount, onRefresh }) {
     const [adding, setAdding] = useState(false);
     const [newName, setNewName] = useState('');
+    const [dragState, setDragState] = useState(null);
 
     const createCat = async (parentId = null) => {
         const name = parentId ? prompt('Tên danh mục con:') : newName.trim();
@@ -92,10 +149,39 @@ export default function CategorySidebar({ categories, activeCatId, onSelect, tot
         onRefresh();
     };
 
+    const moveCat = async (dragId, targetParentId) => {
+        // Move category to new parent (or root if targetParentId is null)
+        await fetch(`/api/product-categories/${dragId}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ parentId: targetParentId }),
+        });
+        onRefresh();
+    };
+
+    const handleRootDragOver = (e) => {
+        e.preventDefault();
+        if (dragState?.dragId) {
+            setDragState(prev => prev ? { ...prev, dropId: '__root__' } : null);
+        }
+    };
+
+    const handleRootDrop = (e) => {
+        e.preventDefault();
+        const dragId = dragState?.dragId;
+        if (dragId) {
+            moveCat(dragId, null); // Move to root
+        }
+        setDragState(null);
+    };
+
     return (
         <div style={{ width: 220, flexShrink: 0, borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', background: 'var(--surface-alt)' }}>
             <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-color)', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8 }}>DANH MỤC</div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}
+                onDragOver={handleRootDragOver}
+                onDrop={handleRootDrop}
+                onDragLeave={() => { if (dragState?.dropId === '__root__') setDragState(prev => prev ? { ...prev, dropId: null } : null); }}
+            >
                 <div onClick={() => onSelect(null)}
                     style={{ padding: '8px 14px', cursor: 'pointer', fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: !activeCatId ? 'var(--accent-primary)' : 'transparent', color: !activeCatId ? '#fff' : 'var(--text-primary)', fontWeight: !activeCatId ? 700 : 400, borderRadius: 6, margin: '0 4px' }}>
                     <span>Tất cả</span>
@@ -103,8 +189,25 @@ export default function CategorySidebar({ categories, activeCatId, onSelect, tot
                 </div>
                 {categories.map(cat => (
                     <TreeNode key={cat.id} cat={cat} activeCatId={activeCatId} onSelect={onSelect}
-                        onRename={renameCat} onDelete={deleteCat} onAdd={(parentId) => createCat(parentId)} />
+                        onRename={renameCat} onDelete={deleteCat} onAdd={(parentId) => createCat(parentId)}
+                        onMove={moveCat} dragState={dragState} setDragState={setDragState} />
                 ))}
+                {/* Drop zone at bottom for moving to root */}
+                {dragState?.dragId && (
+                    <div
+                        onDragOver={(e) => { e.preventDefault(); setDragState(prev => prev ? { ...prev, dropId: '__root__' } : null); }}
+                        onDrop={(e) => { e.preventDefault(); moveCat(dragState.dragId, null); setDragState(null); }}
+                        onDragLeave={() => setDragState(prev => prev ? { ...prev, dropId: null } : null)}
+                        style={{
+                            margin: '8px 8px', padding: '10px 0', textAlign: 'center', fontSize: 11, color: 'var(--text-muted)',
+                            border: dragState?.dropId === '__root__' ? '2px dashed var(--accent-primary)' : '2px dashed var(--border-color)',
+                            borderRadius: 6, background: dragState?.dropId === '__root__' ? 'rgba(35,64,147,0.08)' : 'transparent',
+                            transition: 'all 0.15s',
+                        }}
+                    >
+                        📤 Thả vào đây để chuyển lên gốc
+                    </div>
+                )}
             </div>
             <div style={{ padding: 8, borderTop: '1px solid var(--border-color)' }}>
                 {adding ? (

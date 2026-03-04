@@ -14,6 +14,15 @@ export const PUT = withAuth(async (request, { params }) => {
     const { id } = await params;
     const body = await request.json();
     const data = productUpdateSchema.parse(body);
+
+    // Validate: categoryId must be a leaf category (no children)
+    if (data.categoryId) {
+        const childCount = await prisma.productCategory.count({ where: { parentId: data.categoryId } });
+        if (childCount > 0) {
+            return NextResponse.json({ error: 'Sản phẩm phải thuộc danh mục con (không được chọn danh mục cha)' }, { status: 400 });
+        }
+    }
+
     const product = await prisma.product.update({ where: { id }, data });
     return NextResponse.json(product);
 });

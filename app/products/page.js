@@ -178,7 +178,8 @@ export default function ProductsPage() {
     const flatCats = [];
     const walkCats = (cats, depth = 0) => { for (const c of cats) { flatCats.push({ ...c, depth }); if (c.children) walkCats(c.children, depth + 1); } };
     walkCats(categories);
-    const allCats = [...new Set([...PRODUCT_CATS, ...flatCats.map(c => c.name)])].sort();
+    const leafCats = flatCats.filter(c => !c.children || c.children.length === 0);
+    const allCats = [...new Set([...PRODUCT_CATS, ...leafCats.map(c => c.name)])].sort();
     const filteredP = products.filter(p => (!filterStockStatus || stockStatus(p) === filterStockStatus));
 
     const startEditP = (p) => {
@@ -243,7 +244,16 @@ export default function ProductsPage() {
     };
     const addNewProduct = () => {
         const activeCat = flatCats.find(c => c.id === activeCatId);
-        setAddForm({ name: '', category: activeCat?.name || 'Nội thất thành phẩm', unit: 'cái', salePrice: 0, importPrice: 0, brand: '', supplyType: 'Mua ngoài', stock: 0, minStock: 0, supplier: '', coreBoard: '', surfaceCode: '', image: '', categoryId: activeCatId || null });
+        // Only set categoryId if it's a leaf (no children)
+        let catId = activeCatId || null;
+        let catName = activeCat?.name || 'Nội thất thành phẩm';
+        if (activeCat?.children?.length > 0) {
+            // Parent selected: use first leaf child
+            const firstLeaf = activeCat.children.find(c => !c.children?.length);
+            catId = firstLeaf?.id || null;
+            catName = firstLeaf?.name || catName;
+        }
+        setAddForm({ name: '', category: catName, unit: 'cái', salePrice: 0, importPrice: 0, brand: '', supplyType: 'Mua ngoài', stock: 0, minStock: 0, supplier: '', coreBoard: '', surfaceCode: '', image: '', categoryId: catId });
         setShowAddModal(true);
     };
     const handleImgUpload = async (e) => {
@@ -461,7 +471,7 @@ export default function ProductsPage() {
                                 <button className="btn btn-ghost btn-sm" onClick={() => { setPasteText(''); setShowPasteModal(true); }} title="Paste từ Excel">📋 Paste</button>
                             </div>
                         </div>
-                        <BulkActionsBar selectedIds={selectedIds} categories={flatCats} onDone={() => { setSelectedIds(new Set()); fetchProducts(); fetchCategories(); }} />
+                        <BulkActionsBar selectedIds={selectedIds} categories={leafCats} onDone={() => { setSelectedIds(new Set()); fetchProducts(); fetchCategories(); }} />
                         {quickEditP.size > 0 && (
                             <div style={{ padding: '6px 16px', background: 'linear-gradient(90deg, #234093, #3b5998)', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--border-color)' }}>
                                 <span style={{ fontSize: 12, color: '#fff', fontWeight: 600 }}>✏️ Đang sửa {quickEditP.size} sản phẩm</span>
