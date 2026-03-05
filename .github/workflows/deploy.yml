@@ -8,6 +8,7 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
+    labels: [noithatsct]
 
     steps:
       - name: Checkout code
@@ -18,18 +19,13 @@ jobs:
           cat > .env <<EOF
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
-          NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}
-          R2_ACCOUNT_ID=${{ secrets.R2_ACCOUNT_ID }}
-          R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET_NAME=${{ secrets.R2_BUCKET_NAME }}
-          R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL }}
+          NEXTAUTH_URL=https://admin.kientrucsct.com
           EOF
           sed -i 's/^[[:space:]]*//' .env
 
       - name: Ensure PostgreSQL is running
         run: |
-          docker compose -p motnha -f docker-compose.prod.yml up -d postgres
+          docker compose -p noithatsct -f docker-compose.prod.yml up -d postgres
           sleep 5
 
       - name: Install dependencies
@@ -37,15 +33,15 @@ jobs:
 
       - name: Sync database schema
         env:
-          DATABASE_URL: postgresql://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/motnhaerp?schema=public
+          DATABASE_URL: postgresql://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/noithatsct?schema=public
         run: |
           npx prisma generate
           npx prisma db push --accept-data-loss
 
       - name: Build and deploy app
         run: |
-          docker compose -p motnha -f docker-compose.prod.yml build app
-          docker compose -p motnha -f docker-compose.prod.yml up -d
+          docker compose -p noithatsct -f docker-compose.prod.yml build app
+          docker compose -p noithatsct -f docker-compose.prod.yml up -d
 
           echo "==> Cleaning up old images..."
           docker image prune -f
@@ -54,4 +50,4 @@ jobs:
           sleep 10
 
           echo "==> Container status:"
-          docker ps --filter "name=motnha" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          docker ps --filter "name=noithatsct" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"

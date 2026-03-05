@@ -1,10 +1,10 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: motnha-postgres
+    container_name: noithatsct-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: motnhaerp
+      POSTGRES_DB: noithatsct
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
@@ -17,34 +17,30 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - motnha-network
+      - noithatsct-network
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    image: motnha-app:latest
-    container_name: motnha-app
+    image: noithatsct-app:latest
+    container_name: noithatsct-app
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/motnhaerp?schema=public
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/noithatsct?schema=public
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://100.111.242.16:3000}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-https://admin.kientrucsct.com}
       - NODE_ENV=production
-      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
-      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
-      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
-      - R2_BUCKET_NAME=${R2_BUCKET_NAME}
-      - R2_PUBLIC_URL=${R2_PUBLIC_URL}
+      - UPLOAD_DIR=/app/public/uploads
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
       - uploads_data:/app/public/uploads
     networks:
-      - motnha-network
+      - noithatsct-network
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000').then(r => process.exit(r.ok || r.status===307 ? 0 : 1)).catch(() => process.exit(1))\""]
       interval: 30s
@@ -56,5 +52,5 @@ volumes:
   uploads_data:
 
 networks:
-  motnha-network:
+  noithatsct-network:
     driver: bridge
