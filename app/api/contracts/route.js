@@ -113,6 +113,57 @@ export const POST = withAuth(async (request) => {
             await tx.contractPayment.createMany({ data: paymentData });
         }
 
+        // Auto-create MaterialPlan from quotation items (if quotation linked)
+        if (validated.quotationId && validated.projectId) {
+            const qItems = await tx.quotationItem.findMany({
+                where: { quotationId: validated.quotationId, productId: { not: null } },
+                include: {
+                    product: { select: { importPrice: true } },
+                    category: { select: { group: true, name: true } },
+                },
+            });
+
+            // Group by productId, sum quantities
+            const grouped = {};
+            for (const item of qItems) {
+                const pid = item.productId;
+                if (!grouped[pid]) {
+                    grouped[pid] = {
+                        qty: 0,
+                        unitPrice: item.product?.importPrice || item.unitPrice || 0,
+                        category: item.category?.group || item.category?.name || '',
+                    };
+                }
+                grouped[pid].qty += item.volume || item.quantity || 0;
+            }
+
+            // Skip products that already have a MaterialPlan in this project
+            const existing = await tx.materialPlan.findMany({
+                where: { projectId: validated.projectId },
+                select: { productId: true },
+            });
+            const existingSet = new Set(existing.map(e => e.productId));
+
+            const newPlans = Object.entries(grouped)
+                .filter(([pid]) => !existingSet.has(pid))
+                .filter(([, { qty }]) => qty > 0)
+                .map(([productId, { qty, unitPrice, category }]) => ({
+                    productId,
+                    projectId: validated.projectId,
+                    quantity: qty,
+                    unitPrice,
+                    totalAmount: qty * unitPrice,
+                    budgetUnitPrice: unitPrice,
+                    category,
+                    status: 'Chưa đặt',
+                    type: 'Chính',
+                }));
+
+            if (newPlans.length > 0) {
+                await tx.materialPlan.createMany({ data: newPlans });
+            }
+        }
+
         return await tx.contract.findUnique({
             where: { id: contract.id },
             include: { payments: true },

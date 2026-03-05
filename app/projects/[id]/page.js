@@ -321,6 +321,33 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
         fetchData();
     };
 
+    // Bulk import material plans from quotation items
+    const importMPFromQuotation = async () => {
+        const quotations = data?.quotations || [];
+        if (quotations.length === 0) return alert('Dự án chưa có báo giá nào');
+        const items = [];
+        for (const q of quotations) {
+            for (const item of (q.items || [])) {
+                if (item.productId) {
+                    items.push({
+                        productId: item.productId,
+                        quantity: item.volume || item.quantity || 0,
+                        unitPrice: item.unitPrice || 0,
+                        category: '',
+                    });
+                }
+            }
+        }
+        if (items.length === 0) return alert('Báo giá không có sản phẩm nào (items chưa link product)');
+        const res = await fetch('/api/material-plans', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ projectId: id, items, source: 'Báo giá' }),
+        });
+        const result = await res.json();
+        alert(`Đã tạo ${result.created} kế hoạch vật tư${result.skipped > 0 ? ` (bỏ qua ${result.skipped} đã tồn tại)` : ''}`);
+        fetchData();
+    };
+
     // Material Requisition
     const [reqForm, setReqForm] = useState({ materialPlanId: '', requestedQty: '', requestedDate: '', notes: '', createdBy: '' });
     const openReqModal = (plan) => {
@@ -782,6 +809,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                     </div>
                     <div className="card">
                         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px 0', gap: 8, flexWrap: 'wrap' }}>
+                            {p.quotations?.length > 0 && <button className="btn btn-ghost btn-sm" onClick={importMPFromQuotation}>📋 Tạo từ Báo giá</button>}
                             <button className="btn btn-ghost btn-sm" onClick={openMPModal}>+ Thêm vật tư</button>
                             {p.materialPlans.filter(m => m.status === 'Chưa đặt' || m.status === 'Đặt một phần').length > 0 && (
                                 <button className="btn btn-primary btn-sm" onClick={openPOModal}>🛒 Tạo PO ({p.materialPlans.filter(m => m.status === 'Chưa đặt' || m.status === 'Đặt một phần').length} vật tư)</button>

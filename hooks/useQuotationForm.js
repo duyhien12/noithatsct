@@ -158,8 +158,10 @@ export default function useQuotationForm() {
     // ========================================
     const addMainCategory = () => {
         const mc = emptyMainCategory();
-        setMainCategories(prev => [...prev, mc]);
-        setActiveMainIdx(mainCategories.length);
+        setMainCategories(prev => {
+            setActiveMainIdx(prev.length);
+            return [...prev, mc];
+        });
         setActiveSubIdx(0);
     };
 
