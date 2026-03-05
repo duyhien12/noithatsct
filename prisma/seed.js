@@ -35,10 +35,10 @@ async function main() {
     // Users
     const hashedPassword = hashSync('admin123', 10);
     await Promise.all([
-        prisma.user.create({ data: { email: 'admin@motnha.vn', name: 'Admin', password: hashedPassword, role: 'giam_doc' } }),
-        prisma.user.create({ data: { email: 'pho@motnha.vn', name: 'Phó Giám đốc', password: hashedPassword, role: 'pho_gd' } }),
-        prisma.user.create({ data: { email: 'ketoan@motnha.vn', name: 'Kế toán', password: hashedPassword, role: 'ke_toan' } }),
-        prisma.user.create({ data: { email: 'kythuat@motnha.vn', name: 'Kỹ thuật', password: hashedPassword, role: 'ky_thuat' } }),
+        prisma.user.create({ data: { email: 'admin@kientrucsct.com', name: 'Admin', password: hashedPassword, role: 'giam_doc' } }),
+        prisma.user.create({ data: { email: 'pho@kientrucsct.com', name: 'Phó Giám đốc', password: hashedPassword, role: 'pho_gd' } }),
+        prisma.user.create({ data: { email: 'ketoan@kientrucsct.com', name: 'Kế toán', password: hashedPassword, role: 'ke_toan' } }),
+        prisma.user.create({ data: { email: 'kythuat@kientrucsct.com', name: 'Kỹ thuật', password: hashedPassword, role: 'ky_thuat' } }),
     ]);
     console.log('Users created');
 
