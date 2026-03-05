@@ -7,8 +7,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: self-hosted
-    labels: [noithatsct]
+    runs-on: [self-hosted, noithatsct]
 
     steps:
       - name: Checkout code
