@@ -100,7 +100,7 @@ function PurchasingContent() {
                 <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Tạo PO mới</button>
             </div>
 
-            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', marginBottom: 24 }}>
+            <div className="stats-grid" style={{ marginBottom: 24 }}>
                 <div className="stat-card"><div className="stat-icon">🛒</div><div><div className="stat-value">{orders.length}</div><div className="stat-label">Tổng đơn hàng</div></div></div>
                 <div className="stat-card"><div className="stat-icon">💰</div><div><div className="stat-value">{fmt(totalValue)}</div><div className="stat-label">Tổng giá trị</div></div></div>
                 <div className="stat-card"><div className="stat-icon">✅</div><div><div className="stat-value" style={{ color: 'var(--status-success)' }}>{fmt(totalPaid)}</div><div className="stat-label">Đã thanh toán</div></div></div>
@@ -150,7 +150,7 @@ function PurchasingContent() {
             {/* Create PO Modal */}
             {showModal && (
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 760, width: '95%' }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 760, width: '95%' }}>
                         <div className="modal-header">
                             <h3>Tạo đơn mua hàng (PO)</h3>
                             <button className="modal-close" onClick={() => setShowModal(false)}>×</button>

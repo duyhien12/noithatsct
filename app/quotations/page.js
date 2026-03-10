@@ -64,7 +64,7 @@ export default function QuotationsPage() {
 
     return (
         <div>
-            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+            <div className="stats-grid">
                 <div className="stat-card"><div className="stat-icon">📄</div><div><div className="stat-value">{totalCount}</div><div className="stat-label">Tổng BG</div></div></div>
                 <div className="stat-card"><div className="stat-icon">🟡</div><div><div className="stat-value">{confirmedCount}</div><div className="stat-label">Chờ ký HĐ</div></div></div>
                 <div className="stat-card"><div className="stat-icon">✅</div><div><div className="stat-value">{contractCount}</div><div className="stat-label">Đã ký HĐ</div></div></div>
@@ -77,9 +77,9 @@ export default function QuotationsPage() {
                     <button className="btn btn-primary" onClick={() => router.push('/quotations/create')}>+ Tạo báo giá mới</button>
                 </div>
                 <div className="filter-bar">
-                    <input type="text" className="form-input" placeholder="Tìm mã BG, khách hàng..." value={search}
-                        onChange={e => setSearch(e.target.value)} style={{ maxWidth: 250 }} />
-                    <select className="form-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ maxWidth: 160 }}>
+                    <input type="text" className="form-input" placeholder="🔍 Tìm mã BG, khách hàng..." value={search}
+                        onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+                    <select className="form-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                         <option value="">Tất cả trạng thái</option>
                         {QUOTATION_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>

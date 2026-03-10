@@ -9,34 +9,37 @@ export default function Pagination({ pagination, onPageChange }) {
     return (
         <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '12px 0', fontSize: 14, color: 'var(--text-muted)',
+            padding: '12px 0', fontSize: 13, color: 'var(--text-muted)',
+            gap: 8, flexWrap: 'wrap',
         }}>
-            <span>Tổng {total} bản ghi</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12 }}>Tổng {total} bản ghi</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <button
                     onClick={() => onPageChange(page - 1)}
                     disabled={!hasPrev}
                     aria-label="Trang trước"
                     style={{
-                        padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)',
-                        background: 'transparent', cursor: hasPrev ? 'pointer' : 'not-allowed',
-                        opacity: hasPrev ? 1 : 0.5, display: 'flex', alignItems: 'center',
+                        padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-color)',
+                        background: 'var(--bg-card)', cursor: hasPrev ? 'pointer' : 'not-allowed',
+                        opacity: hasPrev ? 1 : 0.4, display: 'flex', alignItems: 'center',
+                        minWidth: 40, minHeight: 40, justifyContent: 'center',
                     }}
                 >
-                    <ChevronLeft size={16} />
+                    <ChevronLeft size={18} />
                 </button>
-                <span>Trang {page} / {totalPages}</span>
+                <span style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}>{page} / {totalPages}</span>
                 <button
                     onClick={() => onPageChange(page + 1)}
                     disabled={!hasNext}
                     aria-label="Trang sau"
                     style={{
-                        padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)',
-                        background: 'transparent', cursor: hasNext ? 'pointer' : 'not-allowed',
-                        opacity: hasNext ? 1 : 0.5, display: 'flex', alignItems: 'center',
+                        padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-color)',
+                        background: 'var(--bg-card)', cursor: hasNext ? 'pointer' : 'not-allowed',
+                        opacity: hasNext ? 1 : 0.4, display: 'flex', alignItems: 'center',
+                        minWidth: 40, minHeight: 40, justifyContent: 'center',
                     }}
                 >
-                    <ChevronRight size={16} />
+                    <ChevronRight size={18} />
                 </button>
             </div>
         </div>

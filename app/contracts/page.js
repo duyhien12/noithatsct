@@ -39,7 +39,7 @@ export default function ContractsPage() {
 
     return (
         <div>
-            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+            <div className="stats-grid">
                 <div className="stat-card"><div className="stat-card-header"><span className="stat-card-icon revenue">📝</span></div><div style={{ fontSize: 24, fontWeight: 700, marginTop: 8 }}>{contracts.length}</div><div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Tổng hợp đồng</div></div>
                 <div className="stat-card"><div className="stat-card-header"><span className="stat-card-icon projects">🔨</span></div><div style={{ fontSize: 24, fontWeight: 700, marginTop: 8 }}>{activeCount}</div><div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Đang thực hiện</div></div>
                 <div className="stat-card"><div className="stat-card-header"><span className="stat-card-icon customers">💰</span></div><div style={{ fontSize: 24, fontWeight: 700, marginTop: 8, color: 'var(--status-success)' }}>{fmt(totalValue)}</div><div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Tổng giá trị HĐ</div></div>
@@ -64,7 +64,7 @@ export default function ContractsPage() {
             <div className="card" style={{ marginTop: 24 }}>
                 <div className="card-header"><span className="card-title">Danh sách hợp đồng</span><button className="btn btn-primary" onClick={() => router.push('/contracts/create')}>➕ Tạo hợp đồng</button></div>
                 <div className="filter-bar">
-                    <input type="text" className="form-input" placeholder="Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} style={{ maxWidth: 250 }} />
+                    <input type="text" className="form-input" placeholder="🔍 Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
                     <select className="form-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
                         <option value="">Tất cả loại</option>
                         <option>Thiết kế kiến trúc</option><option>Thiết kế nội thất</option><option>Thi công thô</option><option>Thi công hoàn thiện</option><option>Thi công nội thất</option>
@@ -73,28 +73,55 @@ export default function ContractsPage() {
                         <option value="">Tất cả TT</option><option>Nháp</option><option>Đã ký</option><option>Đang thực hiện</option><option>Hoàn thành</option>
                     </select>
                 </div>
-                {loading ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (
-                    <div className="table-container"><table className="data-table">
-                        <thead><tr><th>Mã HĐ</th><th>Tên</th><th>Khách hàng</th><th>Dự án</th><th>Loại</th><th>Giá trị</th><th>Đã thu</th><th>Tỷ lệ</th><th>Đợt TT</th><th>Trạng thái</th></tr></thead>
-                        <tbody>{filtered.map(c => {
+                {loading ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (<>
+                    <div className="desktop-table-view">
+                        <div className="table-container"><table className="data-table">
+                            <thead><tr><th>Mã HĐ</th><th>Tên</th><th>Khách hàng</th><th>Dự án</th><th>Loại</th><th>Giá trị</th><th>Đã thu</th><th>Tỷ lệ</th><th>Đợt TT</th><th>Trạng thái</th></tr></thead>
+                            <tbody>{filtered.map(c => {
+                                const rate = pct(c.paidAmount, c.contractValue);
+                                return (
+                                    <tr key={c.id} onClick={() => router.push(`/contracts/${c.id}`)} style={{ cursor: 'pointer' }}>
+                                        <td className="accent">{c.code}</td>
+                                        <td className="primary">{c.name}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Ký: {fmtDate(c.signDate)}</div></td>
+                                        <td>{c.customer?.name}</td>
+                                        <td><span className="badge info">{c.project?.code}</span> {c.project?.name}</td>
+                                        <td><span className={`badge ${TYPE_COLORS[c.type] || 'muted'}`}>{TYPE_ICONS[c.type] || ''} {c.type}</span></td>
+                                        <td className="amount">{fmt(c.contractValue)}</td>
+                                        <td style={{ color: 'var(--status-success)', fontWeight: 600 }}>{fmt(c.paidAmount)}</td>
+                                        <td><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div className="progress-bar" style={{ flex: 1 }}><div className="progress-fill" style={{ width: `${rate}%` }}></div></div><span style={{ fontSize: 11 }}>{rate}%</span></div></td>
+                                        <td><span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.payments?.length || 0} đợt</span></td>
+                                        <td><span className={`badge ${c.status === 'Hoàn thành' ? 'success' : c.status === 'Đang thực hiện' ? 'warning' : c.status === 'Đã ký' ? 'info' : 'muted'}`}>{c.status}</span></td>
+                                    </tr>
+                                );
+                            })}</tbody>
+                        </table></div>
+                    </div>
+                    <div className="mobile-card-list">
+                        {filtered.map(c => {
                             const rate = pct(c.paidAmount, c.contractValue);
                             return (
-                                <tr key={c.id} onClick={() => router.push(`/contracts/${c.id}`)} style={{ cursor: 'pointer' }}>
-                                    <td className="accent">{c.code}</td>
-                                    <td className="primary">{c.name}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Ký: {fmtDate(c.signDate)}</div></td>
-                                    <td>{c.customer?.name}</td>
-                                    <td><span className="badge info">{c.project?.code}</span> {c.project?.name}</td>
-                                    <td><span className={`badge ${TYPE_COLORS[c.type] || 'muted'}`}>{TYPE_ICONS[c.type] || ''} {c.type}</span></td>
-                                    <td className="amount">{fmt(c.contractValue)}</td>
-                                    <td style={{ color: 'var(--status-success)', fontWeight: 600 }}>{fmt(c.paidAmount)}</td>
-                                    <td><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div className="progress-bar" style={{ flex: 1 }}><div className="progress-fill" style={{ width: `${rate}%` }}></div></div><span style={{ fontSize: 11 }}>{rate}%</span></div></td>
-                                    <td><span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.payments?.length || 0} đợt</span></td>
-                                    <td><span className={`badge ${c.status === 'Hoàn thành' ? 'success' : c.status === 'Đang thực hiện' ? 'warning' : c.status === 'Đã ký' ? 'info' : 'muted'}`}>{c.status}</span></td>
-                                </tr>
+                                <div key={c.id} className="mobile-card-item" onClick={() => router.push(`/contracts/${c.id}`)}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                            <div className="card-subtitle">{c.code} · {c.customer?.name}</div>
+                                        </div>
+                                        <span className={`badge ${c.status === 'Hoàn thành' ? 'success' : c.status === 'Đang thực hiện' ? 'warning' : c.status === 'Đã ký' ? 'info' : 'muted'}`}>{c.status}</span>
+                                    </div>
+                                    <div className="card-row">
+                                        <div><span className="card-label">Giá trị</span><div className="card-value">{fmt(c.contractValue)}</div></div>
+                                        <div style={{ textAlign: 'right' }}><span className="card-label">Đã thu</span><div style={{ color: 'var(--status-success)', fontWeight: 600, fontSize: 12 }}>{fmt(c.paidAmount)}</div></div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                                        <div className="progress-bar" style={{ flex: 1, height: 6 }}><div className="progress-fill" style={{ width: `${rate}%` }}></div></div>
+                                        <span style={{ fontSize: 11, fontWeight: 600 }}>{rate}%</span>
+                                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>· {c.payments?.length || 0} đợt</span>
+                                    </div>
+                                </div>
                             );
-                        })}</tbody>
-                    </table></div>
-                )}
+                        })}
+                    </div>
+                </>)}
             </div>
         </div>
     );

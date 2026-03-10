@@ -448,8 +448,8 @@ export default function ProductsPage() {
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                         {/* Toolbar */}
                         <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                            <input className="form-input" placeholder="🔍 Tìm theo Tên, Mã SP..." value={searchP} onChange={e => setSearchP(e.target.value)} style={{ width: 220, fontSize: 12, padding: '6px 10px', borderRadius: 6 }} />
-                            <select className="form-select" value={filterSupplyType} onChange={e => setFilterSupplyType(e.target.value)} style={{ fontSize: 11, width: 130, padding: '6px 8px' }}>
+                            <input className="form-input" placeholder="🔍 Tìm SP..." value={searchP} onChange={e => setSearchP(e.target.value)} style={{ flex: 1, minWidth: 0, fontSize: 12, padding: '6px 10px', borderRadius: 6 }} />
+                            <select className="form-select" value={filterSupplyType} onChange={e => setFilterSupplyType(e.target.value)} style={{ fontSize: 11, padding: '6px 8px' }}>
                                 <option value="">Nguồn cung</option>{SUPPLY_TYPES.map(t => <option key={t}>{t}</option>)}
                             </select>
 
@@ -722,7 +722,7 @@ export default function ProductsPage() {
                 const isSvc = normalizeSupply(d.supplyType) === 'Dịch vụ';
                 return (
                     <div className="modal-overlay" onClick={() => setEditingP(null)}>
-                        <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 680, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
+                        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 680, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
                             <div className="modal-header">
                                 <h3 style={{ margin: 0, fontSize: 15 }}>✏️ Sửa: {d.name || 'Sản phẩm'}</h3>
                                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -880,7 +880,7 @@ export default function ProductsPage() {
             {/* Add Product Modal */}
             {showAddModal && (
                 <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
                         <div className="modal-header">
                             <h3>Thêm sản phẩm mới</h3>
                             <button className="modal-close" onClick={() => setShowAddModal(false)}>×</button>
@@ -984,7 +984,7 @@ export default function ProductsPage() {
             {/* Paste from Excel modal */}
             {showPasteModal && (
                 <div className="modal-overlay" onClick={() => setShowPasteModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
                         <div className="modal-header">
                             <h3 style={{ margin: 0 }}>📋 Paste từ Excel</h3>
                             <button className="modal-close" onClick={() => setShowPasteModal(false)}>×</button>

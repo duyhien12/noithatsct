@@ -624,7 +624,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             {tab === 'contracts' && (
                 <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}><h3 style={{ margin: 0 }}>📝 Hợp đồng</h3><button className="btn btn-primary btn-sm" onClick={() => setModal('contract')}>+ Thêm HĐ</button></div>
-                    <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', marginBottom: 24 }}>
+                    <div className="stats-grid" style={{ marginBottom: 24 }}>
                         <div className="stat-card"><div className="stat-card-header"><span className="stat-card-icon revenue">📝</span></div><div className="stat-card .stat-value" style={{ fontSize: 20, fontWeight: 700 }}>{p.contracts.length}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Tổng HĐ</div></div>
                         <div className="stat-card"><div className="stat-card-header"><span className="stat-card-icon customers">💰</span></div><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-success)' }}>{fmt(p.contracts.reduce((s, c) => s + c.contractValue, 0))}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Tổng giá trị</div></div>
                         <div className="stat-card"><div className="stat-card-header"><span className="stat-card-icon projects">✅</span></div><div style={{ fontSize: 20, fontWeight: 700 }}>{fmt(p.contracts.reduce((s, c) => s + c.paidAmount, 0))}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Đã thu</div></div>
@@ -702,7 +702,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                     {/* Sub-tab: Chi phí */}
                     {financeSubTab === 'expenses' && (
                         <div>
-                            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', marginBottom: 24 }}>
+                            <div className="stats-grid" style={{ marginBottom: 24 }}>
                                 <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700 }}>{p.expenses.length}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Tổng phiếu</div></div>
                                 <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-danger)' }}>{fmt(p.expenses.reduce((s, e) => s + e.amount, 0))}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Tổng CP</div></div>
                                 <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-success)' }}>{fmt(p.expenses.reduce((s, e) => s + e.paidAmount, 0))}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Đã TT</div></div>
@@ -820,7 +820,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             {/* TAB: Vật tư */}
             {tab === 'materials' && (
                 <div>
-                    <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', marginBottom: 24 }}>
+                    <div className="stats-grid" style={{ marginBottom: 24 }}>
                         <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700 }}>{p.materialPlans.length}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loại vật tư</div></div>
                         <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-info)' }}>{fmt(p.materialPlans.reduce((s, m) => s + m.totalAmount, 0))}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Tổng dự toán</div></div>
                         <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-warning)' }}>{p.materialPlans.filter(m => m.status === 'Chưa đặt' || m.status === 'Đặt một phần').length}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Cần đặt thêm</div></div>
@@ -1014,7 +1014,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             {/* Modal: Nghiệm thu hạng mục */}
             {ntModal && (
                 <div className="modal-overlay" onClick={() => setNtModal(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 780 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 780 }}>
                         <div className="modal-header">
                             <div>
                                 <h3>📋 Nghiệm thu — {ntModal.contractor?.name}</h3>
@@ -1072,7 +1072,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             {/* Modal: Thêm thầu phụ */}
             {modal === 'contractor_pay' && (
                 <div className="modal-overlay" onClick={() => setModal(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
                         <div className="modal-header">
                             <h3>👷 Thêm thầu phụ vào dự án</h3>
                             <button className="modal-close" onClick={() => setModal(null)}>×</button>
@@ -1122,7 +1122,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
 
             {modal === 'contract' && (
                 <div className="modal-overlay" onClick={() => setModal(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 720 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 720 }}>
                         <div className="modal-header"><h3>Thêm hợp đồng</h3><button className="modal-close" onClick={() => setModal(null)}>×</button></div>
                         <div className="modal-body">
                             {/* Type selector */}
@@ -1183,7 +1183,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             )}
             {modal === 'workorder' && (
                 <div className="modal-overlay" onClick={() => setModal(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 550 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 550 }}>
                         <div className="modal-header"><h3>Thêm phiếu công việc</h3><button className="modal-close" onClick={() => setModal(null)}>×</button></div>
                         <div className="modal-body">
                             <div className="form-group"><label className="form-label">Tiêu đề *</label><input className="form-input" value={woForm.title} onChange={e => setWoForm({ ...woForm, title: e.target.value })} /></div>
@@ -1203,7 +1203,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             )}
             {modal === 'expense' && (
                 <div className="modal-overlay" onClick={() => setModal(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
                         <div className="modal-header"><h3>Thêm chi phí phát sinh</h3><button className="modal-close" onClick={() => setModal(null)}>×</button></div>
                         <div className="modal-body">
                             <div className="form-group"><label className="form-label">Mô tả *</label><input className="form-input" value={expenseForm.description} onChange={e => setExpenseForm({ ...expenseForm, description: e.target.value })} /></div>
@@ -1219,7 +1219,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             )}
             {modal === 'log' && (
                 <div className="modal-overlay" onClick={() => setModal(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
                         <div className="modal-header"><h3>Thêm nhật ký</h3><button className="modal-close" onClick={() => setModal(null)}>×</button></div>
                         <div className="modal-body">
                             <div className="form-group"><label className="form-label">Loại</label><select className="form-select" value={logForm.type} onChange={e => setLogForm({ ...logForm, type: e.target.value })}><option>Điện thoại</option><option>Gặp mặt</option><option>Email</option><option>Zalo</option></select></div>
@@ -1238,7 +1238,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                 const selected = mpProducts.find(pr => pr.id === mpForm.productId);
                 return (
                     <div className="modal-overlay" onClick={() => setModal(null)}>
-                        <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+                        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
                             <div className="modal-header"><h3>+ Thêm kế hoạch vật tư</h3><button className="modal-close" onClick={() => setModal(null)}>×</button></div>
                             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                                 <div className="form-group">
@@ -1296,7 +1296,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             })()}
             {modal === 'po' && (
                 <div className="modal-overlay" onClick={() => setModal(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 820 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 820 }}>
                         <div className="modal-header"><h3>🛒 Tạo đơn mua hàng</h3><button className="modal-close" onClick={() => setModal(null)}>×</button></div>
                         <div className="modal-body">
                             <div className="form-row">
@@ -1385,7 +1385,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                 const remaining = plan ? plan.quantity - plan.orderedQty : 0;
                 return (
                     <div className="modal-overlay" onClick={() => setModal(null)}>
-                        <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
                             <div className="modal-header"><h3>📋 Phiếu Yêu cầu Vật tư</h3><button className="modal-close" onClick={() => setModal(null)}>×</button></div>
                             <div className="modal-body">
                                 {plan && (
@@ -1419,7 +1419,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             {/* MODAL: Nghiệm thu (GRN) */}
             {modal === 'grn' && grn && (
                 <div className="modal-overlay" onClick={() => setModal(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
                         <div className="modal-header"><h3>📦 Nghiệm thu hàng — {grn.po.code}</h3><button className="modal-close" onClick={() => setModal(null)}>×</button></div>
                         <div className="modal-body">
                             <div style={{ padding: '8px 14px', background: grn.po.deliveryType === 'Giao thẳng dự án' ? 'rgba(14,165,233,0.08)' : 'var(--surface-alt)', borderRadius: 8, marginBottom: 16, fontSize: 13, borderLeft: `3px solid ${grn.po.deliveryType === 'Giao thẳng dự án' ? 'var(--status-info)' : 'var(--border-color)'}` }}>

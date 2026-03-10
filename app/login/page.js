@@ -51,12 +51,12 @@ function LoginForm() {
             alignItems: 'center',
             justifyContent: 'center',
             background: 'linear-gradient(135deg, #1C3A6B 0%, #0F2341 100%)',
-            padding: 20,
+            padding: 16,
         }}>
             <div style={{
                 background: 'white',
                 borderRadius: 16,
-                padding: '48px 40px',
+                padding: '40px 24px',
                 width: '100%',
                 maxWidth: 420,
                 boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
@@ -97,8 +97,8 @@ function LoginForm() {
                             required
                             autoFocus
                             style={{
-                                width: '100%', padding: '10px 14px', borderRadius: 8,
-                                border: '1px solid #D1D5DB', fontSize: 14, outline: 'none',
+                                width: '100%', padding: '12px 14px', borderRadius: 8,
+                                border: '1px solid #D1D5DB', fontSize: 16, outline: 'none',
                                 boxSizing: 'border-box',
                             }}
                         />
@@ -116,8 +116,8 @@ function LoginForm() {
                                 placeholder="Nhập mật khẩu"
                                 required
                                 style={{
-                                    width: '100%', padding: '10px 40px 10px 14px', borderRadius: 8,
-                                    border: '1px solid #D1D5DB', fontSize: 14, outline: 'none',
+                                    width: '100%', padding: '12px 48px 12px 14px', borderRadius: 8,
+                                    border: '1px solid #D1D5DB', fontSize: 16, outline: 'none',
                                     boxSizing: 'border-box',
                                 }}
                             />
@@ -125,8 +125,9 @@ function LoginForm() {
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
                                 style={{
-                                    position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                                    background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 4,
+                                    position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)',
+                                    background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF',
+                                    padding: 10, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 }}
                             >
                                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}

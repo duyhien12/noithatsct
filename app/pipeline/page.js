@@ -116,7 +116,7 @@ export default function PipelinePage() {
             )}
 
             {/* Stats */}
-            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', marginBottom: 24 }}>
+            <div className="stats-grid" style={{ marginBottom: 24 }}>
                 <div className="stat-card">
                     <div className="stat-icon">🏗️</div>
                     <div>
@@ -173,50 +173,73 @@ export default function PipelinePage() {
                 </div>
                 {loading ? (
                     <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
-                ) : (
-                    <table className="data-table">
-                        <thead>
-                            <tr>
-                                <th>Mã</th>
-                                <th>Tên dự án</th>
-                                <th>Khách hàng</th>
-                                <th>Diện tích</th>
-                                {canSeeFinance && <th>Giá trị HĐ</th>}
-                                <th>Tiến độ</th>
-                                <th>Trạng thái</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredProjects.map(p => (
-                                <tr key={p.id} onClick={() => router.push(`/projects/${p.id}`)} style={{ cursor: 'pointer' }}>
-                                    <td className="accent">{p.code}</td>
-                                    <td className="primary">
-                                        {p.name}
-                                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.address}</div>
-                                    </td>
-                                    <td style={{ fontSize: 12 }}>{p.customer?.name}</td>
-                                    <td>{p.area ? `${p.area} m²` : '—'}</td>
-                                    {canSeeFinance && (
-                                        <td className="amount">{p.contractValue ? fmtFull(p.contractValue) : '—'}</td>
-                                    )}
-                                    <td>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <div className="progress-bar" style={{ flex: 1, maxWidth: 60 }}>
-                                                <div className="progress-fill" style={{ width: `${p.progress || 0}%` }} />
-                                            </div>
-                                            <span style={{ fontSize: 12 }}>{p.progress || 0}%</span>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <span className={`badge ${p.status === 'Hoàn thành' ? 'success' : p.status === 'Đang thi công' ? 'warning' : p.status === 'Thiết kế' ? 'info' : 'muted'}`}>
-                                            {p.status}
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
+                ) : (<>
+                    <div className="desktop-table-view">
+                        <div className="table-container">
+                            <table className="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Mã</th>
+                                        <th>Tên dự án</th>
+                                        <th>Khách hàng</th>
+                                        <th>Diện tích</th>
+                                        {canSeeFinance && <th>Giá trị HĐ</th>}
+                                        <th>Tiến độ</th>
+                                        <th>Trạng thái</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredProjects.map(p => (
+                                        <tr key={p.id} onClick={() => router.push(`/projects/${p.id}`)} style={{ cursor: 'pointer' }}>
+                                            <td className="accent">{p.code}</td>
+                                            <td className="primary">
+                                                {p.name}
+                                                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.address}</div>
+                                            </td>
+                                            <td style={{ fontSize: 12 }}>{p.customer?.name}</td>
+                                            <td>{p.area ? `${p.area} m²` : '—'}</td>
+                                            {canSeeFinance && (
+                                                <td className="amount">{p.contractValue ? fmtFull(p.contractValue) : '—'}</td>
+                                            )}
+                                            <td>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    <div className="progress-bar" style={{ flex: 1, maxWidth: 60 }}>
+                                                        <div className="progress-fill" style={{ width: `${p.progress || 0}%` }} />
+                                                    </div>
+                                                    <span style={{ fontSize: 12 }}>{p.progress || 0}%</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span className={`badge ${p.status === 'Hoàn thành' ? 'success' : p.status === 'Đang thi công' ? 'warning' : p.status === 'Thiết kế' ? 'info' : 'muted'}`}>
+                                                    {p.status}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div className="mobile-card-list">
+                        {filteredProjects.map(p => (
+                            <div key={p.id} className="mobile-card-item" onClick={() => router.push(`/projects/${p.id}`)}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                                        <div className="card-subtitle">{p.code} · {p.customer?.name}</div>
+                                    </div>
+                                    <span className={`badge ${p.status === 'Hoàn thành' ? 'success' : p.status === 'Đang thi công' ? 'warning' : p.status === 'Thiết kế' ? 'info' : 'muted'}`}>
+                                        {p.status}
+                                    </span>
+                                </div>
+                                <div className="card-row">
+                                    {canSeeFinance && <div><span className="card-label">Giá trị</span><div className="card-value">{p.contractValue ? fmtC(p.contractValue) + 'đ' : '—'}</div></div>}
+                                    <div style={{ textAlign: 'right' }}><span className="card-label">Tiến độ</span><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div className="progress-bar" style={{ width: 50, height: 6 }}><div className="progress-fill" style={{ width: `${p.progress || 0}%` }}></div></div><span style={{ fontWeight: 600, fontSize: 12 }}>{p.progress || 0}%</span></div></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </>)}
                 {!loading && filteredProjects.length === 0 && (
                     <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>
                         Không có dự án trong giai đoạn này

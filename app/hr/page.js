@@ -85,7 +85,7 @@ export default function HRPage() {
     return (
         <div>
             {/* KPI cards */}
-            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', marginBottom: 24 }}>
+            <div className="stats-grid" style={{ marginBottom: 24 }}>
                 <div className="stat-card">
                     <div className="stat-icon">👥</div>
                     <div>
@@ -145,13 +145,13 @@ export default function HRPage() {
                     <h3>Nhân viên {filtered.length !== allEmployees.length && `(${filtered.length}/${allEmployees.length})`}</h3>
                     <button className="btn btn-primary" onClick={openAdd}>+ Thêm NV</button>
                 </div>
-                <div className="filter-bar" style={{ display: 'flex', gap: 10, padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div className="filter-bar" style={{ borderBottom: '1px solid var(--border)' }}>
                     <input
-                        type="text" className="form-input" placeholder="Tìm theo tên, mã..."
+                        type="text" className="form-input" placeholder="🔍 Tìm theo tên, mã..."
                         value={search} onChange={e => setSearch(e.target.value)}
-                        style={{ maxWidth: 220 }}
+                        style={{ flex: 1, minWidth: 0 }}
                     />
-                    <select className="form-select" style={{ width: 160 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+                    <select className="form-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                         <option value="">Tất cả trạng thái</option>
                         {STATUS_OPTS.map(s => <option key={s}>{s}</option>)}
                     </select>
@@ -218,7 +218,7 @@ export default function HRPage() {
             {/* Modal thêm / sửa */}
             {showModal && (
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
                         <div className="modal-header">
                             <h3>{editTarget ? `Sửa — ${editTarget.name}` : 'Thêm nhân viên'}</h3>
                             <button className="modal-close" onClick={() => setShowModal(false)}>×</button>

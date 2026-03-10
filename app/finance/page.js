@@ -341,20 +341,19 @@ ${[1, 2].map(copy => `
                 {/* TAB: Công nợ phải thu */}
                 {activeTab === 'receivables' && (
                     <>
-                        <div className="filter-bar" style={{ padding: '10px 16px', display: 'flex', gap: 10, alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
-                            <select className="form-select" style={{ width: 200 }} value={filterProject} onChange={e => setFilterProject(e.target.value)}>
-                                <option value="">Tất cả dự án</option>
+                        <div className="filter-bar" style={{ borderBottom: '1px solid var(--border)' }}>
+                            <select className="form-select" value={filterProject} onChange={e => setFilterProject(e.target.value)}>
+                                <option value="">Tất cả DA</option>
                                 {projects.map(p => <option key={p}>{p}</option>)}
                             </select>
-                            <select className="form-select" style={{ width: 160 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+                            <select className="form-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                                 <option value="">Tất cả TT</option>
                                 <option>Chưa thu</option>
                                 <option>Thu một phần</option>
                                 <option>Đã thu</option>
                             </select>
-                            <div style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--text-muted)' }}>
-                                {filteredPayments.length} đợt • Tổng: {fmt(filteredPayments.reduce((s, p) => s + (p.amount || 0), 0))}
-                                • Đã thu: {fmt(filteredPayments.reduce((s, p) => s + (p.paidAmount || 0), 0))}
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                                {filteredPayments.length} đợt
                             </div>
                         </div>
                         {loading ? (
@@ -467,8 +466,8 @@ ${[1, 2].map(copy => `
                 {/* TAB: Thu chi khác */}
                 {activeTab === 'transactions' && (
                     <>
-                        <div className="filter-bar" style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
-                            <select className="form-select" style={{ width: 140 }} value={filterType} onChange={e => setFilterType(e.target.value)}>
+                        <div className="filter-bar" style={{ borderBottom: '1px solid var(--border)' }}>
+                            <select className="form-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
                                 <option value="">Tất cả</option>
                                 <option>Thu</option>
                                 <option>Chi</option>
@@ -507,7 +506,7 @@ ${[1, 2].map(copy => `
             {/* Modal: Xác nhận thu tiền (BẮT BUỘC upload proof) */}
             {confirmModal && (
                 <div className="modal-overlay" onClick={() => setConfirmModal(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
                         <div className="modal-header">
                             <h3>💵 Xác nhận thu tiền</h3>
                             <button className="modal-close" onClick={() => setConfirmModal(null)}>×</button>
@@ -578,7 +577,7 @@ ${[1, 2].map(copy => `
             {/* Modal: Thêm giao dịch thủ công */}
             {showTxModal && (
                 <div className="modal-overlay" onClick={() => setShowTxModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
                         <div className="modal-header"><h3>Thêm giao dịch</h3><button className="modal-close" onClick={() => setShowTxModal(false)}>×</button></div>
                         <div className="modal-body">
                             <div className="form-row">

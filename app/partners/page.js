@@ -153,7 +153,7 @@ export default function PartnersPage() {
     return (
         <div>
             {/* Stats */}
-            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+            <div className="stats-grid">
                 <div className="stat-card"><div className="stat-icon">🏭</div><div><div className="stat-value">{suppliers.length}</div><div className="stat-label">Nhà cung cấp</div></div></div>
                 <div className="stat-card"><div className="stat-icon">👷</div><div><div className="stat-value">{contractors.length}</div><div className="stat-label">Thầu phụ / CTV</div></div></div>
                 <div className="stat-card"><div className="stat-icon">💰</div><div><div className="stat-value">{fmt(totalConContract)}</div><div className="stat-label">Tổng HĐ thầu phụ</div></div></div>
@@ -171,20 +171,16 @@ export default function PartnersPage() {
                             </button>
                         ))}
                     </div>
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                            <input className="form-input" placeholder="🔍 Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: 200, fontSize: 13 }} />
-                            <select className="form-select" style={{ width: 180 }} value={filterType} onChange={e => setFilterType(e.target.value)}>
-                                <option value="">Tất cả loại</option>
-                                {(tab === 'ncc' ? SUPPLIER_TYPES : CONTRACTOR_TYPES).map(t => <option key={t}>{t}</option>)}
-                            </select>
-                        </div>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                            <button className="btn btn-ghost" onClick={() => openPaste(tab === 'ncc' ? 'ncc' : 'tp')}>📋 Dán Excel</button>
-                            <button className="btn btn-primary" onClick={tab === 'ncc' ? openCreateSup : openCreateCon}>
-                                + Thêm {tab === 'ncc' ? 'NCC' : 'Thầu phụ'}
-                            </button>
-                        </div>
+                    <div className="filter-bar" style={{ margin: 0, border: 'none', padding: 0 }}>
+                        <input className="form-input" placeholder="🔍 Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+                        <select className="form-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
+                            <option value="">Tất cả loại</option>
+                            {(tab === 'ncc' ? SUPPLIER_TYPES : CONTRACTOR_TYPES).map(t => <option key={t}>{t}</option>)}
+                        </select>
+                        <button className="btn btn-ghost" onClick={() => openPaste(tab === 'ncc' ? 'ncc' : 'tp')}>📋 Excel</button>
+                        <button className="btn btn-primary" onClick={tab === 'ncc' ? openCreateSup : openCreateCon}>
+                            + {tab === 'ncc' ? 'NCC' : 'TP'}
+                        </button>
                     </div>
                 </div>
 
@@ -304,7 +300,7 @@ export default function PartnersPage() {
             {/* Paste Modal — step 1: input */}
             {showPasteModal && !pastePreview.length && (
                 <div className="modal-overlay" onClick={closePaste}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
                         <div className="modal-header">
                             <h3>📋 Dán {showPasteModal === 'ncc' ? 'nhà cung cấp' : 'thầu phụ'} từ Excel</h3>
                             <button className="modal-close" onClick={closePaste}>×</button>
@@ -334,7 +330,7 @@ export default function PartnersPage() {
             {/* Paste Modal — step 2: preview */}
             {pastePreview.length > 0 && (
                 <div className="modal-overlay" onClick={() => setPastePreview([])}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 820 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 820 }}>
                         <div className="modal-header">
                             <h3>Xem trước — {pastePreview.length} {showPasteModal === 'ncc' ? 'NCC' : 'thầu phụ'}</h3>
                             <button className="modal-close" onClick={() => setPastePreview([])}>×</button>
@@ -370,7 +366,7 @@ export default function PartnersPage() {
             {/* Modal NCC */}
             {showModal === 'ncc' && (
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
                         <div className="modal-header">
                             <h3>{editing ? '✏️ Sửa nhà cung cấp' : '+ Thêm nhà cung cấp'}</h3>
                             <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
@@ -422,7 +418,7 @@ export default function PartnersPage() {
             {/* Modal Thầu phụ */}
             {showModal === 'tp' && (
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
                         <div className="modal-header">
                             <h3>{editing ? '✏️ Sửa thầu phụ' : '+ Thêm thầu phụ'}</h3>
                             <button className="modal-close" onClick={() => setShowModal(false)}>×</button>

@@ -110,7 +110,7 @@ export default function ScheduleTemplatesPage() {
             {/* Detail Modal */}
             {detail && (
                 <div className="modal-overlay" onClick={() => setDetail(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 700 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 700 }}>
                         <div className="modal-header">
                             <h3>{detail.name}</h3>
                             <button className="modal-close" onClick={() => setDetail(null)}>×</button>
@@ -144,7 +144,7 @@ export default function ScheduleTemplatesPage() {
             {/* Create Modal */}
             {modal === 'create' && (
                 <div className="modal-overlay" onClick={() => setModal(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 800 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 800 }}>
                         <div className="modal-header"><h3>Tạo mẫu tiến độ</h3><button className="modal-close" onClick={() => setModal(null)}>×</button></div>
                         <div className="modal-body">
                             <div className="form-row">

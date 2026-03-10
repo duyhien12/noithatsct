@@ -6,21 +6,22 @@ import { Sun, Moon, Bell, Settings, LogOut, Search, Menu } from 'lucide-react';
 
 const pageTitles = {
     '/': 'Dashboard',
-    '/customers': 'Quản lý Khách hàng',
-    '/projects': 'Quản lý Dự án',
-    '/products': 'Sản phẩm & Vật tư',
-    '/quotations': 'Báo giá & Hợp đồng',
+    '/customers': 'Khách hàng',
+    '/projects': 'Dự án',
+    '/products': 'Sản phẩm & VT',
+    '/quotations': 'Báo giá',
     '/inventory': 'Kho & Tồn kho',
     '/finance': 'Tài chính',
     '/hr': 'Nhân sự',
-    '/reports': 'Báo cáo & Thống kê',
+    '/reports': 'Báo cáo',
     '/pipeline': 'Pipeline',
     '/payments': 'Thu tiền',
     '/expenses': 'Chi phí',
-    '/purchasing': 'Mua sắm vật tư',
+    '/purchasing': 'Mua sắm VT',
     '/contracts': 'Hợp đồng',
-    '/work-orders': 'Phiếu công việc',
+    '/work-orders': 'Phiếu CV',
     '/partners': 'Đối tác',
+    '/schedule-templates': 'Mẫu tiến độ',
 };
 
 export default function Header({ onMenuToggle }) {
@@ -61,7 +62,7 @@ export default function Header({ onMenuToggle }) {
                 <h2 className="header-title">{title}</h2>
                 <div className="header-search">
                     <span className="search-icon"><Search size={16} /></span>
-                    <input type="text" placeholder="Tìm kiếm dự án, khách hàng, vật tư..." aria-label="Tìm kiếm" />
+                    <input type="text" placeholder="Tìm kiếm..." aria-label="Tìm kiếm" />
                 </div>
             </div>
             <div className="header-right">
@@ -71,9 +72,6 @@ export default function Header({ onMenuToggle }) {
                 <button className="header-btn" title="Thông báo" aria-label="Thông báo">
                     <Bell size={20} />
                     <span className="badge-dot"></span>
-                </button>
-                <button className="header-btn" title="Cài đặt" aria-label="Cài đặt">
-                    <Settings size={20} />
                 </button>
                 <div className="header-user">
                     <div className="avatar">{initials}</div>

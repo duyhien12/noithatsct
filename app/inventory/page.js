@@ -84,7 +84,7 @@ export default function InventoryPage() {
     return (
         <div>
             {/* KPI */}
-            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', marginBottom: 24 }}>
+            <div className="stats-grid" style={{ marginBottom: 24 }}>
                 <div className="stat-card">
                     <div className="stat-icon">📦</div>
                     <div>
@@ -133,11 +133,11 @@ export default function InventoryPage() {
                 {/* TAB: Tồn kho */}
                 {activeTab === 'stock' && (
                     <>
-                        <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
+                        <div className="filter-bar" style={{ borderBottom: '1px solid var(--border)' }}>
                             <input
-                                type="text" className="form-input" placeholder="Tìm sản phẩm..."
+                                type="text" className="form-input" placeholder="🔍 Tìm sản phẩm..."
                                 value={stockSearch} onChange={e => setStockSearch(e.target.value)}
-                                style={{ maxWidth: 280 }}
+                                style={{ flex: 1, minWidth: 0 }}
                             />
                         </div>
                         {loading ? (
@@ -202,13 +202,13 @@ export default function InventoryPage() {
                 {/* TAB: Lịch sử */}
                 {activeTab === 'history' && (
                     <>
-                        <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 10 }}>
-                            <select className="form-select" style={{ width: 140 }} value={filterType} onChange={e => setFilterType(e.target.value)}>
+                        <div className="filter-bar" style={{ borderBottom: '1px solid var(--border)' }}>
+                            <select className="form-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
                                 <option value="">Tất cả</option>
                                 <option value="Nhập">Nhập kho</option>
                                 <option value="Xuất">Xuất kho</option>
                             </select>
-                            <select className="form-select" style={{ width: 180 }} value={filterWarehouse} onChange={e => setFilterWarehouse(e.target.value)}>
+                            <select className="form-select" value={filterWarehouse} onChange={e => setFilterWarehouse(e.target.value)}>
                                 <option value="">Tất cả kho</option>
                                 {txData.warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                             </select>
@@ -250,7 +250,7 @@ export default function InventoryPage() {
             {/* Modal nhập/xuất kho */}
             {showModal && (
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
                         <div className="modal-header">
                             <h3>Phiếu nhập/xuất kho</h3>
                             <button className="modal-close" onClick={() => setShowModal(false)}>×</button>

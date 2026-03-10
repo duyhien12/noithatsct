@@ -244,7 +244,7 @@ export default function CustomerDetailPage() {
             {/* TAB: Hợp đồng */}
             {tab === 'contracts' && (
                 <div>
-                    <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', marginBottom: 24 }}>
+                    <div className="stats-grid" style={{ marginBottom: 24 }}>
                         <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700 }}>{(c.contracts || []).length}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Tổng HĐ</div></div>
                         <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-success)' }}>{fmt(s.totalContractValue)}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Tổng giá trị</div></div>
                         <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700 }}>{fmt(s.totalPaid)}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Đã thu</div></div>
@@ -345,7 +345,7 @@ export default function CustomerDetailPage() {
             {/* Tracking Log Modal */}
             {showLogModal && (
                 <div className="modal-overlay" onClick={() => setShowLogModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
                         <div className="modal-header"><h3>📝 Thêm ghi chú theo dõi</h3><button className="modal-close" onClick={() => setShowLogModal(false)}>×</button></div>
                         <div className="modal-body">
                             <div className="form-group"><label className="form-label">Loại liên hệ</label>
@@ -373,7 +373,7 @@ export default function CustomerDetailPage() {
             {/* Edit Customer Modal */}
             {showEditModal && (
                 <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
                         <div className="modal-header"><h3>✏️ Chỉnh sửa khách hàng</h3><button className="modal-close" onClick={() => setShowEditModal(false)}>×</button></div>
                         <div className="modal-body">
                             <div className="form-group"><label className="form-label">Tên</label><input className="form-input" value={editForm.name || ''} onChange={e => setEditForm({ ...editForm, name: e.target.value })} /></div>

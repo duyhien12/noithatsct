@@ -199,7 +199,7 @@ export default function ExpensesPage() {
 
     return (
         <div>
-            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', marginBottom: 24 }}>
+            <div className="stats-grid" style={{ marginBottom: 24 }}>
                 <div className="stat-card"><div className="stat-icon">📑</div><div><div className="stat-value">{expenses.length}</div><div className="stat-label">Tổng lệnh chi</div></div></div>
                 <div className="stat-card"><div className="stat-icon">💵</div><div><div className="stat-value">{fmt(totalAmount)}</div><div className="stat-label">Tổng giá trị</div></div></div>
                 <div className="stat-card"><div className="stat-icon">💸</div><div><div className="stat-value" style={{ color: 'var(--status-success)' }}>{fmt(totalPaid)}</div><div className="stat-label">Đã chi</div></div></div>
@@ -220,22 +220,24 @@ export default function ExpensesPage() {
 
             <div className="card">
                 <div className="card-header">
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
                         <h3 style={{ margin: 0 }}>Danh sách lệnh chi</h3>
-                        <input className="form-input" placeholder="🔍 Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: 180, fontSize: 13 }} />
-                        <select className="form-select" style={{ width: 130 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                            <option value="">Tất cả TT</option>
-                            <option>Chờ duyệt</option><option>Đã duyệt</option><option>Đã chi</option><option>Hoàn thành</option><option>Từ chối</option>
-                        </select>
-                        <select className="form-select" style={{ width: 140 }} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-                            <option value="">Tất cả HM</option>
-                            {cats.map(c => <option key={c}>{c}</option>)}
-                        </select>
-                        <select className="form-select" style={{ width: 160 }} value={filterProject} onChange={e => setFilterProject(e.target.value)}>
-                            <option value="">Tất cả DA</option>
-                            {expProjects.map(p => <option key={p}>{p}</option>)}
-                        </select>
                     </div>
+                </div>
+                <div className="filter-bar">
+                    <input className="form-input" placeholder="🔍 Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+                    <select className="form-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+                        <option value="">Tất cả TT</option>
+                        <option>Chờ duyệt</option><option>Đã duyệt</option><option>Đã chi</option><option>Hoàn thành</option><option>Từ chối</option>
+                    </select>
+                    <select className="form-select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+                        <option value="">Tất cả HM</option>
+                        {cats.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                    <select className="form-select" value={filterProject} onChange={e => setFilterProject(e.target.value)}>
+                        <option value="">Tất cả DA</option>
+                        {expProjects.map(p => <option key={p}>{p}</option>)}
+                    </select>
                     <button className="btn btn-primary" onClick={openCreate}>+ Tạo lệnh chi</button>
                 </div>
 
@@ -299,7 +301,7 @@ export default function ExpensesPage() {
             {/* Modal tạo/sửa lệnh chi */}
             {showModal && (
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
                         <div className="modal-header">
                             <h3>{editing ? '✏️ Sửa lệnh chi' : '+ Tạo lệnh chi tiền'}</h3>
                             <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
@@ -387,7 +389,7 @@ export default function ExpensesPage() {
             {/* Modal upload chứng từ chi */}
             {proofModal && (
                 <div className="modal-overlay" onClick={() => !uploading && setProofModal(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
                         <div className="modal-header">
                             <h3>💸 Chi tiền — Upload chứng từ</h3>
                             <button className="modal-close" onClick={() => !uploading && setProofModal(null)}>×</button>

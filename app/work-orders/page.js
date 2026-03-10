@@ -33,7 +33,7 @@ export default function WorkOrdersPage() {
 
     return (
         <div>
-            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+            <div className="stats-grid">
                 <div className="stat-card"><div className="stat-card-header"><span className="stat-card-icon revenue">📋</span></div><div style={{ fontSize: 24, fontWeight: 700, marginTop: 8 }}>{orders.length}</div><div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Tổng phiếu</div></div>
                 <div className="stat-card"><div className="stat-card-header"><span className="stat-card-icon quotations">⏳</span></div><div style={{ fontSize: 24, fontWeight: 700, color: 'var(--status-warning)', marginTop: 8 }}>{pending}</div><div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Chờ xử lý</div></div>
                 <div className="stat-card"><div className="stat-card-header"><span className="stat-card-icon projects">🔄</span></div><div style={{ fontSize: 24, fontWeight: 700, color: 'var(--status-info)', marginTop: 8 }}>{inProgress}</div><div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Đang xử lý</div></div>
@@ -44,7 +44,7 @@ export default function WorkOrdersPage() {
             <div className="card" style={{ marginTop: 24 }}>
                 <div className="card-header"><span className="card-title">Phiếu công việc</span></div>
                 <div className="filter-bar">
-                    <input type="text" className="form-input" placeholder="Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} style={{ maxWidth: 250 }} />
+                    <input type="text" className="form-input" placeholder="🔍 Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
                     <select className="form-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                         <option value="">Tất cả TT</option><option>Chờ xử lý</option><option>Đang xử lý</option><option>Hoàn thành</option><option>Quá hạn</option>
                     </select>
@@ -52,27 +52,51 @@ export default function WorkOrdersPage() {
                         <option value="">Tất cả ưu tiên</option><option>Cao</option><option>Trung bình</option><option>Thấp</option>
                     </select>
                 </div>
-                {loading ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (
-                    <div className="table-container"><table className="data-table">
-                        <thead><tr><th>Mã</th><th>Tiêu đề</th><th>Dự án</th><th>Loại</th><th>Ưu tiên</th><th>Người thực hiện</th><th>Hạn</th><th>Trạng thái</th></tr></thead>
-                        <tbody>{filtered.map(wo => (
-                            <tr key={wo.id}>
-                                <td className="accent">{wo.code}</td>
-                                <td className="primary" style={{ cursor: 'pointer' }} onClick={() => wo.project && router.push(`/projects/${wo.projectId}`)}>{wo.title}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{wo.description}</div></td>
-                                <td><span className="badge info">{wo.project?.code}</span> <span style={{ fontSize: 12 }}>{wo.project?.name}</span></td>
-                                <td><span className="badge muted">{wo.category}</span></td>
-                                <td><span className={`badge ${wo.priority === 'Cao' ? 'danger' : wo.priority === 'Trung bình' ? 'warning' : 'muted'}`}>{wo.priority}</span></td>
-                                <td style={{ fontSize: 13 }}>{wo.assignee || '—'}</td>
-                                <td style={{ fontSize: 12 }}>{fmtDate(wo.dueDate)}</td>
-                                <td>
-                                    <select value={wo.status} onChange={e => updateStatus(wo.id, e.target.value)} className="form-select" style={{ padding: '4px 28px 4px 8px', fontSize: 12, minWidth: 110 }}>
-                                        <option>Chờ xử lý</option><option>Đang xử lý</option><option>Hoàn thành</option><option>Quá hạn</option>
-                                    </select>
-                                </td>
-                            </tr>
-                        ))}</tbody>
-                    </table></div>
-                )}
+                {loading ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (<>
+                    <div className="desktop-table-view">
+                        <div className="table-container"><table className="data-table">
+                            <thead><tr><th>Mã</th><th>Tiêu đề</th><th>Dự án</th><th>Loại</th><th>Ưu tiên</th><th>Người thực hiện</th><th>Hạn</th><th>Trạng thái</th></tr></thead>
+                            <tbody>{filtered.map(wo => (
+                                <tr key={wo.id}>
+                                    <td className="accent">{wo.code}</td>
+                                    <td className="primary" style={{ cursor: 'pointer' }} onClick={() => wo.project && router.push(`/projects/${wo.projectId}`)}>{wo.title}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{wo.description}</div></td>
+                                    <td><span className="badge info">{wo.project?.code}</span> <span style={{ fontSize: 12 }}>{wo.project?.name}</span></td>
+                                    <td><span className="badge muted">{wo.category}</span></td>
+                                    <td><span className={`badge ${wo.priority === 'Cao' ? 'danger' : wo.priority === 'Trung bình' ? 'warning' : 'muted'}`}>{wo.priority}</span></td>
+                                    <td style={{ fontSize: 13 }}>{wo.assignee || '—'}</td>
+                                    <td style={{ fontSize: 12 }}>{fmtDate(wo.dueDate)}</td>
+                                    <td>
+                                        <select value={wo.status} onChange={e => updateStatus(wo.id, e.target.value)} className="form-select" style={{ padding: '4px 28px 4px 8px', fontSize: 12, minWidth: 110 }}>
+                                            <option>Chờ xử lý</option><option>Đang xử lý</option><option>Hoàn thành</option><option>Quá hạn</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                            ))}</tbody>
+                        </table></div>
+                    </div>
+                    <div className="mobile-card-list">
+                        {filtered.map(wo => (
+                            <div key={wo.id} className="mobile-card-item">
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wo.title}</div>
+                                        <div className="card-subtitle">{wo.code} · {wo.project?.name || '—'}</div>
+                                    </div>
+                                    <span className={`badge ${wo.priority === 'Cao' ? 'danger' : wo.priority === 'Trung bình' ? 'warning' : 'muted'}`}>{wo.priority}</span>
+                                </div>
+                                <div className="card-row">
+                                    <div><span className="card-label">Người TH</span><div style={{ fontSize: 12, fontWeight: 500 }}>{wo.assignee || '—'}</div></div>
+                                    <div><span className="card-label">Hạn</span><div style={{ fontSize: 12, fontWeight: 500 }}>{fmtDate(wo.dueDate)}</div></div>
+                                    <div>
+                                        <select value={wo.status} onChange={e => updateStatus(wo.id, e.target.value)} className="form-select" style={{ padding: '6px 28px 6px 8px', fontSize: 12, minWidth: 0 }}>
+                                            <option>Chờ xử lý</option><option>Đang xử lý</option><option>Hoàn thành</option><option>Quá hạn</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </>)}
             </div>
         </div>
     );
