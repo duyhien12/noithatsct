@@ -3095,8 +3095,21 @@ select.form-input-compact {
   display: none;
 }
 
+.customer-header-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.dashboard-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
 .desktop-table-view {
   display: block;
+}
+.desktop-table-view.kanban-board {
+  display: flex;
 }
 
 @media (max-width: 768px) {
@@ -3106,8 +3119,19 @@ select.form-input-compact {
     gap: 8px;
   }
 
-  .desktop-table-view {
-    display: none;
+  .desktop-table-view,
+  .desktop-table-view.kanban-board {
+    display: none !important;
+  }
+
+  .customer-header-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
   }
 }
 

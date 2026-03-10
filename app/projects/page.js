@@ -36,7 +36,7 @@ export default function ProjectsPage() {
     const totalPaid = projects.reduce((s, p) => s + (p.paidAmount || 0), 0);
     return (
         <div>
-            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+            <div className="stats-grid">
                 <div className="stat-card"><div className="stat-icon">🏗️</div><div><div className="stat-value">{projects.length}</div><div className="stat-label">Tổng DA</div></div></div>
                 <div className="stat-card"><div className="stat-icon">🔨</div><div><div className="stat-value">{active}</div><div className="stat-label">Đang thi công</div></div></div>
                 <div className="stat-card"><div className="stat-icon">💰</div><div><div className="stat-value">{fmt(totalContract)}</div><div className="stat-label">Tổng giá trị HĐ</div></div></div>
@@ -46,34 +46,55 @@ export default function ProjectsPage() {
             <div className="card" style={{ marginTop: 24 }}>
                 <div className="card-header"><h3>Danh sách dự án</h3><button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Thêm DA</button></div>
                 <div className="filter-bar">
-                    <input type="text" className="form-input" placeholder="Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} style={{ maxWidth: 250 }} />
+                    <input type="text" className="form-input" placeholder="🔍 Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
                     <select className="form-select" value={filterType} onChange={e => setFilterType(e.target.value)}><option value="">Tất cả loại</option><option>Thiết kế kiến trúc</option><option>Thiết kế nội thất</option><option>Thi công thô</option><option>Thi công hoàn thiện</option><option>Thi công nội thất</option></select>
                     <select className="form-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}><option value="">Tất cả TT</option><option>Khảo sát</option><option>Thiết kế</option><option>Thi công</option><option>Nghiệm thu</option><option>Bàn giao</option></select>
                 </div>
-                {loading ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (
-                    <div className="table-container"><table className="data-table">
-                        <thead><tr><th>Mã</th><th>Dự án</th><th>Khách hàng</th><th>Loại</th><th>Giá trị HĐ</th><th>Đã thu</th><th>Tiến độ</th><th>TT</th><th></th></tr></thead>
-                        <tbody>{projects.map(p => (
-                            <tr key={p.id} onClick={() => router.push(`/projects/${p.id}`)} style={{ cursor: 'pointer' }}>
-                                <td className="accent">{p.code}</td>
-                                <td className="primary">{p.name}{p.phase ? <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.phase}</div> : null}</td>
-                                <td>{p.customer?.name}</td>
-                                <td><span className="badge badge-default">{p.type}</span></td>
-                                <td>{fmt(p.contractValue || p.budget)}</td>
-                                <td style={{ color: 'var(--status-success)' }}>{fmt(p.paidAmount || 0)}</td>
-                                <td><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div className="progress-bar" style={{ flex: 1 }}><div className="progress-fill" style={{ width: `${p.progress}%` }}></div></div><span style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{p.progress}%</span></div></td>
-                                <td><span className={`badge ${stColor[p.status] || 'badge-default'}`}>{p.status}</span></td>
-                                <td><button className="btn btn-ghost" onClick={(e) => handleDelete(p.id, e)}>🗑️</button></td>
-                            </tr>
-                        ))}</tbody>
-                    </table></div>
-                )}
+                {loading ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (<>
+                    {/* Desktop table */}
+                    <div className="desktop-table-view">
+                        <div className="table-container"><table className="data-table">
+                            <thead><tr><th>Mã</th><th>Dự án</th><th>Khách hàng</th><th>Loại</th><th>Giá trị HĐ</th><th>Đã thu</th><th>Tiến độ</th><th>TT</th><th></th></tr></thead>
+                            <tbody>{projects.map(p => (
+                                <tr key={p.id} onClick={() => router.push(`/projects/${p.id}`)} style={{ cursor: 'pointer' }}>
+                                    <td className="accent">{p.code}</td>
+                                    <td className="primary">{p.name}{p.phase ? <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.phase}</div> : null}</td>
+                                    <td>{p.customer?.name}</td>
+                                    <td><span className="badge badge-default">{p.type}</span></td>
+                                    <td>{fmt(p.contractValue || p.budget)}</td>
+                                    <td style={{ color: 'var(--status-success)' }}>{fmt(p.paidAmount || 0)}</td>
+                                    <td><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div className="progress-bar" style={{ flex: 1 }}><div className="progress-fill" style={{ width: `${p.progress}%` }}></div></div><span style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{p.progress}%</span></div></td>
+                                    <td><span className={`badge ${stColor[p.status] || 'badge-default'}`}>{p.status}</span></td>
+                                    <td><button className="btn btn-ghost" onClick={(e) => handleDelete(p.id, e)}>🗑️</button></td>
+                                </tr>
+                            ))}</tbody>
+                        </table></div>
+                    </div>
+                    {/* Mobile card list */}
+                    <div className="mobile-card-list">
+                        {projects.map(p => (
+                            <div key={p.id} className="mobile-card-item" onClick={() => router.push(`/projects/${p.id}`)}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                                        <div className="card-subtitle">{p.code} · {p.customer?.name}</div>
+                                    </div>
+                                    <span className={`badge ${stColor[p.status] || 'badge-default'}`}>{p.status}</span>
+                                </div>
+                                <div className="card-row">
+                                    <div><span className="card-label">Giá trị</span><div className="card-value">{fmt(p.contractValue || p.budget)}</div></div>
+                                    <div style={{ textAlign: 'right' }}><span className="card-label">Tiến độ</span><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div className="progress-bar" style={{ width: 50, height: 6 }}><div className="progress-fill" style={{ width: `${p.progress}%` }}></div></div><span style={{ fontWeight: 600, fontSize: 12 }}>{p.progress}%</span></div></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </>)}
             </div>
 
             {/* Modal tạo dự án */}
             {showModal && (
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
                         <div className="modal-header"><h3>Thêm dự án mới</h3><button className="modal-close" onClick={() => setShowModal(false)}>×</button></div>
                         <div className="modal-body">
                             <div className="form-group"><label className="form-label">Tên dự án *</label><input className="form-input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="VD: Biệt thự anh Minh - Vinhomes" /></div>

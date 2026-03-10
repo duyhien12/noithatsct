@@ -105,9 +105,9 @@ export default function CustomersPage() {
                             {SOURCES.map(s => <option key={s}>{s}</option>)}
                         </select>
                     </div>
-                    {/* Row 2: View toggle + Add button */}
+                    {/* Row 2: View toggle (desktop only) + Add button */}
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-light)' }}>
+                        <div className="desktop-table-view" style={{ background: 'var(--bg-secondary)', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-light)' }}>
                             <button onClick={() => setView('kanban')} style={{ padding: '8px 14px', fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer', background: view === 'kanban' ? 'var(--primary)' : 'transparent', color: view === 'kanban' ? '#fff' : 'var(--text-secondary)', transition: 'all .15s', minHeight: 36 }}>📋 Kanban</button>
                             <button onClick={() => setView('table')} style={{ padding: '8px 14px', fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer', background: view === 'table' ? 'var(--primary)' : 'transparent', color: view === 'table' ? '#fff' : 'var(--text-secondary)', transition: 'all .15s', minHeight: 36 }}>📊 Bảng</button>
                         </div>
@@ -116,9 +116,10 @@ export default function CustomersPage() {
                 </div>
             </div>
 
-            {loading ? <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : view === 'kanban' ? (
-                /* ========= KANBAN VIEW - horizontal scroll with snap ========= */
-                <div className="kanban-board" style={{ display: 'flex', gap: 6, paddingBottom: 20, minHeight: 400, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            {loading ? <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (<>
+                {/* ========= KANBAN VIEW - desktop only ========= */}
+                {view === 'kanban' && (
+                <div className="desktop-table-view kanban-board" style={{ gap: 6, paddingBottom: 20, minHeight: 400, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                     {PIPELINE.map(stage => {
                         const cards = filtered.filter(c => (c.pipelineStage || c.status || 'Lead') === stage.key);
                         const stageValue = cards.reduce((s, c) => s + (c.estimatedValue || 0), 0);
@@ -130,7 +131,6 @@ export default function CustomersPage() {
                                 onDragLeave={onDragLeave}
                                 onDrop={e => onDrop(e, stage.key)}
                                 style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', background: isOver ? stage.bg : 'var(--bg-secondary)', borderRadius: 10, border: isOver ? `2px dashed ${stage.color}` : '1px solid var(--border-light)', transition: 'all .2s' }}>
-                                {/* Column header */}
                                 <div style={{ padding: '10px 10px 6px', borderBottom: '2px solid ' + stage.color }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: stage.color, flexShrink: 0 }} />
@@ -139,7 +139,6 @@ export default function CustomersPage() {
                                     </div>
                                     {stageValue > 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fmtShort(stageValue)}</div>}
                                 </div>
-                                {/* Cards */}
                                 <div style={{ flex: 1, padding: 6, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     {cards.map(c => (
                                         <div key={c.id}
@@ -164,10 +163,12 @@ export default function CustomersPage() {
                         );
                     })}
                 </div>
-            ) : (
-                /* ========= TABLE VIEW (Desktop) + Card list (Mobile) ========= */
-                <div className="card">
-                    {/* Desktop table */}
+                )}
+
+                {/* ========= TABLE VIEW (Desktop when selected) + Card list (Mobile always) ========= */}
+                <div className="card" style={view === 'kanban' ? {} : {}}>
+                    {/* Desktop table - only when table view selected */}
+                    {view === 'table' && (
                     <div className="desktop-table-view">
                         <div className="table-container"><table className="data-table">
                             <thead><tr><th>Mã</th><th>Tên KH</th><th>SĐT</th><th>Pipeline</th><th>Nguồn</th><th>Giá trị deal</th><th>Doanh thu</th><th>DA</th><th></th></tr></thead>
@@ -189,8 +190,9 @@ export default function CustomersPage() {
                             })}</tbody>
                         </table></div>
                     </div>
+                    )}
 
-                    {/* Mobile card list */}
+                    {/* Mobile card list - always rendered, CSS shows only on mobile */}
                     <div className="mobile-card-list">
                         {filtered.map(c => {
                             const stage = PIPELINE.find(p => p.key === (c.pipelineStage || 'Lead')) || PIPELINE[0];
@@ -221,7 +223,7 @@ export default function CustomersPage() {
 
                     {filtered.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Không có dữ liệu</div>}
                 </div>
-            )}
+            </>)}
 
             {/* Modal thêm KH - uses CSS classes for mobile full-screen */}
             {showModal && (

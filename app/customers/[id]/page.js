@@ -99,64 +99,64 @@ export default function CustomerDetailPage() {
 
     return (
         <div>
-            <button className="btn btn-secondary" onClick={() => router.push('/customers')} style={{ marginBottom: 16 }}>← Quay lại</button>
+            <button className="btn btn-secondary" onClick={() => router.push('/customers')} style={{ marginBottom: 12 }}>← Quay lại</button>
 
             {/* ===== CRM HEADER ===== */}
-            <div className="card" style={{ marginBottom: 20, padding: 24 }}>
-                <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-                    {/* Avatar */}
-                    <div style={{ width: 64, height: 64, borderRadius: 16, background: `linear-gradient(135deg, ${stage.color}, ${stage.color}88)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 24, flexShrink: 0 }}>
+            <div className="card" style={{ marginBottom: 16, padding: '16px' }}>
+                {/* Top row: Avatar + Name + Score */}
+                <div className="customer-header-top">
+                    <div style={{ width: 48, height: 48, borderRadius: 12, background: `linear-gradient(135deg, ${stage.color}, ${stage.color}88)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 20, flexShrink: 0 }}>
                         {c.name.charAt(0).toUpperCase()}
                     </div>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                            <span style={{ color: 'var(--text-accent)', fontSize: 13, fontWeight: 600 }}>{c.code}</span>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: '3px 12px', borderRadius: 12, background: stage.bg, color: stage.color }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: stage.color }} />{stage.label}</span>
-                            <span className={`badge ${c.type === 'Doanh nghiệp' ? 'info' : 'muted'}`}>{c.type}</span>
-                            {c.source && <span className="badge muted">{c.source}</span>}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</h2>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                            <span style={{ color: 'var(--text-accent)', fontSize: 12, fontWeight: 600 }}>{c.code}</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: stage.bg, color: stage.color }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: stage.color }} />{stage.label}</span>
+                            <span className={`badge ${c.type === 'Doanh nghiệp' ? 'info' : 'muted'}`} style={{ fontSize: 10 }}>{c.type}</span>
+                            {c.source && <span className="badge muted" style={{ fontSize: 10 }}>{c.source}</span>}
                         </div>
-                        <h2 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>{c.name}</h2>
-                        <div style={{ color: 'var(--text-secondary)', marginTop: 6, fontSize: 13, display: 'flex', flexWrap: 'wrap', gap: 16 }}>
-                            {c.phone && <a href={`tel:${c.phone}`} style={{ textDecoration: 'none', color: 'var(--primary)' }}>📱 {c.phone}</a>}
-                            {c.email && <a href={`mailto:${c.email}`} style={{ textDecoration: 'none', color: 'var(--primary)' }}>📧 {c.email}</a>}
-                            {c.address && <span>📍 {c.address}</span>}
-                        </div>
-                        {c.representative && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Người đại diện: {c.representative}</div>}
                     </div>
                     {/* Score */}
                     <div style={{ textAlign: 'center', flexShrink: 0 }}>
-                        <div style={{ position: 'relative', width: 60, height: 60 }}>
-                            <svg viewBox="0 0 36 36" style={{ width: 60, height: 60, transform: 'rotate(-90deg)' }}>
+                        <div style={{ position: 'relative', width: 44, height: 44 }}>
+                            <svg viewBox="0 0 36 36" style={{ width: 44, height: 44, transform: 'rotate(-90deg)' }}>
                                 <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--border-light)" strokeWidth="3" />
                                 <circle cx="18" cy="18" r="15.9" fill="none" stroke={scoreColor} strokeWidth="3" strokeDasharray={`${score} ${100 - score}`} strokeLinecap="round" />
                             </svg>
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 16, color: scoreColor }}>{score}</div>
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, color: scoreColor }}>{score}</div>
                         </div>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>CRM Score</div>
+                        <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 1 }}>Score</div>
                     </div>
                 </div>
 
-                {/* Quick Actions */}
-                <div style={{ display: 'flex', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border-light)', flexWrap: 'wrap' }}>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setShowLogModal(true)}>📝 Ghi chú</button>
-                    <button className="btn btn-secondary btn-sm" onClick={() => { setEditForm({ name: c.name, phone: c.phone, email: c.email, address: c.address, type: c.type, pipelineStage: c.pipelineStage || 'Lead', source: c.source, representative: c.representative, taxCode: c.taxCode, estimatedValue: c.estimatedValue || 0, nextFollowUp: c.nextFollowUp ? new Date(c.nextFollowUp).toISOString().split('T')[0] : '', salesPerson: c.salesPerson, designer: c.designer, notes: c.notes }); setShowEditModal(true); }}>✏️ Sửa</button>
-                    <button className="btn btn-secondary btn-sm" onClick={() => router.push('/quotations/create')}>📄 Tạo BG</button>
-                    {c.phone && <a href={`tel:${c.phone}`} className="btn btn-secondary btn-sm" style={{ textDecoration: 'none' }}>📞 Gọi</a>}
-                    {c.email && <a href={`mailto:${c.email}`} className="btn btn-secondary btn-sm" style={{ textDecoration: 'none' }}>📧 Email</a>}
-                    <div style={{ flex: 1 }} />
-                    <button className="btn btn-ghost btn-sm" onClick={handleDelete} style={{ color: 'var(--status-danger)' }}>🗑️ Xóa</button>
+                {/* Contact info */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10, fontSize: 13 }}>
+                    {c.phone && <a href={`tel:${c.phone}`} style={{ textDecoration: 'none', color: 'var(--primary)' }}>📱 {c.phone}</a>}
+                    {c.email && <a href={`mailto:${c.email}`} style={{ textDecoration: 'none', color: 'var(--primary)' }}>📧 {c.email}</a>}
+                    {c.address && <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>📍 {c.address}</span>}
+                </div>
+                {c.representative && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Người đại diện: {c.representative}</div>}
+
+                {/* Quick Actions - scrollable on mobile */}
+                <div style={{ display: 'flex', gap: 6, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-light)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setShowLogModal(true)} style={{ whiteSpace: 'nowrap' }}>📝 Ghi chú</button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => { setEditForm({ name: c.name, phone: c.phone, email: c.email, address: c.address, type: c.type, pipelineStage: c.pipelineStage || 'Lead', source: c.source, representative: c.representative, taxCode: c.taxCode, estimatedValue: c.estimatedValue || 0, nextFollowUp: c.nextFollowUp ? new Date(c.nextFollowUp).toISOString().split('T')[0] : '', salesPerson: c.salesPerson, designer: c.designer, notes: c.notes }); setShowEditModal(true); }} style={{ whiteSpace: 'nowrap' }}>✏️ Sửa</button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => router.push('/quotations/create')} style={{ whiteSpace: 'nowrap' }}>📄 Tạo BG</button>
+                    {c.phone && <a href={`tel:${c.phone}`} className="btn btn-secondary btn-sm" style={{ textDecoration: 'none', whiteSpace: 'nowrap' }}>📞 Gọi</a>}
+                    <button className="btn btn-ghost btn-sm" onClick={handleDelete} style={{ color: 'var(--status-danger)', whiteSpace: 'nowrap', marginLeft: 'auto' }}>🗑️ Xóa</button>
                 </div>
 
                 {/* Next Follow-up + Last Contact */}
                 {(c.nextFollowUp || c.lastContactAt) && (
-                    <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 12 }}>
-                        {c.nextFollowUp && <span style={{ padding: '4px 10px', borderRadius: 6, background: new Date(c.nextFollowUp) < new Date() ? '#fef2f2' : '#f0fdf4', color: new Date(c.nextFollowUp) < new Date() ? '#ef4444' : '#22c55e', fontWeight: 600 }}>📅 Follow-up: {fmtDate(c.nextFollowUp)}{new Date(c.nextFollowUp) < new Date() ? ' ⚠️ Quá hạn!' : ''}</span>}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px', marginTop: 10, fontSize: 12 }}>
+                        {c.nextFollowUp && <span style={{ padding: '3px 8px', borderRadius: 6, background: new Date(c.nextFollowUp) < new Date() ? '#fef2f2' : '#f0fdf4', color: new Date(c.nextFollowUp) < new Date() ? '#ef4444' : '#22c55e', fontWeight: 600 }}>📅 Follow-up: {fmtDate(c.nextFollowUp)}{new Date(c.nextFollowUp) < new Date() ? ' ⚠️' : ''}</span>}
                         {c.lastContactAt && <span style={{ color: 'var(--text-muted)' }}>Liên hệ cuối: {timeAgo(c.lastContactAt)}</span>}
                     </div>
                 )}
 
                 {/* Stats grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginTop: 16 }}>
+                <div className="stats-grid" style={{ marginTop: 12, gap: 8 }}>
                     {[
                         { v: s.projectCount, l: 'Dự án', c: 'var(--text-accent)' },
                         { v: s.contractCount, l: 'Hợp đồng' },
@@ -164,9 +164,9 @@ export default function CustomerDetailPage() {
                         { v: fmt(s.totalPaid), l: 'Đã thu', c: 'var(--status-success)' },
                         { v: fmt(s.totalDebt), l: 'Công nợ', c: s.totalDebt > 0 ? 'var(--status-danger)' : 'var(--status-success)' },
                     ].map(st => (
-                        <div key={st.l} style={{ textAlign: 'center', padding: '10px 0', background: 'var(--bg-secondary)', borderRadius: 8 }}>
-                            <div style={{ fontWeight: 700, fontSize: 15, color: st.c || 'var(--text-primary)' }}>{st.v}</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{st.l}</div>
+                        <div key={st.l} style={{ textAlign: 'center', padding: '8px 4px', background: 'var(--bg-secondary)', borderRadius: 8 }}>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: st.c || 'var(--text-primary)' }}>{st.v}</div>
+                            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{st.l}</div>
                         </div>
                     ))}
                 </div>
@@ -184,16 +184,16 @@ export default function CustomerDetailPage() {
 
             {/* TAB: Tổng quan */}
             {tab === 'overview' && (
-                <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                <div className="dashboard-grid" style={{ display: 'grid', gap: 16 }}>
                     <div className="card">
                         <div className="card-header"><span className="card-title">🏗️ Dự án gần đây</span></div>
                         {(c.projects || []).slice(0, 5).map(p => (
-                            <div key={p.id} onClick={() => router.push(`/projects/${p.id}`)} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--border-light)', cursor: 'pointer' }}>
-                                <div>
+                            <div key={p.id} onClick={() => router.push(`/projects/${p.id}`)} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border-light)', cursor: 'pointer', gap: 8 }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
                                     <span style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</span>
                                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.code} • {p.area}m² • {p.floors} tầng</div>
                                 </div>
-                                <div style={{ textAlign: 'right' }}>
+                                <div style={{ textAlign: 'right', flexShrink: 0 }}>
                                     <span className={`badge ${p.status === 'Hoàn thành' ? 'success' : p.status === 'Đang thi công' ? 'warning' : 'info'}`}>{p.status}</span>
                                     <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>{p.progress}%</div>
                                 </div>
@@ -204,11 +204,11 @@ export default function CustomerDetailPage() {
                     <div className="card">
                         <div className="card-header"><span className="card-title">🕐 Hoạt động gần đây</span><button className="btn btn-primary btn-sm" onClick={() => setShowLogModal(true)}>+ Ghi chú</button></div>
                         {(c.trackingLogs || []).slice(0, 5).map(log => (
-                            <div key={log.id} style={{ display: 'flex', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border-light)' }}>
-                                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
+                            <div key={log.id} style={{ display: 'flex', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--border-light)' }}>
+                                <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>
                                     {LOG_ICONS[log.type] || '📝'}
                                 </div>
-                                <div style={{ flex: 1 }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ fontSize: 13, fontWeight: 500 }}>{log.content}</div>
                                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{log.createdBy} • {timeAgo(log.createdAt)} • {log.project?.code}</div>
                                 </div>
@@ -222,21 +222,44 @@ export default function CustomerDetailPage() {
             {/* TAB: Dự án */}
             {tab === 'projects' && (
                 <div className="card">
-                    <div className="table-container"><table className="data-table">
-                        <thead><tr><th>Mã</th><th>Tên</th><th>Giá trị HĐ</th><th>Đã thu</th><th>Tiến độ</th><th>Trạng thái</th><th>HĐ</th><th>CV</th></tr></thead>
-                        <tbody>{(c.projects || []).map(p => (
-                            <tr key={p.id} onClick={() => router.push(`/projects/${p.id}`)} style={{ cursor: 'pointer' }}>
-                                <td className="accent">{p.code}</td>
-                                <td className="primary">{p.name}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.address} • {p.area}m²</div></td>
-                                <td className="amount">{fmt(p.contractValue)}</td>
-                                <td style={{ color: 'var(--status-success)', fontWeight: 600 }}>{fmt(p.paidAmount)}</td>
-                                <td><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div className="progress-bar" style={{ flex: 1, maxWidth: 80 }}><div className="progress-fill" style={{ width: `${p.progress}%` }}></div></div><span style={{ fontSize: 12 }}>{p.progress}%</span></div></td>
-                                <td><span className={`badge ${p.status === 'Hoàn thành' ? 'success' : p.status === 'Đang thi công' ? 'warning' : 'info'}`}>{p.status}</span></td>
-                                <td>{p.contracts?.length || 0}</td>
-                                <td>{p._count?.workOrders || 0}</td>
-                            </tr>
-                        ))}</tbody>
-                    </table></div>
+                    <div className="desktop-table-view">
+                        <div className="table-container"><table className="data-table">
+                            <thead><tr><th>Mã</th><th>Tên</th><th>Giá trị HĐ</th><th>Đã thu</th><th>Tiến độ</th><th>Trạng thái</th><th>HĐ</th><th>CV</th></tr></thead>
+                            <tbody>{(c.projects || []).map(p => (
+                                <tr key={p.id} onClick={() => router.push(`/projects/${p.id}`)} style={{ cursor: 'pointer' }}>
+                                    <td className="accent">{p.code}</td>
+                                    <td className="primary">{p.name}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.address} • {p.area}m²</div></td>
+                                    <td className="amount">{fmt(p.contractValue)}</td>
+                                    <td style={{ color: 'var(--status-success)', fontWeight: 600 }}>{fmt(p.paidAmount)}</td>
+                                    <td><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div className="progress-bar" style={{ flex: 1, maxWidth: 80 }}><div className="progress-fill" style={{ width: `${p.progress}%` }}></div></div><span style={{ fontSize: 12 }}>{p.progress}%</span></div></td>
+                                    <td><span className={`badge ${p.status === 'Hoàn thành' ? 'success' : p.status === 'Đang thi công' ? 'warning' : 'info'}`}>{p.status}</span></td>
+                                    <td>{p.contracts?.length || 0}</td>
+                                    <td>{p._count?.workOrders || 0}</td>
+                                </tr>
+                            ))}</tbody>
+                        </table></div>
+                    </div>
+                    <div className="mobile-card-list">
+                        {(c.projects || []).map(p => (
+                            <div key={p.id} className="mobile-card-item" onClick={() => router.push(`/projects/${p.id}`)}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div className="card-title">{p.name}</div>
+                                        <div className="card-subtitle">{p.code} • {p.area}m² • {p.floors} tầng</div>
+                                    </div>
+                                    <span className={`badge ${p.status === 'Hoàn thành' ? 'success' : p.status === 'Đang thi công' ? 'warning' : 'info'}`}>{p.status}</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                                    <div className="progress-bar" style={{ flex: 1 }}><div className="progress-fill" style={{ width: `${p.progress}%` }} /></div>
+                                    <span style={{ fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{p.progress}%</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12 }}>
+                                    <span>HĐ: {fmt(p.contractValue)}</span>
+                                    <span style={{ color: 'var(--status-success)', fontWeight: 600 }}>Thu: {fmt(p.paidAmount)}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                     {(!c.projects || c.projects.length === 0) && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có dự án</div>}
                 </div>
             )}
@@ -251,23 +274,49 @@ export default function CustomerDetailPage() {
                         <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700, color: s.totalDebt > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>{fmt(s.totalDebt)}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Công nợ</div></div>
                     </div>
                     <div className="card">
-                        <div className="table-container"><table className="data-table">
-                            <thead><tr><th>Mã HĐ</th><th>Tên</th><th>Dự án</th><th>Giá trị</th><th>Đã thu</th><th>Tỷ lệ</th><th>Trạng thái</th></tr></thead>
-                            <tbody>{(c.contracts || []).map(ct => {
+                        <div className="desktop-table-view">
+                            <div className="table-container"><table className="data-table">
+                                <thead><tr><th>Mã HĐ</th><th>Tên</th><th>Dự án</th><th>Giá trị</th><th>Đã thu</th><th>Tỷ lệ</th><th>Trạng thái</th></tr></thead>
+                                <tbody>{(c.contracts || []).map(ct => {
+                                    const rate = pct(ct.paidAmount, ct.contractValue);
+                                    return (
+                                        <tr key={ct.id} onClick={() => ct.project && router.push(`/projects/${ct.projectId}`)} style={{ cursor: 'pointer' }}>
+                                            <td className="accent">{ct.code}</td>
+                                            <td className="primary">{ct.name}</td>
+                                            <td><span className="badge info">{ct.project?.code}</span> {ct.project?.name}</td>
+                                            <td className="amount">{fmt(ct.contractValue)}</td>
+                                            <td style={{ color: 'var(--status-success)', fontWeight: 600 }}>{fmt(ct.paidAmount)}</td>
+                                            <td><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div className="progress-bar" style={{ flex: 1, maxWidth: 60 }}><div className="progress-fill" style={{ width: `${rate}%` }}></div></div><span style={{ fontSize: 12 }}>{rate}%</span></div></td>
+                                            <td><span className={`badge ${ct.status === 'Hoàn thành' ? 'success' : ct.status === 'Đang thực hiện' ? 'warning' : ct.status === 'Đã ký' ? 'info' : 'muted'}`}>{ct.status}</span></td>
+                                        </tr>
+                                    );
+                                })}</tbody>
+                            </table></div>
+                        </div>
+                        <div className="mobile-card-list">
+                            {(c.contracts || []).map(ct => {
                                 const rate = pct(ct.paidAmount, ct.contractValue);
                                 return (
-                                    <tr key={ct.id} onClick={() => ct.project && router.push(`/projects/${ct.projectId}`)} style={{ cursor: 'pointer' }}>
-                                        <td className="accent">{ct.code}</td>
-                                        <td className="primary">{ct.name}</td>
-                                        <td><span className="badge info">{ct.project?.code}</span> {ct.project?.name}</td>
-                                        <td className="amount">{fmt(ct.contractValue)}</td>
-                                        <td style={{ color: 'var(--status-success)', fontWeight: 600 }}>{fmt(ct.paidAmount)}</td>
-                                        <td><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div className="progress-bar" style={{ flex: 1, maxWidth: 60 }}><div className="progress-fill" style={{ width: `${rate}%` }}></div></div><span style={{ fontSize: 12 }}>{rate}%</span></div></td>
-                                        <td><span className={`badge ${ct.status === 'Hoàn thành' ? 'success' : ct.status === 'Đang thực hiện' ? 'warning' : ct.status === 'Đã ký' ? 'info' : 'muted'}`}>{ct.status}</span></td>
-                                    </tr>
+                                    <div key={ct.id} className="mobile-card-item" onClick={() => ct.project && router.push(`/projects/${ct.projectId}`)}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div className="card-title">{ct.name}</div>
+                                                <div className="card-subtitle">{ct.code} • {ct.project?.name}</div>
+                                            </div>
+                                            <span className={`badge ${ct.status === 'Hoàn thành' ? 'success' : ct.status === 'Đang thực hiện' ? 'warning' : ct.status === 'Đã ký' ? 'info' : 'muted'}`}>{ct.status}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                                            <div className="progress-bar" style={{ flex: 1 }}><div className="progress-fill" style={{ width: `${rate}%` }} /></div>
+                                            <span style={{ fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{rate}%</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12 }}>
+                                            <span>Giá trị: {fmt(ct.contractValue)}</span>
+                                            <span style={{ color: 'var(--status-success)', fontWeight: 600 }}>Thu: {fmt(ct.paidAmount)}</span>
+                                        </div>
+                                    </div>
                                 );
-                            })}</tbody>
-                        </table></div>
+                            })}
+                        </div>
                         {(!c.contracts || c.contracts.length === 0) && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có hợp đồng</div>}
                     </div>
                 </div>
@@ -276,19 +325,38 @@ export default function CustomerDetailPage() {
             {/* TAB: Báo giá */}
             {tab === 'quotations' && (
                 <div className="card">
-                    <div className="table-container"><table className="data-table">
-                        <thead><tr><th>Mã</th><th>Tên</th><th>Tổng tiền</th><th>Trạng thái</th><th>Ngày tạo</th><th>HĐ lực</th></tr></thead>
-                        <tbody>{(c.quotations || []).map(q => (
-                            <tr key={q.id}>
-                                <td className="accent">{q.code}</td>
-                                <td className="primary">{q.name}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{q.items?.length || 0} hạng mục</div></td>
-                                <td className="amount">{fmt(q.totalAmount)}</td>
-                                <td><span className={`badge ${q.status === 'Đã duyệt' ? 'success' : q.status === 'Chờ duyệt' ? 'warning' : 'muted'}`}>{q.status}</span></td>
-                                <td style={{ fontSize: 12 }}>{fmtDate(q.createdAt)}</td>
-                                <td style={{ fontSize: 12 }}>{fmtDate(q.validUntil)}</td>
-                            </tr>
-                        ))}</tbody>
-                    </table></div>
+                    <div className="desktop-table-view">
+                        <div className="table-container"><table className="data-table">
+                            <thead><tr><th>Mã</th><th>Tên</th><th>Tổng tiền</th><th>Trạng thái</th><th>Ngày tạo</th><th>HĐ lực</th></tr></thead>
+                            <tbody>{(c.quotations || []).map(q => (
+                                <tr key={q.id}>
+                                    <td className="accent">{q.code}</td>
+                                    <td className="primary">{q.name}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{q.items?.length || 0} hạng mục</div></td>
+                                    <td className="amount">{fmt(q.totalAmount)}</td>
+                                    <td><span className={`badge ${q.status === 'Đã duyệt' ? 'success' : q.status === 'Chờ duyệt' ? 'warning' : 'muted'}`}>{q.status}</span></td>
+                                    <td style={{ fontSize: 12 }}>{fmtDate(q.createdAt)}</td>
+                                    <td style={{ fontSize: 12 }}>{fmtDate(q.validUntil)}</td>
+                                </tr>
+                            ))}</tbody>
+                        </table></div>
+                    </div>
+                    <div className="mobile-card-list">
+                        {(c.quotations || []).map(q => (
+                            <div key={q.id} className="mobile-card-item">
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div className="card-title">{q.name}</div>
+                                        <div className="card-subtitle">{q.code} • {q.items?.length || 0} hạng mục</div>
+                                    </div>
+                                    <span className={`badge ${q.status === 'Đã duyệt' ? 'success' : q.status === 'Chờ duyệt' ? 'warning' : 'muted'}`}>{q.status}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 12 }}>
+                                    <span style={{ fontWeight: 700 }}>{fmt(q.totalAmount)}</span>
+                                    <span style={{ color: 'var(--text-muted)' }}>{fmtDate(q.createdAt)}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                     {(!c.quotations || c.quotations.length === 0) && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có báo giá</div>}
                 </div>
             )}
@@ -326,18 +394,36 @@ export default function CustomerDetailPage() {
             {tab === 'transactions' && (
                 <div className="card">
                     <div className="card-header"><span className="card-title">💰 Lịch sử giao dịch</span></div>
-                    <div className="table-container"><table className="data-table">
-                        <thead><tr><th>Ngày</th><th>Mô tả</th><th>Dự án</th><th>Loại</th><th>Số tiền</th></tr></thead>
-                        <tbody>{(c.transactions || []).map(t => (
-                            <tr key={t.id}>
-                                <td style={{ fontSize: 12 }}>{fmtDate(t.date)}</td>
-                                <td className="primary">{t.description}</td>
-                                <td><span className="badge info">{t.project?.code}</span></td>
-                                <td><span className={`badge ${t.type === 'Thu' ? 'success' : 'danger'}`}>{t.type}</span></td>
-                                <td style={{ fontWeight: 700, color: t.type === 'Thu' ? 'var(--status-success)' : 'var(--status-danger)' }}>{t.type === 'Thu' ? '+' : '-'}{fmt(t.amount)}</td>
-                            </tr>
-                        ))}</tbody>
-                    </table></div>
+                    <div className="desktop-table-view">
+                        <div className="table-container"><table className="data-table">
+                            <thead><tr><th>Ngày</th><th>Mô tả</th><th>Dự án</th><th>Loại</th><th>Số tiền</th></tr></thead>
+                            <tbody>{(c.transactions || []).map(t => (
+                                <tr key={t.id}>
+                                    <td style={{ fontSize: 12 }}>{fmtDate(t.date)}</td>
+                                    <td className="primary">{t.description}</td>
+                                    <td><span className="badge info">{t.project?.code}</span></td>
+                                    <td><span className={`badge ${t.type === 'Thu' ? 'success' : 'danger'}`}>{t.type}</span></td>
+                                    <td style={{ fontWeight: 700, color: t.type === 'Thu' ? 'var(--status-success)' : 'var(--status-danger)' }}>{t.type === 'Thu' ? '+' : '-'}{fmt(t.amount)}</td>
+                                </tr>
+                            ))}</tbody>
+                        </table></div>
+                    </div>
+                    <div className="mobile-card-list">
+                        {(c.transactions || []).map(t => (
+                            <div key={t.id} className="mobile-card-item">
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div className="card-title">{t.description}</div>
+                                        <div className="card-subtitle">{fmtDate(t.date)} • {t.project?.code}</div>
+                                    </div>
+                                    <span className={`badge ${t.type === 'Thu' ? 'success' : 'danger'}`}>{t.type}</span>
+                                </div>
+                                <div style={{ marginTop: 6, fontWeight: 700, fontSize: 14, color: t.type === 'Thu' ? 'var(--status-success)' : 'var(--status-danger)' }}>
+                                    {t.type === 'Thu' ? '+' : '-'}{fmt(t.amount)}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                     {(!c.transactions || c.transactions.length === 0) && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có giao dịch</div>}
                 </div>
             )}
