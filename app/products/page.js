@@ -314,7 +314,7 @@ export default function ProductsPage() {
         const existingNames = new Set(products.map(p => p.name.toLowerCase().trim()));
         const seenNames = new Set();
         const mapped = rows.map((r, idx) => {
-            const name = (r['Tên'] || r['name'] || r['Tên sản phẩm'] || '').trim();
+            const name = (r['Tên sản phẩm'] || r['Tên'] || r['name'] || '').trim();
             const salePrice = Number(r['Giá bán'] || r['salePrice'] || 0);
             const importPrice = Number(r['Giá nhập'] || r['importPrice'] || 0);
             const stock = Number(r['Tồn kho'] || r['stock'] || 0);
@@ -326,11 +326,19 @@ export default function ProductsPage() {
             if (isNaN(stock) || stock < 0) errors.push('Tồn kho sai');
             if (name) seenNames.add(name.toLowerCase());
             return {
-                name, category: r['Danh mục'] || r['category'] || '',
-                unit: r['ĐVT'] || r['unit'] || 'cái', salePrice, importPrice,
+                name,
+                category: r['Danh mục'] || r['category'] || '',
+                unit: r['ĐVT'] || r['unit'] || 'cái',
+                salePrice, importPrice,
                 stock, minStock: Number(r['Tồn tối thiểu'] || r['minStock'] || 0),
                 brand: r['Thương hiệu'] || r['brand'] || '',
                 supplyType: r['Nguồn cung'] || r['supplyType'] || 'Mua ngoài',
+                supplier: r['Nhà cung cấp'] || r['supplier'] || '',
+                color: r['Màu sắc'] || r['color'] || '',
+                material: r['Chất liệu'] || r['material'] || '',
+                origin: r['Xuất xứ'] || r['origin'] || '',
+                location: r['Kho/Vị trí'] || r['location'] || '',
+                description: r['Mô tả'] || r['description'] || '',
                 _errors: errors, _enabled: errors.length === 0, _row: idx + 2,
             };
         }).filter(p => p.name || p._errors.length > 0);
@@ -374,12 +382,69 @@ export default function ProductsPage() {
         const toImport = importPreview.filter(p => p._enabled && p._errors.length === 0);
         if (!toImport.length) return alert('Không có sản phẩm hợp lệ để import');
         setImporting(true);
-        // Sequential: send one at a time to avoid generateCode race condition (duplicate code)
-        for (const item of toImport) {
-            const { _errors, _enabled, _row, ...p } = item;
-            await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
-        }
-        setImporting(false); setImportPreview(null); fetchProducts(); fetchCategories();
+        const products = toImport.map(({ _errors, _enabled, _row, ...p }) => p);
+        const res = await fetch('/api/products/bulk-import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ products }),
+        });
+        const json = await res.json();
+        setImporting(false);
+        if (!res.ok) return alert(json.error || 'Import thất bại');
+        setImportPreview(null);
+        fetchProducts(); fetchCategories();
+        alert(`✅ Đã import ${json.count}/${json.total} sản phẩm thành công!`);
+    };
+
+    const downloadTemplate = () => {
+        const catList = categories.flatMap(c => c.children?.length ? c.children.flatMap(c2 => c2.children?.length ? c2.children.map(c3 => c3.name) : [c2.name]) : [c.name]);
+        const wb = XLSX.utils.book_new();
+
+        // Sheet 1: Template
+        const templateData = [
+            ['Tên sản phẩm', 'Danh mục', 'ĐVT', 'Giá bán', 'Giá nhập', 'Tồn kho', 'Tồn tối thiểu', 'Thương hiệu', 'Nguồn cung', 'Nhà cung cấp', 'Màu sắc', 'Chất liệu', 'Xuất xứ', 'Kho/Vị trí', 'Mô tả'],
+            ['Ống nước PPR DN25', 'Cấp thoát nước', 'cây', 75000, 55000, 150, 20, 'Bình Minh', 'Mua ngoài', 'Bình Minh Plastic', '', '', 'Việt Nam', 'Kho A', ''],
+            ['Sơn nội thất Dulux 18L', 'Sơn & Keo', 'thùng', 850000, 650000, 30, 5, 'Dulux', 'Mua ngoài', 'NPP Dulux HN', 'Trắng', '', 'Thái Lan', '', ''],
+            ['Gạch lát nền 60x60', 'Vật liệu xây dựng', 'm²', 120000, 90000, 200, 50, '', 'Mua ngoài', '', 'Xám', 'Gốm sứ', 'Việt Nam', 'Kho B', ''],
+        ];
+        const ws1 = XLSX.utils.aoa_to_sheet(templateData);
+        ws1['!cols'] = [{ wch: 30 }, { wch: 22 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 15 }, { wch: 20 }, { wch: 22 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 30 }];
+        XLSX.utils.book_append_sheet(wb, ws1, 'Sản phẩm');
+
+        // Sheet 2: Danh mục
+        const catData = [['Danh mục hợp lệ (copy vào cột Danh mục)'], ...catList.map(c => [c])];
+        const ws2 = XLSX.utils.aoa_to_sheet(catData);
+        ws2['!cols'] = [{ wch: 30 }];
+        XLSX.utils.book_append_sheet(wb, ws2, 'Danh mục');
+
+        // Sheet 3: Hướng dẫn
+        const guideData = [
+            ['Hướng dẫn nhập liệu'],
+            [''],
+            ['Cột', 'Bắt buộc', 'Ghi chú'],
+            ['Tên sản phẩm', 'Bắt buộc', 'Không được trùng với SP đã có'],
+            ['Danh mục', 'Bắt buộc', 'Xem sheet "Danh mục" để biết danh mục hợp lệ'],
+            ['ĐVT', 'Bắt buộc', 'cái / m² / m / kg / bộ / set / thùng / cây / tấm / ...'],
+            ['Giá bán', 'Không', 'Số nguyên, đơn vị VNĐ (không dùng dấu chấm/phẩy)'],
+            ['Giá nhập', 'Không', 'Số nguyên, đơn vị VNĐ'],
+            ['Tồn kho', 'Không', 'Số nguyên, mặc định 0'],
+            ['Tồn tối thiểu', 'Không', 'Cảnh báo khi tồn kho ≤ giá trị này'],
+            ['Thương hiệu', 'Không', ''],
+            ['Nguồn cung', 'Không', 'Mua ngoài / Sản xuất nội bộ / Dịch vụ (mặc định: Mua ngoài)'],
+            ['Nhà cung cấp', 'Không', ''],
+            ['Màu sắc', 'Không', ''],
+            ['Chất liệu', 'Không', ''],
+            ['Xuất xứ', 'Không', ''],
+            ['Kho/Vị trí', 'Không', ''],
+            ['Mô tả', 'Không', ''],
+            [''],
+            ['Lưu ý:', '', 'Không xóa hàng tiêu đề (hàng 1). Xóa các dòng ví dụ và nhập dữ liệu thực tế từ hàng 2.'],
+        ];
+        const ws3 = XLSX.utils.aoa_to_sheet(guideData);
+        ws3['!cols'] = [{ wch: 18 }, { wch: 12 }, { wch: 55 }];
+        XLSX.utils.book_append_sheet(wb, ws3, 'Hướng dẫn');
+
+        XLSX.writeFile(wb, 'mau_import_san_pham.xlsx');
     };
 
     // --- Thumbnail upload ---
@@ -472,7 +537,8 @@ export default function ProductsPage() {
                                 {outStock > 0 && <span style={{ fontSize: 10, color: '#ef4444' }}>🔴{outStock}</span>}
                                 {selectedIds.size > 0 && <button className="btn btn-sm" style={{ fontSize: 11, background: '#ea580c', color: '#fff', border: 'none' }} onClick={() => { const bad = [...selectedIds].filter(id => normalizeSupply(products.find(p => p.id === id)?.supplyType) !== 'Mua ngoài'); if (bad.length) return alert('Chỉ chọn SP "Mua ngoài"'); router.push('/purchasing?createPO=1&products=' + [...selectedIds].join(',')); }}>🛒 PO ({selectedIds.size})</button>}
                                 <button className="btn btn-sm" onClick={addNewProduct} style={{ fontSize: 11, background: '#DBB35E', color: '#fff', border: 'none', fontWeight: 700, borderRadius: 6, padding: '5px 14px' }}>+ THÊM SẢN PHẨM</button>
-                                <button className="btn btn-ghost btn-sm" onClick={() => excelInputRef.current?.click()} title="Import Excel">📥</button>
+                                <button className="btn btn-ghost btn-sm" onClick={() => excelInputRef.current?.click()} title="Import sản phẩm từ Excel">📥 Import</button>
+                                <button className="btn btn-ghost btn-sm" onClick={downloadTemplate} title="Tải file Excel mẫu">📄 Mẫu</button>
                                 <input ref={excelInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleExcelFile} />
                                 <button className="btn btn-ghost btn-sm" onClick={() => { setPasteText(''); setShowPasteModal(true); }} title="Paste từ Excel">📋 Paste</button>
                             </div>
@@ -1017,15 +1083,18 @@ export default function ProductsPage() {
                 const errorCount = importPreview.filter(p => p._errors.length > 0).length;
                 return (
                     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 24, maxWidth: 820, width: '95%', maxHeight: '80vh', display: 'flex', flexDirection: 'column', gap: 12, boxShadow: '0 20px 60px rgba(0,0,0,.4)' }}>
+                        <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 24, maxWidth: 860, width: '95%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', gap: 12, boxShadow: '0 20px 60px rgba(0,0,0,.4)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h3 style={{ margin: 0 }}>📥 Import — {importPreview.length} dòng</h3>
-                                <button className="btn btn-ghost btn-sm" onClick={() => setImportPreview(null)}>✕</button>
+                                <h3 style={{ margin: 0 }}>📥 Xem trước import — {importPreview.length} dòng</h3>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                    <button className="btn btn-ghost btn-sm" onClick={downloadTemplate} title="Tải file mẫu Excel">📄 Tải mẫu</button>
+                                    <button className="btn btn-ghost btn-sm" onClick={() => setImportPreview(null)}>✕</button>
+                                </div>
                             </div>
-                            {errorCount > 0 && <div style={{ padding: '8px 12px', background: 'rgba(231,76,60,0.08)', borderRadius: 6, fontSize: 12, color: '#dc2626', borderLeft: '3px solid #dc2626' }}>⚠️ {errorCount} dòng có lỗi (sẽ bị bỏ qua). Các dòng hợp lệ: <strong>{validCount}</strong></div>}
+                            {errorCount > 0 && <div style={{ padding: '8px 12px', background: 'rgba(231,76,60,0.08)', borderRadius: 6, fontSize: 12, color: '#dc2626', borderLeft: '3px solid #dc2626' }}>⚠️ {errorCount} dòng có lỗi (sẽ bị bỏ qua). Hợp lệ: <strong>{validCount}</strong></div>}
                             <div style={{ overflowY: 'auto', flex: 1, border: '1px solid var(--border-color)', borderRadius: 6 }}>
                                 <table className="data-table" style={{ fontSize: 11.5 }}>
-                                    <thead><tr><th style={{ width: 30 }}></th><th style={{ width: 35 }}>Row</th><th>Tên</th><th>Danh mục</th><th style={{ width: 45 }}>ĐVT</th><th style={{ width: 85 }}>Giá bán</th><th style={{ width: 45 }}>Tồn</th><th>Lỗi</th></tr></thead>
+                                    <thead><tr><th style={{ width: 30 }}></th><th style={{ width: 35 }}>Row</th><th>Tên sản phẩm</th><th>Danh mục</th><th style={{ width: 45 }}>ĐVT</th><th style={{ width: 90 }}>Giá bán</th><th style={{ width: 90 }}>Giá nhập</th><th style={{ width: 45 }}>Tồn</th><th>Nguồn cung</th><th>Lỗi</th></tr></thead>
                                     <tbody>{importPreview.map((p, i) => (
                                         <tr key={i} style={{ opacity: p._enabled ? 1 : 0.4, background: p._errors.length > 0 ? 'rgba(231,76,60,0.04)' : '' }}>
                                             <td style={{ padding: '3px 4px' }}><input type="checkbox" checked={p._enabled} onChange={() => toggleImportRow(i)} disabled={p._errors.length > 0} /></td>
@@ -1033,15 +1102,17 @@ export default function ProductsPage() {
                                             <td style={{ fontWeight: 600 }}>{p.name || <span style={{ color: '#dc2626' }}>—</span>}</td>
                                             <td><span className="badge badge-default" style={{ fontSize: 10 }}>{p.category || '-'}</span></td>
                                             <td>{p.unit}</td>
-                                            <td>{fmtCur(p.salePrice)}</td>
+                                            <td style={{ color: 'var(--status-success)' }}>{p.salePrice > 0 ? fmtCur(p.salePrice) : '—'}</td>
+                                            <td style={{ color: 'var(--text-muted)' }}>{p.importPrice > 0 ? fmtCur(p.importPrice) : '—'}</td>
                                             <td>{p.stock}</td>
+                                            <td style={{ fontSize: 10 }}>{p.supplyType || 'Mua ngoài'}</td>
                                             <td>{p._errors.length > 0 ? <span style={{ color: '#dc2626', fontSize: 10 }}>{p._errors.join(', ')}</span> : <span style={{ color: '#16a34a', fontSize: 10 }}>✓</span>}</td>
                                         </tr>
                                     ))}</tbody>
                                 </table>
                             </div>
                             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
-                                <span style={{ fontSize: 11, opacity: 0.5, marginRight: 'auto' }}>Batch 10/lần • Trùng tên tự bỏ qua</span>
+                                <span style={{ fontSize: 11, opacity: 0.5, marginRight: 'auto' }}>Bulk insert • Trùng tên tự bỏ qua</span>
                                 <button className="btn btn-ghost" onClick={() => setImportPreview(null)}>Hủy</button>
                                 <button className="btn btn-primary" onClick={confirmImport} disabled={importing || validCount === 0}>
                                     {importing ? '⏳ Đang import...' : `✅ Import ${validCount} SP`}

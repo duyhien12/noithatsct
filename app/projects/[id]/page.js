@@ -34,6 +34,9 @@ export default function ProjectDetailPage() {
     const [modal, setModal] = useState(null);
     const [msSheet, setMsSheet] = useState(null);
     const [financeSubTab, setFinanceSubTab] = useState('payments');
+    const [editMode, setEditMode] = useState(false);
+    const [editForm, setEditForm] = useState({});
+    const [saving, setSaving] = useState(false);
     const [contractForm, setContractForm] = useState({ name: '', type: 'Thi công thô', contractValue: '', signDate: '', startDate: '', endDate: '', paymentTerms: '', notes: '' });
     const [paymentPhases, setPaymentPhases] = useState([]);
 
@@ -100,6 +103,32 @@ export default function ProjectDetailPage() {
     const [savingNt, setSavingNt] = useState(false);
     const fetchData = () => { fetch(`/api/projects/${id}`).then(r => r.json()).then(d => { setData(d); setLoading(false); }); };
     useEffect(fetchData, [id]);
+
+    const openEdit = () => {
+        if (!data) return;
+        setEditForm({
+            name: data.name || '', address: data.address || '', status: data.status || '',
+            phase: data.phase || '', area: data.area ?? '', floors: data.floors ?? '',
+            manager: data.manager || '', designer: data.designer || '', supervisor: data.supervisor || '',
+            startDate: data.startDate ? data.startDate.slice(0, 10) : '',
+            endDate: data.endDate ? data.endDate.slice(0, 10) : '',
+            budget: data.budget ?? '', notes: data.notes || '',
+        });
+        setEditMode(true);
+    };
+    const saveProject = async () => {
+        setSaving(true);
+        const payload = { ...editForm };
+        if (payload.area !== '') payload.area = Number(payload.area); else delete payload.area;
+        if (payload.floors !== '') payload.floors = Number(payload.floors); else delete payload.floors;
+        if (payload.budget !== '') payload.budget = Number(payload.budget); else delete payload.budget;
+        if (!payload.startDate) delete payload.startDate;
+        if (!payload.endDate) delete payload.endDate;
+        const res = await fetch(`/api/projects/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        setSaving(false);
+        if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi lưu dự án'); }
+        setEditMode(false); fetchData();
+    };
 
     const updateMilestone = async (msId, progress) => {
         await fetch(`/api/milestones/${msId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ progress: Number(progress), status: Number(progress) === 100 ? 'Hoàn thành' : Number(progress) > 0 ? 'Đang làm' : 'Chưa bắt đầu' }) });
@@ -412,83 +441,153 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
 
             {/* Project Header */}
             <div className="card" style={{ marginBottom: 24, padding: 24 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                {editMode ? (
+                    /* ===== EDIT FORM ===== */
                     <div>
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
-                            <span style={{ color: 'var(--text-accent)', fontSize: 14, fontWeight: 600 }}>{p.code}</span>
-                            <span className={`badge ${p.status === 'Hoàn thành' ? 'success' : p.status === 'Đang thi công' ? 'warning' : 'info'}`}>{p.status}</span>
-                            {p.phase && <span className="badge muted">{p.phase}</span>}
-                            {/* Project Health Badge */}
-                            {(() => {
-                                const now = new Date();
-                                const end = p.endDate ? new Date(p.endDate) : null;
-                                const overdueDays = end ? Math.ceil((now - end) / 86400000) : 0;
-                                const budgetRate = p.budget > 0 ? (p.spent / p.budget) * 100 : 0;
-                                const isDone = p.status === 'Hoàn thành';
-                                let health = 'success', healthLabel = '🟢 Bình thường', healthTitle = 'Dự án đang đúng tiến độ & ngân sách';
-                                if (!isDone && (overdueDays > 30 || budgetRate > 100)) {
-                                    health = 'danger'; healthLabel = '🔴 Rủi ro cao'; healthTitle = overdueDays > 30 ? `Trễ ${overdueDays} ngày` : `Chi phí vượt ${Math.round(budgetRate)}% ngân sách`;
-                                } else if (!isDone && (overdueDays > 0 || budgetRate > 80)) {
-                                    health = 'warning'; healthLabel = '🟡 Cần theo dõi'; healthTitle = overdueDays > 0 ? `Trễ ${overdueDays} ngày` : `Chi phí đạt ${Math.round(budgetRate)}% ngân sách`;
-                                }
-                                return <span className={`badge ${health}`} title={healthTitle}>{healthLabel}</span>;
-                            })()}
-                            {pnl.profit >= 0 ? <span className="badge success">📈 Lãi {fmt(pnl.profit)}</span> : <span className="badge danger">📉 Lỗ {fmt(Math.abs(pnl.profit))}</span>}
-                        </div>
-                        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{p.name}</h2>
-                        <div style={{ color: 'var(--text-muted)', marginTop: 4, fontSize: 13 }}>{p.customer?.name} • {p.address}</div>
-                        {/* PM + Team */}
-                        <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: 12, color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
-                            {p.manager && <span title="Quản lý dự án">👤 PM: <strong>{p.manager}</strong></span>}
-                            {p.designer && <span title="Thiết kế">🎨 TK: {p.designer}</span>}
-                            {p.supervisor && <span title="Giám sát">🔧 GS: {p.supervisor}</span>}
-                        </div>
-                        {/* Timeline */}
-                        {(p.startDate || p.endDate) && (() => {
-                            const now = new Date();
-                            const end = p.endDate ? new Date(p.endDate) : null;
-                            const overdue = end && now > end && p.status !== 'Hoàn thành';
-                            const overdueDays = overdue ? Math.ceil((now - end) / 86400000) : 0;
-                            return (
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, fontSize: 12 }}>
-                                    <span style={{ color: 'var(--text-muted)' }}>📅 {fmtDate(p.startDate)} → {fmtDate(p.endDate)}</span>
-                                    {overdue && <span className="badge danger" style={{ fontSize: 11, animation: 'pulse 2s infinite' }}>⚠ Trễ {overdueDays} ngày</span>}
-                                </div>
-                            );
-                        })()}
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 32, fontWeight: 700 }}>{p.progress}%</div>
-                        <div className="progress-bar" style={{ width: 120 }}><div className="progress-fill" style={{ width: `${p.progress}%` }}></div></div>
-                    </div>
-                </div>
-
-                {/* Pipeline */}
-                <div className="pipeline">
-                    {PIPELINE.map((stage, i) => (
-                        <div className="pipeline-step" key={stage.key}>
-                            <div className={`pipeline-node ${i === pipelineIdx ? 'active' : i < pipelineIdx ? 'completed' : ''}`}>
-                                <div className="pipeline-dot">{i < pipelineIdx ? '✓' : stage.icon}</div>
-                                <span className="pipeline-label">{stage.label}</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <h3 style={{ margin: 0, fontWeight: 700 }}>Chỉnh sửa thông tin dự án</h3>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button className="btn btn-secondary btn-sm" onClick={() => setEditMode(false)}>Hủy</button>
+                                <button className="btn btn-primary btn-sm" onClick={saveProject} disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
                             </div>
-                            {i < PIPELINE.length - 1 && <div className={`pipeline-line ${i < pipelineIdx ? 'completed' : ''}`}></div>}
                         </div>
-                    ))}
-                </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                            <div className="form-group">
+                                <label className="form-label">Tên dự án *</label>
+                                <input className="form-input" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Địa chỉ</label>
+                                <input className="form-input" value={editForm.address} onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Trạng thái</label>
+                                <select className="form-input" value={editForm.status} onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}>
+                                    {['Khảo sát', 'Báo giá', 'Thiết kế', 'Chuẩn bị thi công', 'Đang thi công', 'Bảo hành', 'Hoàn thành'].map(s => <option key={s}>{s}</option>)}
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Giai đoạn</label>
+                                <input className="form-input" value={editForm.phase} onChange={e => setEditForm(f => ({ ...f, phase: e.target.value }))} placeholder="VD: Hoàn thiện nội thất" />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Diện tích (m²)</label>
+                                <input className="form-input" type="number" value={editForm.area} onChange={e => setEditForm(f => ({ ...f, area: e.target.value }))} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Số tầng</label>
+                                <input className="form-input" type="number" value={editForm.floors} onChange={e => setEditForm(f => ({ ...f, floors: e.target.value }))} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Ngân sách (đ)</label>
+                                <input className="form-input" type="number" value={editForm.budget} onChange={e => setEditForm(f => ({ ...f, budget: e.target.value }))} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Ngày bắt đầu</label>
+                                <input className="form-input" type="date" value={editForm.startDate} onChange={e => setEditForm(f => ({ ...f, startDate: e.target.value }))} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Ngày kết thúc</label>
+                                <input className="form-input" type="date" value={editForm.endDate} onChange={e => setEditForm(f => ({ ...f, endDate: e.target.value }))} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Quản lý dự án (PM)</label>
+                                <input className="form-input" value={editForm.manager} onChange={e => setEditForm(f => ({ ...f, manager: e.target.value }))} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Thiết kế</label>
+                                <input className="form-input" value={editForm.designer} onChange={e => setEditForm(f => ({ ...f, designer: e.target.value }))} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Giám sát</label>
+                                <input className="form-input" value={editForm.supervisor} onChange={e => setEditForm(f => ({ ...f, supervisor: e.target.value }))} />
+                            </div>
+                            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                <label className="form-label">Ghi chú</label>
+                                <textarea className="form-input" rows={3} value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} />
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    /* ===== VIEW MODE ===== */
+                    <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                            <div>
+                                <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+                                    <span style={{ color: 'var(--text-accent)', fontSize: 14, fontWeight: 600 }}>{p.code}</span>
+                                    <span className={`badge ${p.status === 'Hoàn thành' ? 'success' : p.status === 'Đang thi công' ? 'warning' : 'info'}`}>{p.status}</span>
+                                    {p.phase && <span className="badge muted">{p.phase}</span>}
+                                    {(() => {
+                                        const now = new Date();
+                                        const end = p.endDate ? new Date(p.endDate) : null;
+                                        const overdueDays = end ? Math.ceil((now - end) / 86400000) : 0;
+                                        const budgetRate = p.budget > 0 ? (p.spent / p.budget) * 100 : 0;
+                                        const isDone = p.status === 'Hoàn thành';
+                                        let health = 'success', healthLabel = '🟢 Bình thường', healthTitle = 'Dự án đang đúng tiến độ & ngân sách';
+                                        if (!isDone && (overdueDays > 30 || budgetRate > 100)) {
+                                            health = 'danger'; healthLabel = '🔴 Rủi ro cao'; healthTitle = overdueDays > 30 ? `Trễ ${overdueDays} ngày` : `Chi phí vượt ${Math.round(budgetRate)}% ngân sách`;
+                                        } else if (!isDone && (overdueDays > 0 || budgetRate > 80)) {
+                                            health = 'warning'; healthLabel = '🟡 Cần theo dõi'; healthTitle = overdueDays > 0 ? `Trễ ${overdueDays} ngày` : `Chi phí đạt ${Math.round(budgetRate)}% ngân sách`;
+                                        }
+                                        return <span className={`badge ${health}`} title={healthTitle}>{healthLabel}</span>;
+                                    })()}
+                                    {pnl.profit >= 0 ? <span className="badge success">📈 Lãi {fmt(pnl.profit)}</span> : <span className="badge danger">📉 Lỗ {fmt(Math.abs(pnl.profit))}</span>}
+                                </div>
+                                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{p.name}</h2>
+                                <div style={{ color: 'var(--text-muted)', marginTop: 4, fontSize: 13 }}>{p.customer?.name} • {p.address}</div>
+                                <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: 12, color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                                    {p.manager && <span title="Quản lý dự án">👤 PM: <strong>{p.manager}</strong></span>}
+                                    {p.designer && <span title="Thiết kế">🎨 TK: {p.designer}</span>}
+                                    {p.supervisor && <span title="Giám sát">🔧 GS: {p.supervisor}</span>}
+                                </div>
+                                {(p.startDate || p.endDate) && (() => {
+                                    const now = new Date();
+                                    const end = p.endDate ? new Date(p.endDate) : null;
+                                    const overdue = end && now > end && p.status !== 'Hoàn thành';
+                                    const overdueDays = overdue ? Math.ceil((now - end) / 86400000) : 0;
+                                    return (
+                                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, fontSize: 12 }}>
+                                            <span style={{ color: 'var(--text-muted)' }}>📅 {fmtDate(p.startDate)} → {fmtDate(p.endDate)}</span>
+                                            {overdue && <span className="badge danger" style={{ fontSize: 11, animation: 'pulse 2s infinite' }}>⚠ Trễ {overdueDays} ngày</span>}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                                <button className="btn btn-secondary btn-sm" onClick={openEdit}>✏️ Chỉnh sửa</button>
+                                <div style={{ fontSize: 32, fontWeight: 700 }}>{p.progress}%</div>
+                                <div className="progress-bar" style={{ width: 120 }}><div className="progress-fill" style={{ width: `${p.progress}%` }}></div></div>
+                            </div>
+                        </div>
 
-                {/* Quick Stats */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginTop: 8 }}>
-                    {[
-                        { v: `${p.area}m²`, l: 'Diện tích' }, { v: `${p.floors} tầng`, l: 'Số tầng' },
-                        { v: fmt(p.contractValue), l: 'Giá trị HĐ' }, { v: fmt(p.paidAmount), l: 'Đã thu' },
-                        { v: fmt(pnl.debtFromCustomer), l: 'KH còn nợ', c: pnl.debtFromCustomer > 0 ? 'var(--status-danger)' : 'var(--status-success)' }
-                    ].map(s => (
-                        <div key={s.l} style={{ textAlign: 'center', padding: '8px 0' }}>
-                            <div style={{ fontWeight: 700, fontSize: 15, color: s.c || 'var(--text-primary)' }}>{s.v}</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{s.l}</div>
+                        {/* Pipeline */}
+                        <div className="pipeline">
+                            {PIPELINE.map((stage, i) => (
+                                <div className="pipeline-step" key={stage.key}>
+                                    <div className={`pipeline-node ${i === pipelineIdx ? 'active' : i < pipelineIdx ? 'completed' : ''}`}>
+                                        <div className="pipeline-dot">{i < pipelineIdx ? '✓' : stage.icon}</div>
+                                        <span className="pipeline-label">{stage.label}</span>
+                                    </div>
+                                    {i < PIPELINE.length - 1 && <div className={`pipeline-line ${i < pipelineIdx ? 'completed' : ''}`}></div>}
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
+
+                        {/* Quick Stats */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginTop: 8 }}>
+                            {[
+                                { v: `${p.area}m²`, l: 'Diện tích' }, { v: `${p.floors} tầng`, l: 'Số tầng' },
+                                { v: fmt(p.contractValue), l: 'Giá trị HĐ' }, { v: fmt(p.paidAmount), l: 'Đã thu' },
+                                { v: fmt(pnl.debtFromCustomer), l: 'KH còn nợ', c: pnl.debtFromCustomer > 0 ? 'var(--status-danger)' : 'var(--status-success)' }
+                            ].map(s => (
+                                <div key={s.l} style={{ textAlign: 'center', padding: '8px 0' }}>
+                                    <div style={{ fontWeight: 700, fontSize: 15, color: s.c || 'var(--text-primary)' }}>{s.v}</div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{s.l}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Tabs */}

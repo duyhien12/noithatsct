@@ -56,7 +56,7 @@ function FinanceContent() {
         // Upload proof image
         const fd = new FormData();
         fd.append('file', confirmModal.file);
-        fd.append('type', 'payments');
+        fd.append('type', 'proofs');
         const uploadRes = await fetch('/api/upload', { method: 'POST', body: fd });
         const { url: proofUrl } = await uploadRes.json();
 
@@ -231,14 +231,14 @@ ${[1, 2].map(copy => `
                     </div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-icon">�</div>
+                    <div className="stat-icon">💸</div>
                     <div>
                         <div className="stat-value" style={{ color: 'var(--status-warning)' }}>{fmt(summary.totalExpensePaid)}</div>
                         <div className="stat-label">Đã chi (DA+CT)</div>
                     </div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-icon">�📉</div>
+                    <div className="stat-icon">📉</div>
                     <div>
                         <div className="stat-value" style={{ color: 'var(--status-warning)' }}>{fmt(summary.payableOutstanding)}</div>
                         <div className="stat-label">Công nợ nhà thầu</div>
@@ -254,25 +254,34 @@ ${[1, 2].map(copy => `
             </div>
 
             {/* Tabs */}
-            <div className="card" style={{ marginTop: 24 }}>
-                <div className="card-header">
-                    <div className="tab-bar">
+            <div className="card" style={{ marginTop: 16 }}>
+                <div style={{ borderBottom: '1px solid var(--border)', padding: '0 16px' }}>
+                    <div style={{ display: 'flex', overflowX: 'auto', gap: 0, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
                         {TABS.map(t => (
-                            <button key={t.key} className={`tab-item ${activeTab === t.key ? 'active' : ''}`}
-                                onClick={() => setActiveTab(t.key)}>{t.label}</button>
+                            <button key={t.key}
+                                onClick={() => setActiveTab(t.key)}
+                                style={{
+                                    flexShrink: 0, padding: '12px 14px', border: 'none', background: 'none',
+                                    fontSize: 13, fontWeight: activeTab === t.key ? 700 : 400,
+                                    color: activeTab === t.key ? 'var(--accent-primary)' : 'var(--text-muted)',
+                                    borderBottom: activeTab === t.key ? '2px solid var(--accent-primary)' : '2px solid transparent',
+                                    cursor: 'pointer', whiteSpace: 'nowrap',
+                                }}>{t.label}</button>
                         ))}
                     </div>
-                    {activeTab === 'transactions' && (
-                        <button className="btn btn-primary" onClick={() => setShowTxModal(true)}>+ Thêm giao dịch</button>
-                    )}
                 </div>
+                {activeTab === 'transactions' && (
+                    <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                        <button className="btn btn-primary btn-sm" onClick={() => setShowTxModal(true)}>+ Thêm giao dịch</button>
+                    </div>
+                )}
 
                 {/* TAB: Tổng quan */}
                 {activeTab === 'overview' && (
                     <div className="card-body">
-                        <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
                             {/* Phải thu */}
-                            <div className="card" style={{ border: '1px solid var(--border)' }}>
+                            <div className="card" style={{ border: '1px solid var(--border)', margin: 0 }}>
                                 <div className="card-header"><h3>📈 Công nợ phải thu</h3></div>
                                 <div className="card-body">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -290,7 +299,7 @@ ${[1, 2].map(copy => `
                                 </div>
                             </div>
                             {/* Phải trả */}
-                            <div className="card" style={{ border: '1px solid var(--border)' }}>
+                            <div className="card" style={{ border: '1px solid var(--border)', margin: 0 }}>
                                 <div className="card-header"><h3>📉 Công nợ nhà thầu</h3></div>
                                 <div className="card-body">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -308,7 +317,7 @@ ${[1, 2].map(copy => `
                                 </div>
                             </div>
                             {/* Chi phí dự án + công ty */}
-                            <div className="card" style={{ border: '1px solid var(--border)' }}>
+                            <div className="card" style={{ border: '1px solid var(--border)', margin: 0 }}>
                                 <div className="card-header"><h3>💸 Chi phí (DA + Công ty)</h3></div>
                                 <div className="card-body">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -327,12 +336,12 @@ ${[1, 2].map(copy => `
                             </div>
                         </div>
                         {/* Thu chi khác */}
-                        <div className="dashboard-grid" style={{ marginTop: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                        <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: 14, background: 'var(--bg-secondary)', borderRadius: 8 }}>
-                                <span>Thu khác</span><span style={{ fontWeight: 700, color: 'var(--status-success)' }}>{fmt(summary.manualIncome)}</span>
+                                <span style={{ fontSize: 13 }}>Thu khác</span><span style={{ fontWeight: 700, color: 'var(--status-success)', fontSize: 13 }}>{fmt(summary.manualIncome)}</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: 14, background: 'var(--bg-secondary)', borderRadius: 8 }}>
-                                <span>Chi khác</span><span style={{ fontWeight: 700, color: 'var(--status-danger)' }}>{fmt(summary.manualExpense)}</span>
+                                <span style={{ fontSize: 13 }}>Chi khác</span><span style={{ fontWeight: 700, color: 'var(--status-danger)', fontSize: 13 }}>{fmt(summary.manualExpense)}</span>
                             </div>
                         </div>
                     </div>
@@ -341,76 +350,73 @@ ${[1, 2].map(copy => `
                 {/* TAB: Công nợ phải thu */}
                 {activeTab === 'receivables' && (
                     <>
-                        <div className="filter-bar" style={{ borderBottom: '1px solid var(--border)' }}>
-                            <select className="form-select" value={filterProject} onChange={e => setFilterProject(e.target.value)}>
+                        <div style={{ display: 'flex', gap: 8, padding: '12px 16px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <select className="form-select" style={{ flex: 1, minWidth: 120 }} value={filterProject} onChange={e => setFilterProject(e.target.value)}>
                                 <option value="">Tất cả DA</option>
                                 {projects.map(p => <option key={p}>{p}</option>)}
                             </select>
-                            <select className="form-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+                            <select className="form-select" style={{ flex: 1, minWidth: 120 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                                 <option value="">Tất cả TT</option>
                                 <option>Chưa thu</option>
                                 <option>Thu một phần</option>
                                 <option>Đã thu</option>
                             </select>
-                            <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                                {filteredPayments.length} đợt
-                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{filteredPayments.length} đợt</div>
                         </div>
                         {loading ? (
                             <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
                         ) : filteredPayments.length === 0 ? (
                             <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Không có đợt thanh toán nào</div>
                         ) : (
-                            <div style={{ overflowX: 'auto' }}>
-                                <table className="data-table" style={{ margin: 0 }}>
-                                    <thead><tr>
-                                        <th>Dự án</th>
-                                        <th>Hợp đồng</th>
-                                        <th>Loại HĐ</th>
-                                        <th>Đợt thanh toán</th>
-                                        <th>Giá trị</th>
-                                        <th>Đã thu</th>
-                                        <th>Còn lại</th>
-                                        <th>Trạng thái</th>
-                                        <th>Thao tác</th>
-                                    </tr></thead>
-                                    <tbody>
-                                        {filteredPayments.map(p => {
-                                            const remaining = (p.amount || 0) - (p.paidAmount || 0);
-                                            return (
-                                                <tr key={p.id} style={{ opacity: p.status === 'Đã thu' ? 0.6 : 1 }}>
-                                                    <td style={{ fontSize: 12 }}>{p.contract?.project?.name || '—'}</td>
-                                                    <td>
-                                                        <a href={`/contracts/${p.contractId}`} className="accent" style={{ fontWeight: 600 }}>{p.contract?.code}</a>
-                                                    </td>
-                                                    <td><span className="badge info" style={{ fontSize: 10 }}>{p.contract?.type}</span></td>
-                                                    <td style={{ fontWeight: 600 }}>{p.phase}</td>
-                                                    <td className="amount">{fmt(p.amount)}</td>
-                                                    <td style={{ color: 'var(--status-success)', fontWeight: 600 }}>{fmt(p.paidAmount)}</td>
-                                                    <td style={{ color: remaining > 0 ? 'var(--status-danger)' : 'var(--text-muted)', fontWeight: 600 }}>{fmt(remaining)}</td>
-                                                    <td>
-                                                        <span className={`badge ${p.status === 'Đã thu' ? 'success' : p.status === 'Thu một phần' ? 'warning' : 'muted'}`}>{p.status}</span>
-                                                        {p.proofUrl && (
-                                                            <a href={p.proofUrl} target="_blank" rel="noreferrer" title="Xem ảnh xác nhận" style={{ marginLeft: 4 }}>📸</a>
-                                                        )}
-                                                    </td>
-                                                    <td>
-                                                        <div style={{ display: 'flex', gap: 4 }}>
-                                                            {p.status !== 'Đã thu' && (
-                                                                <button className="btn btn-primary btn-sm" style={{ fontSize: 11 }}
-                                                                    onClick={() => startCollect(p)}>💵 Thu tiền</button>
-                                                            )}
-                                                            {(p.paidAmount || 0) > 0 && (
-                                                                <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }}
-                                                                    onClick={() => printReceipt(p)}>🧾 Phiếu thu</button>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                {filteredPayments.map(p => {
+                                    const remaining = (p.amount || 0) - (p.paidAmount || 0);
+                                    const isDone = p.status === 'Đã thu';
+                                    return (
+                                        <div key={p.id} style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', opacity: isDone ? 0.65 : 1 }}>
+                                            {/* Row 1: Dự án + trạng thái */}
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                                <div style={{ fontSize: 12, color: 'var(--text-muted)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {p.contract?.project?.name || '—'}
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                                                    <span className={`badge ${isDone ? 'success' : p.status === 'Thu một phần' ? 'warning' : 'muted'}`} style={{ fontSize: 11 }}>{p.status}</span>
+                                                    {p.proofUrl && <a href={p.proofUrl} target="_blank" rel="noreferrer">📸</a>}
+                                                </div>
+                                            </div>
+                                            {/* Row 2: HĐ + đợt */}
+                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                                                <a href={`/contracts/${p.contractId}`} style={{ fontWeight: 700, color: 'var(--accent-primary)', fontSize: 14 }}>{p.contract?.code}</a>
+                                                <span className="badge info" style={{ fontSize: 10 }}>{p.contract?.type}</span>
+                                                <span style={{ fontSize: 13, fontWeight: 600 }}>{p.phase}</span>
+                                            </div>
+                                            {/* Row 3: Số tiền */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
+                                                <div style={{ textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: 6, padding: '6px 4px' }}>
+                                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Giá trị</div>
+                                                    <div style={{ fontWeight: 700, fontSize: 13 }}>{fmt(p.amount)}</div>
+                                                </div>
+                                                <div style={{ textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: 6, padding: '6px 4px' }}>
+                                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Đã thu</div>
+                                                    <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--status-success)' }}>{fmt(p.paidAmount)}</div>
+                                                </div>
+                                                <div style={{ textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: 6, padding: '6px 4px' }}>
+                                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Còn lại</div>
+                                                    <div style={{ fontWeight: 700, fontSize: 13, color: remaining > 0 ? 'var(--status-danger)' : 'var(--text-muted)' }}>{fmt(remaining)}</div>
+                                                </div>
+                                            </div>
+                                            {/* Row 4: Actions */}
+                                            <div style={{ display: 'flex', gap: 8 }}>
+                                                {!isDone && (
+                                                    <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => startCollect(p)}>💵 Thu tiền</button>
+                                                )}
+                                                {(p.paidAmount || 0) > 0 && (
+                                                    <button className="btn btn-ghost btn-sm" style={{ flex: isDone ? 1 : 'unset' }} onClick={() => printReceipt(p)}>🧾 Phiếu thu</button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
                     </>
@@ -419,9 +425,9 @@ ${[1, 2].map(copy => `
                 {/* TAB: Công nợ phải trả */}
                 {activeTab === 'payables' && (
                     <div className="card-body">
-                        <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
                             {/* Công nợ nhà thầu */}
-                            <div className="card" style={{ border: '1px solid var(--border)' }}>
+                            <div className="card" style={{ border: '1px solid var(--border)', margin: 0 }}>
                                 <div className="card-header"><h3>👷 Công nợ nhà thầu</h3></div>
                                 <div className="card-body">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -439,7 +445,7 @@ ${[1, 2].map(copy => `
                                 </div>
                             </div>
                             {/* Chi phí dự án + công ty */}
-                            <div className="card" style={{ border: '1px solid var(--border)' }}>
+                            <div className="card" style={{ border: '1px solid var(--border)', margin: 0 }}>
                                 <div className="card-header"><h3>💸 Chi phí dự án + Công ty</h3></div>
                                 <div className="card-body">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -466,7 +472,7 @@ ${[1, 2].map(copy => `
                 {/* TAB: Thu chi khác */}
                 {activeTab === 'transactions' && (
                     <>
-                        <div className="filter-bar" style={{ borderBottom: '1px solid var(--border)' }}>
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
                             <select className="form-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
                                 <option value="">Tất cả</option>
                                 <option>Thu</option>
@@ -476,28 +482,25 @@ ${[1, 2].map(copy => `
                         {loading ? (
                             <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
                         ) : (
-                            <div className="table-container"><table className="data-table" style={{ margin: 0 }}>
-                                <thead><tr>
-                                    <th>Mã GD</th><th>Loại</th><th>Mô tả</th><th>Số tiền</th><th>Danh mục</th><th>Dự án</th><th>Ngày</th>
-                                </tr></thead>
-                                <tbody>
-                                    {transactions
-                                        .filter(t => !filterType || t.type === filterType)
-                                        .map(t => (
-                                            <tr key={t.id}>
-                                                <td className="accent">{t.code}</td>
-                                                <td><span className={`badge ${t.type === 'Thu' ? 'success' : 'danger'}`}>{t.type}</span></td>
-                                                <td>{t.description}</td>
-                                                <td style={{ fontWeight: 600, color: t.type === 'Thu' ? 'var(--status-success)' : 'var(--status-danger)' }}>
-                                                    {t.type === 'Thu' ? '+' : '-'}{fmt(t.amount)}
-                                                </td>
-                                                <td><span className="badge muted">{t.category}</span></td>
-                                                <td>{t.project?.name || '—'}</td>
-                                                <td>{fmtDate(t.date)}</td>
-                                            </tr>
-                                        ))}
-                                </tbody>
-                            </table></div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                {transactions
+                                    .filter(t => !filterType || t.type === filterType)
+                                    .map(t => (
+                                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                                            <span className={`badge ${t.type === 'Thu' ? 'success' : 'danger'}`} style={{ flexShrink: 0 }}>{t.type}</span>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description || t.code}</div>
+                                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                                    {t.category && <span className="badge muted" style={{ fontSize: 10, marginRight: 6 }}>{t.category}</span>}
+                                                    {fmtDate(t.date)}
+                                                </div>
+                                            </div>
+                                            <div style={{ fontWeight: 700, fontSize: 14, color: t.type === 'Thu' ? 'var(--status-success)' : 'var(--status-danger)', flexShrink: 0, textAlign: 'right' }}>
+                                                {t.type === 'Thu' ? '+' : '-'}{fmt(t.amount)}
+                                            </div>
+                                        </div>
+                                    ))}
+                            </div>
                         )}
                     </>
                 )}
