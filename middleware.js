@@ -5,7 +5,7 @@ export async function middleware(request) {
     const { pathname } = request.nextUrl;
 
     // Public paths - no auth required
-    const publicPaths = ['/login', '/api/auth', '/progress', '/public', '/api/public'];
+    const publicPaths = ['/login', '/api/auth', '/progress', '/public', '/api/public', '/field', '/api/field'];
     const isPublic = publicPaths.some(p => pathname.startsWith(p));
     if (isPublic) return NextResponse.next();
 
@@ -19,6 +19,12 @@ export async function middleware(request) {
         pathname.startsWith('/uploads')
     ) {
         return NextResponse.next();
+    }
+
+    // Allow API routes with Bearer token (mobile/field app) — let withAuth handler verify
+    if (pathname.startsWith('/api/')) {
+        const authHeader = request.headers.get('authorization');
+        if (authHeader?.startsWith('Bearer ')) return NextResponse.next();
     }
 
     const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });

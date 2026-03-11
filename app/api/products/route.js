@@ -50,11 +50,14 @@ export const GET = withAuth(async (request) => {
                 include: { categoryRef: { select: { id: true, name: true } } },
             });
         } catch {
-            // categoryRef may not exist if DB not migrated
-            products = await prisma.product.findMany({
-                where, take: limit, skip: 1, cursor: { id: cursor },
-                orderBy: { createdAt: 'desc' },
-            });
+            try {
+                products = await prisma.product.findMany({
+                    where, take: limit, skip: 1, cursor: { id: cursor },
+                    orderBy: { createdAt: 'desc' },
+                });
+            } catch {
+                return NextResponse.json({ data: [], nextCursor: null });
+            }
         }
         return NextResponse.json({
             data: products,
@@ -73,11 +76,15 @@ export const GET = withAuth(async (request) => {
             prisma.product.count({ where }),
         ]);
     } catch {
-        // categoryRef may not exist if DB not migrated
-        [data, total] = await Promise.all([
-            prisma.product.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
-            prisma.product.count({ where }),
-        ]);
+        try {
+            // categoryRef may not exist if DB not migrated
+            [data, total] = await Promise.all([
+                prisma.product.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+                prisma.product.count({ where }),
+            ]);
+        } catch {
+            return NextResponse.json(paginatedResponse([], 0, { page, limit }));
+        }
     }
     return NextResponse.json(paginatedResponse(data, total, { page, limit }));
 });

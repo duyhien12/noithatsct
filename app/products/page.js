@@ -235,7 +235,7 @@ export default function ProductsPage() {
     };
     const deleteP = async (id) => { if (!confirm('Xóa sản phẩm?')) return; await fetch(`/api/products/${id}`, { method: 'DELETE' }); fetchProducts(); fetchCategories(); };
     const duplicateP = async (p) => {
-        const { id, code, createdAt, updatedAt, categoryRef, ...rest } = p;
+        const { id, code, createdAt, updatedAt, deletedAt, inventoryTx, quotationItems, materialPlans, purchaseItems, bomComponents, bomUsedIn, categoryRef, attributes, ...rest } = p;
         await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...rest, name: rest.name + ' (2)', stock: 0 }) });
         fetchProducts(); fetchCategories();
     };

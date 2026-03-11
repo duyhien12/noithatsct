@@ -306,6 +306,7 @@ model Employee {
   salary       Float    @default(0)
   status       String   @default("Đang làm")
   joinDate     DateTime?
+  birthDate    DateTime?
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id])
   projects     ProjectEmployee[]

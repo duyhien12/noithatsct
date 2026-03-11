@@ -4,6 +4,7 @@ import ProgressReportModal from './ProgressReportModal';
 import ProgressHistoryModal from './ProgressHistoryModal';
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+const toInputDate = (d) => d ? new Date(d).toISOString().slice(0, 10) : '';
 const STATUS_COLORS = {
     'Chưa bắt đầu': 'muted',
     'Sẵn sàng': 'info',
@@ -11,10 +12,42 @@ const STATUS_COLORS = {
     'Hoàn thành': 'success',
     'Quá hạn': 'danger',
 };
+const STATUSES = ['Chưa bắt đầu', 'Sẵn sàng', 'Đang thi công', 'Hoàn thành'];
 
 export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onDelete, onRefresh }) {
     const [reportModal, setReportModal] = useState(null); // task obj
     const [historyModal, setHistoryModal] = useState(null); // task obj
+    const [editModal, setEditModal] = useState(null); // task obj
+    const [editForm, setEditForm] = useState({});
+    const [saving, setSaving] = useState(false);
+
+    const openEdit = (task) => {
+        setEditForm({
+            progress: task.progress,
+            status: task.status || 'Chưa bắt đầu',
+            assignee: task.assignee || '',
+            startDate: toInputDate(task.startDate),
+            endDate: toInputDate(task.endDate),
+            notes: task.notes || '',
+        });
+        setEditModal(task);
+    };
+
+    const saveEdit = async () => {
+        if (!editModal) return;
+        setSaving(true);
+        const payload = {
+            progress: Number(editForm.progress),
+            status: editForm.status,
+            assignee: editForm.assignee || undefined,
+            notes: editForm.notes || undefined,
+        };
+        if (editForm.startDate) payload.startDate = editForm.startDate;
+        if (editForm.endDate) payload.endDate = editForm.endDate;
+        await onUpdate(editModal.id, payload);
+        setSaving(false);
+        setEditModal(null);
+    };
 
     const renderTask = (task, depth = 0) => {
         const isGroup = task.children && task.children.length > 0;
@@ -99,6 +132,11 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
                                 title="Cập nhật tiến độ"
                             >📤</button>
                         )}
+                        <button
+                            onClick={() => openEdit(task)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 13, padding: 2 }}
+                            title="Chỉnh sửa tiến độ"
+                        >✏️</button>
                         <button onClick={() => onDelete(task.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, padding: 2 }} title="Xóa">🗑️</button>
                     </div>
                 </div>
@@ -159,6 +197,98 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
                     onClose={() => setHistoryModal(null)}
                     onReject={() => { if (onRefresh) onRefresh(); }}
                 />
+            )}
+
+            {/* Edit Progress Modal */}
+            {editModal && (
+                <div className="modal-overlay" onClick={() => setEditModal(null)}>
+                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="modal-header">
+                            <h3>✏️ Chỉnh sửa tiến độ</h3>
+                            <button className="modal-close" onClick={() => setEditModal(null)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            {/* Task name */}
+                            <div style={{ padding: '10px 14px', background: 'var(--bg-card)', borderRadius: 8, marginBottom: 16, fontWeight: 700, fontSize: 14 }}>
+                                {editModal.wbs && <span style={{ color: 'var(--text-muted)', marginRight: 6, fontSize: 12 }}>{editModal.wbs}</span>}
+                                {editModal.name}
+                            </div>
+
+                            {/* Progress slider */}
+                            <div className="form-group">
+                                <label className="form-label">Tiến độ (%)</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={100}
+                                        value={editForm.progress}
+                                        onChange={e => {
+                                            const p = Number(e.target.value);
+                                            const status = p === 100 ? 'Hoàn thành' : p > 0 ? 'Đang thi công' : 'Chưa bắt đầu';
+                                            setEditForm(f => ({ ...f, progress: p, status }));
+                                        }}
+                                        style={{ flex: 1, accentColor: 'var(--accent-primary)' }}
+                                    />
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        max={100}
+                                        value={editForm.progress}
+                                        onChange={e => {
+                                            const p = Math.min(100, Math.max(0, Number(e.target.value)));
+                                            const status = p === 100 ? 'Hoàn thành' : p > 0 ? 'Đang thi công' : 'Chưa bắt đầu';
+                                            setEditForm(f => ({ ...f, progress: p, status }));
+                                        }}
+                                        style={{ width: 64, textAlign: 'center', fontWeight: 700, fontSize: 16 }}
+                                        className="form-input"
+                                    />
+                                </div>
+                                <div className="progress-bar" style={{ marginTop: 8 }}>
+                                    <div className="progress-fill" style={{ width: `${editForm.progress}%` }} />
+                                </div>
+                            </div>
+
+                            {/* Status */}
+                            <div className="form-group">
+                                <label className="form-label">Trạng thái</label>
+                                <select className="form-select" value={editForm.status} onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}>
+                                    {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </div>
+
+                            {/* Assignee */}
+                            <div className="form-group">
+                                <label className="form-label">Người phụ trách</label>
+                                <input className="form-input" value={editForm.assignee} onChange={e => setEditForm(f => ({ ...f, assignee: e.target.value }))} placeholder="Tên người phụ trách" />
+                            </div>
+
+                            {/* Dates */}
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Ngày bắt đầu</label>
+                                    <input type="date" className="form-input" value={editForm.startDate} onChange={e => setEditForm(f => ({ ...f, startDate: e.target.value }))} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Ngày kết thúc</label>
+                                    <input type="date" className="form-input" value={editForm.endDate} onChange={e => setEditForm(f => ({ ...f, endDate: e.target.value }))} />
+                                </div>
+                            </div>
+
+                            {/* Notes */}
+                            <div className="form-group">
+                                <label className="form-label">Ghi chú</label>
+                                <textarea className="form-input" rows={2} value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} placeholder="Ghi chú thêm..." />
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setEditModal(null)}>Hủy</button>
+                            <button className="btn btn-primary" onClick={saveEdit} disabled={saving}>
+                                {saving ? 'Đang lưu...' : '💾 Lưu thay đổi'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </>
     );

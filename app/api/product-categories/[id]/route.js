@@ -13,9 +13,8 @@ export const PUT = withAuth(async (request, { params }) => {
 
 export const DELETE = withAuth(async (request, { params }) => {
     const { id } = await params;
-    // Move children to parent (or root) before deleting
     const cat = await prisma.productCategory.findUnique({ where: { id } });
-    if (!cat) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (!cat) return NextResponse.json({ success: true }); // Already deleted
 
     await prisma.$transaction([
         // Reparent children
@@ -28,8 +27,8 @@ export const DELETE = withAuth(async (request, { params }) => {
             where: { categoryId: id },
             data: { categoryId: cat.parentId },
         }),
-        // Delete category
-        prisma.productCategory.delete({ where: { id } }),
+        // Delete category (deleteMany avoids P2025 on race condition)
+        prisma.productCategory.deleteMany({ where: { id } }),
     ]);
     return NextResponse.json({ success: true });
 });

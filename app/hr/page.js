@@ -7,7 +7,20 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const STATUS_OPTS = ['Đang làm', 'Nghỉ phép', 'Nghỉ việc'];
 const STATUS_COLOR = { 'Đang làm': 'badge-success', 'Nghỉ phép': 'badge-warning', 'Nghỉ việc': 'badge-default' };
 
-const EMPTY_FORM = { name: '', position: '', phone: '', email: '', salary: '', departmentId: '', status: 'Đang làm', joinDate: '' };
+const EMPTY_FORM = { name: '', position: '', phone: '', email: '', salary: '', departmentId: '', status: 'Đang làm', joinDate: '', birthDate: '' };
+
+const fmtBirthday = (d) => {
+    if (!d) return '—';
+    const date = new Date(d);
+    const today = new Date();
+    const day = date.getDate();
+    const month = date.getMonth() + 1;
+    const thisYear = new Date(today.getFullYear(), date.getMonth(), date.getDate());
+    const daysUntil = Math.ceil((thisYear - today) / 86400000);
+    const isSoon = daysUntil >= 0 && daysUntil <= 7;
+    const isToday = daysUntil === 0;
+    return { text: `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`, isToday, isSoon };
+};
 
 export default function HRPage() {
     const [data, setData] = useState({ employees: [], departments: [] });
@@ -42,14 +55,17 @@ export default function HRPage() {
         setForm({
             name: e.name, position: e.position, phone: e.phone,
             email: e.email, salary: e.salary, departmentId: e.departmentId,
-            status: e.status, joinDate: e.joinDate ? e.joinDate.split('T')[0] : '',
+            status: e.status,
+            joinDate: e.joinDate ? e.joinDate.split('T')[0] : '',
+            birthDate: e.birthDate ? e.birthDate.split('T')[0] : '',
         });
         setShowModal(true);
     };
 
     const handleSubmit = async () => {
         const joinDate = form.joinDate ? new Date(form.joinDate).toISOString() : null;
-        const payload = { ...form, salary: Number(form.salary) || 0, joinDate };
+        const birthDate = form.birthDate ? new Date(form.birthDate).toISOString() : null;
+        const payload = { ...form, salary: Number(form.salary) || 0, joinDate, birthDate };
         if (editTarget) {
             await fetch(`/api/employees/${editTarget.id}`, {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -65,9 +81,9 @@ export default function HRPage() {
         fetchData();
     };
 
-    const handleDelete = async (id) => {
-        if (!confirm('Xóa nhân viên này?')) return;
-        await fetch(`/api/employees/${id}`, { method: 'DELETE' });
+    const handleDelete = async (emp) => {
+        if (!confirm(`Xóa nhân viên "${emp.name}"?\nHành động này không thể hoàn tác.`)) return;
+        await fetch(`/api/employees/${emp.id}`, { method: 'DELETE' });
         fetchData();
     };
 
@@ -169,30 +185,42 @@ export default function HRPage() {
                             <thead>
                                 <tr>
                                     <th>Mã</th><th>Họ tên</th><th>Chức vụ</th><th>Phòng ban</th>
-                                    <th>SĐT</th><th>Lương</th><th>Ngày vào</th><th>TT</th><th></th>
+                                    <th>SĐT</th><th>Lương</th><th>Ngày vào</th><th>Sinh nhật</th><th>TT</th><th></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filtered.map(e => (
-                                    <tr key={e.id}>
-                                        <td className="accent">{e.code}</td>
-                                        <td className="primary" style={{ cursor: 'pointer' }} onClick={() => openEdit(e)}>{e.name}</td>
-                                        <td style={{ fontSize: 13 }}>{e.position}</td>
-                                        <td><span className="badge badge-info">{e.department?.name}</span></td>
-                                        <td style={{ fontSize: 13 }}>{e.phone}</td>
-                                        <td style={{ fontWeight: 600 }}>{fmt(e.salary)}</td>
-                                        <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmtDate(e.joinDate)}</td>
-                                        <td>
-                                            <span className={`badge ${STATUS_COLOR[e.status] || 'badge-default'}`}>{e.status}</span>
-                                        </td>
-                                        <td>
-                                            <div style={{ display: 'flex', gap: 4 }}>
-                                                <button className="btn btn-ghost btn-sm" onClick={() => openEdit(e)}>✏️</button>
-                                                <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(e.id)}>🗑️</button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {filtered.map(e => {
+                                    const bd = fmtBirthday(e.birthDate);
+                                    return (
+                                        <tr key={e.id}>
+                                            <td className="accent">{e.code}</td>
+                                            <td className="primary" style={{ cursor: 'pointer' }} onClick={() => openEdit(e)}>{e.name}</td>
+                                            <td style={{ fontSize: 13 }}>{e.position}</td>
+                                            <td><span className="badge badge-info">{e.department?.name}</span></td>
+                                            <td style={{ fontSize: 13 }}>{e.phone}</td>
+                                            <td style={{ fontWeight: 600 }}>{fmt(e.salary)}</td>
+                                            <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmtDate(e.joinDate)}</td>
+                                            <td style={{ fontSize: 13 }}>
+                                                {e.birthDate ? (
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                        {bd.isToday && <span title="Hôm nay là sinh nhật!">🎂</span>}
+                                                        {!bd.isToday && bd.isSoon && <span title="Sinh nhật trong 7 ngày tới">🎁</span>}
+                                                        <span style={{ color: bd.isToday ? 'var(--status-success)' : bd.isSoon ? 'var(--status-warning)' : 'var(--text-muted)', fontWeight: bd.isToday || bd.isSoon ? 700 : 400 }}>{bd.text}</span>
+                                                    </span>
+                                                ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                                            </td>
+                                            <td>
+                                                <span className={`badge ${STATUS_COLOR[e.status] || 'badge-default'}`}>{e.status}</span>
+                                            </td>
+                                            <td>
+                                                <div style={{ display: 'flex', gap: 4 }}>
+                                                    <button className="btn btn-ghost btn-sm" onClick={() => openEdit(e)} title="Chỉnh sửa">✏️</button>
+                                                    <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(e)} title="Xóa nhân viên" style={{ color: 'var(--status-danger)' }}>🗑️</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                             {filtered.length > 0 && (
                                 <tfoot>
@@ -203,7 +231,7 @@ export default function HRPage() {
                                         <td style={{ fontWeight: 700, padding: '8px 16px' }}>
                                             {fmt(filtered.filter(e => e.status === 'Đang làm').reduce((s, e) => s + (e.salary || 0), 0))}
                                         </td>
-                                        <td colSpan={3} />
+                                        <td colSpan={4} />
                                     </tr>
                                 </tfoot>
                             )}
@@ -260,6 +288,10 @@ export default function HRPage() {
                                     <label className="form-label">Ngày vào làm</label>
                                     <input className="form-input" type="date" value={form.joinDate} onChange={e => setForm({ ...form, joinDate: e.target.value })} />
                                 </div>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Ngày sinh</label>
+                                <input className="form-input" type="date" value={form.birthDate} onChange={e => setForm({ ...form, birthDate: e.target.value })} />
                             </div>
                             {editTarget && (
                                 <div className="form-group">

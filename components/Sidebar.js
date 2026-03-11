@@ -60,16 +60,16 @@ export default function Sidebar({ isOpen, onClose }) {
     return (
         <aside className={`sidebar ${isOpen ? 'open' : ''}`} role="navigation" aria-label="Menu chính">
             <div className="sidebar-brand">
-                <div className="brand-icon">H</div>
+                <div className="brand-icon">K</div>
                 <div className="brand-text">
-                    <span className="brand-name">HomeERP</span>
+                    <span className="brand-name">HomeSCT</span>
                     <span className="brand-sub">Nội thất & Xây dựng</span>
                 </div>
                 <button
                     className="mobile-menu-btn"
                     onClick={onClose}
                     aria-label="Đóng menu"
-                    style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.7)' }}
+                    style={{ marginLeft: 'auto', color: 'rgba(92,56,0,0.6)' }}
                 >
                     <X size={20} />
                 </button>
@@ -106,13 +106,13 @@ export default function Sidebar({ isOpen, onClose }) {
                 })}
             </nav>
 
-            <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 'auto' }}>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(0,0,0,0.10)', marginTop: 'auto' }}>
+                <div style={{ fontSize: 10, color: 'rgba(92,56,0,0.55)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                     <Shield size={12} /> Vai trò
                 </div>
                 <div style={{
                     padding: '8px 10px', borderRadius: 8,
-                    background: 'rgba(255,255,255,0.06)',
+                    background: 'rgba(0,0,0,0.06)',
                     color: roleInfo.color, fontWeight: 600, fontSize: 12,
                 }}>
                     {roleInfo.icon} {roleInfo.label}

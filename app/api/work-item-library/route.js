@@ -12,15 +12,20 @@ export const GET = withAuth(async (request) => {
     const where = {};
     if (category) where.category = category;
 
-    const [data, total] = await Promise.all([
-        prisma.workItemLibrary.findMany({
-            where,
-            skip,
-            take: limit,
-            orderBy: [{ category: 'asc' }, { subcategory: 'asc' }, { name: 'asc' }],
-        }),
-        prisma.workItemLibrary.count({ where }),
-    ]);
+    let data, total;
+    try {
+        [data, total] = await Promise.all([
+            prisma.workItemLibrary.findMany({
+                where,
+                skip,
+                take: limit,
+                orderBy: [{ category: 'asc' }, { subcategory: 'asc' }, { name: 'asc' }],
+            }),
+            prisma.workItemLibrary.count({ where }),
+        ]);
+    } catch {
+        return NextResponse.json(paginatedResponse([], 0, { page, limit }));
+    }
     return NextResponse.json(paginatedResponse(data, total, { page, limit }));
 });
 
