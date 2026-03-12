@@ -7,6 +7,7 @@ export const ROLES = [
     { key: 'pho_gd', label: 'Phó Giám đốc', icon: '🏅', color: '#e67e22' },
     { key: 'ke_toan', label: 'Kế toán', icon: '📊', color: '#2980b9' },
     { key: 'ky_thuat', label: 'Kỹ thuật', icon: '🔧', color: '#27ae60' },
+    { key: 'kinh_doanh', label: 'Kinh doanh', icon: '💼', color: '#8e44ad' },
 ];
 
 const PERMISSIONS = {
@@ -42,6 +43,14 @@ const PERMISSIONS = {
         canManageContractors: false, canManageSuppliers: false,
         filterProject: null,
     },
+    kinh_doanh: {
+        canApprove: false, canReject: false, canCreateExpense: false,
+        canPayExpense: false, canCompleteExpense: false, canDeleteExpense: false,
+        canCollectPayment: false, canPrintReceipt: false, canViewFinance: false,
+        canViewProjects: true, canViewAll: false,
+        canManageContractors: false, canManageSuppliers: false,
+        filterProject: null,
+    },
 };
 
 const RoleContext = createContext(null);
@@ -51,9 +60,10 @@ export function RoleProvider({ children }) {
     const role = session?.user?.role || 'ky_thuat';
     const permissions = PERMISSIONS[role] || PERMISSIONS.ky_thuat;
     const roleInfo = ROLES.find(r => r.key === role) || ROLES[3];
+    const isKinhDoanh = role === 'kinh_doanh';
 
     return (
-        <RoleContext.Provider value={{ role, roleInfo, permissions }}>
+        <RoleContext.Provider value={{ role, roleInfo, permissions, isKinhDoanh }}>
             {children}
         </RoleContext.Provider>
     );

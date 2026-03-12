@@ -12,24 +12,30 @@ import { useRole, ROLES } from '@/contexts/RoleContext';
 
 const menuItems = [
     {
-        section: 'Tổng quan', items: [
+        section: 'Tổng quan',
+        sectionRoles: ['giam_doc', 'pho_gd', 'ke_toan', 'ky_thuat'], // hidden for kinh_doanh
+        items: [
             { href: '/', icon: LayoutDashboard, label: 'Dashboard' },
             { href: '/pipeline', icon: GitBranch, label: 'Pipeline' },
         ]
     },
     {
-        section: 'Quản lý', items: [
-            { href: '/customers', icon: Users, label: 'Khách hàng', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
+        section: 'Quản lý',
+        // visible to ALL roles including kinh_doanh
+        items: [
+            { href: '/customers', icon: Users, label: 'Khách hàng', roles: ['giam_doc', 'pho_gd', 'ke_toan', 'kinh_doanh'] },
             { href: '/projects', icon: Building2, label: 'Dự án' },
-            { href: '/contracts', icon: FileText, label: 'Hợp đồng', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
+            { href: '/contracts', icon: FileText, label: 'Hợp đồng', roles: ['giam_doc', 'pho_gd', 'ke_toan', 'kinh_doanh'] },
             { href: '/products', icon: Package, label: 'Sản phẩm & Vật tư' },
-            { href: '/quotations', icon: ClipboardList, label: 'Báo giá', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
+            { href: '/quotations', icon: ClipboardList, label: 'Báo giá', roles: ['giam_doc', 'pho_gd', 'ke_toan', 'kinh_doanh'] },
             { href: '/work-orders', icon: Wrench, label: 'Phiếu công việc' },
             { href: '/schedule-templates', icon: CalendarDays, label: 'Mẫu tiến độ', roles: ['giam_doc', 'pho_gd'] },
         ]
     },
     {
-        section: 'Vận hành', items: [
+        section: 'Vận hành',
+        sectionRoles: ['giam_doc', 'pho_gd', 'ke_toan', 'ky_thuat'], // hidden for kinh_doanh
+        items: [
             { href: '/payments', icon: CreditCard, label: 'Thu tiền', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
             { href: '/expenses', icon: Receipt, label: 'Chi phí', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
             { href: '/purchasing', icon: ShoppingCart, label: 'Mua sắm VT', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
@@ -40,7 +46,9 @@ const menuItems = [
         ]
     },
     {
-        section: 'Phân tích', items: [
+        section: 'Phân tích',
+        sectionRoles: ['giam_doc', 'pho_gd', 'ke_toan', 'ky_thuat'], // hidden for kinh_doanh
+        items: [
             { href: '/reports', icon: BarChart3, label: 'Báo cáo', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
         ]
     },
@@ -60,22 +68,32 @@ export default function Sidebar({ isOpen, onClose }) {
     return (
         <aside className={`sidebar ${isOpen ? 'open' : ''}`} role="navigation" aria-label="Menu chính">
             <div className="sidebar-brand">
-                <div className="brand-icon">K</div>
+                <div className="brand-icon">
+                    <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
+                        <path d="M12 8 L12 40" stroke="white" strokeWidth="7" strokeLinecap="round"/>
+                        <path d="M12 24 L34 8" stroke="white" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M12 24 L34 40" stroke="white" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M20 16 L28 24" stroke="#F47920" strokeWidth="3.5" strokeLinecap="round"/>
+                        <path d="M20 32 L28 24" stroke="#F47920" strokeWidth="3.5" strokeLinecap="round"/>
+                    </svg>
+                </div>
                 <div className="brand-text">
-                    <span className="brand-name">HomeSCT</span>
-                    <span className="brand-sub">Nội thất & Xây dựng</span>
+                    <span className="brand-name">Kiến Trúc Đô Thị SCT</span>
+                    <span className="brand-sub">Cùng bạn xây dựng ước mơ</span>
                 </div>
                 <button
                     className="mobile-menu-btn"
                     onClick={onClose}
                     aria-label="Đóng menu"
-                    style={{ marginLeft: 'auto', color: 'rgba(92,56,0,0.6)' }}
+                    style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.7)' }}
                 >
                     <X size={20} />
                 </button>
             </div>
             <nav className="sidebar-nav">
                 {menuItems.map((section) => {
+                    // Check section-level role restriction
+                    if (section.sectionRoles && !section.sectionRoles.includes(role)) return null;
                     const visibleItems = section.items.filter(item => !item.roles || item.roles.includes(role));
                     if (visibleItems.length === 0) return null;
                     return (
@@ -106,14 +124,14 @@ export default function Sidebar({ isOpen, onClose }) {
                 })}
             </nav>
 
-            <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(0,0,0,0.10)', marginTop: 'auto' }}>
-                <div style={{ fontSize: 10, color: 'rgba(92,56,0,0.55)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ padding: '12px 14px', borderTop: '1px solid rgba(255,255,255,0.15)', marginTop: 'auto' }}>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                     <Shield size={12} /> Vai trò
                 </div>
                 <div style={{
                     padding: '8px 10px', borderRadius: 8,
-                    background: 'rgba(0,0,0,0.06)',
-                    color: roleInfo.color, fontWeight: 600, fontSize: 12,
+                    background: 'rgba(255,255,255,0.15)',
+                    color: '#FFFFFF', fontWeight: 600, fontSize: 12,
                 }}>
                     {roleInfo.icon} {roleInfo.label}
                 </div>

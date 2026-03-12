@@ -15,7 +15,7 @@ export const GET = withAuth(async (request) => {
     if (departmentId) where.departmentId = departmentId;
     if (search) where.name = { contains: search, mode: 'insensitive' };
 
-    const [data, total, departments] = await Promise.all([
+    const [data, total, rawDepts, empCounts] = await Promise.all([
         prisma.employee.findMany({
             where,
             include: { department: { select: { name: true } } },
@@ -24,11 +24,16 @@ export const GET = withAuth(async (request) => {
             orderBy: { createdAt: 'desc' },
         }),
         prisma.employee.count({ where }),
-        prisma.department.findMany({
-            include: { _count: { select: { employees: true } } },
-            orderBy: { name: 'asc' },
+        prisma.department.findMany({ orderBy: { name: 'asc' } }),
+        // Count only active (non-deleted) employees per department
+        prisma.employee.groupBy({
+            by: ['departmentId'],
+            where: { deletedAt: null },
+            _count: { id: true },
         }),
     ]);
+    const countMap = Object.fromEntries(empCounts.map(e => [e.departmentId, e._count.id]));
+    const departments = rawDepts.map(d => ({ ...d, _count: { employees: countMap[d.id] || 0 } }));
     return NextResponse.json({
         ...paginatedResponse(data, total, { page, limit }),
         departments,

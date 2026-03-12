@@ -31,6 +31,7 @@ export default function HRPage() {
     const [showModal, setShowModal] = useState(false);
     const [editTarget, setEditTarget] = useState(null); // employee object being edited
     const [form, setForm] = useState(EMPTY_FORM);
+    const [deleteTarget, setDeleteTarget] = useState(null); // employee to confirm delete
 
     const fetchData = async () => {
         setLoading(true);
@@ -81,9 +82,10 @@ export default function HRPage() {
         fetchData();
     };
 
-    const handleDelete = async (emp) => {
-        if (!confirm(`Xóa nhân viên "${emp.name}"?\nHành động này không thể hoàn tác.`)) return;
-        await fetch(`/api/employees/${emp.id}`, { method: 'DELETE' });
+    const handleDelete = async () => {
+        if (!deleteTarget) return;
+        await fetch(`/api/employees/${deleteTarget.id}`, { method: 'DELETE' });
+        setDeleteTarget(null);
         fetchData();
     };
 
@@ -179,65 +181,113 @@ export default function HRPage() {
                 </div>
                 {loading ? (
                     <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
-                ) : (
-                    <div className="table-container">
-                        <table className="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Mã</th><th>Họ tên</th><th>Chức vụ</th><th>Phòng ban</th>
-                                    <th>SĐT</th><th>Lương</th><th>Ngày vào</th><th>Sinh nhật</th><th>TT</th><th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filtered.map(e => {
-                                    const bd = fmtBirthday(e.birthDate);
-                                    return (
-                                        <tr key={e.id}>
-                                            <td className="accent">{e.code}</td>
-                                            <td className="primary" style={{ cursor: 'pointer' }} onClick={() => openEdit(e)}>{e.name}</td>
-                                            <td style={{ fontSize: 13 }}>{e.position}</td>
-                                            <td><span className="badge badge-info">{e.department?.name}</span></td>
-                                            <td style={{ fontSize: 13 }}>{e.phone}</td>
-                                            <td style={{ fontWeight: 600 }}>{fmt(e.salary)}</td>
-                                            <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmtDate(e.joinDate)}</td>
-                                            <td style={{ fontSize: 13 }}>
-                                                {e.birthDate ? (
-                                                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                        {bd.isToday && <span title="Hôm nay là sinh nhật!">🎂</span>}
-                                                        {!bd.isToday && bd.isSoon && <span title="Sinh nhật trong 7 ngày tới">🎁</span>}
-                                                        <span style={{ color: bd.isToday ? 'var(--status-success)' : bd.isSoon ? 'var(--status-warning)' : 'var(--text-muted)', fontWeight: bd.isToday || bd.isSoon ? 700 : 400 }}>{bd.text}</span>
-                                                    </span>
-                                                ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
-                                            </td>
-                                            <td>
-                                                <span className={`badge ${STATUS_COLOR[e.status] || 'badge-default'}`}>{e.status}</span>
-                                            </td>
-                                            <td>
-                                                <div style={{ display: 'flex', gap: 4 }}>
-                                                    <button className="btn btn-ghost btn-sm" onClick={() => openEdit(e)} title="Chỉnh sửa">✏️</button>
-                                                    <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(e)} title="Xóa nhân viên" style={{ color: 'var(--status-danger)' }}>🗑️</button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                            {filtered.length > 0 && (
-                                <tfoot>
+                ) : (<>
+                    {/* Desktop table */}
+                    <div className="desktop-table-view">
+                        <div className="table-container">
+                            <table className="data-table">
+                                <thead>
                                     <tr>
-                                        <td colSpan={5} style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 16px' }}>
-                                            {filtered.length} nhân viên
-                                        </td>
-                                        <td style={{ fontWeight: 700, padding: '8px 16px' }}>
-                                            {fmt(filtered.filter(e => e.status === 'Đang làm').reduce((s, e) => s + (e.salary || 0), 0))}
-                                        </td>
-                                        <td colSpan={4} />
+                                        <th>Mã</th><th>Họ tên</th><th>Chức vụ</th><th>Phòng ban</th>
+                                        <th>SĐT</th><th>Lương</th><th>Ngày vào</th><th>Sinh nhật</th><th>TT</th><th></th>
                                     </tr>
-                                </tfoot>
-                            )}
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {filtered.map(e => {
+                                        const bd = fmtBirthday(e.birthDate);
+                                        return (
+                                            <tr key={e.id}>
+                                                <td className="accent">{e.code}</td>
+                                                <td className="primary" style={{ cursor: 'pointer' }} onClick={() => openEdit(e)}>{e.name}</td>
+                                                <td style={{ fontSize: 13 }}>{e.position}</td>
+                                                <td><span className="badge badge-info">{e.department?.name}</span></td>
+                                                <td style={{ fontSize: 13 }}>{e.phone}</td>
+                                                <td style={{ fontWeight: 600 }}>{fmt(e.salary)}</td>
+                                                <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmtDate(e.joinDate)}</td>
+                                                <td style={{ fontSize: 13 }}>
+                                                    {e.birthDate ? (
+                                                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                            {bd.isToday && <span title="Hôm nay là sinh nhật!">🎂</span>}
+                                                            {!bd.isToday && bd.isSoon && <span title="Sinh nhật trong 7 ngày tới">🎁</span>}
+                                                            <span style={{ color: bd.isToday ? 'var(--status-success)' : bd.isSoon ? 'var(--status-warning)' : 'var(--text-muted)', fontWeight: bd.isToday || bd.isSoon ? 700 : 400 }}>{bd.text}</span>
+                                                        </span>
+                                                    ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                                                </td>
+                                                <td>
+                                                    <span className={`badge ${STATUS_COLOR[e.status] || 'badge-default'}`}>{e.status}</span>
+                                                </td>
+                                                <td>
+                                                    <div style={{ display: 'flex', gap: 4 }}>
+                                                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(e)} title="Chỉnh sửa">✏️</button>
+                                                        <button className="btn btn-ghost btn-sm" onClick={() => setDeleteTarget(e)} title="Xóa nhân viên" style={{ color: 'var(--status-danger)' }}>🗑️</button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                                {filtered.length > 0 && (
+                                    <tfoot>
+                                        <tr>
+                                            <td colSpan={5} style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 16px' }}>
+                                                {filtered.length} nhân viên
+                                            </td>
+                                            <td style={{ fontWeight: 700, padding: '8px 16px' }}>
+                                                {fmt(filtered.filter(e => e.status === 'Đang làm').reduce((s, e) => s + (e.salary || 0), 0))}
+                                            </td>
+                                            <td colSpan={4} />
+                                        </tr>
+                                    </tfoot>
+                                )}
+                            </table>
+                        </div>
                     </div>
-                )}
+
+                    {/* Mobile card list */}
+                    <div className="mobile-card-list">
+                        {filtered.map(e => {
+                            const bd = fmtBirthday(e.birthDate);
+                            return (
+                                <div key={e.id} className="mobile-card-item" onClick={() => openEdit(e)}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                                        <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                                            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{e.code} · {e.position || '—'}</div>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                                            <span className={`badge ${STATUS_COLOR[e.status] || 'badge-default'}`}>{e.status}</span>
+                                            <span className="badge badge-info" style={{ fontSize: 10 }}>{e.department?.name}</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                                        <div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Lương</div>
+                                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-primary)' }}>{fmt(e.salary)}</div>
+                                        </div>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>SĐT</div>
+                                            <div style={{ fontSize: 13, fontWeight: 600 }}>{e.phone || '—'}</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                            Vào: {fmtDate(e.joinDate)}
+                                            {e.birthDate && (
+                                                <span style={{ marginLeft: 8 }}>
+                                                    {bd.isToday ? '🎂' : bd.isSoon ? '🎁' : ''} SN: <span style={{ color: bd.isToday ? 'var(--status-success)' : bd.isSoon ? 'var(--status-warning)' : 'inherit' }}>{bd.text}</span>
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 4 }} onClick={ev => ev.stopPropagation()}>
+                                            <button className="btn btn-ghost btn-sm" onClick={() => openEdit(e)}>✏️</button>
+                                            <button className="btn btn-ghost btn-sm" onClick={() => setDeleteTarget(e)} style={{ color: 'var(--status-danger)' }}>🗑️</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </>)}
                 {!loading && filtered.length === 0 && (
                     <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Không có nhân viên</div>
                 )}
@@ -307,6 +357,27 @@ export default function HRPage() {
                             <button className="btn btn-primary" onClick={handleSubmit} disabled={!form.name.trim()}>
                                 {editTarget ? 'Cập nhật' : 'Thêm mới'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Delete confirmation modal */}
+            {deleteTarget && (
+                <div className="modal-overlay" onClick={() => setDeleteTarget(null)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+                        <div className="modal-header">
+                            <h3>Xác nhận xóa</h3>
+                            <button className="modal-close" onClick={() => setDeleteTarget(null)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <p style={{ fontSize: 14, color: 'var(--text-primary)', marginBottom: 8 }}>
+                                Bạn có chắc chắn muốn xóa nhân viên <strong>{deleteTarget.name}</strong>?
+                            </p>
+                            <p style={{ fontSize: 12, color: 'var(--status-danger)' }}>Hành động này không thể hoàn tác.</p>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setDeleteTarget(null)}>Hủy</button>
+                            <button className="btn btn-danger" onClick={handleDelete}>Xóa</button>
                         </div>
                     </div>
                 </div>
