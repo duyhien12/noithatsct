@@ -3726,6 +3726,52 @@ select.form-input-compact {
   border-radius: 50%;
 }
 
+/* Contract detail page */
+.contract-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.contract-detail-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+}
+
+.contract-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 16px;
+}
+
+.contract-mobile-summary {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .contract-detail-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .contract-form-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0 10px;
+  }
+
+  .contract-mobile-summary {
+    display: block;
+    margin-bottom: 14px;
+  }
+
+  /* Hide right sidebar on mobile (summary shown in strip) */
+  .contract-detail-layout > div:last-child {
+    display: none;
+  }
+}
+
 /* Contract type summary grid */
 .contract-type-grid {
   display: grid;
