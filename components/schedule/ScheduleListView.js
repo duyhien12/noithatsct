@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ProgressReportModal from './ProgressReportModal';
 import ProgressHistoryModal from './ProgressHistoryModal';
 
@@ -22,6 +22,19 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
     const [editForm, setEditForm] = useState({});
     const [saving, setSaving] = useState(false);
     const [collapsed, setCollapsed] = useState({}); // groupId -> bool
+    const [users, setUsers] = useState([]);
+    const [filterDept, setFilterDept] = useState('');
+    const [now, setNow] = useState(() => new Date());
+
+    useEffect(() => {
+        fetch('/api/users').then(r => r.ok ? r.json() : []).then(data => setUsers(Array.isArray(data) ? data : [])).catch(() => {});
+    }, []);
+
+    // Update "now" every minute so overdue status recalculates automatically
+    useEffect(() => {
+        const timer = setInterval(() => setNow(new Date()), 60000);
+        return () => clearInterval(timer);
+    }, []);
 
     const openEdit = (task) => {
         setEditForm({
@@ -57,7 +70,7 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
     const renderTaskDesktop = (task, depth = 0) => {
         const isGroup = task.children && task.children.length > 0;
         const isCollapsed = collapsed[task.id];
-        const isOverdue = task.status !== 'Hoàn thành' && new Date(task.endDate) < new Date();
+        const isOverdue = task.status !== 'Hoàn thành' && new Date(task.endDate) < now;
         const actualStatus = isOverdue ? 'Quá hạn' : task.status;
         const hasBaseline = task.baselineStart && task.baselineEnd;
         const delayDays = hasBaseline ? Math.ceil((new Date(task.endDate) - new Date(task.baselineEnd)) / 86400000) : 0;
@@ -121,7 +134,7 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
     const renderTaskMobile = (task, depth = 0) => {
         const isGroup = task.children && task.children.length > 0;
         const isCollapsed = collapsed[task.id];
-        const isOverdue = task.status !== 'Hoàn thành' && new Date(task.endDate) < new Date();
+        const isOverdue = task.status !== 'Hoàn thành' && new Date(task.endDate) < now;
         const actualStatus = isOverdue ? 'Quá hạn' : task.status;
         const progressColor = task.progress === 100 ? 'var(--status-success)' : task.progress > 0 ? 'var(--accent-primary)' : 'var(--border)';
 

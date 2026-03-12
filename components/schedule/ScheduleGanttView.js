@@ -30,7 +30,7 @@ function diffDays(a, b) {
     return Math.round((new Date(b) - new Date(a)) / DAY_MS);
 }
 
-export default function ScheduleGanttView({ tasks, flat, onUpdate }) {
+export default function ScheduleGanttView({ tasks, flat, onUpdate, projectId }) {
     const containerRef = useRef(null);
     const [isMobile, setIsMobile] = useState(false);
     const [zoom, setZoom] = useState('week'); // day | week | month
@@ -196,13 +196,25 @@ export default function ScheduleGanttView({ tasks, flat, onUpdate }) {
     return (
         <div className="card" style={{ overflow: 'hidden' }}>
             {/* Zoom controls */}
-            <div style={{ display: 'flex', gap: 4, padding: '8px 16px', borderBottom: '1px solid var(--border-light)', background: 'var(--bg-elevated)' }}>
+            <div style={{ display: 'flex', gap: 4, padding: '8px 16px', borderBottom: '1px solid var(--border-light)', background: 'var(--bg-elevated)', alignItems: 'center', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 8, lineHeight: '28px' }}>Zoom:</span>
                 {[{ key: 'day', label: 'Ngày' }, { key: 'week', label: 'Tuần' }, { key: 'month', label: 'Tháng' }].map(z => (
                     <button key={z.key} className={`btn ${zoom === z.key ? 'btn-primary' : 'btn-ghost'} btn-sm`}
                         style={{ padding: '4px 12px', fontSize: 11 }}
                         onClick={() => setZoom(z.key)}>{z.label}</button>
                 ))}
+                {projectId && (
+                    <a
+                        href={`/projects/${projectId}/gantt-pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-ghost btn-sm"
+                        style={{ marginLeft: 'auto', fontSize: 11, padding: '4px 12px', display: 'flex', alignItems: 'center', gap: 4 }}
+                        title="Xuất PDF sơ đồ Gantt"
+                    >
+                        📄 Xuất PDF
+                    </a>
+                )}
             </div>
 
             <div style={{ display: 'flex', position: 'relative' }}>

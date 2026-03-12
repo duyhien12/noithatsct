@@ -13,6 +13,12 @@ export default function ScheduleManager({ projectId, projectCode, projectStartDa
     const [error, setError] = useState(null);
     const [view, setView] = useState('list'); // list | gantt
     const [modal, setModal] = useState(null);
+    const [users, setUsers] = useState([]);
+    const [addFilterDept, setAddFilterDept] = useState('');
+
+    useEffect(() => {
+        fetch('/api/users').then(r => r.ok ? r.json() : []).then(d => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
+    }, []);
     const [alerts, setAlerts] = useState([]);
     const [addForm, setAddForm] = useState({ name: '', startDate: '', endDate: '', parentId: '', weight: 1, assignee: '' });
     const onProgressRef = useRef(onProgressUpdate);
@@ -43,6 +49,12 @@ export default function ScheduleManager({ projectId, projectCode, projectStartDa
     }, [projectId]);
 
     useEffect(() => { fetchTasks(); }, [fetchTasks]);
+
+    // Auto-refresh every 30 seconds
+    useEffect(() => {
+        const timer = setInterval(() => { fetchTasks(); }, 30000);
+        return () => clearInterval(timer);
+    }, [fetchTasks]);
 
     const addTask = async () => {
         if (!addForm.name.trim() || !addForm.startDate || !addForm.endDate) return;
@@ -161,6 +173,9 @@ export default function ScheduleManager({ projectId, projectCode, projectStartDa
                         <button className="btn btn-ghost btn-sm" onClick={saveBaseline} title="Chốt Tiến độ">
                             <span>📌</span><span className="schedule-btn-label"> Chốt</span>
                         </button>
+                        <a href={`/projects/${projectId}/gantt-pdf`} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" title="Xuất PDF sơ đồ Gantt">
+                            <span>📄</span><span className="schedule-btn-label"> Xuất PDF</span>
+                        </a>
                         <button className="btn btn-primary btn-sm" onClick={() => setModal('add')}>
                             + <span className="schedule-btn-label">Thêm hạng mục</span>
                         </button>
@@ -192,6 +207,7 @@ export default function ScheduleManager({ projectId, projectCode, projectStartDa
                     tasks={tasks}
                     flat={flat}
                     onUpdate={updateTask}
+                    projectId={projectId}
                 />
             )}
 
@@ -220,7 +236,9 @@ export default function ScheduleManager({ projectId, projectCode, projectStartDa
                             </div>
                             <div className="form-row">
                                 <div className="form-group"><label className="form-label">Trọng số</label><input type="number" className="form-input" min="0" step="0.1" value={addForm.weight} onChange={e => setAddForm({ ...addForm, weight: e.target.value })} /></div>
-                                <div className="form-group"><label className="form-label">Người phụ trách</label><input className="form-input" value={addForm.assignee} onChange={e => setAddForm({ ...addForm, assignee: e.target.value })} /></div>
+                                <div className="form-group"><label className="form-label">Người phụ trách</label>
+                                    <input className="form-input" value={addForm.assignee} onChange={e => setAddForm({ ...addForm, assignee: e.target.value })} placeholder="Tên người phụ trách" />
+                                </div>
                             </div>
                             <div className="form-group"><label className="form-label">Thuộc giai đoạn</label>
                                 <select className="form-select" value={addForm.parentId} onChange={e => setAddForm({ ...addForm, parentId: e.target.value })}>

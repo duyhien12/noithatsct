@@ -15,8 +15,8 @@ export default function AppShell({ children }) {
     const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
     // Login page and public pages: no shell
-    const noShellPaths = ['/login'];
-    const isNoShell = noShellPaths.some(p => pathname.startsWith(p));
+    const noShellPaths = ['/login', '/gantt-pdf', '/schedule-pdf'];
+    const isNoShell = noShellPaths.some(p => pathname.includes(p));
 
     if (isNoShell || status === 'unauthenticated') {
         return children;
