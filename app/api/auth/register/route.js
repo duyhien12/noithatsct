@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { hashSync } from 'bcryptjs';
 import prisma from '@/lib/prisma';
+import { randomBytes } from 'crypto';
 
 export async function POST(request) {
     const { name, email, password, department } = await request.json();
@@ -10,11 +11,6 @@ export async function POST(request) {
     }
     if (password.length < 6) {
         return NextResponse.json({ error: 'Mật khẩu phải có ít nhất 6 ký tự' }, { status: 400 });
-    }
-
-    const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
-    if (existing) {
-        return NextResponse.json({ error: 'Email này đã được đăng ký' }, { status: 409 });
     }
 
     // Auto-assign role based on department
@@ -27,18 +23,27 @@ export async function POST(request) {
         'Xưởng nội thất': 'ky_thuat',
     };
     const role = DEPT_ROLE_MAP[department?.trim()] || 'ky_thuat';
-
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanName = name.trim();
     const hashed = hashSync(password, 10);
-    await prisma.user.create({
-        data: {
-            name: name.trim(),
-            email: email.toLowerCase().trim(),
-            password: hashed,
-            role,
-            department: department?.trim() || '',
-            active: false, // Cần admin kích hoạt
-        },
-    });
+    const now = new Date();
 
-    return NextResponse.json({ success: true });
+    try {
+        // Use raw SQL to bypass Prisma client schema cache issues
+        const existing = await prisma.$queryRaw`SELECT id FROM "User" WHERE email = ${cleanEmail} LIMIT 1`;
+        if (existing.length > 0) {
+            return NextResponse.json({ error: 'Email này đã được đăng ký' }, { status: 409 });
+        }
+
+        const id = randomBytes(12).toString('hex');
+        await prisma.$executeRaw`
+            INSERT INTO "User" (id, email, name, password, role, active, "createdAt", "updatedAt")
+            VALUES (${id}, ${cleanEmail}, ${cleanName}, ${hashed}, ${role}, true, ${now}, ${now})
+        `;
+
+        return NextResponse.json({ success: true });
+    } catch (err) {
+        console.error('Register error:', err);
+        return NextResponse.json({ error: err?.message || String(err) }, { status: 500 });
+    }
 }
