@@ -44,7 +44,7 @@ const PERMISSIONS = {
         filterProject: null,
     },
     kinh_doanh: {
-        canApprove: false, canReject: false, canCreateExpense: false,
+        canApprove: false, canReject: false, canCreateExpense: true,
         canPayExpense: false, canCompleteExpense: false, canDeleteExpense: false,
         canCollectPayment: false, canPrintReceipt: false, canViewFinance: false,
         canViewProjects: true, canViewAll: false,
@@ -55,15 +55,20 @@ const PERMISSIONS = {
 
 const RoleContext = createContext(null);
 
+const DASHBOARD_ROLES = ['giam_doc', 'pho_gd'];
+const ADMIN_EMAIL = 'admin@kientrucsct.com';
+
 export function RoleProvider({ children }) {
     const { data: session } = useSession();
     const role = session?.user?.role || 'ky_thuat';
+    const email = session?.user?.email || '';
     const permissions = PERMISSIONS[role] || PERMISSIONS.ky_thuat;
     const roleInfo = ROLES.find(r => r.key === role) || ROLES[3];
     const isKinhDoanh = role === 'kinh_doanh';
+    const canViewDashboard = DASHBOARD_ROLES.includes(role) || email === ADMIN_EMAIL;
 
     return (
-        <RoleContext.Provider value={{ role, roleInfo, permissions, isKinhDoanh }}>
+        <RoleContext.Provider value={{ role, email, roleInfo, permissions, isKinhDoanh, canViewDashboard }}>
             {children}
         </RoleContext.Provider>
     );
@@ -71,7 +76,7 @@ export function RoleProvider({ children }) {
 
 export function useRole() {
     const ctx = useContext(RoleContext);
-    if (!ctx) return { role: 'ky_thuat', roleInfo: ROLES[3], permissions: PERMISSIONS.ky_thuat };
+    if (!ctx) return { role: 'ky_thuat', email: '', roleInfo: ROLES[3], permissions: PERMISSIONS.ky_thuat, canViewDashboard: false };
     return ctx;
 }
 

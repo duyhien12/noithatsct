@@ -1,5 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useRole } from '@/contexts/RoleContext';
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 const fmtShort = (n) => {
   if (n >= 1e9) return (n / 1e9).toFixed(1) + ' tỷ';
@@ -7,12 +9,27 @@ const fmtShort = (n) => {
   return fmt(n);
 };
 export default function Dashboard() {
+  const router = useRouter();
+  const { canViewDashboard, role } = useRole();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   useEffect(() => {
-    fetch('/api/dashboard').then(r => r.json()).then(d => { setData(d); setLoading(false); });
-  }, []);
+    // Redirect nếu không có quyền (chỉ ban lãnh đạo & admin)
+    if (role && !canViewDashboard) {
+      router.replace('/projects');
+      return;
+    }
+    fetch('/api/dashboard')
+      .then(r => r.json())
+      .then(d => { if (d.error) { setError(d.error); } else { setData(d); } setLoading(false); })
+      .catch(() => { setError('Không thể tải dữ liệu'); setLoading(false); });
+  }, [role, canViewDashboard]);
+
+  if (!canViewDashboard && role) return null;
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400, color: 'var(--text-muted)' }}>Đang tải dữ liệu...</div>;
+  if (error || !data?.stats) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400, color: 'var(--text-muted)' }}>Không thể tải dữ liệu dashboard</div>;
   const s = data.stats;
   const collectionRate = s.totalContractValue > 0 ? Math.round(s.totalPaid / s.totalContractValue * 100) : 0;
   return (

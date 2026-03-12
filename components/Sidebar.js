@@ -13,7 +13,8 @@ import { useRole, ROLES } from '@/contexts/RoleContext';
 const menuItems = [
     {
         section: 'Tổng quan',
-        sectionRoles: ['giam_doc', 'pho_gd', 'ke_toan'], // chỉ ban lãnh đạo & kế toán
+        sectionRoles: ['giam_doc', 'pho_gd'], // chỉ ban lãnh đạo (giam_doc, pho_gd) + admin@kientrucsct.com
+        isDashboard: true,
         items: [
             { href: '/', icon: LayoutDashboard, label: 'Dashboard' },
             { href: '/pipeline', icon: GitBranch, label: 'Pipeline' },
@@ -23,21 +24,21 @@ const menuItems = [
         section: 'Quản lý',
         // visible to ALL roles: giam_doc, pho_gd, ke_toan, ky_thuat, kinh_doanh
         items: [
-            { href: '/customers', icon: Users, label: 'Khách hàng', roles: ['giam_doc', 'pho_gd', 'ke_toan', 'kinh_doanh'] },
+            { href: '/customers', icon: Users, label: 'Khách hàng', roles: ['giam_doc', 'pho_gd', 'ke_toan', 'ky_thuat', 'kinh_doanh'] },
             { href: '/projects', icon: Building2, label: 'Dự án' },
-            { href: '/contracts', icon: FileText, label: 'Hợp đồng', roles: ['giam_doc', 'pho_gd', 'ke_toan', 'kinh_doanh'] },
+            { href: '/contracts', icon: FileText, label: 'Hợp đồng', roles: ['giam_doc', 'pho_gd', 'ke_toan', 'ky_thuat', 'kinh_doanh'] },
             { href: '/products', icon: Package, label: 'Sản phẩm & Vật tư' },
-            { href: '/quotations', icon: ClipboardList, label: 'Báo giá', roles: ['giam_doc', 'pho_gd', 'ke_toan', 'kinh_doanh'] },
+            { href: '/quotations', icon: ClipboardList, label: 'Báo giá', roles: ['giam_doc', 'pho_gd', 'ke_toan', 'ky_thuat', 'kinh_doanh'] },
             { href: '/work-orders', icon: Wrench, label: 'Phiếu công việc' },
-            { href: '/schedule-templates', icon: CalendarDays, label: 'Mẫu tiến độ', roles: ['giam_doc', 'pho_gd'] },
+            { href: '/schedule-templates', icon: CalendarDays, label: 'Mẫu tiến độ', roles: ['giam_doc', 'pho_gd', 'ky_thuat', 'kinh_doanh'] },
         ]
     },
     {
         section: 'Vận hành',
-        sectionRoles: ['giam_doc', 'pho_gd', 'ke_toan', 'ky_thuat'], // ky_thuat chỉ thấy Chi phí
+        sectionRoles: ['giam_doc', 'pho_gd', 'ke_toan', 'ky_thuat', 'kinh_doanh'], // ky_thuat & kinh_doanh chỉ thấy Chi phí
         items: [
             { href: '/payments', icon: CreditCard, label: 'Thu tiền', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
-            { href: '/expenses', icon: Receipt, label: 'Chi phí', roles: ['giam_doc', 'pho_gd', 'ke_toan', 'ky_thuat'] },
+            { href: '/expenses', icon: Receipt, label: 'Chi phí', roles: ['giam_doc', 'pho_gd', 'ke_toan', 'ky_thuat', 'kinh_doanh'] },
             { href: '/purchasing', icon: ShoppingCart, label: 'Mua sắm VT', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
             { href: '/partners', icon: Truck, label: 'Đối tác (NCC/TP)', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
             { href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
@@ -56,7 +57,7 @@ const menuItems = [
 
 export default function Sidebar({ isOpen, onClose }) {
     const pathname = usePathname();
-    const { role, roleInfo } = useRole();
+    const { role, roleInfo, canViewDashboard } = useRole();
 
     const handleNavClick = () => {
         // Close sidebar on mobile after navigating
@@ -93,7 +94,13 @@ export default function Sidebar({ isOpen, onClose }) {
             <nav className="sidebar-nav">
                 {menuItems.map((section) => {
                     // Check section-level role restriction
-                    if (section.sectionRoles && !section.sectionRoles.includes(role)) return null;
+                    if (section.sectionRoles) {
+                        if (section.isDashboard) {
+                            if (!canViewDashboard) return null;
+                        } else if (!section.sectionRoles.includes(role)) {
+                            return null;
+                        }
+                    }
                     const visibleItems = section.items.filter(item => !item.roles || item.roles.includes(role));
                     if (visibleItems.length === 0) return null;
                     return (

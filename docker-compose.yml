@@ -3,14 +3,14 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: motnha-postgres
+    container_name: noithatsct-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: motnhaerp
+      POSTGRES_DB: noithatsct
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: 4EhJtEls0EecdoyBKpe4qmkK87gJBOn
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

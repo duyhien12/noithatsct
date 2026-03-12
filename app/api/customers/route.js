@@ -18,18 +18,22 @@ export const GET = withAuth(async (request) => {
     if (status) where.status = status;
     if (search) where.name = { contains: search, mode: 'insensitive' };
 
-    const [customers, total] = await Promise.all([
-        prisma.customer.findMany({
-            where,
-            include: { projects: { select: { id: true, name: true, status: true } } },
-            orderBy: { createdAt: 'desc' },
-            skip,
-            take: limit,
-        }),
-        prisma.customer.count({ where }),
-    ]);
-
-    return NextResponse.json(paginatedResponse(customers, total, { page, limit }));
+    try {
+        const [customers, total] = await Promise.all([
+            prisma.customer.findMany({
+                where,
+                include: { projects: { select: { id: true, name: true, status: true } } },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+            }),
+            prisma.customer.count({ where }),
+        ]);
+        return NextResponse.json(paginatedResponse(customers, total, { page, limit }));
+    } catch (err) {
+        console.error('[customers GET]', err);
+        return NextResponse.json({ error: err.message, meta: err.meta }, { status: 500 });
+    }
 });
 
 export const POST = withAuth(async (request) => {
