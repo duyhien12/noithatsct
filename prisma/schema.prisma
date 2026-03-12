@@ -524,6 +524,8 @@ model MaterialPlan {
   drawingUrl      String   @default("")            // Bản vẽ kỹ thuật đính kèm
   drawingNote     String   @default("")
   supplierTag     String   @default("")            // Công ty cấp | Thầu phụ cấp
+  actualCost      Float    @default(0)             // Tổng thực tế thi công
+  planType        String   @default("tracking")    // budget | tracking
   productId       String
   product         Product       @relation(fields: [productId], references: [id])
   projectId       String

@@ -325,6 +325,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
     // Add Material Plan
     const [mpForm, setMpForm] = useState({ productId: '', quantity: 1, unitPrice: 0, type: 'Chính', notes: '' });
     const [mpProducts, setMpProducts] = useState([]);
+    const [varianceKey, setVarianceKey] = useState(0);
     const [mpSearch, setMpSearch] = useState('');
     const openMPModal = async () => {
         if (mpProducts.length === 0) {
@@ -424,6 +425,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
         { key: 'overview', label: 'Tổng quan', icon: '📋' },
         { key: 'logs', label: 'Nhật ký', icon: '📒', count: p.trackingLogs?.length },
         { key: 'milestones', label: 'Tiến độ', icon: '📊', count: p.milestones?.length },
+        { key: 'budget', label: 'Dự trù kinh phí', icon: '💰' },
         { key: 'contracts', label: 'Hợp đồng', icon: '📝', count: p.contracts?.length },
         { key: 'workorders', label: 'Phiếu CV', icon: '📋', count: p.workOrders?.length },
         { key: 'materials', label: 'Vật tư', icon: '🧱', count: p.materialPlans?.length },
@@ -431,7 +433,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
         { key: 'contractors', label: 'Thầu phụ', icon: '👷', count: p.contractorPays?.length },
         { key: 'finance', label: 'Tài chính', icon: '💰' },
         { key: 'documents', label: 'Tài liệu', icon: '📁', count: p.documents?.length },
-        { key: 'budget', label: 'Dự toán', icon: '💰' },
+
         { key: 'journal', label: 'Nhật ký AI', icon: '🤖' },
     ];
 
@@ -643,22 +645,25 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                         budgetLockedBy={p.budgetLockedBy}
                         onLocked={() => window.location.reload()}
                     />
-                    {p.budgetStatus !== 'locked' && (
-                        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-                            <button className="btn btn-primary btn-sm" onClick={async () => {
-                                if (mpProducts.length === 0) {
-                                    const res = await fetch('/api/products?limit=500');
-                                    const json = await res.json();
-                                    setMpProducts(json.data || json || []);
-                                }
-                                setModal('budget_quick');
-                            }}>📋 Thêm dự toán vật tư</button>
-                            {p.quotations?.length > 0 && <button className="btn btn-ghost btn-sm" onClick={importMPFromQuotation}>📄 Tạo từ Báo giá</button>}
-                        </div>
-                    )}
+
                     <div className="card" style={{ padding: 20, marginTop: 16 }}>
-                        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>📊 Bảng theo dõi Chênh lệch Vật tư</h3>
-                        <VarianceTable projectId={id} />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>📊 Bảng theo dõi Chênh lệch Vật tư</h3>
+                            {p.budgetStatus !== 'locked' && (
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button className="btn btn-primary btn-sm" onClick={async () => {
+                                        if (mpProducts.length === 0) {
+                                            const res = await fetch('/api/products?limit=500');
+                                            const json = await res.json();
+                                            setMpProducts(json.data || json || []);
+                                        }
+                                        setModal('budget_quick');
+                                    }}>+ Thêm dự toán</button>
+                                    {p.quotations?.length > 0 && <button className="btn btn-ghost btn-sm" onClick={importMPFromQuotation}>📄 Từ Báo giá</button>}
+                                </div>
+                            )}
+                        </div>
+                        <VarianceTable key={`v-${varianceKey}`} projectId={id} />
                     </div>
                     <div className="card" style={{ padding: 20, marginTop: 16 }}>
                         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>📈 S-Curve — Tiến độ Chi phí</h3>
@@ -1561,7 +1566,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                     projectId={id}
                     products={mpProducts}
                     onClose={() => setModal(null)}
-                    onDone={() => { setModal(null); fetchData(); }}
+                    onDone={() => { setModal(null); fetchData(); setVarianceKey(k => k + 1); }}
                 />
             )}
         </div>

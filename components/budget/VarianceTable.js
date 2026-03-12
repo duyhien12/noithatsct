@@ -1,214 +1,227 @@
 'use client';
 import { useState, useEffect } from 'react';
 
-const fmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n));
-const STATUS_COLORS = { green: '#10b981', yellow: '#f59e0b', red: '#ef4444' };
-const STATUS_LABELS = { green: 'Tốt', yellow: 'Cẩn thận', red: 'Vượt DT' };
+const fmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0));
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const COST_TYPES = ['Tất cả', 'Vật tư', 'Nhân công', 'Thầu phụ', 'Khác'];
+
+const C = {
+    cell:   { border: '1px solid #d1d5db', padding: '6px 8px', fontSize: 12 },
+    header: { background: '#1e3a5f', color: 'white', fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', fontSize: 11, padding: '8px 6px', border: '1px solid #1e3a5f', whiteSpace: 'nowrap' },
+    g1:     { background: '#fde68a', fontWeight: 700, fontSize: 13 },
+    g2:     { background: '#fce4d6', fontWeight: 600, fontSize: 12 },
+    item:   { background: '#ffffff', fontSize: 12 },
+    total:  { background: '#1e3a5f', color: 'white', fontWeight: 700, fontSize: 13 },
+};
+
+const statusColor = { green: '#16a34a', yellow: '#d97706', red: '#dc2626' };
+const cpiColor = (v) => !v ? '#9ca3af' : v >= 1 ? '#16a34a' : v >= 0.95 ? '#d97706' : '#dc2626';
 
 export default function VarianceTable({ projectId }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [viewMode, setViewMode] = useState('flat'); // flat | grouped
     const [costFilter, setCostFilter] = useState('Tất cả');
     const [collapsed, setCollapsed] = useState({});
 
     useEffect(() => {
         setLoading(true);
-        fetch(`/api/budget/variance?projectId=${projectId}`)
+        fetch(`/api/budget/variance?projectId=${projectId}&planType=tracking`)
             .then(r => r.json())
             .then(setData)
-            .catch(() => { })
+            .catch(() => {})
             .finally(() => setLoading(false));
     }, [projectId]);
 
-    if (loading) return <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>;
-    if (!data?.items?.length) return <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>Chưa có dữ liệu dự toán</div>;
+    if (loading) return <div style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>Đang tải...</div>;
+    if (!data?.items?.length) return <div style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>Chưa có dữ liệu dự toán</div>;
 
-    const items = costFilter === 'Tất cả' ? data.items : data.items.filter(i => i.costType === costFilter);
+    const allItems = costFilter === 'Tất cả' ? data.items : data.items.filter(i => i.costType === costFilter);
     const { totalBudget, totalActual, totalVariance, overallCpi } = data.summary;
 
-    const toggleGroup = (key) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
-
-    // Group items by group1 > group2
-    const grouped = {};
-    items.forEach(item => {
+    // Build hierarchy
+    const hierarchy = {};
+    allItems.forEach(item => {
         const g1 = item.group1 || 'Chưa phân loại';
         const g2 = item.group2 || '';
-        if (!grouped[g1]) grouped[g1] = { items: [], subgroups: {}, budget: 0, actual: 0 };
-        grouped[g1].budget += item.budgetTotal;
-        grouped[g1].actual += item.actualTotal;
+        if (!hierarchy[g1]) hierarchy[g1] = { items: [], subgroups: {} };
         if (g2) {
-            if (!grouped[g1].subgroups[g2]) grouped[g1].subgroups[g2] = { items: [], budget: 0, actual: 0 };
-            grouped[g1].subgroups[g2].items.push(item);
-            grouped[g1].subgroups[g2].budget += item.budgetTotal;
-            grouped[g1].subgroups[g2].actual += item.actualTotal;
+            if (!hierarchy[g1].subgroups[g2]) hierarchy[g1].subgroups[g2] = [];
+            hierarchy[g1].subgroups[g2].push(item);
         } else {
-            grouped[g1].items.push(item);
+            hierarchy[g1].items.push(item);
         }
     });
 
-    const cpiColor = (cpi) => !cpi ? 'var(--text-muted)' : cpi >= 1 ? '#10b981' : cpi >= 0.95 ? '#f59e0b' : '#ef4444';
+    const toggle = (key) => setCollapsed(p => ({ ...p, [key]: !p[key] }));
 
-    const renderRow = (v) => (
-        <tr key={v.id} style={{ borderLeft: `3px solid ${STATUS_COLORS[v.status]}` }}>
-            <td style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: 600 }}>{v.productName}</div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                    {v.productCode}
-                    {v.costType && v.costType !== 'Vật tư' && <span className="badge" style={{ fontSize: 9, padding: '1px 5px', background: v.costType === 'Nhân công' ? '#8b5cf6' : v.costType === 'Thầu phụ' ? '#f97316' : '#6b7280', color: '#fff' }}>{v.costType}</span>}
-                    {v.supplierTag && <span style={{ fontSize: 9, color: v.supplierTag === 'Thầu phụ cấp' ? '#f97316' : 'var(--accent-primary)' }}>• {v.supplierTag}</span>}
-                    {v.drawingUrl && <a href={v.drawingUrl} target="_blank" rel="noopener noreferrer" title="Xem bản vẽ" style={{ fontSize: 10, textDecoration: 'none' }}>📐</a>}
+    // Aggregate variance for a set of items
+    const agg = (items) => {
+        const budgetTotal = items.reduce((s, i) => s + i.budgetTotal, 0);
+        const actualTotal = items.reduce((s, i) => s + i.actualTotal, 0);
+        const variance = actualTotal - budgetTotal;
+        const cpi = actualTotal > 0 ? Math.round((budgetTotal / actualTotal) * 100) / 100 : null;
+        return { budgetTotal, actualTotal, variance, cpi };
+    };
+
+    const renderItemRow = (item, stt, indent) => (
+        <tr key={item.id} style={{ ...C.item, borderLeft: `3px solid ${statusColor[item.status] || '#d1d5db'}` }}>
+            <td style={{ ...C.cell, textAlign: 'center', color: '#6b7280' }}>{stt}</td>
+            <td style={{ ...C.cell, paddingLeft: indent }}>
+                <div style={{ fontWeight: 500 }}>{item.productName}</div>
+                <div style={{ fontSize: 10, color: '#9ca3af', display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+                    {item.productCode && <span>{item.productCode}</span>}
+                    {item.costType && item.costType !== 'Vật tư' && (
+                        <span style={{ padding: '1px 5px', borderRadius: 3, background: item.costType === 'Nhân công' ? '#ede9fe' : item.costType === 'Thầu phụ' ? '#fff7ed' : '#f1f5f9', color: item.costType === 'Nhân công' ? '#7c3aed' : item.costType === 'Thầu phụ' ? '#ea580c' : '#475569', fontSize: 9 }}>{item.costType}</span>
+                    )}
+                    {item.supplierTag && <span style={{ color: item.supplierTag === 'Thầu phụ cấp' ? '#ea580c' : '#2563eb' }}>• {item.supplierTag}</span>}
                 </div>
             </td>
-            <td style={{ textAlign: 'center', fontSize: 11 }}>{v.unit}</td>
-            <td style={{ textAlign: 'right' }}>{v.budgetQty}</td>
-            <td style={{ textAlign: 'right' }}>{v.orderedQty}</td>
-            <td style={{ textAlign: 'right' }}>{fmt(v.budgetUnitPrice)}</td>
-            <td style={{ textAlign: 'right', color: v.avgActualPrice > v.budgetUnitPrice ? '#ef4444' : 'inherit', fontWeight: v.avgActualPrice > v.budgetUnitPrice ? 700 : 400 }}>
-                {v.avgActualPrice > 0 ? fmt(v.avgActualPrice) : '—'}
+            <td style={{ ...C.cell, textAlign: 'center' }}>{item.unit}</td>
+            <td style={{ ...C.cell, textAlign: 'right' }}>{item.budgetQty}</td>
+            <td style={{ ...C.cell, textAlign: 'right', color: item.orderedQty > 0 ? '#111' : '#9ca3af' }}>{item.orderedQty || '—'}</td>
+            <td style={{ ...C.cell, textAlign: 'right' }}>{fmt(item.budgetUnitPrice)}</td>
+            <td style={{ ...C.cell, textAlign: 'right', color: item.avgActualPrice > item.budgetUnitPrice ? '#dc2626' : item.avgActualPrice > 0 ? '#16a34a' : '#9ca3af', fontWeight: item.avgActualPrice > item.budgetUnitPrice ? 700 : 400 }}>
+                {item.avgActualPrice > 0 ? fmt(item.avgActualPrice) : '—'}
             </td>
-            <td style={{ textAlign: 'right', color: v.priceVariance > 0 ? '#ef4444' : v.priceVariance < 0 ? '#10b981' : 'inherit' }}>
-                {v.priceVariance !== 0 ? `${v.priceVariance > 0 ? '+' : ''}${fmt(v.priceVariance)}` : '—'}
+            <td style={{ ...C.cell, textAlign: 'right', fontWeight: 600, color: '#2563eb' }}>{fmt(item.budgetTotal)}</td>
+            <td style={{ ...C.cell, textAlign: 'right', color: item.actualTotal > item.budgetTotal ? '#dc2626' : item.actualTotal > 0 ? '#16a34a' : '#9ca3af', fontWeight: 600 }}>
+                {item.actualTotal > 0 ? fmt(item.actualTotal) : '—'}
             </td>
-            <td style={{ textAlign: 'right', color: v.qtyVariance > 0 ? '#ef4444' : 'inherit' }}>
-                {v.qtyVariance !== 0 ? `${v.qtyVariance > 0 ? '+' : ''}${v.qtyVariance}` : '—'}
+            <td style={{ ...C.cell, textAlign: 'right', color: item.budgetTotal - item.actualTotal >= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+                {item.actualTotal > 0 ? `${item.budgetTotal - item.actualTotal >= 0 ? '+' : ''}${fmt(item.budgetTotal - item.actualTotal)}` : '—'}
             </td>
-            <td>
+            <td style={{ ...C.cell, textAlign: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <div className="variance-progress-bar">
-                        <div className="variance-progress-fill" style={{
-                            width: `${Math.min(v.usagePercent, 100)}%`,
-                            background: STATUS_COLORS[v.status],
-                        }} />
+                    <div style={{ flex: 1, height: 6, background: '#e5e7eb', borderRadius: 3, minWidth: 40 }}>
+                        <div style={{ height: '100%', borderRadius: 3, width: `${Math.min(item.usagePercent, 100)}%`, background: statusColor[item.status] || '#6b7280' }} />
                     </div>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: STATUS_COLORS[v.status], minWidth: 32 }}>
-                        {v.usagePercent}%
-                    </span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: statusColor[item.status], minWidth: 28 }}>{item.usagePercent}%</span>
                 </div>
             </td>
-            {/* CPI column */}
-            <td style={{ textAlign: 'center', fontWeight: 700, fontSize: 13, color: cpiColor(v.cpi) }}>
-                {v.cpi !== null ? v.cpi.toFixed(2) : '—'}
-            </td>
-            <td style={{ textAlign: 'center' }}>
-                <span className="variance-status-dot" style={{ background: STATUS_COLORS[v.status] }} title={STATUS_LABELS[v.status]} />
+            <td style={{ ...C.cell, textAlign: 'center', fontWeight: 700, color: cpiColor(item.cpi) }}>{item.cpi !== null ? item.cpi.toFixed(2) : '—'}</td>
+            <td style={{ ...C.cell, textAlign: 'center' }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor[item.status] || '#6b7280', display: 'inline-block' }} />
             </td>
         </tr>
     );
 
-    const renderGroupHeader = (name, budget, actual, level, itemCount) => {
-        const key = `${level}-${name}`;
-        const isCollapsed = collapsed[key];
-        const grpCpi = actual > 0 ? (budget / actual) : null;
-        const variance = actual - budget;
+    const renderGroupRow = (stt, name, items, level, gKey) => {
+        const { budgetTotal, actualTotal, variance, cpi } = agg(items);
+        const isCollapsed = collapsed[gKey];
+        const bg = level === 1 ? C.g1 : C.g2;
+        const indent = level === 1 ? 8 : 20;
         return (
-            <tr key={key} onClick={() => toggleGroup(key)} style={{
-                cursor: 'pointer', background: level === 1 ? 'rgba(59,130,246,0.06)' : 'rgba(99,102,241,0.04)',
-                borderLeft: `3px solid ${level === 1 ? 'var(--accent-primary)' : '#a78bfa'}`,
-            }}>
-                <td colSpan={5} style={{ fontWeight: 700, fontSize: level === 1 ? 13 : 12, paddingLeft: level === 1 ? 12 : 28 }}>
-                    <span style={{ marginRight: 6, fontSize: 10 }}>{isCollapsed ? '▶' : '▼'}</span>
-                    {name} <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--text-muted)' }}>({itemCount})</span>
+            <tr key={gKey} style={{ ...bg, cursor: 'pointer' }} onClick={() => toggle(gKey)}>
+                <td style={{ ...C.cell, textAlign: 'center', fontWeight: 700 }}>{stt}</td>
+                <td style={{ ...C.cell, paddingLeft: indent, textTransform: level === 1 ? 'uppercase' : 'none', fontStyle: level === 2 ? 'italic' : 'normal' }}>
+                    <span style={{ marginRight: 6, fontSize: 10, color: '#6b7280' }}>{isCollapsed ? '▶' : '▼'}</span>
+                    {name}
                 </td>
-                <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 12 }}>{fmt(budget)}</td>
-                <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 12, color: variance > 0 ? '#ef4444' : '#10b981' }}>
-                    {variance !== 0 ? `${variance > 0 ? '+' : ''}${fmt(variance)}` : '—'}
+                <td style={C.cell} /><td style={C.cell} /><td style={C.cell} /><td style={C.cell} />
+                <td style={C.cell} />
+                <td style={{ ...C.cell, textAlign: 'right', fontWeight: 700, color: '#1e3a5f' }}>{fmt(budgetTotal)}</td>
+                <td style={{ ...C.cell, textAlign: 'right', color: actualTotal > 0 ? (actualTotal > budgetTotal ? '#dc2626' : '#16a34a') : '#9ca3af', fontWeight: 600 }}>
+                    {actualTotal > 0 ? fmt(actualTotal) : '—'}
                 </td>
-                <td colSpan={2}></td>
-                <td style={{ textAlign: 'center', fontWeight: 700, fontSize: 13, color: cpiColor(grpCpi) }}>
-                    {grpCpi !== null ? grpCpi.toFixed(2) : '—'}
+                <td style={{ ...C.cell, textAlign: 'right', color: variance <= 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>
+                    {actualTotal > 0 ? `${variance <= 0 ? '+' : ''}${fmt(-variance)}` : '—'}
                 </td>
-                <td></td>
+                <td style={C.cell} />
+                <td style={{ ...C.cell, textAlign: 'center', fontWeight: 700, color: cpiColor(cpi) }}>{cpi ? cpi.toFixed(2) : '—'}</td>
+                <td style={C.cell} />
             </tr>
         );
     };
 
+    // Flatten rows
+    const rows = [];
+    Object.entries(hierarchy).forEach(([g1Name, g1Data], g1Idx) => {
+        const allG1 = [...g1Data.items, ...Object.values(g1Data.subgroups).flat()];
+        const g1Key = `g1-${g1Name}`;
+        rows.push({ type: 'g1', stt: ALPHA[g1Idx], name: g1Name, items: allG1, key: g1Key });
+
+        if (!collapsed[g1Key]) {
+            g1Data.items.forEach((item, i) => rows.push({ type: 'item', item, stt: i + 1, indent: 20 }));
+            Object.entries(g1Data.subgroups).forEach(([g2Name, g2Items], g2Idx) => {
+                const g2Key = `g2-${g1Name}-${g2Name}`;
+                rows.push({ type: 'g2', stt: ROMAN[g2Idx], name: g2Name, items: g2Items, key: g2Key });
+                if (!collapsed[g2Key]) {
+                    g2Items.forEach((item, i) => rows.push({ type: 'item', item, stt: i + 1, indent: 32 }));
+                }
+            });
+        }
+    });
+
     return (
         <div>
-            {/* Toolbar */}
-            <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-                {/* Summary */}
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                    <div className="variance-stat">
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Tổng DT</span>
-                        <span style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>{fmt(totalBudget)}đ</span>
-                    </div>
-                    <div className="variance-stat">
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Tổng thực tế</span>
-                        <span style={{ fontWeight: 700 }}>{fmt(totalActual)}đ</span>
-                    </div>
-                    <div className="variance-stat">
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Chênh lệch</span>
-                        <span style={{ fontWeight: 700, color: totalVariance > 0 ? '#ef4444' : '#10b981' }}>
-                            {totalVariance > 0 ? '+' : ''}{fmt(totalVariance)}đ
-                        </span>
-                    </div>
-                    {overallCpi !== null && (
-                        <div className="variance-stat">
-                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>CPI tổng</span>
-                            <span style={{ fontWeight: 700, fontSize: 16, color: cpiColor(overallCpi) }}>{overallCpi.toFixed(2)}</span>
+            {/* Summary + Filter */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+                <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                    {[
+                        { label: 'Tổng DT', value: fmt(totalBudget) + 'đ', color: '#2563eb' },
+                        { label: 'Tổng thực tế', value: fmt(totalActual) + 'đ', color: '#111' },
+                        { label: 'Chênh lệch', value: (totalVariance <= 0 ? '+' : '') + fmt(-totalVariance) + 'đ', color: totalVariance <= 0 ? '#16a34a' : '#dc2626' },
+                        ...(overallCpi !== null ? [{ label: 'CPI', value: overallCpi.toFixed(2), color: cpiColor(overallCpi), big: true }] : []),
+                    ].map(s => (
+                        <div key={s.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontSize: 11, color: '#9ca3af' }}>{s.label}</span>
+                            <span style={{ fontWeight: 700, fontSize: s.big ? 18 : 14, color: s.color }}>{s.value}</span>
                         </div>
-                    )}
+                    ))}
                 </div>
-
-                {/* Controls */}
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
                     {COST_TYPES.map(ct => (
                         <button key={ct} onClick={() => setCostFilter(ct)}
-                            className={`btn btn-sm ${costFilter === ct ? 'btn-primary' : 'btn-ghost'}`}
-                            style={{ fontSize: 11, padding: '3px 10px' }}>{ct}</button>
+                            style={{ padding: '4px 12px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: '1px solid', cursor: 'pointer', background: costFilter === ct ? '#1e3a5f' : 'white', color: costFilter === ct ? 'white' : '#6b7280', borderColor: costFilter === ct ? '#1e3a5f' : '#d1d5db' }}>
+                            {ct}
+                        </button>
                     ))}
-                    <span style={{ color: 'var(--border-light)', margin: '0 2px' }}>|</span>
-                    <button onClick={() => setViewMode(viewMode === 'flat' ? 'grouped' : 'flat')}
-                        className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '3px 10px' }}>
-                        {viewMode === 'flat' ? '📁 Nhóm' : '📋 Phẳng'}
-                    </button>
                 </div>
             </div>
 
             {/* Table */}
             <div style={{ overflowX: 'auto' }}>
-                <table className="data-table" style={{ fontSize: 12, width: '100%' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr>
-                            <th style={{ textAlign: 'left', minWidth: 180 }}>Vật tư</th>
-                            <th>ĐVT</th>
-                            <th style={{ textAlign: 'right' }}>SL DT</th>
-                            <th style={{ textAlign: 'right' }}>SL Đã đặt</th>
-                            <th style={{ textAlign: 'right' }}>ĐG DT</th>
-                            <th style={{ textAlign: 'right' }}>ĐG TT</th>
-                            <th style={{ textAlign: 'right' }}>CL Giá</th>
-                            <th style={{ textAlign: 'right' }}>CL KL</th>
-                            <th style={{ width: 120 }}>Tỉ lệ SD</th>
-                            <th style={{ width: 60, textAlign: 'center' }} title="Cost Performance Index = Giá DT / Giá TT. >1 = tiết kiệm, <1 = thâm hụt">CPI</th>
-                            <th>TT</th>
+                            {[
+                                { label: 'STT', w: 40 },
+                                { label: 'TÊN HẠNG MỤC', w: 'auto' },
+                                { label: 'ĐVT', w: 55 },
+                                { label: 'SL DT', w: 65 },
+                                { label: 'SL Đặt', w: 65 },
+                                { label: 'ĐG DT', w: 100 },
+                                { label: 'ĐG TT', w: 100 },
+                                { label: 'Tổng DT', w: 110 },
+                                { label: 'Tổng TT', w: 110 },
+                                { label: 'Tiết kiệm', w: 110 },
+                                { label: 'Tỉ lệ SD', w: 100 },
+                                { label: 'CPI', w: 55 },
+                                { label: 'TT', w: 32 },
+                            ].map(h => (
+                                <th key={h.label} style={{ ...C.header, width: h.w }}>{h.label}</th>
+                            ))}
                         </tr>
                     </thead>
                     <tbody>
-                        {viewMode === 'flat' ? (
-                            items.map(v => renderRow(v))
-                        ) : (
-                            Object.entries(grouped).map(([g1Name, g1Data]) => {
-                                const g1Key = `1-${g1Name}`;
-                                const g1Items = g1Data.items;
-                                const subgroups = Object.entries(g1Data.subgroups);
-                                const totalItems = g1Items.length + subgroups.reduce((s, [, sg]) => s + sg.items.length, 0);
-                                return [
-                                    renderGroupHeader(g1Name, g1Data.budget, g1Data.actual, 1, totalItems),
-                                    ...(!collapsed[g1Key] ? [
-                                        ...g1Items.map(v => renderRow(v)),
-                                        ...subgroups.flatMap(([g2Name, g2Data]) => {
-                                            const g2Key = `2-${g2Name}`;
-                                            return [
-                                                renderGroupHeader(g2Name, g2Data.budget, g2Data.actual, 2, g2Data.items.length),
-                                                ...(!collapsed[g2Key] ? g2Data.items.map(v => renderRow(v)) : []),
-                                            ];
-                                        }),
-                                    ] : []),
-                                ];
-                            }).flat()
-                        )}
+                        {rows.map((row, idx) => {
+                            if (row.type === 'g1') return renderGroupRow(row.stt, row.name, row.items, 1, row.key);
+                            if (row.type === 'g2') return renderGroupRow(row.stt, row.name, row.items, 2, row.key);
+                            return renderItemRow(row.item, row.stt, row.indent);
+                        })}
+                        {/* Grand total */}
+                        <tr style={C.total}>
+                            <td colSpan={7} style={{ ...C.cell, textAlign: 'center', letterSpacing: 1, border: '1px solid #374151', color: 'white' }}>TỔNG CỘNG</td>
+                            <td style={{ ...C.cell, textAlign: 'right', border: '1px solid #374151', color: 'white', fontSize: 13 }}>{fmt(totalBudget)}</td>
+                            <td style={{ ...C.cell, textAlign: 'right', border: '1px solid #374151', color: totalActual > 0 ? (totalActual > totalBudget ? '#fca5a5' : '#86efac') : '#9ca3af' }}>
+                                {totalActual > 0 ? fmt(totalActual) : '—'}
+                            </td>
+                            <td style={{ ...C.cell, textAlign: 'right', border: '1px solid #374151', color: totalVariance <= 0 ? '#86efac' : '#fca5a5', fontWeight: 700 }}>
+                                {totalActual > 0 ? `${totalVariance <= 0 ? '+' : ''}${fmt(-totalVariance)}` : '—'}
+                            </td>
+                            <td colSpan={3} style={{ border: '1px solid #374151' }} />
+                        </tr>
                     </tbody>
                 </table>
             </div>

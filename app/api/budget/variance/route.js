@@ -7,13 +7,21 @@ export const GET = withAuth(async (request) => {
     const projectId = searchParams.get('projectId');
     if (!projectId) return NextResponse.json({ error: 'projectId required' }, { status: 400 });
 
-    // Get all material plans with their PO items
-    const plans = await prisma.materialPlan.findMany({
+    const planType = searchParams.get('planType') || 'tracking';
+
+    // Get all material plans, filter planType in JS (Prisma client may not have field yet)
+    const allPlans = await prisma.materialPlan.findMany({
         where: { projectId },
         include: {
             product: { select: { name: true, code: true, unit: true } },
             purchaseItems: { select: { unitPrice: true, quantity: true, receivedQty: true } },
         },
+    });
+
+    // Filter by planType in JS (handles both old records without planType and new ones)
+    const plans = allPlans.filter(p => {
+        const pt = p.planType || 'tracking';
+        return pt === planType;
     });
 
     const variance = plans.map(plan => {
