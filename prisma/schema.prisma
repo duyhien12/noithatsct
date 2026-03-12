@@ -7,145 +7,375 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model BudgetChangeOrder {
-  id             String   @id
-  projectId      String
-  materialPlanId String?
-  reason         String
-  oldQty         Float    @default(0)
-  newQty         Float    @default(0)
-  oldPrice       Float    @default(0)
-  newPrice       Float    @default(0)
-  status         String   @default("pending")
-  requestedBy    String   @default("")
-  approvedBy     String   @default("")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime
-  Project        Project  @relation(fields: [projectId], references: [id])
-
-  @@index([projectId])
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  password      String
+  role          String    @default("ky_thuat")
+  department    String    @default("")
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
-model Commitment {
-  id             String        @id
-  journalEntryId String?
-  projectId      String
-  title          String
-  type           String        @default("yêu cầu")
-  assignee       String        @default("")
-  deadline       DateTime?
-  status         String        @default("pending")
-  notes          String        @default("")
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime
-  JournalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
-  Project        Project       @relation(fields: [projectId], references: [id])
-
-  @@index([journalEntryId])
-  @@index([projectId])
-  @@index([status])
-}
-
-model Contract {
-  id              String            @id
-  code            String            @unique
+model Customer {
+  id              String      @id @default(cuid())
+  code            String      @unique
   name            String
-  type            String            @default("Thi công")
-  contractValue   Float             @default(0)
-  paidAmount      Float             @default(0)
-  variationAmount Float             @default(0)
-  status          String            @default("Nháp")
-  signDate        DateTime?
+  phone           String
+  email           String      @default("")
+  address         String      @default("") @db.Text
+  type            String      @default("Cá nhân")
+  status          String      @default("Lead")
+  taxCode         String      @default("")
+  representative  String      @default("")
+  birthday        DateTime?
+  source          String      @default("")
+  notes           String      @default("") @db.Text
+  totalRevenue    Float       @default(0)
+  gender          String      @default("Nam")
+  projectAddress  String      @default("") @db.Text
+  projectName     String      @default("")
+  salesPerson     String      @default("")
+  designer        String      @default("")
+  contactPerson2  String      @default("")
+  phone2          String      @default("")
+  pipelineStage   String      @default("Lead")
+  estimatedValue  Float       @default(0)
+  nextFollowUp    DateTime?
+  score           Int         @default(0)
+  lastContactAt   DateTime?
+  deletedAt       DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  projects        Project[]
+  quotations      Quotation[]
+  contracts       Contract[]
+  trackingLogs    TrackingLog[]
+  documents       ProjectDocument[]
+}
+
+model Project {
+  id              String      @id @default(cuid())
+  code            String      @unique
+  name            String
+  type            String
+  address         String      @default("") @db.Text
+  description     String      @default("") @db.Text
+  area            Float       @default(0)
+  floors          Int         @default(0)
+  budget          Float       @default(0)
+  spent           Float       @default(0)
+  contractValue   Float       @default(0)
+  paidAmount      Float       @default(0)
+  status          String      @default("Khảo sát")
+  phase           String      @default("")
+  progress        Int         @default(0)
   startDate       DateTime?
   endDate         DateTime?
-  paymentTerms    String            @default("")
-  notes           String            @default("")
-  fileUrl         String            @default("")
+  manager         String      @default("")
+  designer        String      @default("")
+  supervisor      String      @default("")
+  notes           String      @default("") @db.Text
+  budgetStatus    String      @default("draft")
+  budgetLockedAt  DateTime?
+  budgetLockedBy  String      @default("")
+  budgetTotal     Float       @default(0)
   customerId      String
-  projectId       String
-  quotationId     String?
-  deletedAt       DateTime?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime
-  Customer        Customer          @relation(fields: [customerId], references: [id])
-  Project         Project           @relation(fields: [projectId], references: [id])
-  Quotation       Quotation?        @relation(fields: [quotationId], references: [id])
-  ContractPayment ContractPayment[]
-
+  customer        Customer    @relation(fields: [customerId], references: [id])
   @@index([customerId])
+  quotations      Quotation[]
+  inventoryTx     InventoryTransaction[]
+  transactions    Transaction[]
+  employees       ProjectEmployee[]
+  milestones      ProjectMilestone[]
+  budgets         ProjectBudget[]
+  contractorPays  ContractorPayment[]
+  contracts       Contract[]
+  workOrders      WorkOrder[]
+  materialPlans   MaterialPlan[]
+  purchaseOrders  PurchaseOrder[]
+  requisitions    MaterialRequisition[]
+  expenses        ProjectExpense[]
+  trackingLogs    TrackingLog[]
+  documents       ProjectDocument[]
+  documentFolders DocumentFolder[]
+  scheduleTasks   ScheduleTask[]
+  progressReports ProgressReport[]
+  journalEntries  JournalEntry[]
+  commitments     Commitment[]
+  changeOrders    BudgetChangeOrder[]
+  deletedAt       DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model ProductCategory {
+  id        String            @id @default(cuid())
+  name      String
+  slug      String            @default("")
+  order     Int               @default(0)
+  parentId  String?
+  parent    ProductCategory?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  ProductCategory[] @relation("CategoryTree")
+  products  Product[]
+  createdAt DateTime          @default(now())
+  @@index([parentId])
+}
+
+model Product {
+  id            String      @id @default(cuid())
+  code          String      @unique
+  name          String
+  category      String
+  unit          String
+  importPrice   Float       @default(0)
+  salePrice     Float       @default(0)
+  stock         Int         @default(0)
+  minStock      Int         @default(0)
+  supplier      String      @default("")
+  description   String      @default("") @db.Text
+  dimensions    String      @default("")
+  weight        Float       @default(0)
+  color         String      @default("")
+  material      String      @default("")
+  origin        String      @default("")
+  warranty      String      @default("")
+  brand         String      @default("")
+  status        String      @default("Đang bán")
+  supplyType    String      @default("Vật tư lưu kho")
+  leadTimeDays  Int         @default(0)
+  location      String      @default("")
+  image         String      @default("")
+  coreBoard     String      @default("")
+  surfaceCode   String      @default("")
+  categoryId    String?
+  categoryRef   ProductCategory? @relation(fields: [categoryId], references: [id])
+  inventoryTx   InventoryTransaction[]
+  quotationItems QuotationItem[]
+  materialPlans MaterialPlan[]
+  purchaseItems PurchaseOrderItem[]
+  bomComponents ProductBOM[] @relation("BOMParent")
+  bomUsedIn     ProductBOM[] @relation("BOMComponent")
+  attributes    ProductAttribute[]
+  deletedAt     DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  @@index([categoryId])
+}
+
+model Quotation {
+  id                String          @id @default(cuid())
+  code              String          @unique
+  total             Float           @default(0)
+  discount          Float           @default(0)
+  vat               Float           @default(10)
+  grandTotal        Float           @default(0)
+  status            String          @default("Nháp")
+  validUntil        DateTime?
+  notes             String          @default("") @db.Text
+  type              String          @default("Thi công")
+  directCost        Float           @default(0)
+  managementFeeRate Float           @default(5)
+  managementFee     Float           @default(0)
+  designFee         Float           @default(0)
+  otherFee          Float           @default(0)
+  adjustment        Float           @default(0)
+  adjustmentType    String          @default("amount")
+  adjustmentAmount  Float           @default(0)
+  deductions        Json?           @default("[]")
+  revision          Int             @default(1)
+  parentId          String?
+  parent            Quotation?      @relation("QuotationRevisions", fields: [parentId], references: [id])
+  children          Quotation[]     @relation("QuotationRevisions")
+  lockedAt          DateTime?
+  customerId        String
+  customer          Customer        @relation(fields: [customerId], references: [id])
+  projectId         String?
+  project           Project?        @relation(fields: [projectId], references: [id])
+  items             QuotationItem[]
+  categories        QuotationCategory[]
+  contracts         Contract[]
+  deletedAt         DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  @@index([customerId])
+  @@index([projectId])
+  @@index([parentId])
+}
+
+model QuotationCategory {
+  id            String          @id @default(cuid())
+  name          String
+  group         String          @default("")
+  image         String          @default("")
+  order         Int             @default(0)
+  subtotal      Float           @default(0)
+  quotationId   String
+  quotation     Quotation       @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  items         QuotationItem[]
+  @@index([quotationId])
+}
+
+model QuotationItem {
+  id           String              @id @default(cuid())
+  name         String
+  order        Int                 @default(0)
+  unit         String              @default("")
+  quantity     Float               @default(0)
+  volume       Float               @default(0)
+  mainMaterial Float               @default(0)
+  auxMaterial  Float               @default(0)
+  labor        Float               @default(0)
+  unitPrice    Float               @default(0)
+  amount       Float               @default(0)
+  description  String              @default("")
+  length       Float               @default(0)
+  width        Float               @default(0)
+  height       Float               @default(0)
+  image        String              @default("")
+  productId    String?
+  product      Product?            @relation(fields: [productId], references: [id])
+  parentItemId String?
+  parentItem   QuotationItem?      @relation("SubItems", fields: [parentItemId], references: [id], onDelete: Cascade)
+  subItems     QuotationItem[]     @relation("SubItems")
+  quotationId  String
+  quotation    Quotation           @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  categoryId   String?
+  category     QuotationCategory?  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  @@index([quotationId])
+  @@index([parentItemId])
+}
+
+model Warehouse {
+  id           String      @id @default(cuid())
+  code         String      @unique
+  name         String
+  address      String      @default("")
+  inventoryTx  InventoryTransaction[]
+  createdAt    DateTime    @default(now())
+}
+
+model InventoryTransaction {
+  id           String    @id @default(cuid())
+  code         String    @unique
+  type         String
+  quantity     Float
+  unit         String    @default("")
+  note         String    @default("")
+  date         DateTime  @default(now())
+  productId    String
+  product      Product   @relation(fields: [productId], references: [id])
+  warehouseId  String
+  warehouse    Warehouse @relation(fields: [warehouseId], references: [id])
+  projectId    String?
+  project      Project?  @relation(fields: [projectId], references: [id])
+  createdAt    DateTime  @default(now())
+  @@index([productId])
   @@index([projectId])
 }
 
-model ContractPayment {
-  id         String    @id
-  phase      String
-  amount     Float     @default(0)
-  paidAmount Float     @default(0)
-  category   String    @default("Hợp đồng")
-  status     String    @default("Chưa thu")
-  dueDate    DateTime?
-  paidDate   DateTime?
-  notes      String    @default("")
-  proofUrl   String    @default("")
-  contractId String
-  createdAt  DateTime  @default(now())
-  Contract   Contract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
+model Transaction {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  type         String
+  description  String
+  amount       Float
+  category     String   @default("")
+  date         DateTime @default(now())
+  projectId    String?
+  project      Project? @relation(fields: [projectId], references: [id])
+  createdAt    DateTime @default(now())
+  @@index([projectId])
+}
 
-  @@index([contractId])
+model Department {
+  id           String     @id @default(cuid())
+  name         String     @unique
+  employees    Employee[]
+  createdAt    DateTime   @default(now())
+}
+
+model Employee {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  name         String
+  position     String   @default("")
+  phone        String   @default("")
+  email        String   @default("")
+  salary       Float    @default(0)
+  status       String   @default("Đang làm")
+  joinDate     DateTime?
+  birthDate    DateTime?
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  projects     ProjectEmployee[]
+  deletedAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ProjectEmployee {
+  projectId  String
+  employeeId String
+  project    Project  @relation(fields: [projectId], references: [id])
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  @@id([projectId, employeeId])
 }
 
 model Contractor {
-  id                String              @id
-  code              String              @unique
-  name              String
-  type              String
-  phone             String              @default("")
-  address           String              @default("")
-  taxCode           String              @default("")
-  bankAccount       String              @default("")
-  bankName          String              @default("")
-  rating            Int                 @default(3)
-  notes             String              @default("")
-  isBlacklisted     Boolean             @default(false)
-  creditLimit       Float               @default(0)
-  category          String              @default("")
-  advanceAmount     Float               @default(0)
-  deletedAt         DateTime?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime
-  ContractorPayment ContractorPayment[]
-  ProjectDocument   ProjectDocument[]
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  type        String
+  phone       String   @default("")
+  address     String   @default("") @db.Text
+  taxCode     String   @default("")
+  bankAccount String   @default("")
+  bankName    String   @default("")
+  rating        Int      @default(3)
+  notes         String   @default("") @db.Text
+  isBlacklisted Boolean  @default(false)
+  creditLimit   Float    @default(0)
+  category      String   @default("")
+  advanceAmount Float    @default(0)
+  payments      ContractorPayment[]
+  documents     ProjectDocument[]
+  deletedAt     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model ContractorPayment {
-  id                    String                  @id
-  contractAmount        Float                   @default(0)
-  paidAmount            Float                   @default(0)
-  netAmount             Float                   @default(0)
-  status                String                  @default("pending_technical")
-  phase                 String                  @default("")
-  description           String                  @default("")
-  dueDate               DateTime?
-  approvedBy            String                  @default("")
-  approvedAt            DateTime?
-  attachments           Json?
-  retentionRate         Float                   @default(5)
-  retentionAmount       Float                   @default(0)
-  retentionReleased     Boolean                 @default(false)
-  contractorId          String
-  projectId             String
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime
-  Contractor            Contractor              @relation(fields: [contractorId], references: [id])
-  Project               Project                 @relation(fields: [projectId], references: [id])
-  ContractorPaymentItem ContractorPaymentItem[]
-
-  @@index([contractorId])
+  id              String   @id @default(cuid())
+  contractAmount  Float    @default(0)
+  paidAmount      Float    @default(0)
+  netAmount       Float    @default(0)
+  status          String   @default("pending_technical")
+  phase           String   @default("")
+  description     String   @default("")
+  dueDate         DateTime?
+  approvedBy      String   @default("")
+  approvedAt      DateTime?
+  attachments     Json?
+  // V2: Retention management
+  retentionRate     Float    @default(5)       // % giữ lại bảo hành
+  retentionAmount   Float    @default(0)       // Số tiền giữ lại
+  retentionReleased Boolean  @default(false)   // Đã trả lại bảo hành chưa
+  contractorId    String
+  contractor      Contractor @relation(fields: [contractorId], references: [id])
+  projectId       String
+  project         Project    @relation(fields: [projectId], references: [id])
+  items           ContractorPaymentItem[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
   @@index([projectId])
+  @@index([contractorId])
 }
 
 model ContractorPaymentItem {
-  id                  String            @id
+  id                  String            @id @default(cuid())
   description         String
   unit                String            @default("")
   quantity            Float             @default(0)
@@ -154,808 +384,558 @@ model ContractorPaymentItem {
   notes               String            @default("")
   acceptedAt          DateTime          @default(now())
   contractorPaymentId String
-  ContractorPayment   ContractorPayment @relation(fields: [contractorPaymentId], references: [id], onDelete: Cascade)
-
+  contractorPayment   ContractorPayment @relation(fields: [contractorPaymentId], references: [id], onDelete: Cascade)
   @@index([contractorPaymentId])
 }
 
-model Customer {
-  id              String            @id
-  code            String            @unique
-  name            String
-  phone           String
-  email           String            @default("")
-  address         String            @default("")
-  type            String            @default("Cá nhân")
-  status          String            @default("Lead")
-  taxCode         String            @default("")
-  representative  String            @default("")
-  birthday        DateTime?
-  source          String            @default("")
-  notes           String            @default("")
-  totalRevenue    Float             @default(0)
-  gender          String            @default("Nam")
-  projectAddress  String            @default("")
-  projectName     String            @default("")
-  salesPerson     String            @default("")
-  designer        String            @default("")
-  contactPerson2  String            @default("")
-  phone2          String            @default("")
-  pipelineStage   String            @default("Lead")
-  estimatedValue  Float             @default(0)
-  nextFollowUp    DateTime?
-  score           Int               @default(0)
-  lastContactAt   DateTime?
-  deletedAt       DateTime?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime
-  Contract        Contract[]
-  Project         Project[]
-  ProjectDocument ProjectDocument[]
-  Quotation       Quotation[]
-  TrackingLog     TrackingLog[]
+model Supplier {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  type        String   @default("Vật tư xây dựng")
+  contact     String   @default("")
+  phone       String   @default("")
+  email       String   @default("")
+  address     String   @default("") @db.Text
+  taxCode     String   @default("")
+  bankAccount String   @default("")
+  bankName    String   @default("")
+  rating         Int      @default(3)
+  notes          String   @default("") @db.Text
+  isBlacklisted  Boolean  @default(false)
+  creditLimit    Float    @default(0)
+  deletedAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  purchaseOrders PurchaseOrder[]
+  documents      ProjectDocument[]
 }
 
-model Department {
-  id        String     @id
-  name      String     @unique
-  createdAt DateTime   @default(now())
-  Employee  Employee[]
-}
-
-model DocumentFolder {
-  id                   String            @id
-  name                 String
-  order                Int               @default(0)
-  parentId             String?
-  projectId            String
-  createdAt            DateTime          @default(now())
-  DocumentFolder       DocumentFolder?   @relation("DocumentFolderToDocumentFolder", fields: [parentId], references: [id])
-  other_DocumentFolder DocumentFolder[]  @relation("DocumentFolderToDocumentFolder")
-  Project              Project           @relation(fields: [projectId], references: [id])
-  ProjectDocument      ProjectDocument[]
-
+model ProjectMilestone {
+  id          String   @id @default(cuid())
+  name        String
+  progress    Int      @default(0)
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String   @default("Chưa bắt đầu")
+  order       Int      @default(0)
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id])
+  createdAt   DateTime @default(now())
   @@index([projectId])
 }
 
-model Employee {
-  id              String            @id
-  code            String            @unique
-  name            String
-  position        String            @default("")
-  phone           String            @default("")
-  email           String            @default("")
-  salary          Float             @default(0)
-  status          String            @default("Đang làm")
-  joinDate        DateTime?
-  departmentId    String
-  deletedAt       DateTime?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime
-  birthDate       DateTime?
-  Department      Department        @relation(fields: [departmentId], references: [id])
-  ProjectEmployee ProjectEmployee[]
-}
-
-model InventoryTransaction {
-  id          String    @id
-  code        String    @unique
-  type        String
-  quantity    Float
-  unit        String    @default("")
-  note        String    @default("")
-  date        DateTime  @default(now())
-  productId   String
-  warehouseId String
-  projectId   String?
-  createdAt   DateTime  @default(now())
-  Product     Product   @relation(fields: [productId], references: [id])
-  Project     Project?  @relation(fields: [projectId], references: [id])
-  Warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
-
-  @@index([productId])
+model ProjectBudget {
+  id            String  @id @default(cuid())
+  category      String
+  budgetAmount  Float   @default(0)
+  actualAmount  Float   @default(0)
+  notes         String  @default("")
+  projectId     String
+  project       Project @relation(fields: [projectId], references: [id])
   @@index([projectId])
 }
 
-model JournalEntry {
-  id         String       @id
-  projectId  String
-  source     String       @default("paste")
-  rawInput   String
-  aiSummary  String?
-  aiRaw      Json?
-  createdBy  String       @default("")
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime
-  Commitment Commitment[]
-  Project    Project      @relation(fields: [projectId], references: [id])
+// ============ NEW MODELS ============
 
+model Contract {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  name            String
+  type            String   @default("Thi công")
+  contractValue   Float    @default(0)
+  paidAmount      Float    @default(0)
+  variationAmount Float    @default(0)
+  status          String   @default("Nháp")
+  signDate        DateTime?
+  startDate       DateTime?
+  endDate         DateTime?
+  paymentTerms    String   @default("") @db.Text
+  notes           String   @default("") @db.Text
+  fileUrl         String   @default("")
+  customerId      String
+  customer        Customer   @relation(fields: [customerId], references: [id])
+  projectId       String
+  project         Project    @relation(fields: [projectId], references: [id])
+  quotationId     String?
+  quotation       Quotation? @relation(fields: [quotationId], references: [id])
+  payments        ContractPayment[]
+  deletedAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([projectId])
+  @@index([customerId])
+}
+
+model ContractPayment {
+  id          String   @id @default(cuid())
+  phase       String
+  amount      Float    @default(0)
+  paidAmount  Float    @default(0)
+  category    String   @default("Hợp đồng")
+  status      String   @default("Chưa thu")
+  dueDate     DateTime?
+  paidDate    DateTime?
+  notes       String   @default("")
+  proofUrl    String   @default("")
+  contractId  String
+  contract    Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  @@index([contractId])
+}
+
+model WorkOrder {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  title       String
+  description String   @default("") @db.Text
+  priority    String   @default("Trung bình")
+  status      String   @default("Chờ xử lý")
+  assignee    String   @default("")
+  dueDate     DateTime?
+  completedAt DateTime?
+  category    String   @default("")
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id])
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   @@index([projectId])
 }
 
 model MaterialPlan {
-  id                  String                @id
-  quantity            Float                 @default(0)
-  orderedQty          Float                 @default(0)
-  receivedQty         Float                 @default(0)
-  unitPrice           Float                 @default(0)
-  totalAmount         Float                 @default(0)
-  status              String                @default("Chưa đặt")
-  type                String                @default("Chính")
-  category            String                @default("")
-  budgetUnitPrice     Float                 @default(0)
-  wastePercent        Float                 @default(5)
-  isLocked            Boolean               @default(false)
-  notes               String                @default("")
-  costType            String                @default("Vật tư")
-  group1              String                @default("")
-  group2              String                @default("")
-  drawingUrl          String                @default("")
-  drawingNote         String                @default("")
-  supplierTag         String                @default("")
-  productId           String
-  projectId           String
-  createdAt           DateTime              @default(now())
-  Product             Product               @relation(fields: [productId], references: [id])
-  Project             Project               @relation(fields: [projectId], references: [id])
-  MaterialRequisition MaterialRequisition[]
-  PurchaseOrderItem   PurchaseOrderItem[]
-
+  id              String   @id @default(cuid())
+  quantity        Float    @default(0)
+  orderedQty      Float    @default(0)
+  receivedQty     Float    @default(0)
+  unitPrice       Float    @default(0)
+  totalAmount     Float    @default(0)
+  status          String   @default("Chưa đặt")
+  type            String   @default("Chính")
+  category        String   @default("")
+  budgetUnitPrice Float    @default(0)
+  wastePercent    Float    @default(5)
+  isLocked        Boolean  @default(false)
+  notes           String   @default("")
+  // V2: Hierarchical BOQ
+  costType        String   @default("Vật tư")     // Vật tư | Nhân công | Thầu phụ | Khác
+  group1          String   @default("")            // Level 1: Phần thô, Hoàn thiện, Nội thất gỗ
+  group2          String   @default("")            // Level 2: Phòng khách, Tủ bếp, Ban công
+  drawingUrl      String   @default("")            // Bản vẽ kỹ thuật đính kèm
+  drawingNote     String   @default("")
+  supplierTag     String   @default("")            // Công ty cấp | Thầu phụ cấp
+  productId       String
+  product         Product       @relation(fields: [productId], references: [id])
+  projectId       String
+  project         Project       @relation(fields: [projectId], references: [id])
+  requisitions    MaterialRequisition[]
+  purchaseItems   PurchaseOrderItem[]
+  createdAt       DateTime @default(now())
+  @@index([projectId])
   @@index([productId])
+}
+
+model BudgetChangeOrder {
+  id             String   @id @default(cuid())
+  projectId      String
+  project        Project  @relation(fields: [projectId], references: [id])
+  materialPlanId String?
+  reason         String   @db.Text
+  oldQty         Float    @default(0)
+  newQty         Float    @default(0)
+  oldPrice       Float    @default(0)
+  newPrice       Float    @default(0)
+  status         String   @default("pending")
+  requestedBy    String   @default("")
+  approvedBy     String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
   @@index([projectId])
 }
 
 model MaterialRequisition {
-  id              String         @id
-  code            String         @unique
-  requestedQty    Float          @default(0)
+  id              String   @id @default(cuid())
+  code            String   @unique
+  requestedQty    Float    @default(0)
   requestedDate   DateTime?
-  notes           String         @default("")
-  status          String         @default("Chờ xử lý")
-  createdBy       String         @default("")
+  notes           String   @default("") @db.Text
+  status          String   @default("Chờ xử lý")
+  createdBy       String   @default("")
   materialPlanId  String
+  materialPlan    MaterialPlan  @relation(fields: [materialPlanId], references: [id])
   projectId       String
+  project         Project       @relation(fields: [projectId], references: [id])
   purchaseOrderId String?
-  createdAt       DateTime       @default(now())
-  MaterialPlan    MaterialPlan   @relation(fields: [materialPlanId], references: [id])
-  Project         Project        @relation(fields: [projectId], references: [id])
-  PurchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
-
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  createdAt       DateTime @default(now())
+  @@index([projectId])
   @@index([materialPlanId])
-  @@index([projectId])
-}
-
-model Product {
-  id                                         String                 @id
-  code                                       String                 @unique
-  name                                       String
-  category                                   String
-  unit                                       String
-  importPrice                                Float                  @default(0)
-  salePrice                                  Float                  @default(0)
-  stock                                      Int                    @default(0)
-  minStock                                   Int                    @default(0)
-  supplier                                   String                 @default("")
-  description                                String                 @default("")
-  dimensions                                 String                 @default("")
-  weight                                     Float                  @default(0)
-  color                                      String                 @default("")
-  material                                   String                 @default("")
-  origin                                     String                 @default("")
-  warranty                                   String                 @default("")
-  brand                                      String                 @default("")
-  status                                     String                 @default("Đang bán")
-  supplyType                                 String                 @default("Vật tư lưu kho")
-  leadTimeDays                               Int                    @default(0)
-  location                                   String                 @default("")
-  image                                      String                 @default("")
-  coreBoard                                  String                 @default("")
-  surfaceCode                                String                 @default("")
-  categoryId                                 String?
-  deletedAt                                  DateTime?
-  createdAt                                  DateTime               @default(now())
-  updatedAt                                  DateTime
-  InventoryTransaction                       InventoryTransaction[]
-  MaterialPlan                               MaterialPlan[]
-  ProductCategory                            ProductCategory?       @relation(fields: [categoryId], references: [id])
-  ProductAttribute                           ProductAttribute[]
-  ProductBOM_ProductBOM_componentIdToProduct ProductBOM[]           @relation("ProductBOM_componentIdToProduct")
-  ProductBOM_ProductBOM_productIdToProduct   ProductBOM[]           @relation("ProductBOM_productIdToProduct")
-  PurchaseOrderItem                          PurchaseOrderItem[]
-  QuotationItem                              QuotationItem[]
-
-  @@index([categoryId])
-}
-
-model ProductAttribute {
-  id                     String                   @id
-  name                   String
-  inputType              String                   @default("select")
-  required               Boolean                  @default(true)
-  order                  Int                      @default(0)
-  productId              String
-  createdAt              DateTime                 @default(now())
-  Product                Product                  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  ProductAttributeOption ProductAttributeOption[]
-
-  @@index([productId])
-}
-
-model ProductAttributeOption {
-  id               String           @id
-  label            String
-  priceAddon       Float            @default(0)
-  order            Int              @default(0)
-  attributeId      String
-  ProductAttribute ProductAttribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
-
-  @@index([attributeId])
-}
-
-model ProductBOM {
-  id                                      String   @id
-  quantity                                Float    @default(1)
-  unit                                    String   @default("")
-  notes                                   String   @default("")
-  productId                               String
-  componentId                             String
-  createdAt                               DateTime @default(now())
-  Product_ProductBOM_componentIdToProduct Product  @relation("ProductBOM_componentIdToProduct", fields: [componentId], references: [id])
-  Product_ProductBOM_productIdToProduct   Product  @relation("ProductBOM_productIdToProduct", fields: [productId], references: [id], onDelete: Cascade)
-
-  @@index([componentId])
-  @@index([productId])
-}
-
-model ProductCategory {
-  id                    String            @id
-  name                  String
-  slug                  String            @default("")
-  order                 Int               @default(0)
-  parentId              String?
-  createdAt             DateTime          @default(now())
-  Product               Product[]
-  ProductCategory       ProductCategory?  @relation("ProductCategoryToProductCategory", fields: [parentId], references: [id])
-  other_ProductCategory ProductCategory[] @relation("ProductCategoryToProductCategory")
-
-  @@index([parentId])
-}
-
-model ProgressReport {
-  id            String       @id
-  progressFrom  Int          @default(0)
-  progressTo    Int
-  description   String       @default("")
-  images        String       @default("[]")
-  status        String       @default("Đã duyệt")
-  rejectionNote String       @default("")
-  reportDate    DateTime     @default(now())
-  createdBy     String       @default("")
-  taskId        String
-  projectId     String
-  createdAt     DateTime     @default(now())
-  Project       Project      @relation(fields: [projectId], references: [id])
-  ScheduleTask  ScheduleTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  @@index([projectId])
-  @@index([taskId])
-}
-
-model Project {
-  id                   String                 @id
-  code                 String                 @unique
-  name                 String
-  type                 String
-  address              String                 @default("")
-  description          String                 @default("")
-  area                 Float                  @default(0)
-  floors               Int                    @default(0)
-  budget               Float                  @default(0)
-  spent                Float                  @default(0)
-  contractValue        Float                  @default(0)
-  paidAmount           Float                  @default(0)
-  status               String                 @default("Khảo sát")
-  phase                String                 @default("")
-  progress             Int                    @default(0)
-  startDate            DateTime?
-  endDate              DateTime?
-  manager              String                 @default("")
-  designer             String                 @default("")
-  supervisor           String                 @default("")
-  notes                String                 @default("")
-  budgetStatus         String                 @default("draft")
-  budgetLockedAt       DateTime?
-  budgetLockedBy       String                 @default("")
-  budgetTotal          Float                  @default(0)
-  customerId           String
-  deletedAt            DateTime?
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime
-  BudgetChangeOrder    BudgetChangeOrder[]
-  Commitment           Commitment[]
-  Contract             Contract[]
-  ContractorPayment    ContractorPayment[]
-  DocumentFolder       DocumentFolder[]
-  InventoryTransaction InventoryTransaction[]
-  JournalEntry         JournalEntry[]
-  MaterialPlan         MaterialPlan[]
-  MaterialRequisition  MaterialRequisition[]
-  ProgressReport       ProgressReport[]
-  Customer             Customer               @relation(fields: [customerId], references: [id])
-  ProjectBudget        ProjectBudget[]
-  ProjectDocument      ProjectDocument[]
-  ProjectEmployee      ProjectEmployee[]
-  ProjectExpense       ProjectExpense[]
-  ProjectMilestone     ProjectMilestone[]
-  PurchaseOrder        PurchaseOrder[]
-  Quotation            Quotation[]
-  ScheduleTask         ScheduleTask[]
-  TrackingLog          TrackingLog[]
-  Transaction          Transaction[]
-  WorkOrder            WorkOrder[]
-
-  @@index([customerId])
-}
-
-model ProjectBudget {
-  id           String  @id
-  category     String
-  budgetAmount Float   @default(0)
-  actualAmount Float   @default(0)
-  notes        String  @default("")
-  projectId    String
-  Project      Project @relation(fields: [projectId], references: [id])
-
-  @@index([projectId])
-}
-
-model ProjectDocument {
-  id                    String            @id
-  name                  String
-  fileName              String            @default("")
-  category              String            @default("Khác")
-  fileSize              Int               @default(0)
-  fileUrl               String            @default("")
-  mimeType              String            @default("")
-  thumbnailUrl          String            @default("")
-  space                 String            @default("")
-  uploadedBy            String            @default("")
-  notes                 String            @default("")
-  version               Int               @default(1)
-  status                String            @default("Nháp")
-  accessLevel           String            @default("internal")
-  folderId              String?
-  parentDocumentId      String?
-  customerId            String?
-  projectId             String?
-  supplierId            String?
-  contractorId          String?
-  createdAt             DateTime          @default(now())
-  Contractor            Contractor?       @relation(fields: [contractorId], references: [id])
-  Customer              Customer?         @relation(fields: [customerId], references: [id])
-  DocumentFolder        DocumentFolder?   @relation(fields: [folderId], references: [id])
-  ProjectDocument       ProjectDocument?  @relation("ProjectDocumentToProjectDocument", fields: [parentDocumentId], references: [id])
-  other_ProjectDocument ProjectDocument[] @relation("ProjectDocumentToProjectDocument")
-  Project               Project?          @relation(fields: [projectId], references: [id])
-  Supplier              Supplier?         @relation(fields: [supplierId], references: [id])
-
-  @@index([contractorId])
-  @@index([customerId])
-  @@index([projectId])
-  @@index([supplierId])
-}
-
-model ProjectEmployee {
-  projectId  String
-  employeeId String
-  Employee   Employee @relation(fields: [employeeId], references: [id])
-  Project    Project  @relation(fields: [projectId], references: [id])
-
-  @@id([projectId, employeeId])
-}
-
-model ProjectExpense {
-  id            String    @id
-  code          String    @unique
-  expenseType   String    @default("Dự án")
-  description   String
-  amount        Float     @default(0)
-  paidAmount    Float     @default(0)
-  category      String    @default("Khác")
-  status        String    @default("Chờ duyệt")
-  submittedBy   String    @default("")
-  approvedBy    String    @default("")
-  proofUrl      String    @default("")
-  recipientType String    @default("")
-  recipientId   String    @default("")
-  recipientName String    @default("")
-  date          DateTime  @default(now())
-  notes         String    @default("")
-  projectId     String?
-  deletedAt     DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime
-  Project       Project?  @relation(fields: [projectId], references: [id])
-
-  @@index([projectId])
-}
-
-model ProjectMilestone {
-  id        String    @id
-  name      String
-  progress  Int       @default(0)
-  startDate DateTime?
-  endDate   DateTime?
-  status    String    @default("Chưa bắt đầu")
-  order     Int       @default(0)
-  projectId String
-  createdAt DateTime  @default(now())
-  Project   Project   @relation(fields: [projectId], references: [id])
-
-  @@index([projectId])
 }
 
 model PurchaseOrder {
-  id                  String                @id
-  code                String                @unique
-  supplier            String
-  totalAmount         Float                 @default(0)
-  paidAmount          Float                 @default(0)
-  status              String                @default("Chờ duyệt")
-  deliveryType        String                @default("Giao thẳng dự án")
-  deliveryAddress     String                @default("")
-  orderDate           DateTime              @default(now())
-  deliveryDate        DateTime?
-  receivedDate        DateTime?
-  notes               String                @default("")
-  projectId           String?
-  supplierId          String?
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime
-  MaterialRequisition MaterialRequisition[]
-  Project             Project?              @relation(fields: [projectId], references: [id])
-  Supplier            Supplier?             @relation(fields: [supplierId], references: [id])
-  PurchaseOrderItem   PurchaseOrderItem[]
-
+  id              String   @id @default(cuid())
+  code            String   @unique
+  supplier        String
+  totalAmount     Float    @default(0)
+  paidAmount      Float    @default(0)
+  status          String   @default("Chờ duyệt")
+  deliveryType    String   @default("Giao thẳng dự án")
+  deliveryAddress String   @default("")
+  orderDate       DateTime @default(now())
+  deliveryDate    DateTime?
+  receivedDate    DateTime?
+  notes           String   @default("")
+  projectId       String?
+  project         Project?  @relation(fields: [projectId], references: [id])
+  supplierId      String?
+  supplierRel     Supplier? @relation(fields: [supplierId], references: [id])
+  items           PurchaseOrderItem[]
+  requisitions    MaterialRequisition[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
   @@index([projectId])
   @@index([supplierId])
 }
 
 model PurchaseOrderItem {
-  id              String        @id
+  id              String   @id @default(cuid())
   productName     String
-  unit            String        @default("")
-  quantity        Float         @default(0)
-  unitPrice       Float         @default(0)
-  amount          Float         @default(0)
-  receivedQty     Float         @default(0)
-  notes           String        @default("")
+  unit            String   @default("")
+  quantity        Float    @default(0)
+  unitPrice       Float    @default(0)
+  amount          Float    @default(0)
+  receivedQty     Float    @default(0)
+  notes           String   @default("")
   productId       String?
+  product         Product?      @relation(fields: [productId], references: [id])
   materialPlanId  String?
+  materialPlan    MaterialPlan? @relation(fields: [materialPlanId], references: [id])
   purchaseOrderId String
-  MaterialPlan    MaterialPlan? @relation(fields: [materialPlanId], references: [id])
-  Product         Product?      @relation(fields: [productId], references: [id])
-  PurchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-
-  @@index([materialPlanId])
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   @@index([purchaseOrderId])
+  @@index([materialPlanId])
 }
 
-model Quotation {
-  id                String              @id
-  code              String              @unique
-  total             Float               @default(0)
-  discount          Float               @default(0)
-  vat               Float               @default(10)
-  grandTotal        Float               @default(0)
-  status            String              @default("Nháp")
-  validUntil        DateTime?
-  notes             String              @default("")
-  type              String              @default("Thi công")
-  directCost        Float               @default(0)
-  managementFeeRate Float               @default(5)
-  managementFee     Float               @default(0)
-  designFee         Float               @default(0)
-  otherFee          Float               @default(0)
-  adjustment        Float               @default(0)
-  adjustmentType    String              @default("amount")
-  adjustmentAmount  Float               @default(0)
-  deductions        Json?               @default("[]")
-  revision          Int                 @default(1)
-  parentId          String?
-  lockedAt          DateTime?
-  customerId        String
-  projectId         String?
-  deletedAt         DateTime?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime
-  Contract          Contract[]
-  Customer          Customer            @relation(fields: [customerId], references: [id])
-  Quotation         Quotation?          @relation("QuotationToQuotation", fields: [parentId], references: [id])
-  other_Quotation   Quotation[]         @relation("QuotationToQuotation")
-  Project           Project?            @relation(fields: [projectId], references: [id])
-  QuotationCategory QuotationCategory[]
-  QuotationItem     QuotationItem[]
-
-  @@index([customerId])
-  @@index([parentId])
+model ProjectExpense {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  expenseType   String   @default("Dự án")
+  description   String   @db.Text
+  amount        Float    @default(0)
+  paidAmount    Float    @default(0)
+  category      String   @default("Khác")
+  status        String   @default("Chờ duyệt")
+  submittedBy   String   @default("")
+  approvedBy    String   @default("")
+  proofUrl      String   @default("")
+  recipientType String   @default("")
+  recipientId   String   @default("")
+  recipientName String   @default("")
+  date          DateTime @default(now())
+  notes         String   @default("") @db.Text
+  projectId     String?
+  project       Project? @relation(fields: [projectId], references: [id])
+  deletedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
   @@index([projectId])
 }
 
-model QuotationCategory {
-  id            String          @id
+model TrackingLog {
+  id          String   @id @default(cuid())
+  content     String
+  type        String   @default("Ghi chú")
+  contactMethod String @default("")
+  nextFollowUp DateTime?
+  createdBy   String   @default("")
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id])
+  createdAt   DateTime @default(now())
+  @@index([customerId])
+  @@index([projectId])
+}
+
+model ProjectDocument {
+  id          String   @id @default(cuid())
+  name        String
+  fileName    String   @default("")
+  category    String   @default("Khác")
+  fileSize    Int      @default(0)
+  fileUrl     String   @default("")
+  mimeType    String   @default("")
+  thumbnailUrl String  @default("")
+  space       String   @default("")
+  uploadedBy  String   @default("")
+  notes       String   @default("")
+  version     Int      @default(1)
+  status      String   @default("Nháp")
+  accessLevel String   @default("internal")
+  folderId    String?
+  folder      DocumentFolder? @relation(fields: [folderId], references: [id])
+  parentDocumentId String?
+  parentDoc   ProjectDocument? @relation("DocVersions", fields: [parentDocumentId], references: [id])
+  versions    ProjectDocument[] @relation("DocVersions")
+  customerId   String?
+  customer     Customer?  @relation(fields: [customerId], references: [id])
+  projectId    String?
+  project      Project?   @relation(fields: [projectId], references: [id])
+  supplierId   String?
+  supplier     Supplier?  @relation(fields: [supplierId], references: [id])
+  contractorId String?
+  contractor   Contractor? @relation(fields: [contractorId], references: [id])
+  createdAt    DateTime @default(now())
+  @@index([projectId])
+  @@index([customerId])
+  @@index([supplierId])
+  @@index([contractorId])
+}
+
+model DocumentFolder {
+  id          String   @id @default(cuid())
+  name        String
+  order       Int      @default(0)
+  parentId    String?
+  parent      DocumentFolder? @relation("FolderTree", fields: [parentId], references: [id])
+  children    DocumentFolder[] @relation("FolderTree")
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id])
+  documents   ProjectDocument[]
+  createdAt   DateTime @default(now())
+  @@index([projectId])
+}
+
+// ============ ĐỊNH MỨC VẬT TƯ (BOM) ============
+
+model ProductBOM {
+  id          String   @id @default(cuid())
+  quantity    Float    @default(1)
+  unit        String   @default("")
+  notes       String   @default("")
+  productId   String
+  product     Product  @relation("BOMParent", fields: [productId], references: [id], onDelete: Cascade)
+  componentId String
+  component   Product  @relation("BOMComponent", fields: [componentId], references: [id])
+  createdAt   DateTime @default(now())
+  @@index([productId])
+  @@index([componentId])
+}
+
+// ============ PRODUCT CONFIGURATOR (BIẾN THỂ) ============
+
+model ProductAttribute {
+  id        String   @id @default(cuid())
+  name      String
+  inputType String   @default("select")
+  required  Boolean  @default(true)
+  order     Int      @default(0)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  options   ProductAttributeOption[]
+  createdAt DateTime @default(now())
+  @@index([productId])
+}
+
+model ProductAttributeOption {
+  id          String           @id @default(cuid())
+  label       String
+  priceAddon  Float            @default(0)
+  order       Int              @default(0)
+  attributeId String
+  attribute   ProductAttribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  @@index([attributeId])
+}
+
+model VariantTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  inputType String   @default("select")
+  required  Boolean  @default(true)
+  options   VariantTemplateOption[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VariantTemplateOption {
+  id         String          @id @default(cuid())
+  label      String
+  priceAddon Float           @default(0)
+  order      Int             @default(0)
+  templateId String
+  template   VariantTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  @@index([templateId])
+}
+// ============ THƯ VIỆN HẠNG MỤC THI CÔNG ============
+
+model WorkItemLibrary {
+  id            String   @id @default(cuid())
   name          String
-  group         String          @default("")
-  image         String          @default("")
-  order         Int             @default(0)
-  subtotal      Float           @default(0)
-  quotationId   String
-  Quotation     Quotation       @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-  QuotationItem QuotationItem[]
-
-  @@index([quotationId])
+  category      String   @default("Phần thô")
+  subcategory   String   @default("")
+  unit          String   @default("m²")
+  mainMaterial  Float    @default(0)
+  auxMaterial   Float    @default(0)
+  labor         Float    @default(0)
+  unitPrice     Float    @default(0)
+  description   String   @default("")
+  image         String   @default("")
+  createdAt     DateTime @default(now())
 }
 
-model QuotationItem {
-  id                  String             @id
-  name                String
-  order               Int                @default(0)
-  unit                String             @default("")
-  quantity            Float              @default(0)
-  volume              Float              @default(0)
-  mainMaterial        Float              @default(0)
-  auxMaterial         Float              @default(0)
-  labor               Float              @default(0)
-  unitPrice           Float              @default(0)
-  amount              Float              @default(0)
-  description         String             @default("")
-  length              Float              @default(0)
-  width               Float              @default(0)
-  height              Float              @default(0)
-  image               String             @default("")
-  productId           String?
-  parentItemId        String?
-  quotationId         String
-  categoryId          String?
-  QuotationCategory   QuotationCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  QuotationItem       QuotationItem?     @relation("QuotationItemToQuotationItem", fields: [parentItemId], references: [id], onDelete: Cascade)
-  other_QuotationItem QuotationItem[]    @relation("QuotationItemToQuotationItem")
-  Product             Product?           @relation(fields: [productId], references: [id])
-  Quotation           Quotation          @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-
-  @@index([parentItemId])
-  @@index([quotationId])
-}
+// ============ BÁO GIÁ MẪU (TEMPLATE) ============
 
 model QuotationTemplate {
-  id                        String                      @id
-  name                      String
-  type                      String                      @default("Thi công thô")
-  description               String                      @default("")
-  managementFeeRate         Float                       @default(5)
-  designFee                 Float                       @default(0)
-  vat                       Float                       @default(10)
-  discount                  Float                       @default(0)
-  createdAt                 DateTime                    @default(now())
-  updatedAt                 DateTime
-  QuotationTemplateCategory QuotationTemplateCategory[]
+  id          String   @id @default(cuid())
+  name        String
+  type        String   @default("Thi công thô")
+  description String   @default("")
+  managementFeeRate Float @default(5)
+  designFee   Float    @default(0)
+  vat         Float    @default(10)
+  discount    Float    @default(0)
+  categories  QuotationTemplateCategory[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model QuotationTemplateCategory {
-  id                    String                  @id
-  name                  String
-  order                 Int                     @default(0)
-  templateId            String
-  QuotationTemplate     QuotationTemplate       @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  QuotationTemplateItem QuotationTemplateItem[]
+  id          String   @id @default(cuid())
+  name        String
+  order       Int      @default(0)
+  templateId  String
+  template    QuotationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  items       QuotationTemplateItem[]
 }
 
 model QuotationTemplateItem {
-  id                        String                    @id
-  name                      String
-  order                     Int                       @default(0)
-  unit                      String                    @default("")
-  quantity                  Float                     @default(0)
-  mainMaterial              Float                     @default(0)
-  auxMaterial               Float                     @default(0)
-  labor                     Float                     @default(0)
-  unitPrice                 Float                     @default(0)
-  description               String                    @default("")
-  categoryId                String
-  QuotationTemplateCategory QuotationTemplateCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  name          String
+  order         Int      @default(0)
+  unit          String   @default("")
+  quantity      Float    @default(0)
+  mainMaterial  Float    @default(0)
+  auxMaterial   Float    @default(0)
+  labor         Float    @default(0)
+  unitPrice     Float    @default(0)
+  description   String   @default("")
+  categoryId    String
+  category      QuotationTemplateCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 }
 
-model ScheduleTask {
-  id                                                          String           @id
-  name                                                        String
-  order                                                       Int              @default(0)
-  level                                                       Int              @default(0)
-  wbs                                                         String           @default("")
-  startDate                                                   DateTime
-  endDate                                                     DateTime
-  duration                                                    Int              @default(1)
-  progress                                                    Int              @default(0)
-  weight                                                      Float            @default(1)
-  status                                                      String           @default("Chưa bắt đầu")
-  isLocked                                                    Boolean          @default(false)
-  assignee                                                    String           @default("")
-  notes                                                       String           @default("")
-  color                                                       String           @default("")
-  baselineStart                                               DateTime?
-  baselineEnd                                                 DateTime?
-  parentId                                                    String?
-  predecessorId                                               String?
-  projectId                                                   String
-  createdAt                                                   DateTime         @default(now())
-  updatedAt                                                   DateTime
-  ProgressReport                                              ProgressReport[]
-  ScheduleTask_ScheduleTask_parentIdToScheduleTask            ScheduleTask?    @relation("ScheduleTask_parentIdToScheduleTask", fields: [parentId], references: [id])
-  other_ScheduleTask_ScheduleTask_parentIdToScheduleTask      ScheduleTask[]   @relation("ScheduleTask_parentIdToScheduleTask")
-  ScheduleTask_ScheduleTask_predecessorIdToScheduleTask       ScheduleTask?    @relation("ScheduleTask_predecessorIdToScheduleTask", fields: [predecessorId], references: [id])
-  other_ScheduleTask_ScheduleTask_predecessorIdToScheduleTask ScheduleTask[]   @relation("ScheduleTask_predecessorIdToScheduleTask")
-  Project                                                     Project          @relation(fields: [projectId], references: [id])
+// ============ PHÂN HỆ TIẾN ĐỘ V2 ============
 
+model ScheduleTask {
+  id            String   @id @default(cuid())
+  name          String
+  order         Int      @default(0)
+  level         Int      @default(0)
+  wbs           String   @default("")
+  startDate     DateTime
+  endDate       DateTime
+  duration      Int      @default(1)
+  progress      Int      @default(0)
+  weight        Float    @default(1)
+  status        String   @default("Chưa bắt đầu")
+  isLocked      Boolean  @default(false)
+  assignee      String   @default("")
+  notes         String   @default("")
+  color         String   @default("")
+  baselineStart DateTime?
+  baselineEnd   DateTime?
+  parentId      String?
+  parent        ScheduleTask?  @relation("TaskTree", fields: [parentId], references: [id])
+  children      ScheduleTask[] @relation("TaskTree")
+  predecessorId String?
+  predecessor   ScheduleTask?  @relation("TaskDep", fields: [predecessorId], references: [id])
+  successors    ScheduleTask[] @relation("TaskDep")
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id])
+  progressReports ProgressReport[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  @@index([projectId])
   @@index([parentId])
+}
+
+model ProgressReport {
+  id            String   @id @default(cuid())
+  progressFrom  Int      @default(0)
+  progressTo    Int
+  description   String   @default("") @db.Text
+  images        String   @default("[]") @db.Text
+  status        String   @default("Đã duyệt")
+  rejectionNote String   @default("")
+  reportDate    DateTime @default(now())
+  createdBy     String   @default("")
+  taskId        String
+  task          ScheduleTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id])
+  createdAt     DateTime @default(now())
+  @@index([taskId])
   @@index([projectId])
 }
 
 model ScheduleTemplate {
-  id                   String                 @id
-  name                 String
-  type                 String                 @default("Nội thất")
-  description          String                 @default("")
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime
-  ScheduleTemplateItem ScheduleTemplateItem[]
+  id          String   @id @default(cuid())
+  name        String
+  type        String   @default("Nội thất")
+  description String   @default("")
+  items       ScheduleTemplateItem[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model ScheduleTemplateItem {
-  id                                                                                  String                 @id
-  name                                                                                String
-  order                                                                               Int                    @default(0)
-  level                                                                               Int                    @default(0)
-  wbs                                                                                 String                 @default("")
-  duration                                                                            Int                    @default(1)
-  weight                                                                              Float                  @default(1)
-  color                                                                               String                 @default("")
-  parentId                                                                            String?
-  predecessorId                                                                       String?
-  templateId                                                                          String
-  ScheduleTemplateItem_ScheduleTemplateItem_parentIdToScheduleTemplateItem            ScheduleTemplateItem?  @relation("ScheduleTemplateItem_parentIdToScheduleTemplateItem", fields: [parentId], references: [id])
-  other_ScheduleTemplateItem_ScheduleTemplateItem_parentIdToScheduleTemplateItem      ScheduleTemplateItem[] @relation("ScheduleTemplateItem_parentIdToScheduleTemplateItem")
-  ScheduleTemplateItem_ScheduleTemplateItem_predecessorIdToScheduleTemplateItem       ScheduleTemplateItem?  @relation("ScheduleTemplateItem_predecessorIdToScheduleTemplateItem", fields: [predecessorId], references: [id])
-  other_ScheduleTemplateItem_ScheduleTemplateItem_predecessorIdToScheduleTemplateItem ScheduleTemplateItem[] @relation("ScheduleTemplateItem_predecessorIdToScheduleTemplateItem")
-  ScheduleTemplate                                                                    ScheduleTemplate       @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  name          String
+  order         Int      @default(0)
+  level         Int      @default(0)
+  wbs           String   @default("")
+  duration      Int      @default(1)
+  weight        Float    @default(1)
+  color         String   @default("")
+  parentId      String?
+  parent        ScheduleTemplateItem? @relation("TplItemTree", fields: [parentId], references: [id])
+  children      ScheduleTemplateItem[] @relation("TplItemTree")
+  predecessorId String?
+  predecessor   ScheduleTemplateItem? @relation("TplItemDep", fields: [predecessorId], references: [id])
+  successors    ScheduleTemplateItem[] @relation("TplItemDep")
+  templateId    String
+  template      ScheduleTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 }
 
-model Supplier {
-  id              String            @id
-  code            String            @unique
-  name            String
-  type            String            @default("Vật tư xây dựng")
-  contact         String            @default("")
-  phone           String            @default("")
-  email           String            @default("")
-  address         String            @default("")
-  taxCode         String            @default("")
-  bankAccount     String            @default("")
-  bankName        String            @default("")
-  rating          Int               @default(3)
-  notes           String            @default("")
-  isBlacklisted   Boolean           @default(false)
-  creditLimit     Float             @default(0)
-  deletedAt       DateTime?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime
-  ProjectDocument ProjectDocument[]
-  PurchaseOrder   PurchaseOrder[]
-}
-
-model TrackingLog {
-  id            String    @id
-  content       String
-  type          String    @default("Ghi chú")
-  contactMethod String    @default("")
-  nextFollowUp  DateTime?
-  createdBy     String    @default("")
-  customerId    String?
-  projectId     String?
-  createdAt     DateTime  @default(now())
-  Customer      Customer? @relation(fields: [customerId], references: [id])
-  Project       Project?  @relation(fields: [projectId], references: [id])
-
-  @@index([customerId])
-  @@index([projectId])
-}
-
-model Transaction {
-  id          String   @id
-  code        String   @unique
-  type        String
-  description String
-  amount      Float
-  category    String   @default("")
-  date        DateTime @default(now())
-  projectId   String?
-  createdAt   DateTime @default(now())
-  Project     Project? @relation(fields: [projectId], references: [id])
-
-  @@index([projectId])
-}
-
-model User {
-  id         String   @id
-  email      String   @unique
-  name       String
-  password   String
-  role       String   @default("ky_thuat")
-  active     Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime
-  department String   @default("")
-}
-
-model VariantTemplate {
-  id                    String                  @id
-  name                  String
-  inputType             String                  @default("select")
-  required              Boolean                 @default(true)
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime
-  VariantTemplateOption VariantTemplateOption[]
-}
-
-model VariantTemplateOption {
-  id              String          @id
-  label           String
-  priceAddon      Float           @default(0)
-  order           Int             @default(0)
-  templateId      String
-  VariantTemplate VariantTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-
-  @@index([templateId])
-}
-
-model Warehouse {
-  id                   String                 @id
-  code                 String                 @unique
-  name                 String
-  address              String                 @default("")
-  createdAt            DateTime               @default(now())
-  InventoryTransaction InventoryTransaction[]
-}
-
-model WorkItemLibrary {
-  id           String   @id
-  name         String
-  category     String   @default("Phần thô")
-  subcategory  String   @default("")
-  unit         String   @default("m²")
-  mainMaterial Float    @default(0)
-  auxMaterial  Float    @default(0)
-  labor        Float    @default(0)
-  unitPrice    Float    @default(0)
-  description  String   @default("")
-  image        String   @default("")
-  createdAt    DateTime @default(now())
-}
-
-model WorkOrder {
-  id          String    @id
-  code        String    @unique
-  title       String
-  description String    @default("")
-  priority    String    @default("Trung bình")
-  status      String    @default("Chờ xử lý")
-  assignee    String    @default("")
-  dueDate     DateTime?
-  completedAt DateTime?
-  category    String    @default("")
+model JournalEntry {
+  id          String       @id @default(cuid())
   projectId   String
-  deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime
-  Project     Project   @relation(fields: [projectId], references: [id])
-
+  project     Project      @relation(fields: [projectId], references: [id])
+  source      String       @default("paste")
+  rawInput    String       @db.Text
+  aiSummary   String?      @db.Text
+  aiRaw       Json?
+  createdBy   String       @default("")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  commitments Commitment[]
   @@index([projectId])
+}
+
+model Commitment {
+  id             String        @id @default(cuid())
+  journalEntryId String?
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  projectId      String
+  project        Project       @relation(fields: [projectId], references: [id])
+  title          String
+  type           String        @default("y\u00eau c\u1ea7u")
+  assignee       String        @default("")
+  deadline       DateTime?
+  status         String        @default("pending")
+  notes          String        @default("") @db.Text
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  @@index([projectId])
+  @@index([journalEntryId])
+  @@index([status])
 }
