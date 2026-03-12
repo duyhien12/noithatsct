@@ -1951,6 +1951,15 @@ body {
   .stats-grid {
     grid-template-columns: 1fr 1fr;
     gap: 8px;
+    margin-bottom: 0;
+  }
+
+  .stat-card {
+    padding: 14px !important;
+  }
+
+  .stat-card > div[style*="font-size: 24"] {
+    font-size: 18px !important;
   }
 
   .grid-2,
@@ -3715,6 +3724,33 @@ select.form-input-compact {
   width: 10px;
   height: 10px;
   border-radius: 50%;
+}
+
+/* Contract type summary grid */
+.contract-type-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.contract-type-card {
+  padding: 14px !important;
+}
+
+@media (max-width: 768px) {
+  .contract-type-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .contract-type-card {
+    padding: 12px !important;
+  }
+
+  .contract-type-card > div:nth-child(2) {
+    font-size: 12px !important;
+  }
 }
 
 /* Profitability widget */

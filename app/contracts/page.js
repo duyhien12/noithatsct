@@ -48,14 +48,14 @@ export default function ContractsPage() {
             </div>
 
             {/* Type summary cards */}
-            <div style={{ display: 'flex', gap: 16, marginTop: 16, flexWrap: 'wrap' }}>
+            <div className="contract-type-grid">
                 {typeGroups.map(g => (
-                    <div key={g.type} className="stat-card" onClick={() => setFilterType(filterType === g.type ? '' : g.type)} style={{ cursor: 'pointer', flex: 1, minWidth: 0, border: filterType === g.type ? '2px solid var(--accent-primary)' : undefined, transition: 'border 0.2s' }}>
-                        <div style={{ fontSize: 20 }}>{g.icon}</div>
-                        <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{g.type}</div>
-                        <div style={{ display: 'flex', gap: 12, marginTop: 6 }}>
-                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{g.count} HĐ</span>
-                            <span style={{ fontSize: 12, fontWeight: 600 }}>{fmt(g.value)}</span>
+                    <div key={g.type} className="stat-card contract-type-card" onClick={() => setFilterType(filterType === g.type ? '' : g.type)} style={{ cursor: 'pointer', border: filterType === g.type ? '2px solid var(--accent-primary)' : undefined, transition: 'border 0.2s' }}>
+                        <div style={{ fontSize: 18 }}>{g.icon}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4, lineHeight: 1.3 }}>{g.type}</div>
+                        <div style={{ marginTop: 6 }}>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{g.count} HĐ</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: g.value > 0 ? 'var(--status-success)' : 'var(--text-muted)', marginTop: 2, wordBreak: 'break-all' }}>{fmt(g.value)}</div>
                         </div>
                     </div>
                 ))}
@@ -101,21 +101,30 @@ export default function ContractsPage() {
                             const rate = pct(c.paidAmount, c.contractValue);
                             return (
                                 <div key={c.id} className="mobile-card-item" onClick={() => router.push(`/contracts/${c.id}`)}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                                        <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
                                             <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                                            <div className="card-subtitle">{c.code} · {c.customer?.name}</div>
+                                            <div className="card-subtitle" style={{ marginTop: 2 }}>{c.code} · {c.customer?.name}</div>
                                         </div>
-                                        <span className={`badge ${c.status === 'Hoàn thành' ? 'success' : c.status === 'Đang thực hiện' ? 'warning' : c.status === 'Đã ký' ? 'info' : 'muted'}`}>{c.status}</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                                            <span className={`badge ${c.status === 'Hoàn thành' ? 'success' : c.status === 'Đang thực hiện' ? 'warning' : c.status === 'Đã ký' ? 'info' : 'muted'}`}>{c.status}</span>
+                                            <span className={`badge ${TYPE_COLORS[c.type] || 'muted'}`} style={{ fontSize: 10 }}>{TYPE_ICONS[c.type]} {c.type}</span>
+                                        </div>
                                     </div>
-                                    <div className="card-row">
-                                        <div><span className="card-label">Giá trị</span><div className="card-value">{fmt(c.contractValue)}</div></div>
-                                        <div style={{ textAlign: 'right' }}><span className="card-label">Đã thu</span><div style={{ color: 'var(--status-success)', fontWeight: 600, fontSize: 12 }}>{fmt(c.paidAmount)}</div></div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                                        <div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Giá trị HĐ</div>
+                                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{fmt(c.contractValue)}</div>
+                                        </div>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Đã thu</div>
+                                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--status-success)' }}>{fmt(c.paidAmount)}</div>
+                                        </div>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                         <div className="progress-bar" style={{ flex: 1, height: 6 }}><div className="progress-fill" style={{ width: `${rate}%` }}></div></div>
-                                        <span style={{ fontSize: 11, fontWeight: 600 }}>{rate}%</span>
-                                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>· {c.payments?.length || 0} đợt</span>
+                                        <span style={{ fontSize: 11, fontWeight: 600, minWidth: 32 }}>{rate}%</span>
+                                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.payments?.length || 0} đợt</span>
                                     </div>
                                 </div>
                             );
