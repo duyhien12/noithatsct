@@ -13,7 +13,7 @@ import { useRole, ROLES } from '@/contexts/RoleContext';
 const menuItems = [
     {
         section: 'Tổng quan',
-        sectionRoles: ['giam_doc', 'pho_gd', 'ke_toan', 'ky_thuat'], // hidden for kinh_doanh
+        sectionRoles: ['giam_doc', 'pho_gd', 'ke_toan'], // chỉ ban lãnh đạo & kế toán
         items: [
             { href: '/', icon: LayoutDashboard, label: 'Dashboard' },
             { href: '/pipeline', icon: GitBranch, label: 'Pipeline' },
@@ -21,7 +21,7 @@ const menuItems = [
     },
     {
         section: 'Quản lý',
-        // visible to ALL roles including kinh_doanh
+        // visible to ALL roles: giam_doc, pho_gd, ke_toan, ky_thuat, kinh_doanh
         items: [
             { href: '/customers', icon: Users, label: 'Khách hàng', roles: ['giam_doc', 'pho_gd', 'ke_toan', 'kinh_doanh'] },
             { href: '/projects', icon: Building2, label: 'Dự án' },
@@ -34,20 +34,20 @@ const menuItems = [
     },
     {
         section: 'Vận hành',
-        sectionRoles: ['giam_doc', 'pho_gd', 'ke_toan', 'ky_thuat'], // hidden for kinh_doanh
+        sectionRoles: ['giam_doc', 'pho_gd', 'ke_toan', 'ky_thuat'], // ky_thuat chỉ thấy Chi phí
         items: [
             { href: '/payments', icon: CreditCard, label: 'Thu tiền', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
-            { href: '/expenses', icon: Receipt, label: 'Chi phí', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
+            { href: '/expenses', icon: Receipt, label: 'Chi phí', roles: ['giam_doc', 'pho_gd', 'ke_toan', 'ky_thuat'] },
             { href: '/purchasing', icon: ShoppingCart, label: 'Mua sắm VT', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
             { href: '/partners', icon: Truck, label: 'Đối tác (NCC/TP)', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
-            { href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho' },
+            { href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
             { href: '/finance', icon: Wallet, label: 'Tài chính', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
             { href: '/hr', icon: UserCog, label: 'Nhân sự', roles: ['giam_doc', 'pho_gd'] },
         ]
     },
     {
         section: 'Phân tích',
-        sectionRoles: ['giam_doc', 'pho_gd', 'ke_toan', 'ky_thuat'], // hidden for kinh_doanh
+        sectionRoles: ['giam_doc', 'pho_gd', 'ke_toan'], // chỉ ban lãnh đạo & kế toán
         items: [
             { href: '/reports', icon: BarChart3, label: 'Báo cáo', roles: ['giam_doc', 'pho_gd', 'ke_toan'] },
         ]
