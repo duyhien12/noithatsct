@@ -90,7 +90,7 @@ function LoginForm() {
         const data = await res.json();
         setLoading(false);
         if (!res.ok) { setError(data.error || 'Đăng ký thất bại'); return; }
-        setSuccess('Đăng ký thành công! Tài khoản đang chờ quản trị viên kích hoạt.');
+        setSuccess('Đăng ký thành công! Hãy chuyển sang tab Đăng nhập để vào hệ thống.');
     };
 
     const handleForgot = async (e) => {
@@ -259,7 +259,7 @@ function LoginForm() {
                             <UserPlus size={18} />{loading ? 'Đang xử lý...' : 'Tạo tài khoản'}
                         </button>
                         <p style={{ textAlign: 'center', fontSize: 12, color: '#9CA3AF', marginTop: 12 }}>
-                            Tài khoản sẽ được kích hoạt sau khi quản trị viên duyệt
+                            Tài khoản được kích hoạt ngay sau khi đăng ký
                         </p>
                     </form>
                 )}
