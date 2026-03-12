@@ -3779,4 +3779,9 @@ select.form-input-compact {
   .schedule-toolbar .badge {
     display: none;
   }
+
+  /* Gantt legend: compact on mobile */
+  .gantt-legend span + span {
+    margin-left: 8px !important;
+  }
 }

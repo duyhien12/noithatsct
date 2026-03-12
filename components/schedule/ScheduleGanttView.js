@@ -9,7 +9,6 @@ import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 const DAY_MS = 86400000;
 const ROW_HEIGHT = 36;
 const HEADER_HEIGHT = 50;
-const LABEL_WIDTH = 280;
 const MIN_COL_WIDTH = 28;
 
 const STATUS_COLORS = {
@@ -33,11 +32,24 @@ function diffDays(a, b) {
 
 export default function ScheduleGanttView({ tasks, flat, onUpdate }) {
     const containerRef = useRef(null);
+    const [isMobile, setIsMobile] = useState(false);
     const [zoom, setZoom] = useState('week'); // day | week | month
     const [dragging, setDragging] = useState(null);
     const [scrollLeft, setScrollLeft] = useState(0);
 
-    const COL_WIDTH = zoom === 'day' ? 36 : zoom === 'week' ? 28 : 10;
+    useEffect(() => {
+        const check = () => {
+            const mobile = window.innerWidth <= 768;
+            setIsMobile(mobile);
+            if (mobile) setZoom('month');
+        };
+        check();
+        window.addEventListener('resize', check);
+        return () => window.removeEventListener('resize', check);
+    }, []);
+
+    const LABEL_WIDTH = isMobile ? 130 : 280;
+    const COL_WIDTH = zoom === 'day' ? 36 : zoom === 'week' ? 28 : (isMobile ? 8 : 10);
 
     // Flatten tasks for rendering rows
     const rows = useMemo(() => {
@@ -197,26 +209,27 @@ export default function ScheduleGanttView({ tasks, flat, onUpdate }) {
                 {/* Left: Task labels (fixed) */}
                 <div style={{ width: LABEL_WIDTH, flexShrink: 0, borderRight: '2px solid var(--border-color)', background: 'var(--bg-card)', zIndex: 2 }}>
                     {/* Header spacer */}
-                    <div style={{ height: HEADER_HEIGHT, borderBottom: '1px solid var(--border-light)', padding: '0 12px', display: 'flex', alignItems: 'center', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Hạng mục</div>
+                    <div style={{ height: HEADER_HEIGHT, borderBottom: '1px solid var(--border-light)', padding: '0 8px', display: 'flex', alignItems: 'center', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Hạng mục</div>
                     {rows.map((row) => {
                         const isGroup = row.children && row.children.length > 0;
+                        const indent = isMobile ? Math.min(row.depth * 8, 16) : row.depth * 16;
                         return (
                             <div key={row.id} style={{
                                 height: ROW_HEIGHT,
-                                display: 'flex', alignItems: 'center', gap: 6,
-                                padding: `0 12px 0 ${12 + row.depth * 16}px`,
+                                display: 'flex', alignItems: 'center', gap: 4,
+                                padding: `0 6px 0 ${8 + indent}px`,
                                 borderBottom: '1px solid var(--border-light)',
-                                fontSize: 12,
+                                fontSize: isMobile ? 10 : 12,
                                 fontWeight: isGroup ? 700 : 400,
                                 color: 'var(--text-primary)',
                                 background: isGroup ? 'var(--bg-elevated)' : 'transparent',
                             }}>
-                                {row.color && <span style={{ width: 3, height: 16, borderRadius: 2, background: row.color, flexShrink: 0 }}></span>}
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {row.wbs && <span style={{ color: 'var(--text-muted)', marginRight: 4, fontSize: 10 }}>{row.wbs}</span>}
+                                {row.color && <span style={{ width: 3, height: 14, borderRadius: 2, background: row.color, flexShrink: 0 }} />}
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
+                                    {!isMobile && row.wbs && <span style={{ color: 'var(--text-muted)', marginRight: 4, fontSize: 10 }}>{row.wbs}</span>}
                                     {row.name}
                                 </span>
-                                <span style={{ marginLeft: 'auto', fontSize: 10, color: row.progress === 100 ? 'var(--status-success)' : 'var(--text-muted)', flexShrink: 0 }}>{row.progress}%</span>
+                                <span style={{ marginLeft: 2, fontSize: 9, color: row.progress === 100 ? 'var(--status-success)' : 'var(--text-muted)', flexShrink: 0 }}>{row.progress}%</span>
                             </div>
                         );
                     })}
