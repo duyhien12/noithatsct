@@ -142,17 +142,36 @@ export default function ScheduleManager({ projectId, projectCode, projectStartDa
             )}
 
             {/* Toolbar */}
-            <div className="card" style={{ padding: '12px 20px', marginBottom: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <button className={`btn ${view === 'list' ? 'btn-primary' : 'btn-ghost'} btn-sm`} onClick={() => setView('list')}>📋 Danh sách</button>
-                        <button className={`btn ${view === 'gantt' ? 'btn-primary' : 'btn-ghost'} btn-sm`} onClick={() => setView('gantt')}>📊 Gantt</button>
+            <div className="card schedule-toolbar" style={{ padding: '10px 14px', marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                    {/* View toggle */}
+                    <div style={{ display: 'flex', gap: 6 }}>
+                        <button className={`btn ${view === 'list' ? 'btn-primary' : 'btn-ghost'} btn-sm`} onClick={() => setView('list')}>
+                            <span>📋</span><span className="schedule-btn-label"> Danh sách</span>
+                        </button>
+                        <button className={`btn ${view === 'gantt' ? 'btn-primary' : 'btn-ghost'} btn-sm`} onClick={() => setView('gantt')}>
+                            <span>📊</span><span className="schedule-btn-label"> Gantt</span>
+                        </button>
                     </div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => setModal('import')}>📥 Thêm từ Mẫu</button>
-                        <button className="btn btn-ghost btn-sm" onClick={saveBaseline}>📌 Chốt Tiến độ</button>
-                        <button className="btn btn-primary btn-sm" onClick={() => setModal('add')}>+ Thêm hạng mục</button>
-                        {projectCode && <span className="badge info" style={{ cursor: 'pointer', fontSize: 11 }} onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/progress/${projectCode}`); }}>🔗 Link KH: /progress/{projectCode}</span>}
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setModal('import')} title="Thêm từ Mẫu">
+                            <span>📥</span><span className="schedule-btn-label"> Từ Mẫu</span>
+                        </button>
+                        <button className="btn btn-ghost btn-sm" onClick={saveBaseline} title="Chốt Tiến độ">
+                            <span>📌</span><span className="schedule-btn-label"> Chốt</span>
+                        </button>
+                        <button className="btn btn-primary btn-sm" onClick={() => setModal('add')}>
+                            + <span className="schedule-btn-label">Thêm hạng mục</span>
+                        </button>
+                        {projectCode && (
+                            <span
+                                className="badge info"
+                                style={{ cursor: 'pointer', fontSize: 11 }}
+                                title={`Copy link khách hàng: /progress/${projectCode}`}
+                                onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/progress/${projectCode}`); }}
+                            >🔗 /progress/{projectCode}</span>
+                        )}
                     </div>
                 </div>
             </div>

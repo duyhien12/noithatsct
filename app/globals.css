@@ -3770,4 +3770,13 @@ select.form-input-compact {
     flex-direction: column;
     gap: 12px;
   }
+
+  /* Schedule toolbar: shorten button labels on mobile */
+  .schedule-btn-label {
+    display: none;
+  }
+
+  .schedule-toolbar .badge {
+    display: none;
+  }
 }
