@@ -12,7 +12,7 @@ export const GET = withAuth(async (request) => {
         include: {
             contracts: { select: { contractValue: true, paidAmount: true, status: true } },
             expenses: { select: { amount: true, paidAmount: true, status: true } },
-            contractorPays: { select: { amount: true, paidAmount: true, status: true } },
+            contractorPays: { select: { contractAmount: true, paidAmount: true, status: true } },
         },
     });
     if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -29,7 +29,7 @@ export const GET = withAuth(async (request) => {
         _sum: { paidAmount: true },
     });
     const expenseSpent = project.expenses.reduce((s, e) => s + (e.paidAmount || 0), 0);
-    const contractorSpent = project.contractorPays.reduce((s, c) => s + (c.paidAmount || 0), 0);
+    const contractorSpent = project.contractorPays.reduce((s, c) => s + (c.paidAmount ?? 0), 0);
     const totalSpent = (materialSpent._sum.paidAmount || 0) + expenseSpent + contractorSpent;
 
     // Remaining committed (ordered but not paid)

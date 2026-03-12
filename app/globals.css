@@ -3742,6 +3742,30 @@ select.form-input-compact {
     grid-template-columns: repeat(2, 1fr);
   }
 
+  .profitability-card {
+    padding: 10px 12px;
+  }
+
+  .profitability-card > div:nth-child(2) {
+    font-size: 15px !important;
+  }
+
+  .overview-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .project-header-row {
+    flex-direction: column;
+  }
+
+  .project-header-row > div:last-child {
+    flex-direction: row !important;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+  }
+
   .budget-lock-bar {
     flex-direction: column;
     gap: 12px;

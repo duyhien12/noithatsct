@@ -511,8 +511,8 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                 ) : (
                     /* ===== VIEW MODE ===== */
                     <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                            <div>
+                        <div className="project-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
                                     <span style={{ color: 'var(--text-accent)', fontSize: 14, fontWeight: 600 }}>{p.code}</span>
                                     <span className={`badge ${p.status === 'Hoàn thành' ? 'success' : p.status === 'Đang thi công' ? 'warning' : 'info'}`}>{p.status}</span>
@@ -553,10 +553,12 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                                     );
                                 })()}
                             </div>
-                            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
                                 <button className="btn btn-secondary btn-sm" onClick={openEdit}>✏️ Chỉnh sửa</button>
-                                <div style={{ fontSize: 32, fontWeight: 700 }}>{p.progress}%</div>
-                                <div className="progress-bar" style={{ width: 120 }}><div className="progress-fill" style={{ width: `${p.progress}%` }}></div></div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <div style={{ fontSize: 28, fontWeight: 700 }}>{p.progress}%</div>
+                                    <div className="progress-bar" style={{ width: 80 }}><div className="progress-fill" style={{ width: `${p.progress}%` }}></div></div>
+                                </div>
                             </div>
                         </div>
 
@@ -574,7 +576,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                         </div>
 
                         {/* Quick Stats */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginTop: 8 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, marginTop: 8 }}>
                             {[
                                 { v: `${p.area}m²`, l: 'Diện tích' }, { v: `${p.floors} tầng`, l: 'Số tầng' },
                                 { v: fmt(p.contractValue), l: 'Giá trị HĐ' }, { v: fmt(p.paidAmount), l: 'Đã thu' },
@@ -669,7 +671,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             {tab === 'overview' && (
                 <div>
                     <ProfitabilityWidget projectId={id} />
-                    <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 20 }}>
+                    <div className="dashboard-grid overview-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
                         <div className="card">
                             <div className="card-header"><span className="card-title">👥 Nhân sự</span></div>
                             {p.employees.map(e => (
