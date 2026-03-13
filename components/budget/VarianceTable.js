@@ -79,7 +79,6 @@ export default function VarianceTable({ projectId }) {
             </td>
             <td style={{ ...C.cell, textAlign: 'center' }}>{item.unit}</td>
             <td style={{ ...C.cell, textAlign: 'right' }}>{item.budgetQty}</td>
-            <td style={{ ...C.cell, textAlign: 'right', color: item.orderedQty > 0 ? '#111' : '#9ca3af' }}>{item.orderedQty || '—'}</td>
             <td style={{ ...C.cell, textAlign: 'right' }}>{fmt(item.budgetUnitPrice)}</td>
             <td style={{ ...C.cell, textAlign: 'right', color: item.avgActualPrice > item.budgetUnitPrice ? '#dc2626' : item.avgActualPrice > 0 ? '#16a34a' : '#9ca3af', fontWeight: item.avgActualPrice > item.budgetUnitPrice ? 700 : 400 }}>
                 {item.avgActualPrice > 0 ? fmt(item.avgActualPrice) : '—'}
@@ -90,18 +89,6 @@ export default function VarianceTable({ projectId }) {
             </td>
             <td style={{ ...C.cell, textAlign: 'right', color: item.budgetTotal - item.actualTotal >= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
                 {item.actualTotal > 0 ? `${item.budgetTotal - item.actualTotal >= 0 ? '+' : ''}${fmt(item.budgetTotal - item.actualTotal)}` : '—'}
-            </td>
-            <td style={{ ...C.cell, textAlign: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <div style={{ flex: 1, height: 6, background: '#e5e7eb', borderRadius: 3, minWidth: 40 }}>
-                        <div style={{ height: '100%', borderRadius: 3, width: `${Math.min(item.usagePercent, 100)}%`, background: statusColor[item.status] || '#6b7280' }} />
-                    </div>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: statusColor[item.status], minWidth: 28 }}>{item.usagePercent}%</span>
-                </div>
-            </td>
-            <td style={{ ...C.cell, textAlign: 'center', fontWeight: 700, color: cpiColor(item.cpi) }}>{item.cpi !== null ? item.cpi.toFixed(2) : '—'}</td>
-            <td style={{ ...C.cell, textAlign: 'center' }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor[item.status] || '#6b7280', display: 'inline-block' }} />
             </td>
         </tr>
     );
@@ -118,7 +105,7 @@ export default function VarianceTable({ projectId }) {
                     <span style={{ marginRight: 6, fontSize: 10, color: '#6b7280' }}>{isCollapsed ? '▶' : '▼'}</span>
                     {name}
                 </td>
-                <td style={C.cell} /><td style={C.cell} /><td style={C.cell} /><td style={C.cell} />
+                <td style={C.cell} /><td style={C.cell} /><td style={C.cell} />
                 <td style={C.cell} />
                 <td style={{ ...C.cell, textAlign: 'right', fontWeight: 700, color: '#1e3a5f' }}>{fmt(budgetTotal)}</td>
                 <td style={{ ...C.cell, textAlign: 'right', color: actualTotal > 0 ? (actualTotal > budgetTotal ? '#dc2626' : '#16a34a') : '#9ca3af', fontWeight: 600 }}>
@@ -127,9 +114,6 @@ export default function VarianceTable({ projectId }) {
                 <td style={{ ...C.cell, textAlign: 'right', color: variance <= 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>
                     {actualTotal > 0 ? `${variance <= 0 ? '+' : ''}${fmt(-variance)}` : '—'}
                 </td>
-                <td style={C.cell} />
-                <td style={{ ...C.cell, textAlign: 'center', fontWeight: 700, color: cpiColor(cpi) }}>{cpi ? cpi.toFixed(2) : '—'}</td>
-                <td style={C.cell} />
             </tr>
         );
     };
@@ -190,15 +174,11 @@ export default function VarianceTable({ projectId }) {
                                 { label: 'TÊN HẠNG MỤC', w: 'auto' },
                                 { label: 'ĐVT', w: 55 },
                                 { label: 'SL DT', w: 65 },
-                                { label: 'SL Đặt', w: 65 },
                                 { label: 'ĐG DT', w: 100 },
                                 { label: 'ĐG TT', w: 100 },
                                 { label: 'Tổng DT', w: 110 },
                                 { label: 'Tổng TT', w: 110 },
                                 { label: 'Tiết kiệm', w: 110 },
-                                { label: 'Tỉ lệ SD', w: 100 },
-                                { label: 'CPI', w: 55 },
-                                { label: 'TT', w: 32 },
                             ].map(h => (
                                 <th key={h.label} style={{ ...C.header, width: h.w }}>{h.label}</th>
                             ))}
@@ -212,7 +192,7 @@ export default function VarianceTable({ projectId }) {
                         })}
                         {/* Grand total */}
                         <tr style={C.total}>
-                            <td colSpan={7} style={{ ...C.cell, textAlign: 'center', letterSpacing: 1, border: '1px solid #374151', color: 'white' }}>TỔNG CỘNG</td>
+                            <td colSpan={6} style={{ ...C.cell, textAlign: 'center', letterSpacing: 1, border: '1px solid #374151', color: 'white' }}>TỔNG CỘNG</td>
                             <td style={{ ...C.cell, textAlign: 'right', border: '1px solid #374151', color: 'white', fontSize: 13 }}>{fmt(totalBudget)}</td>
                             <td style={{ ...C.cell, textAlign: 'right', border: '1px solid #374151', color: totalActual > 0 ? (totalActual > totalBudget ? '#fca5a5' : '#86efac') : '#9ca3af' }}>
                                 {totalActual > 0 ? fmt(totalActual) : '—'}
@@ -220,7 +200,6 @@ export default function VarianceTable({ projectId }) {
                             <td style={{ ...C.cell, textAlign: 'right', border: '1px solid #374151', color: totalVariance <= 0 ? '#86efac' : '#fca5a5', fontWeight: 700 }}>
                                 {totalActual > 0 ? `${totalVariance <= 0 ? '+' : ''}${fmt(-totalVariance)}` : '—'}
                             </td>
-                            <td colSpan={3} style={{ border: '1px solid #374151' }} />
                         </tr>
                     </tbody>
                 </table>
