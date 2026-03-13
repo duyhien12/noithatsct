@@ -36,28 +36,37 @@ export const POST = withAuth(async (request) => {
     const body = await request.json();
     const data = projectCreateSchema.parse(body);
 
-    const project = await prisma.$transaction(async (tx) => {
-        // Advisory lock: only one transaction can generate a DA code at a time
-        // (works across all server instances sharing the same PostgreSQL DB)
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('project_code_da'))`;
+    let project;
+    for (let attempt = 0; attempt < 10; attempt++) {
+        try {
+            project = await prisma.$transaction(async (tx) => {
+                // Advisory lock: prevents race conditions between concurrent requests
+                // on the same server instance
+                await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('project_code_da'))`;
 
-        const records = await tx.project.findMany({
-            where: { code: { startsWith: 'DA' } },
-            select: { code: true },
-        });
-        const existing = new Set(records.map(r => r.code));
-        const maxNum = records
-            .map(r => r.code.slice(2))
-            .filter(s => /^\d+$/.test(s))
-            .reduce((max, s) => Math.max(max, Number(s)), 0);
-        let candidate = maxNum + 1;
-        while (existing.has(`DA${String(candidate).padStart(3, '0')}`)) candidate++;
-        const code = `DA${String(candidate).padStart(3, '0')}`;
+                const records = await tx.project.findMany({
+                    where: { code: { startsWith: 'DA' } },
+                    select: { code: true },
+                });
+                const existing = new Set(records.map(r => r.code));
+                const maxNum = records
+                    .map(r => r.code.slice(2))
+                    .filter(s => /^\d+$/.test(s))
+                    .reduce((max, s) => Math.max(max, Number(s)), 0);
+                let candidate = maxNum + 1;
+                while (existing.has(`DA${String(candidate).padStart(3, '0')}`)) candidate++;
+                const code = `DA${String(candidate).padStart(3, '0')}`;
 
-        const proj = await tx.project.create({ data: { code, ...data } });
-        await createDefaultFolders(tx, proj.id);
-        return proj;
-    });
+                const proj = await tx.project.create({ data: { code, ...data } });
+                await createDefaultFolders(tx, proj.id);
+                return proj;
+            });
+            break;
+        } catch (err) {
+            if (err.code === 'P2002' && attempt < 9) continue;
+            throw err;
+        }
+    }
 
     return NextResponse.json(project, { status: 201 });
 });
