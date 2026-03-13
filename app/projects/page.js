@@ -11,6 +11,7 @@ export default function ProjectsPage() {
     const [showModal, setShowModal] = useState(false);
     const [customers, setCustomers] = useState([]);
     const [form, setForm] = useState({ name: '', type: 'Thiết kế kiến trúc', status: 'Khảo sát', address: '', area: '', floors: '', budget: '', customerId: '', designer: '', supervisor: '' });
+    const [submitting, setSubmitting] = useState(false);
     const router = useRouter();
     const fetchProjects = () => {
         setLoading(true);
@@ -26,9 +27,15 @@ export default function ProjectsPage() {
     const handleCreate = async () => {
         if (!form.name.trim()) return alert('Vui lòng nhập tên dự án');
         if (!form.customerId) return alert('Vui lòng chọn khách hàng');
-        const res = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, area: Number(form.area) || 0, floors: Number(form.floors) || 1, budget: Number(form.budget) || 0 }) });
-        if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi tạo dự án'); }
-        setShowModal(false); setForm({ name: '', type: 'Thiết kế kiến trúc', status: 'Khảo sát', address: '', area: '', floors: '', budget: '', customerId: '', designer: '', supervisor: '' }); fetchProjects();
+        if (submitting) return;
+        setSubmitting(true);
+        try {
+            const res = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, area: Number(form.area) || 0, floors: Number(form.floors) || 1, budget: Number(form.budget) || 0 }) });
+            if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi tạo dự án'); }
+            setShowModal(false); setForm({ name: '', type: 'Thiết kế kiến trúc', status: 'Khảo sát', address: '', area: '', floors: '', budget: '', customerId: '', designer: '', supervisor: '' }); fetchProjects();
+        } finally {
+            setSubmitting(false);
+        }
     };
     const stColor = { 'Khảo sát': 'badge-default', 'Thiết kế': 'badge-info', 'Thi công': 'badge-warning', 'Nghiệm thu': 'badge-success', 'Bàn giao': 'badge-success' };
     const active = projects.filter(p => p.status === 'Thi công').length;
@@ -127,7 +134,7 @@ export default function ProjectsPage() {
                                 </select>
                             </div>
                         </div>
-                        <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setShowModal(false)}>Hủy</button><button className="btn btn-primary" onClick={handleCreate}>Tạo dự án</button></div>
+                        <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setShowModal(false)}>Hủy</button><button className="btn btn-primary" onClick={handleCreate} disabled={submitting}>{submitting ? 'Đang tạo...' : 'Tạo dự án'}</button></div>
                     </div>
                 </div>
             )}
