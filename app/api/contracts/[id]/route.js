@@ -28,10 +28,17 @@ export const PUT = withAuth(async (request, { params }) => {
 export const DELETE = withAuth(async (request, { params }) => {
     const { id } = await params;
 
+    const contract = await prisma.contract.findUnique({ where: { id }, select: { customerId: true } });
+
     await prisma.$transaction(async (tx) => {
         await tx.contractPayment.deleteMany({ where: { contractId: id } });
         await tx.contract.delete({ where: { id } });
     });
+
+    if (contract?.customerId) {
+        const result = await prisma.contract.aggregate({ where: { customerId: contract.customerId }, _sum: { paidAmount: true } });
+        await prisma.customer.update({ where: { id: contract.customerId }, data: { totalRevenue: result._sum.paidAmount || 0 } });
+    }
 
     return NextResponse.json({ success: true });
 });
