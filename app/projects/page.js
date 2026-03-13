@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 export default function ProjectsPage() {
@@ -12,6 +12,7 @@ export default function ProjectsPage() {
     const [customers, setCustomers] = useState([]);
     const [form, setForm] = useState({ name: '', type: 'Thiết kế kiến trúc', status: 'Khảo sát', address: '', area: '', floors: '', budget: '', customerId: '', designer: '', supervisor: '' });
     const [submitting, setSubmitting] = useState(false);
+    const submittingRef = useRef(false);
     const router = useRouter();
     const fetchProjects = () => {
         setLoading(true);
@@ -27,13 +28,15 @@ export default function ProjectsPage() {
     const handleCreate = async () => {
         if (!form.name.trim()) return alert('Vui lòng nhập tên dự án');
         if (!form.customerId) return alert('Vui lòng chọn khách hàng');
-        if (submitting) return;
+        if (submittingRef.current) return;
+        submittingRef.current = true;
         setSubmitting(true);
         try {
             const res = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, area: Number(form.area) || 0, floors: Number(form.floors) || 1, budget: Number(form.budget) || 0 }) });
             if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi tạo dự án'); }
             setShowModal(false); setForm({ name: '', type: 'Thiết kế kiến trúc', status: 'Khảo sát', address: '', area: '', floors: '', budget: '', customerId: '', designer: '', supervisor: '' }); fetchProjects();
         } finally {
+            submittingRef.current = false;
             setSubmitting(false);
         }
     };
