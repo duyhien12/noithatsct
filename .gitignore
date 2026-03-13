@@ -49,3 +49,7 @@ public/uploads/
 *.tsbuildinfo
 next-env.d.ts
 node_modules
+
+# Claude Code
+.claude/worktrees/
+.claude/settings.local.json
