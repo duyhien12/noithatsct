@@ -1650,6 +1650,19 @@ body {
 }
 
 /* ========================================
+   PROJECT DETAIL
+   ======================================== */
+.project-detail-header {
+  padding: 24px;
+}
+
+.project-quick-stats {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* ========================================
    PROJECT DETAIL TABS
    ======================================== */
 .project-tabs {
@@ -2263,7 +2276,67 @@ body {
   }
 
   .pipeline-node {
-    min-width: 70px;
+    min-width: 54px;
+  }
+
+  .pipeline-dot {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+
+  .pipeline-label {
+    display: none;
+  }
+
+  .pipeline-node.active .pipeline-label,
+  .pipeline-node.completed .pipeline-label {
+    display: block;
+    font-size: 10px;
+  }
+
+  .pipeline-line {
+    min-width: 8px;
+  }
+
+  /* === PROJECT DETAIL: responsive padding === */
+  .project-detail-header {
+    padding: 14px !important;
+    margin-bottom: 16px !important;
+  }
+
+  /* === QUICK STATS: 2-column === */
+  .project-quick-stats {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+  }
+
+  /* === PROJECT TABS: scroll-snap === */
+  .project-tabs {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .project-tab {
+    scroll-snap-align: start;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* === PROJECT HEADER ROW === */
+  .project-header-row {
+    gap: 8px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .project-header-row h2 {
+    font-size: 18px !important;
+  }
+
+  .project-header-progress {
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 12px !important;
   }
 
   .pipeline-stepper {

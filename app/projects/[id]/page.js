@@ -480,7 +480,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             <button className="btn btn-secondary" onClick={() => router.push('/projects')} style={{ marginBottom: 16 }}>← Quay lại</button>
 
             {/* Project Header */}
-            <div className="card" style={{ marginBottom: 24, padding: 24 }}>
+            <div className="card project-detail-header" style={{ marginBottom: 24 }}>
                 {editMode ? (
                     /* ===== EDIT FORM ===== */
                     <div>
@@ -593,7 +593,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                                     );
                                 })()}
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
+                            <div className="project-header-progress" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
                                 <button className="btn btn-secondary btn-sm" onClick={openEdit}>✏️ Chỉnh sửa</button>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                     <div style={{ fontSize: 28, fontWeight: 700 }}>{p.progress}%</div>
@@ -616,7 +616,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                         </div>
 
                         {/* Quick Stats */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, marginTop: 8 }}>
+                        <div className="project-quick-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, marginTop: 8 }}>
                             {[
                                 { v: `${p.area}m²`, l: 'Diện tích' }, { v: `${p.floors} tầng`, l: 'Số tầng' },
                                 { v: fmt(p.contractValue), l: 'Giá trị HĐ' }, { v: fmt(p.paidAmount), l: 'Đã thu' },
