@@ -18,7 +18,7 @@ export const GET = withAuth(async (request) => {
     if (status) where.status = status;
     if (expenseType) where.expenseType = expenseType;
     if (projectId) where.projectId = projectId;
-    if (search) where.description = { contains: search, mode: 'insensitive' };
+    if (search) where.description = { contains: search };
 
     const [data, total] = await Promise.all([
         prisma.projectExpense.findMany({

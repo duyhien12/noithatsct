@@ -18,7 +18,7 @@ export const GET = withAuth(async (request) => {
     if (status) where.status = status;
     if (priority) where.priority = priority;
     if (projectId) where.projectId = projectId;
-    if (search) where.title = { contains: search, mode: 'insensitive' };
+    if (search) where.title = { contains: search };
 
     const [data, total] = await Promise.all([
         prisma.workOrder.findMany({

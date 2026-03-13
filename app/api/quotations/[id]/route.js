@@ -150,11 +150,14 @@ export const PUT = withAuth(async (request, { params }) => {
 export const DELETE = withAuth(async (request, { params }) => {
     const { id } = await params;
 
-    await prisma.$transaction(async (tx) => {
-        await tx.quotationItem.deleteMany({ where: { quotationId: id } });
-        await tx.quotationCategory.deleteMany({ where: { quotationId: id } });
-        await tx.quotation.delete({ where: { id } });
-    });
+    // Null out FK references first to avoid constraint errors
+    await prisma.quotation.updateMany({ where: { parentId: id }, data: { parentId: null } });
+    await prisma.contract.updateMany({ where: { quotationId: id }, data: { quotationId: null } });
+    // Delete sub-items first (parentItemId FK), then parent items, then categories, then quotation
+    await prisma.quotationItem.deleteMany({ where: { quotationId: id, parentItemId: { not: null } } });
+    await prisma.quotationItem.deleteMany({ where: { quotationId: id } });
+    await prisma.quotationCategory.deleteMany({ where: { quotationId: id } });
+    await prisma.quotation.delete({ where: { id } });
 
     return NextResponse.json({ success: true });
 });

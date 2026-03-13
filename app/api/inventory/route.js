@@ -18,8 +18,8 @@ export const GET = withAuth(async (request) => {
     if (productId) where.productId = productId;
     if (search) {
         where.OR = [
-            { code: { contains: search, mode: 'insensitive' } },
-            { product: { name: { contains: search, mode: 'insensitive' } } },
+            { code: { contains: search } },
+            { product: { name: { contains: search } } },
         ];
     }
 

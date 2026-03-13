@@ -30,9 +30,9 @@ export const GET = withAuth(async (request) => {
     }
     if (search) {
         where.OR = [
-            { name: { contains: search, mode: 'insensitive' } },
-            { code: { contains: search, mode: 'insensitive' } },
-            { brand: { contains: search, mode: 'insensitive' } },
+            { name: { contains: search } },
+            { code: { contains: search } },
+            { brand: { contains: search } },
         ];
     }
     if (brand) where.brand = brand;

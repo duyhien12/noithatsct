@@ -11,9 +11,9 @@ export const GET = withAuth(async (request) => {
     const where = {};
     if (search) {
         where.OR = [
-            { product: { name: { contains: search, mode: 'insensitive' } } },
-            { product: { code: { contains: search, mode: 'insensitive' } } },
-            { project: { name: { contains: search, mode: 'insensitive' } } },
+            { product: { name: { contains: search } } },
+            { product: { code: { contains: search } } },
+            { project: { name: { contains: search } } },
         ];
     }
 
@@ -43,12 +43,9 @@ export const POST = withAuth(async (request) => {
         if (!projectId) return NextResponse.json({ error: 'projectId bắt buộc' }, { status: 400 });
 
         const result = await prisma.$transaction(async (tx) => {
-            // Dedup only within same planType (use raw SQL since client may not have planType field yet)
+            // Dedup only within same planType
             const pt = items[0]?.planType || 'tracking';
-            const existingRaw = await tx.$queryRawUnsafe(
-                `SELECT "productId" FROM "MaterialPlan" WHERE "projectId" = $1 AND "planType" = $2`,
-                projectId, pt
-            );
+            const existingRaw = await tx.materialPlan.findMany({ where: { projectId, planType: pt }, select: { productId: true } });
             const existingSet = new Set(existingRaw.map(e => e.productId));
 
             const validItems = items.filter(i => i.productId && !existingSet.has(i.productId));
@@ -59,6 +56,7 @@ export const POST = withAuth(async (request) => {
                 unitPrice: Number(i.unitPrice) || 0,
                 totalAmount: (Number(i.quantity) || 0) * (Number(i.unitPrice) || 0),
                 budgetUnitPrice: Number(i.unitPrice) || 0,
+                actualCost: Number(i.actualCost) || 0,
                 type: i.type || 'Chính',
                 category: i.category || '',
                 costType: i.costType || 'Vật tư',
@@ -72,14 +70,9 @@ export const POST = withAuth(async (request) => {
             if (newPlans.length > 0) {
                 await tx.materialPlan.createMany({ data: newPlans });
 
-                // Set planType via raw SQL (Prisma client may not have this field yet)
-                const pt = items[0]?.planType || 'tracking';
                 if (pt !== 'tracking') {
                     const productIds = validItems.map(i => i.productId);
-                    await tx.$executeRawUnsafe(
-                        `UPDATE "MaterialPlan" SET "planType" = $1 WHERE "projectId" = $2 AND "productId" = ANY($3::text[])`,
-                        pt, projectId, productIds
-                    );
+                    await tx.materialPlan.updateMany({ where: { projectId, productId: { in: productIds } }, data: { planType: pt } });
                 }
             }
             return { created: newPlans.length, skipped: items.length - newPlans.length };

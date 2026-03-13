@@ -353,31 +353,69 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
         fetchData();
     };
 
-    // Bulk import material plans from quotation items
+    const [quotationImportRows, setQuotationImportRows] = useState(null);
+
+    // Bulk import material plans from quotation items → open BudgetQuickAdd pre-filled
     const importMPFromQuotation = async () => {
         const quotations = data?.quotations || [];
         if (quotations.length === 0) return alert('Dự án chưa có báo giá nào');
-        const items = [];
+
+        // Fetch products for name matching
+        let allProducts = mpProducts;
+        if (allProducts.length === 0) {
+            const res = await fetch('/api/products?limit=2000');
+            const json = await res.json();
+            allProducts = json.data || json || [];
+            setMpProducts(allProducts);
+        }
+        const productByName = {};
+        allProducts.forEach(p => { productByName[p.name.toLowerCase().trim()] = p; });
+
+        const seen = new Set();
+        const rows = [];
         for (const q of quotations) {
-            for (const item of (q.items || [])) {
-                if (item.productId) {
-                    items.push({
-                        productId: item.productId,
-                        quantity: item.volume || item.quantity || 0,
-                        unitPrice: item.unitPrice || 0,
-                        category: '',
-                    });
+            const allItems = [...(q.items || [])];
+            for (const cat of (q.categories || [])) {
+                for (const item of (cat.items || [])) {
+                    if (!allItems.find(i => i.id === item.id)) allItems.push(item);
                 }
             }
+            for (const item of allItems) {
+                if (item.parentItemId) continue;
+                if (!item.name) continue;
+                const key = item.productId || item.name;
+                if (seen.has(key)) continue;
+                seen.add(key);
+
+                let productId = item.productId || '';
+                let productName = item.name || '';
+                let unit = item.unit || '';
+                // Try name match
+                if (!productId) {
+                    const match = productByName[item.name.toLowerCase().trim()];
+                    if (match) { productId = match.id; unit = match.unit || unit; }
+                }
+                rows.push({
+                    productId,
+                    productName,
+                    unit,
+                    quantity: item.volume || item.quantity || 1,
+                    unitPrice: item.unitPrice || 0,
+                    actualCost: 0,
+                    actualUnitPrice: 0,
+                    notes: `Từ ${q.code || 'Báo giá'}`,
+                    category: '',
+                    costType: 'Tháo dỡ',
+                    group1: '',
+                    group2: '',
+                    supplierTag: '',
+                    _key: Date.now() + Math.random(),
+                });
+            }
         }
-        if (items.length === 0) return alert('Báo giá không có sản phẩm nào (items chưa link product)');
-        const res = await fetch('/api/material-plans', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ projectId: id, items, source: 'Báo giá' }),
-        });
-        const result = await res.json();
-        alert(`Đã tạo ${result.created} kế hoạch vật tư${result.skipped > 0 ? ` (bỏ qua ${result.skipped} đã tồn tại)` : ''}`);
-        fetchData();
+        if (rows.length === 0) return alert('Báo giá không có hạng mục nào');
+        setQuotationImportRows(rows);
+        setModal('budget_quick');
     };
 
     // Material Requisition
@@ -1565,8 +1603,9 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                 <BudgetQuickAdd
                     projectId={id}
                     products={mpProducts}
-                    onClose={() => setModal(null)}
-                    onDone={() => { setModal(null); fetchData(); setVarianceKey(k => k + 1); }}
+                    initialRows={quotationImportRows}
+                    onClose={() => { setModal(null); setQuotationImportRows(null); }}
+                    onDone={() => { setModal(null); setQuotationImportRows(null); fetchData(); setVarianceKey(k => k + 1); }}
                 />
             )}
         </div>

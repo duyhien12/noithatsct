@@ -13,7 +13,7 @@ export const GET = withAuth(async (request) => {
 
     const where = {};
     if (departmentId) where.departmentId = departmentId;
-    if (search) where.name = { contains: search, mode: 'insensitive' };
+    if (search) where.name = { contains: search };
 
     const [data, total, rawDepts, empCounts] = await Promise.all([
         prisma.employee.findMany({

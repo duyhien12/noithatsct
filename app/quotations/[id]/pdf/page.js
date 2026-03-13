@@ -3,13 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 
 /* =============================================
-   BRAND COLORS - MỘT NHÀ
+   BRAND COLORS - KIẾN TRÚC ĐÔ THỊ SCT
    ============================================= */
 const BRAND = {
-    blue: '#234093',        // R35 G64 B147
-    gold: '#DBB35E',        // R219 G179 B94
-    grey: '#C6C6C6',        // R198 G198 B198
-    dark: '#1a1a2e',
+    blue: '#1e3a5f',        // Navy SCT
+    gold: '#E05B0A',        // Orange SCT
+    grey: '#C6C6C6',
+    dark: '#0f2335',
     white: '#ffffff',
     textDark: '#1e293b',
     textMid: '#475569',
@@ -103,18 +103,21 @@ const DOC_TITLE_MAP = {
 };
 
 /* =============================================
-   LOGO SVG - Chữ M lồng ngôi nhà
+   LOGO SVG - Kim cương chữ K (SCT)
    ============================================= */
-function MNLogo({ size = 48 }) {
+function SCTLogo({ size = 68 }) {
+    // Geometric K logo matching SCT brand - angular overlapping shapes
     return (
         <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            {/* House shape */}
-            <path d="M50 8L8 42V92H92V42L50 8Z" fill={BRAND.blue} />
-            {/* Roof accent */}
-            <path d="M50 8L8 42H92L50 8Z" fill={BRAND.blue} />
-            <path d="M50 14L16 42H84L50 14Z" fill={BRAND.gold} opacity="0.3" />
-            {/* M letter */}
-            <text x="50" y="72" textAnchor="middle" fontFamily="Montserrat, sans-serif" fontWeight="900" fontSize="42" fill={BRAND.gold}>M</text>
+            <rect width="100" height="100" rx="8" fill={BRAND.gold} />
+            {/* Left vertical bar of K */}
+            <rect x="20" y="18" width="18" height="64" rx="2" fill="white" />
+            {/* Upper diagonal of K */}
+            <polygon points="38,50 72,18 88,18 55,50" fill="white" />
+            {/* Lower diagonal of K */}
+            <polygon points="38,50 72,82 88,82 55,50" fill="white" />
+            {/* Notch for authenticity */}
+            <polygon points="38,50 55,40 55,60" fill={BRAND.gold} />
         </svg>
     );
 }
@@ -588,7 +591,7 @@ export default function QuotationPDFPage() {
                     overflow: hidden;
                 }
                 .mn-brand-strip::before {
-                    content: 'M  M  M  M  M  M  M  M  M  M  M  M  M  M  M';
+                    content: 'SCT  SCT  SCT  SCT  SCT  SCT  SCT  SCT  SCT';
                     position: absolute;
                     top: 50%;
                     left: 0;
@@ -633,18 +636,46 @@ export default function QuotationPDFPage() {
 
             <div className="pdf-page">
                 {/* WATERMARK */}
-                <div className="watermark">MỘT NHÀ</div>
+                <div className="watermark">SCT</div>
 
-                {/* ====== HEADER IMAGE ====== */}
-                <div className="mn-header-img">
-                    <img src="https://pub-1e1be66737b446708af785e6cc8fe673.r2.dev/assets/motnha-header.jpg" alt="Một Nhà - Bảng Báo Giá" />
+                {/* ====== HEADER SCT ====== */}
+                {/* Partner brands strip - colorful gradient border top */}
+                <div style={{ background: '#f8f9fa', borderTop: '4px solid', borderImage: 'linear-gradient(90deg, #e63946, #f4a261, #2a9d8f, #264653, #e76f51, #4361ee) 1', borderBottom: '1px solid #e5e7eb', padding: '7px 28px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 28 }}>
+                    {[
+                        { name: 'AN CƯỜNG', color: '#1a5276', bg: '#eaf2fb' },
+                        { name: 'AConcept', color: '#1b2631', bg: '#f0f3f4' },
+                        { name: 'MALLOCA', color: '#d4ac0d', bg: '#fef9e7' },
+                        { name: 'VICOSTONE', color: '#1a5276', bg: '#eaf2fb' },
+                        { name: 'A.O.Smith', color: '#1e8449', bg: '#eafaf1' },
+                        { name: 'Schneider', color: '#1e8449', bg: '#eafaf1' },
+                        { name: 'HIGOLD', color: '#7d6608', bg: '#fef9e7' },
+                        { name: 'blum', color: '#922b21', bg: '#fdedec' },
+                    ].map(b => (
+                        <span key={b.name} style={{ fontSize: 9.5, fontWeight: 800, color: b.color, letterSpacing: 0.5, padding: '3px 10px', borderRadius: 4, background: b.bg, border: `1px solid ${b.color}30`, whiteSpace: 'nowrap' }}>{b.name}</span>
+                    ))}
                 </div>
-                <div className="mn-doc-bar">
-                    <span className="code">{q.code}</span>
-                    <span className="meta">
-                        Ngày lập: <strong>{dateStr}</strong>
-                        {validStr && <> &nbsp;|&nbsp; Hiệu lực đến: <strong>{validStr}</strong></>}
-                    </span>
+
+                {/* Company header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '14px 28px 12px', background: 'linear-gradient(135deg, #fff 0%, #fff8f5 100%)', borderBottom: `3px solid ${BRAND.gold}` }}>
+                    <SCTLogo size={68} />
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 18, fontWeight: 900, color: BRAND.gold, letterSpacing: 1.5, textTransform: 'uppercase', lineHeight: 1.2 }}>Công ty TNHH Kiến Trúc Đô Thị SCT</div>
+                        <div style={{ fontSize: 10, color: '#7f8c8d', marginTop: 5, lineHeight: 2 }}>
+                            <span style={{ marginRight: 12 }}>📍 149 Đ. Nguyễn Tất Thành - P. Yên Thịnh - TP. Yên Bái - T. Yên Bái</span><br />
+                            <span style={{ marginRight: 16 }}>☎ Hotline: <strong style={{ color: BRAND.gold, fontSize: 11 }}>0914 99 88 22</strong></span>
+                            <span style={{ marginRight: 16 }}>🌐 www.kientrucsct.com</span>
+                            <span>Zalo OA: Kiến trúc đô thị SCT</span>
+                        </div>
+                        <div style={{ fontSize: 9, color: '#aaa', fontStyle: 'italic', marginTop: 1 }}>facebook.com/kientrucyenbai</div>
+                    </div>
+                    <div style={{ textAlign: 'right', paddingLeft: 20, borderLeft: `4px solid ${BRAND.gold}` }}>
+                        <div style={{ fontSize: 26, fontWeight: 900, color: BRAND.blue, textTransform: 'uppercase', letterSpacing: 3, lineHeight: 1.1 }}>BẢNG BÁO GIÁ</div>
+                        <div style={{ fontSize: 10, color: BRAND.textMid, marginTop: 6, lineHeight: 1.8 }}>
+                            <div><strong style={{ color: BRAND.gold, fontSize: 12 }}>{q.code}</strong></div>
+                            <div>Ngày lập: <strong>{dateStr}</strong></div>
+                            {validStr && <div>Hiệu lực đến: <strong>{validStr}</strong></div>}
+                        </div>
+                    </div>
                 </div>
 
                 <div className="mn-content">
@@ -861,7 +892,7 @@ export default function QuotationPDFPage() {
                                 • Báo giá có hiệu lực {validStr ? `đến ${validStr}` : '30 ngày'} kể từ ngày lập.<br />
                                 • Thanh toán theo tiến độ giai đoạn được thỏa thuận trong hợp đồng.<br />
                                 • Giá trên đã bao gồm nhân công, vật tư theo bảng chi tiết.<br />
-                                • Một Nhà cam kết thi công đúng tiến độ, đúng chất lượng.<br />
+                                • SCT cam kết thi công đúng tiến độ, đúng chất lượng.<br />
                                 • Mọi thay đổi phát sinh sẽ được thông báo và xác nhận trước khi thực hiện.
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
@@ -871,7 +902,7 @@ export default function QuotationPDFPage() {
                                     <div className="mn-sign-line">(Ký, ghi rõ họ tên)</div>
                                 </div>
                                 <div className="mn-sign-area">
-                                    <div className="mn-sign-title">Đại diện<br />Một Nhà Design &amp; Build</div>
+                                    <div className="mn-sign-title">Đại diện<br />Kiến Trúc Đô Thị SCT</div>
                                     <div className="mn-sign-space">
                                         <div className="mn-stamp-circle">Dấu<br />công ty</div>
                                     </div>
@@ -883,12 +914,18 @@ export default function QuotationPDFPage() {
                 </div>
 
                 {/* ====== BRAND FOOTER STRIP ====== */}
-                <div className="mn-brand-strip">
-                    <div className="mn-strip-left">
-                        <strong>MỘT NHÀ</strong> — Nhà ở trọn gói / Nội thất thông minh &nbsp;|&nbsp;
-                        Hotline: <strong>(+84) 948 869 89</strong> &nbsp;|&nbsp; www.motnha.vn
+                <div style={{ background: `linear-gradient(135deg, ${BRAND.blue} 0%, #0f2335 100%)`, padding: '10px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <SCTLogo size={28} />
+                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.85)', lineHeight: 1.7 }}>
+                            <div><strong style={{ color: BRAND.gold, fontSize: 10 }}>CÔNG TY TNHH KIẾN TRÚC ĐÔ THỊ SCT</strong> — Cùng bạn xây dựng ước mơ</div>
+                            <div>Hotline: <strong style={{ color: BRAND.gold }}>0914 99 88 22</strong> &nbsp;·&nbsp; www.kientrucsct.com &nbsp;·&nbsp; 149 Đ. Nguyễn Tất Thành, P. Yên Thịnh, TP. Yên Bái</div>
+                        </div>
                     </div>
-                    <div className="mn-strip-right">{q.code} — {dateStr}</div>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', textAlign: 'right' }}>
+                        <div>{q.code} — {dateStr}</div>
+                        <div style={{ fontSize: 8 }}>Tài liệu nội bộ — không sao chép</div>
+                    </div>
                 </div>
             </div>
         </>

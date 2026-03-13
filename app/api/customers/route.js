@@ -16,7 +16,7 @@ export const GET = withAuth(async (request) => {
     const where = {};
     if (type) where.type = type;
     if (status) where.status = status;
-    if (search) where.name = { contains: search, mode: 'insensitive' };
+    if (search) where.name = { contains: search };
 
     try {
         const [customers, total] = await Promise.all([

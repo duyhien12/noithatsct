@@ -15,8 +15,8 @@ export const GET = withAuth(async (request) => {
     if (status) where.status = status;
     if (search) {
         where.OR = [
-            { code: { contains: search, mode: 'insensitive' } },
-            { customer: { name: { contains: search, mode: 'insensitive' } } },
+            { code: { contains: search } },
+            { customer: { name: { contains: search } } },
         ];
     }
 
@@ -130,13 +130,7 @@ export const POST = withAuth(async (request) => {
                 }
             }
 
-            return await tx.quotation.findUnique({
-                where: { id: quotation.id },
-                include: {
-                    categories: { include: { items: true }, orderBy: { order: 'asc' } },
-                    items: true,
-                },
-            });
+            return quotation;
         });
     });
 

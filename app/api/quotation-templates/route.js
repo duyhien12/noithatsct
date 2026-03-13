@@ -10,7 +10,7 @@ export const GET = withAuth(async (request) => {
 
     const where = {};
     if (search) {
-        where.name = { contains: search, mode: 'insensitive' };
+        where.name = { contains: search };
     }
 
     const [templates, total] = await Promise.all([

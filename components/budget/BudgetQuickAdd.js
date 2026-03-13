@@ -1,11 +1,11 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n));
 
-const COST_TYPES = ['Vật tư', 'Nhân công', 'Thầu phụ', 'Khác'];
+const COST_TYPES_DEFAULT = ['Tháo dỡ', 'Đào đất', 'Hoàn thiện xây lắp', 'Vật liệu'];
 const SUPPLIER_TAGS = ['', 'Công ty cấp', 'Thầu phụ cấp'];
-const GROUP1_PRESETS = ['Phần thô', 'Phần hoàn thiện', 'Nội thất gỗ', 'M&E (Điện nước)', 'Ngoại thất'];
+const GROUP1_PRESETS = ['Tháo dỡ', 'Đào đất', 'Hoàn thiện xây lắp', 'Vật liệu'];
 const GROUP2_PRESETS = ['Phòng khách', 'Phòng ngủ 01', 'Phòng ngủ 02', 'Phòng bếp', 'Phòng tắm', 'Ban công', 'Tủ bếp', 'Tủ áo', 'Cầu thang', 'Sân vườn'];
 
 const COST_TYPE_COLORS = {
@@ -65,17 +65,31 @@ const BUDGET_TEMPLATES = {
 };
 
 function emptyRow() {
-    return { productId: '', productName: '', unit: '', quantity: 1, unitPrice: 0, actualCost: 0, notes: '', category: '', costType: 'Vật tư', group1: '', group2: '', supplierTag: '', _key: Date.now() + Math.random() };
+    return { productId: '', productName: '', unit: '', quantity: 1, unitPrice: 0, actualCost: 0, actualUnitPrice: 0, notes: '', category: '', costType: 'Tháo dỡ', group1: '', group2: '', supplierTag: '', _key: Date.now() + Math.random() };
 }
 
-export default function BudgetQuickAdd({ projectId, products, onDone, onClose }) {
+export default function BudgetQuickAdd({ projectId, products, onDone, onClose, initialRows }) {
     const [mode, setMode] = useState('quick');
-    const [rows, setRows] = useState([emptyRow()]);
+    const [rows, setRows] = useState(() => initialRows?.length ? initialRows : [emptyRow()]);
     const [saving, setSaving] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
     const [productSearch, setProductSearch] = useState('');
     const [activeRowIdx, setActiveRowIdx] = useState(null);
+    const [categoryOptions, setCategoryOptions] = useState(COST_TYPES_DEFAULT);
     const fileRef = useRef(null);
+
+    useEffect(() => {
+        fetch('/api/product-categories')
+            .then(r => r.json())
+            .then(tree => {
+                const flatten = (nodes) => nodes.flatMap(n => [n.name, ...flatten(n.children || [])]);
+                const names = flatten(tree).filter(Boolean);
+                if (names.length > 0) {
+                    setCategoryOptions([...new Set([...COST_TYPES_DEFAULT, ...names])]);
+                }
+            })
+            .catch(() => {});
+    }, []);
 
     const filteredProducts = productSearch.length >= 1
         ? products.filter(p =>
@@ -92,6 +106,31 @@ export default function BudgetQuickAdd({ projectId, products, onDone, onClose })
         });
     };
 
+    // When ĐG TT changes → auto-calc Tổng TT = ĐG TT × SL
+    const updateDgTT = (idx, value) => {
+        setRows(prev => {
+            const updated = [...prev];
+            const row = updated[idx];
+            const dgTT = Number(value) || 0;
+            const actualCost = dgTT * (Number(row.quantity) || 0);
+            updated[idx] = { ...row, actualUnitPrice: dgTT, actualCost };
+            return updated;
+        });
+    };
+
+    // When Tổng TT changes → auto-calc ĐG TT = Tổng TT / SL
+    const updateActualCost = (idx, value) => {
+        setRows(prev => {
+            const updated = [...prev];
+            const row = updated[idx];
+            const actualCost = Number(value) || 0;
+            const qty = Number(row.quantity) || 0;
+            const actualUnitPrice = qty > 0 ? actualCost / qty : 0;
+            updated[idx] = { ...row, actualCost, actualUnitPrice };
+            return updated;
+        });
+    };
+
     const selectProduct = (idx, product) => {
         setRows(prev => {
             const updated = [...prev];
@@ -101,6 +140,7 @@ export default function BudgetQuickAdd({ projectId, products, onDone, onClose })
                 productName: product.name,
                 unit: product.unit,
                 unitPrice: product.importPrice || product.salePrice || 0,
+                costType: product.category || updated[idx].costType,
             };
             return updated;
         });
@@ -139,7 +179,7 @@ export default function BudgetQuickAdd({ projectId, products, onDone, onClose })
                 unit: match?.unit || unit,
                 quantity: qty,
                 unitPrice: match?.importPrice || price,
-                category, costType: COST_TYPES.includes(costType) ? costType : 'Vật tư',
+                category, costType: costType || 'Tháo dỡ',
                 group1, group2, supplierTag,
                 _key: Date.now() + Math.random(),
             });
@@ -191,6 +231,7 @@ export default function BudgetQuickAdd({ projectId, products, onDone, onClose })
                         productId: r.productId,
                         quantity: Number(r.quantity),
                         unitPrice: Number(r.unitPrice),
+                        actualCost: (Number(r.actualUnitPrice) || 0) * (Number(r.quantity) || 0),
                         category: r.category,
                         costType: r.costType,
                         group1: r.group1,
@@ -213,6 +254,8 @@ export default function BudgetQuickAdd({ projectId, products, onDone, onClose })
             setSaving(false);
         }
     };
+
+    const costTypes = [...new Set([...categoryOptions, ...(products || []).map(p => p.category).filter(Boolean)])];
 
     const totalAmount = rows.reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unitPrice) || 0), 0);
     const validCount = rows.filter(r => r.productId && r.quantity > 0).length;
@@ -326,147 +369,151 @@ export default function BudgetQuickAdd({ projectId, products, onDone, onClose })
                             ))}
                         </div>
 
-                        {/* Row cards */}
+                        {/* Table input */}
                         <datalist id="group1-list">{GROUP1_PRESETS.map(g => <option key={g} value={g} />)}</datalist>
                         <datalist id="group2-list">{GROUP2_PRESETS.map(g => <option key={g} value={g} />)}</datalist>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {rows.map((row, idx) => {
-                                const lineTotal = (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0);
-                                const ctColor = COST_TYPE_COLORS[row.costType] || COST_TYPE_COLORS['Khác'];
-                                const isUnmatched = !row.productId && row.productName;
-                                return (
-                                    <div key={row._key} style={{
-                                        border: `1px solid ${isUnmatched ? 'rgba(245,158,11,0.4)' : 'var(--border-light)'}`,
-                                        borderRadius: 10,
-                                        background: isUnmatched ? 'rgba(245,158,11,0.04)' : 'var(--bg-card)',
-                                        padding: '12px 14px',
-                                        transition: 'box-shadow 0.15s',
-                                    }}>
-                                        {/* Line 1: main inputs */}
-                                        <div style={{ display: 'grid', gridTemplateColumns: '20px 1fr 70px 80px 120px 110px 120px 32px', gap: 8, alignItems: 'center' }}>
-                                            {/* # */}
-                                            <span style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', fontWeight: 600 }}>{idx + 1}</span>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
+                                <thead>
+                                    <tr>
+                                        {[
+                                            { label: 'STT', w: 36 },
+                                            { label: 'TÊN HẠNG MỤC', w: 'auto' },
+                                            { label: 'ĐVT', w: 60 },
+                                            { label: 'SL DT', w: 70 },
+                                            { label: 'ĐG DT', w: 110 },
+                                            { label: 'Tổng DT', w: 110 },
+                                            { label: 'ĐG TT', w: 90 },
+                                            { label: 'Tổng TT', w: 110 },
+                                            { label: 'Chênh lệch', w: 110 },
+                                            { label: 'Loại CP', w: 100 },
+                                            { label: 'Giai đoạn', w: 110 },
+                                            { label: 'Không gian', w: 110 },
+                                            { label: '', w: 32 },
+                                        ].map(h => (
+                                            <th key={h.label} style={{ background: '#1e3a5f', color: 'white', fontWeight: 700, textAlign: 'center', fontSize: 11, padding: '7px 6px', border: '1px solid #1e3a5f', whiteSpace: 'nowrap', width: h.w }}>{h.label}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {rows.map((row, idx) => {
+                                        const lineTotal = (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0);
+                                        const dgTT = Number(row.actualUnitPrice) || 0;
+                                        const actualCost = dgTT * (Number(row.quantity) || 0);
+                                        const chenhLech = lineTotal - actualCost;
+                                        const isUnmatched = !row.productId && row.productName;
+                                        const cellStyle = { border: '1px solid #e5e7eb', padding: '4px 6px', fontSize: 12 };
+                                        return (
+                                            <tr key={row._key} style={{ background: isUnmatched ? 'rgba(245,158,11,0.05)' : idx % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                                                {/* STT */}
+                                                <td style={{ ...cellStyle, textAlign: 'center', color: '#6b7280', fontWeight: 600 }}>{idx + 1}</td>
 
-                                            {/* Product search */}
-                                            <div style={{ position: 'relative' }}>
-                                                {row.productId ? (
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 6, padding: '7px 10px' }}>
-                                                        <span style={{ fontWeight: 600, fontSize: 13, flex: 1 }}>{row.productName}</span>
-                                                        <button onClick={() => updateRow(idx, 'productId', '')}
-                                                            style={{ background: 'none', border: 'none', fontSize: 14, cursor: 'pointer', color: 'var(--text-muted)', padding: 0, lineHeight: 1 }}>×</button>
-                                                    </div>
-                                                ) : (
-                                                    <div style={{ position: 'relative' }}>
-                                                        <input type="text"
-                                                            placeholder={row.productName || '🔍 Tìm sản phẩm...'}
-                                                            value={activeRowIdx === idx ? productSearch : ''}
-                                                            onChange={e => { setProductSearch(e.target.value); setActiveRowIdx(idx); }}
-                                                            onFocus={() => setActiveRowIdx(idx)}
-                                                            style={inputStyle} />
-                                                        {activeRowIdx === idx && filteredProducts.length > 0 && (
-                                                            <div style={{
-                                                                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
-                                                                background: 'var(--bg-card)', border: '1px solid var(--border-light)',
-                                                                borderRadius: 8, maxHeight: 220, overflow: 'auto',
-                                                                boxShadow: '0 8px 24px rgba(0,0,0,0.12)', marginTop: 2,
-                                                            }}>
-                                                                {filteredProducts.map(p => (
-                                                                    <div key={p.id} onClick={() => selectProduct(idx, p)}
-                                                                        style={{ padding: '9px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                                                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-                                                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                                                        <span style={{ fontWeight: 600 }}>{p.name}</span>
-                                                                        <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{p.unit} · {fmt(p.importPrice || p.salePrice || 0)}đ</span>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
+                                                {/* TÊN HẠNG MỤC */}
+                                                <td style={{ ...cellStyle, position: 'relative', minWidth: 200 }}>
+                                                    {row.productId ? (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                            <span style={{ fontWeight: 600, fontSize: 12, flex: 1 }}>{row.productName}</span>
+                                                            <button onClick={() => updateRow(idx, 'productId', '')} style={{ background: 'none', border: 'none', fontSize: 13, cursor: 'pointer', color: '#9ca3af', padding: 0, lineHeight: 1 }}>×</button>
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ position: 'relative' }}>
+                                                            <input type="text"
+                                                                placeholder={row.productName || '🔍 Tìm sản phẩm...'}
+                                                                value={activeRowIdx === idx ? productSearch : ''}
+                                                                onChange={e => { setProductSearch(e.target.value); setActiveRowIdx(idx); }}
+                                                                onFocus={() => setActiveRowIdx(idx)}
+                                                                style={{ ...inputStyle, fontSize: 12, padding: '5px 8px', border: `1px solid ${isUnmatched ? '#fbbf24' : 'var(--border-light)'}` }} />
+                                                            {activeRowIdx === idx && filteredProducts.length > 0 && (
+                                                                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 8, maxHeight: 200, overflow: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', marginTop: 2 }}>
+                                                                    {filteredProducts.map(p => (
+                                                                        <div key={p.id} onClick={() => selectProduct(idx, p)}
+                                                                            style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                                                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                                            <span style={{ fontWeight: 600 }}>{p.name}</span>
+                                                                            <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{p.unit} · {fmt(p.importPrice || p.salePrice || 0)}đ</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </td>
 
-                                            {/* ĐVT */}
-                                            <input type="text" placeholder="ĐVT" value={row.unit}
-                                                onChange={e => updateRow(idx, 'unit', e.target.value)}
-                                                style={{ ...inputStyle, textAlign: 'center' }} />
+                                                {/* ĐVT */}
+                                                <td style={cellStyle}>
+                                                    <input type="text" placeholder="ĐVT" value={row.unit} onChange={e => updateRow(idx, 'unit', e.target.value)}
+                                                        style={{ ...inputStyle, fontSize: 12, padding: '5px 6px', textAlign: 'center' }} />
+                                                </td>
 
-                                            {/* Số lượng */}
-                                            <input type="number" placeholder="SL" value={row.quantity}
-                                                onChange={e => updateRow(idx, 'quantity', e.target.value)}
-                                                style={{ ...inputStyle, textAlign: 'right' }} />
+                                                {/* SL DT */}
+                                                <td style={cellStyle}>
+                                                    <input type="number" placeholder="0" value={row.quantity} onChange={e => updateRow(idx, 'quantity', e.target.value)}
+                                                        style={{ ...inputStyle, fontSize: 12, padding: '5px 6px', textAlign: 'right' }} />
+                                                </td>
 
-                                            {/* Đơn giá DT */}
-                                            <div>
-                                                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 3, fontWeight: 500 }}>Đơn giá DT</div>
-                                                <input type="number" placeholder="0" value={row.unitPrice}
-                                                    onChange={e => updateRow(idx, 'unitPrice', e.target.value)}
-                                                    style={{ ...inputStyle, textAlign: 'right' }} />
-                                            </div>
+                                                {/* ĐG DT */}
+                                                <td style={cellStyle}>
+                                                    <input type="number" placeholder="0" value={row.unitPrice} onChange={e => updateRow(idx, 'unitPrice', e.target.value)}
+                                                        style={{ ...inputStyle, fontSize: 12, padding: '5px 6px', textAlign: 'right' }} />
+                                                </td>
 
-                                            {/* Thành tiền DT */}
-                                            <div>
-                                                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 3, fontWeight: 500 }}>Tổng DT</div>
-                                                <div style={{ textAlign: 'right', fontWeight: 700, fontSize: 13, color: lineTotal > 0 ? 'var(--accent-primary)' : 'var(--text-muted)', padding: '7px 6px', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 6 }}>
+                                                {/* Tổng DT (computed) */}
+                                                <td style={{ ...cellStyle, textAlign: 'right', fontWeight: 700, color: lineTotal > 0 ? '#2563eb' : '#9ca3af' }}>
                                                     {lineTotal > 0 ? fmt(lineTotal) : '—'}
-                                                </div>
-                                            </div>
+                                                </td>
 
-                                            {/* Tổng thực tế thi công */}
-                                            <div>
-                                                <div style={{ fontSize: 10, color: '#16a34a', marginBottom: 3, fontWeight: 600 }}>Tổng TT thi công</div>
-                                                <input type="number" placeholder="0" value={row.actualCost || ''}
-                                                    onChange={e => updateRow(idx, 'actualCost', e.target.value)}
-                                                    style={{ ...inputStyle, textAlign: 'right', borderColor: row.actualCost > 0 ? '#16a34a' : 'var(--border-light)', color: row.actualCost > 0 ? '#16a34a' : 'var(--text-primary)' }} />
-                                            </div>
+                                                {/* ĐG TT (nhập tay, tự tính Tổng TT) */}
+                                                <td style={cellStyle}>
+                                                    <input type="number" placeholder="0" value={row.actualUnitPrice || ''}
+                                                        onChange={e => updateDgTT(idx, e.target.value)}
+                                                        style={{ ...inputStyle, fontSize: 12, padding: '5px 6px', textAlign: 'right', borderColor: dgTT > Number(row.unitPrice) ? '#dc2626' : dgTT > 0 ? '#16a34a' : 'var(--border-light)', color: dgTT > Number(row.unitPrice) ? '#dc2626' : dgTT > 0 ? '#16a34a' : 'var(--text-primary)' }} />
+                                                </td>
 
-                                            {/* Delete */}
-                                            <button onClick={() => removeRow(idx)}
-                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16, padding: 0, lineHeight: 1, opacity: rows.length === 1 ? 0.3 : 1, marginTop: 18 }}
-                                                disabled={rows.length === 1}>🗑</button>
-                                        </div>
+                                                {/* Tổng TT (computed: ĐG TT × SL DT) */}
+                                                <td style={{ ...cellStyle, textAlign: 'right', fontWeight: 600, color: actualCost > 0 ? '#16a34a' : '#9ca3af' }}>
+                                                    {actualCost > 0 ? fmt(actualCost) : '—'}
+                                                </td>
 
-                                        {/* Line 2: secondary fields */}
-                                        <div style={{ display: 'grid', gridTemplateColumns: '20px 1fr 1fr 1fr 1fr 32px', gap: 8, marginTop: 8, alignItems: 'center' }}>
-                                            <span></span>
+                                                {/* Chênh lệch (computed: Tổng DT - Tổng TT) */}
+                                                <td style={{ ...cellStyle, textAlign: 'right', fontWeight: 600, color: actualCost > 0 ? (chenhLech >= 0 ? '#16a34a' : '#dc2626') : '#9ca3af', fontSize: 12 }}>
+                                                    {actualCost > 0 ? `${chenhLech >= 0 ? '+' : ''}${fmt(chenhLech)}` : '—'}
+                                                </td>
 
-                                            {/* Loại CP */}
-                                            <div>
-                                                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 3, fontWeight: 500 }}>Loại chi phí</div>
-                                                <select value={row.costType} onChange={e => updateRow(idx, 'costType', e.target.value)} style={selectStyle}>
-                                                    {COST_TYPES.map(ct => <option key={ct} value={ct}>{ct}</option>)}
-                                                </select>
-                                            </div>
+                                                {/* Loại chi phí */}
+                                                <td style={cellStyle}>
+                                                    <select value={row.costType} onChange={e => updateRow(idx, 'costType', e.target.value)}
+                                                        style={{ width: '100%', padding: '5px 4px', fontSize: 11, border: '1px solid #d1d5db', borderRadius: 4, cursor: 'pointer', background: 'white', color: '#111' }}>
+                                                        {costTypes.map(ct => <option key={ct} value={ct}>{ct}</option>)}
+                                                    </select>
+                                                </td>
 
-                                            {/* Giai đoạn */}
-                                            <div>
-                                                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 3, fontWeight: 500 }}>Giai đoạn</div>
-                                                <input type="text" list="group1-list" placeholder="VD: Phần thô" value={row.group1}
-                                                    onChange={e => updateRow(idx, 'group1', e.target.value)}
-                                                    style={inputStyle} />
-                                            </div>
+                                                {/* Giai đoạn */}
+                                                <td style={cellStyle}>
+                                                    <input type="text" list="group1-list" placeholder="Phần thô..." value={row.group1}
+                                                        onChange={e => updateRow(idx, 'group1', e.target.value)}
+                                                        style={{ ...inputStyle, fontSize: 11, padding: '5px 6px' }} />
+                                                </td>
 
-                                            {/* Không gian */}
-                                            <div>
-                                                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 3, fontWeight: 500 }}>Không gian</div>
-                                                <input type="text" list="group2-list" placeholder="VD: P.Khách" value={row.group2}
-                                                    onChange={e => updateRow(idx, 'group2', e.target.value)}
-                                                    style={inputStyle} />
-                                            </div>
+                                                {/* Không gian */}
+                                                <td style={cellStyle}>
+                                                    <input type="text" list="group2-list" placeholder="P.Khách..." value={row.group2}
+                                                        onChange={e => updateRow(idx, 'group2', e.target.value)}
+                                                        style={{ ...inputStyle, fontSize: 11, padding: '5px 6px' }} />
+                                                </td>
 
-                                            {/* NCC */}
-                                            <div>
-                                                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 3, fontWeight: 500 }}>NCC</div>
-                                                <select value={row.supplierTag} onChange={e => updateRow(idx, 'supplierTag', e.target.value)} style={selectStyle}>
-                                                    {SUPPLIER_TAGS.map(t => <option key={t} value={t}>{t || '—'}</option>)}
-                                                </select>
-                                            </div>
-
-                                            <span></span>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                                {/* Delete */}
+                                                <td style={{ ...cellStyle, textAlign: 'center' }}>
+                                                    <button onClick={() => removeRow(idx)}
+                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 15, padding: 0, lineHeight: 1, opacity: rows.length === 1 ? 0.3 : 1 }}
+                                                        disabled={rows.length === 1}>🗑</button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
 
                         <button onClick={addRow} style={{ marginTop: 10, padding: '8px 16px', fontSize: 13, fontWeight: 600, border: '1px dashed var(--border-light)', borderRadius: 8, background: 'transparent', cursor: 'pointer', color: 'var(--accent-primary)', width: '100%' }}

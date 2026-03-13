@@ -148,7 +148,7 @@ export default function CreateQuotationPage() {
             });
             try { localStorage.removeItem('quotation_draft_create'); } catch { }
             toast.success('Đã lưu báo giá thành công!');
-            router.push(`/quotations/${saved.id}/edit`);
+            router.push(`/quotations/${saved?.id}/edit`);
         } catch (e) { toast.error(e.message); }
         setSaving(false);
     };

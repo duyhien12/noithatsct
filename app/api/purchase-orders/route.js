@@ -13,9 +13,9 @@ export const GET = withAuth(async (request) => {
     const where = {};
     if (search) {
         where.OR = [
-            { code: { contains: search, mode: 'insensitive' } },
-            { supplier: { contains: search, mode: 'insensitive' } },
-            { project: { name: { contains: search, mode: 'insensitive' } } },
+            { code: { contains: search } },
+            { supplier: { contains: search } },
+            { project: { name: { contains: search } } },
         ];
     }
 

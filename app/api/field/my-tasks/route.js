@@ -14,7 +14,7 @@ export const GET = withAuth(async (request, _ctx, session) => {
     const [scheduleTasks, workOrders] = await Promise.all([
         prisma.scheduleTask.findMany({
             where: {
-                assignee: { contains: userName, mode: 'insensitive' },
+                assignee: { contains: userName },
                 isLocked: false,
             },
             include: {
@@ -31,7 +31,7 @@ export const GET = withAuth(async (request, _ctx, session) => {
         }),
         prisma.workOrder.findMany({
             where: {
-                assignee: { contains: userName, mode: 'insensitive' },
+                assignee: { contains: userName },
                 status: { not: 'Hoàn thành' },
                 deletedAt: null,
             },

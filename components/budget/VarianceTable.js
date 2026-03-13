@@ -5,6 +5,7 @@ const fmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0));
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const COST_TYPES = ['Tất cả', 'Vật tư', 'Nhân công', 'Thầu phụ', 'Khác'];
+const EDIT_COST_TYPES = ['Vật tư', 'Nhân công', 'Thầu phụ', 'Khác'];
 
 const C = {
     cell:   { border: '1px solid #d1d5db', padding: '6px 8px', fontSize: 12 },
@@ -23,15 +24,54 @@ export default function VarianceTable({ projectId }) {
     const [loading, setLoading] = useState(true);
     const [costFilter, setCostFilter] = useState('Tất cả');
     const [collapsed, setCollapsed] = useState({});
+    const [editingId, setEditingId] = useState(null);
+    const [editForm, setEditForm] = useState({});
+    const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
+    const reload = () => {
         setLoading(true);
         fetch(`/api/budget/variance?projectId=${projectId}&planType=tracking`)
             .then(r => r.json())
             .then(setData)
             .catch(() => {})
             .finally(() => setLoading(false));
-    }, [projectId]);
+    };
+
+    useEffect(() => { reload(); }, [projectId]);
+
+    const startEdit = (item) => {
+        setEditingId(item.id);
+        setEditForm({
+            budgetQty: item.budgetQty,
+            budgetUnitPrice: item.budgetUnitPrice,
+            actualUnitPrice: item.actualTotal > 0 && item.budgetQty > 0 ? (item.actualTotal / item.budgetQty) : 0,
+            costType: item.costType,
+            group1: item.group1,
+            group2: item.group2,
+        });
+    };
+
+    const cancelEdit = () => { setEditingId(null); setEditForm({}); };
+
+    const saveEdit = async (id) => {
+        setSaving(true);
+        const actualCost = (Number(editForm.actualUnitPrice) || 0) * (Number(editForm.budgetQty) || 0);
+        await fetch(`/api/material-plans/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                quantity: Number(editForm.budgetQty),
+                budgetUnitPrice: Number(editForm.budgetUnitPrice),
+                actualCost,
+                costType: editForm.costType,
+                group1: editForm.group1,
+                group2: editForm.group2,
+            }),
+        });
+        setSaving(false);
+        setEditingId(null);
+        reload();
+    };
 
     if (loading) return <div style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>Đang tải...</div>;
     if (!data?.items?.length) return <div style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>Chưa có dữ liệu dự toán</div>;
@@ -64,34 +104,70 @@ export default function VarianceTable({ projectId }) {
         return { budgetTotal, actualTotal, variance, cpi };
     };
 
-    const renderItemRow = (item, stt, indent) => (
-        <tr key={item.id} style={{ ...C.item, borderLeft: `3px solid ${statusColor[item.status] || '#d1d5db'}` }}>
-            <td style={{ ...C.cell, textAlign: 'center', color: '#6b7280' }}>{stt}</td>
-            <td style={{ ...C.cell, paddingLeft: indent }}>
-                <div style={{ fontWeight: 500 }}>{item.productName}</div>
-                <div style={{ fontSize: 10, color: '#9ca3af', display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
-                    {item.productCode && <span>{item.productCode}</span>}
-                    {item.costType && item.costType !== 'Vật tư' && (
-                        <span style={{ padding: '1px 5px', borderRadius: 3, background: item.costType === 'Nhân công' ? '#ede9fe' : item.costType === 'Thầu phụ' ? '#fff7ed' : '#f1f5f9', color: item.costType === 'Nhân công' ? '#7c3aed' : item.costType === 'Thầu phụ' ? '#ea580c' : '#475569', fontSize: 9 }}>{item.costType}</span>
+    const inputStyle = { width: '100%', padding: '3px 5px', fontSize: 11, border: '1px solid #93c5fd', borderRadius: 3, textAlign: 'right', outline: 'none' };
+
+    const renderItemRow = (item, stt, indent) => {
+        const isEditing = editingId === item.id;
+        const dgTT = isEditing ? (Number(editForm.actualUnitPrice) || 0) : item.avgActualPrice;
+        const tongTT = isEditing ? (Number(editForm.actualUnitPrice) || 0) * (Number(editForm.budgetQty) || 0) : item.actualTotal;
+        return (
+            <tr key={item.id} style={{ ...C.item, borderLeft: `3px solid ${statusColor[item.status] || '#d1d5db'}`, background: isEditing ? '#eff6ff' : '#ffffff' }}>
+                <td style={{ ...C.cell, textAlign: 'center', color: '#6b7280' }}>{stt}</td>
+                <td style={{ ...C.cell, paddingLeft: indent }}>
+                    <div style={{ fontWeight: 500 }}>{item.productName}</div>
+                    <div style={{ fontSize: 10, color: '#9ca3af', display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+                        {item.productCode && <span>{item.productCode}</span>}
+                        {item.costType && item.costType !== 'Vật tư' && (
+                            <span style={{ padding: '1px 5px', borderRadius: 3, background: item.costType === 'Nhân công' ? '#ede9fe' : item.costType === 'Thầu phụ' ? '#fff7ed' : '#f1f5f9', color: item.costType === 'Nhân công' ? '#7c3aed' : item.costType === 'Thầu phụ' ? '#ea580c' : '#475569', fontSize: 9 }}>{item.costType}</span>
+                        )}
+                        {item.supplierTag && <span style={{ color: item.supplierTag === 'Thầu phụ cấp' ? '#ea580c' : '#2563eb' }}>• {item.supplierTag}</span>}
+                    </div>
+                </td>
+                <td style={{ ...C.cell, textAlign: 'center' }}>{item.unit}</td>
+                <td style={{ ...C.cell, textAlign: 'right', padding: isEditing ? '4px' : undefined }}>
+                    {isEditing
+                        ? <input style={inputStyle} type="number" value={editForm.budgetQty} onChange={e => setEditForm(f => ({ ...f, budgetQty: e.target.value }))} />
+                        : item.budgetQty}
+                </td>
+                <td style={{ ...C.cell, textAlign: 'right', padding: isEditing ? '4px' : undefined }}>
+                    {isEditing
+                        ? <input style={inputStyle} type="number" value={editForm.budgetUnitPrice} onChange={e => setEditForm(f => ({ ...f, budgetUnitPrice: e.target.value }))} />
+                        : fmt(item.budgetUnitPrice)}
+                </td>
+                <td style={{ ...C.cell, textAlign: 'right', fontWeight: 600, color: '#2563eb' }}>
+                    {fmt(isEditing ? (Number(editForm.budgetQty) || 0) * (Number(editForm.budgetUnitPrice) || 0) : item.budgetTotal)}
+                </td>
+                <td style={{ ...C.cell, textAlign: 'right', padding: isEditing ? '4px' : undefined, color: dgTT > item.budgetUnitPrice ? '#dc2626' : dgTT > 0 ? '#16a34a' : '#9ca3af', fontWeight: dgTT > item.budgetUnitPrice ? 700 : 400 }}>
+                    {isEditing
+                        ? <input style={{ ...inputStyle, borderColor: '#fca5a5' }} type="number" value={editForm.actualUnitPrice} onChange={e => setEditForm(f => ({ ...f, actualUnitPrice: e.target.value }))} />
+                        : (dgTT > 0 ? fmt(dgTT) : '—')}
+                </td>
+                <td style={{ ...C.cell, textAlign: 'right', color: tongTT > item.budgetTotal ? '#dc2626' : tongTT > 0 ? '#16a34a' : '#9ca3af', fontWeight: 600 }}>
+                    {tongTT > 0 ? fmt(tongTT) : '—'}
+                </td>
+                <td style={{ ...C.cell, textAlign: 'right', color: (isEditing ? (Number(editForm.budgetQty) || 0) * (Number(editForm.budgetUnitPrice) || 0) - tongTT : item.budgetTotal - item.actualTotal) >= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+                    {(() => {
+                        const budgetT = isEditing ? (Number(editForm.budgetQty) || 0) * (Number(editForm.budgetUnitPrice) || 0) : item.budgetTotal;
+                        const diff = budgetT - tongTT;
+                        return tongTT > 0 ? `${diff >= 0 ? '+' : ''}${fmt(diff)}` : '—';
+                    })()}
+                </td>
+                <td style={{ ...C.cell, textAlign: 'center', padding: '4px' }}>
+                    {isEditing ? (
+                        <div style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
+                            <button onClick={() => saveEdit(item.id)} disabled={saving}
+                                style={{ padding: '3px 7px', fontSize: 13, background: '#16a34a', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✓</button>
+                            <button onClick={cancelEdit}
+                                style={{ padding: '3px 7px', fontSize: 13, background: '#6b7280', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✕</button>
+                        </div>
+                    ) : (
+                        <button onClick={() => startEdit(item)}
+                            style={{ padding: '2px 6px', fontSize: 11, background: 'none', border: '1px solid #d1d5db', borderRadius: 4, cursor: 'pointer', color: '#6b7280' }}>✏️</button>
                     )}
-                    {item.supplierTag && <span style={{ color: item.supplierTag === 'Thầu phụ cấp' ? '#ea580c' : '#2563eb' }}>• {item.supplierTag}</span>}
-                </div>
-            </td>
-            <td style={{ ...C.cell, textAlign: 'center' }}>{item.unit}</td>
-            <td style={{ ...C.cell, textAlign: 'right' }}>{item.budgetQty}</td>
-            <td style={{ ...C.cell, textAlign: 'right' }}>{fmt(item.budgetUnitPrice)}</td>
-            <td style={{ ...C.cell, textAlign: 'right', color: item.avgActualPrice > item.budgetUnitPrice ? '#dc2626' : item.avgActualPrice > 0 ? '#16a34a' : '#9ca3af', fontWeight: item.avgActualPrice > item.budgetUnitPrice ? 700 : 400 }}>
-                {item.avgActualPrice > 0 ? fmt(item.avgActualPrice) : '—'}
-            </td>
-            <td style={{ ...C.cell, textAlign: 'right', fontWeight: 600, color: '#2563eb' }}>{fmt(item.budgetTotal)}</td>
-            <td style={{ ...C.cell, textAlign: 'right', color: item.actualTotal > item.budgetTotal ? '#dc2626' : item.actualTotal > 0 ? '#16a34a' : '#9ca3af', fontWeight: 600 }}>
-                {item.actualTotal > 0 ? fmt(item.actualTotal) : '—'}
-            </td>
-            <td style={{ ...C.cell, textAlign: 'right', color: item.budgetTotal - item.actualTotal >= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
-                {item.actualTotal > 0 ? `${item.budgetTotal - item.actualTotal >= 0 ? '+' : ''}${fmt(item.budgetTotal - item.actualTotal)}` : '—'}
-            </td>
-        </tr>
-    );
+                </td>
+            </tr>
+        );
+    };
 
     const renderGroupRow = (stt, name, items, level, gKey) => {
         const { budgetTotal, actualTotal, variance, cpi } = agg(items);
@@ -106,8 +182,8 @@ export default function VarianceTable({ projectId }) {
                     {name}
                 </td>
                 <td style={C.cell} /><td style={C.cell} /><td style={C.cell} />
-                <td style={C.cell} />
                 <td style={{ ...C.cell, textAlign: 'right', fontWeight: 700, color: '#1e3a5f' }}>{fmt(budgetTotal)}</td>
+                <td style={C.cell} />
                 <td style={{ ...C.cell, textAlign: 'right', color: actualTotal > 0 ? (actualTotal > budgetTotal ? '#dc2626' : '#16a34a') : '#9ca3af', fontWeight: 600 }}>
                     {actualTotal > 0 ? fmt(actualTotal) : '—'}
                 </td>
@@ -175,10 +251,11 @@ export default function VarianceTable({ projectId }) {
                                 { label: 'ĐVT', w: 55 },
                                 { label: 'SL DT', w: 65 },
                                 { label: 'ĐG DT', w: 100 },
-                                { label: 'ĐG TT', w: 100 },
                                 { label: 'Tổng DT', w: 110 },
+                                { label: 'ĐG TT', w: 100 },
                                 { label: 'Tổng TT', w: 110 },
-                                { label: 'Tiết kiệm', w: 110 },
+                                { label: 'Chênh lệch', w: 110 },
+                                { label: '', w: 60 },
                             ].map(h => (
                                 <th key={h.label} style={{ ...C.header, width: h.w }}>{h.label}</th>
                             ))}
@@ -192,8 +269,9 @@ export default function VarianceTable({ projectId }) {
                         })}
                         {/* Grand total */}
                         <tr style={C.total}>
-                            <td colSpan={6} style={{ ...C.cell, textAlign: 'center', letterSpacing: 1, border: '1px solid #374151', color: 'white' }}>TỔNG CỘNG</td>
+                            <td colSpan={5} style={{ ...C.cell, textAlign: 'center', letterSpacing: 1, border: '1px solid #374151', color: 'white' }}>TỔNG CỘNG</td>
                             <td style={{ ...C.cell, textAlign: 'right', border: '1px solid #374151', color: 'white', fontSize: 13 }}>{fmt(totalBudget)}</td>
+                            <td style={{ border: '1px solid #374151' }} />
                             <td style={{ ...C.cell, textAlign: 'right', border: '1px solid #374151', color: totalActual > 0 ? (totalActual > totalBudget ? '#fca5a5' : '#86efac') : '#9ca3af' }}>
                                 {totalActual > 0 ? fmt(totalActual) : '—'}
                             </td>

@@ -28,10 +28,14 @@ export const GET = withAuth(async (request) => {
         // Avg actual price from PO items (weighted by qty)
         const totalPOQty = plan.purchaseItems.reduce((s, i) => s + i.quantity, 0);
         const totalPOValue = plan.purchaseItems.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
-        const avgActualPrice = totalPOQty > 0 ? totalPOValue / totalPOQty : 0;
 
         // Received qty from PO items
         const actualReceivedQty = plan.purchaseItems.reduce((s, i) => s + i.receivedQty, 0);
+
+        // Fallback to actualCost field when no PO items
+        const hasPO = totalPOQty > 0;
+        const avgActualPrice = hasPO ? totalPOValue / totalPOQty : (plan.actualCost > 0 && plan.quantity > 0 ? plan.actualCost / plan.quantity : 0);
+        const effectiveActualTotal = hasPO ? avgActualPrice * (actualReceivedQty || plan.orderedQty) : plan.actualCost;
 
         // Max allowed qty
         const maxAllowedQty = plan.quantity * (1 + plan.wastePercent / 100);
@@ -74,7 +78,7 @@ export const GET = withAuth(async (request) => {
             orderedQty: plan.orderedQty,
             receivedQty: actualReceivedQty || plan.receivedQty,
             avgActualPrice,
-            actualTotal: avgActualPrice * (actualReceivedQty || plan.orderedQty),
+            actualTotal: effectiveActualTotal,
             // Variance
             priceVariance,
             qtyVariance,
