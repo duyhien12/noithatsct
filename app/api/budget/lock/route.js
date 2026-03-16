@@ -44,3 +44,32 @@ export const POST = withAuth(async (request) => {
 
     return NextResponse.json({ success: true, budgetTotal, lockedPlans: plans.length });
 });
+
+// DELETE: Mở khóa dự toán
+export const DELETE = withAuth(async (request, context, session) => {
+    const { projectId } = await request.json();
+    if (!projectId) return NextResponse.json({ error: 'projectId required' }, { status: 400 });
+
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    if (project.budgetStatus !== 'locked') return NextResponse.json({ error: 'Dự toán chưa được khóa' }, { status: 400 });
+
+    // Unlock all material plans
+    await prisma.materialPlan.updateMany({
+        where: { projectId },
+        data: { isLocked: false },
+    });
+
+    // Reset project budget status
+    await prisma.project.update({
+        where: { id: projectId },
+        data: {
+            budgetStatus: 'draft',
+            budgetLockedAt: null,
+            budgetLockedBy: '',
+        },
+    });
+
+    const unlockedBy = session?.user?.name || 'Admin';
+    return NextResponse.json({ success: true, unlockedBy });
+});

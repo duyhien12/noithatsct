@@ -76,6 +76,9 @@ export default function ProductsPage() {
     const [filterCatL, setFilterCatL] = useState('');
     const [editingL, setEditingL] = useState(null);
     const [newLibItem, setNewLibItem] = useState(null);
+    const [showAddLibModal, setShowAddLibModal] = useState(false);
+    const [showAddCatModal, setShowAddCatModal] = useState(false);
+    const [newCatName, setNewCatName] = useState('');
     const [editingLibCat, setEditingLibCat] = useState(null);
     const excelInputRef = useRef(null);
     const [importPreview, setImportPreview] = useState(null);
@@ -288,12 +291,12 @@ export default function ProductsPage() {
         setEditingL(null); fetchLibrary();
     };
     const deleteL = async (id) => { if (!confirm('Xóa hạng mục?')) return; await fetch(`/api/work-item-library/${id}`, { method: 'DELETE' }); fetchLibrary(); };
-    const addNewLib = () => setNewLibItem({ name: '', category: filterCatL || '', subcategory: '', unit: 'cái', mainMaterial: 0, auxMaterial: 0, labor: 0, unitPrice: 0, description: '', image: '' });
+    const addNewLib = () => { setNewLibItem({ name: '', category: filterCatL || '', subcategory: '', unit: 'cái', mainMaterial: 0, auxMaterial: 0, labor: 0, unitPrice: 0, description: '', image: '' }); setShowAddLibModal(true); };
     const saveNewLib = async () => {
         if (!newLibItem?.name?.trim()) return alert('Nhập tên hạng mục');
         const res = await fetch('/api/work-item-library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newLibItem) });
         if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi tạo'); }
-        setNewLibItem(null); fetchLibrary();
+        setNewLibItem(null); setShowAddLibModal(false); fetchLibrary();
     };
 
     // --- Save new product ---
@@ -596,7 +599,7 @@ export default function ProductsPage() {
                                                     ? <select value={qe.supplyType} onChange={e => updateQuickField(p.id, 'supplyType', e.target.value)} style={{ fontSize: 10, padding: '2px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }}>{SUPPLY_TYPES.map(t => <option key={t}>{t}</option>)}</select>
                                                     : <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: sc.bg, color: sc.color, fontWeight: 600, whiteSpace: 'nowrap' }}>{normalizeSupply(p.supplyType)}</span>}</td>
                                                 <td style={{ fontSize: 11, padding: '4px 4px' }}>{isQE
-                                                    ? <select value={qe.brand} onChange={e => updateQuickField(p.id, 'brand', e.target.value)} style={{ fontSize: 10, padding: '2px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)', maxWidth: 80 }}>{BRANDS.map(b => <option key={b.n} value={b.n}>{b.n || '-'}</option>)}</select>
+                                                    ? <><input list={`brand-qe-${p.id}`} value={qe.brand} onChange={e => updateQuickField(p.id, 'brand', e.target.value)} style={{ fontSize: 10, padding: '2px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)', maxWidth: 80 }} placeholder="-" /><datalist id={`brand-qe-${p.id}`}>{BRANDS.filter(b => b.n).map(b => <option key={b.n} value={b.n} />)}</datalist></>
                                                     : (p.brand || <span style={{ opacity: 0.2 }}>-</span>)}</td>
                                                 <td style={{ padding: '4px 4px' }}>{isQE
                                                     ? <div style={{ display: 'flex', gap: 2 }}><button className="btn btn-sm" onClick={() => saveQuickP(p.id)} style={{ fontSize: 11, padding: '2px 6px', background: '#234093', color: '#fff', border: 'none', borderRadius: 4 }}>✓</button><button className="btn btn-ghost btn-sm" onClick={() => cancelQuickEditP(p.id)} style={{ fontSize: 11, padding: '2px 4px' }}>✕</button></div>
@@ -699,7 +702,7 @@ export default function ProductsPage() {
                         </div>
                         <div style={{ padding: '8px', borderTop: '1px solid var(--border-color)' }}>
                             <button className="btn btn-ghost btn-sm" style={{ width: '100%', fontSize: 12 }}
-                                onClick={() => { const name = prompt('Tên danh mục mới:'); if (name?.trim()) { setFilterCatL(name.trim()); setNewLibItem({ name: '', category: name.trim(), subcategory: '', unit: 'cái', mainMaterial: 0, auxMaterial: 0, labor: 0, unitPrice: 0, description: '', image: '' }); } }}>
+                                onClick={() => { setNewCatName(''); setShowAddCatModal(true); }}>
                                 + Thêm danh mục
                             </button>
                         </div>
@@ -729,20 +732,6 @@ export default function ProductsPage() {
                                         <th style={{ width: 80 }}></th>
                                     </tr></thead>
                                     <tbody>
-                                        {newLibItem && (
-                                            <tr style={{ background: 'rgba(99,102,241,0.05)' }}>
-                                                <td style={{ padding: 4 }}><div style={{ width: 36, height: 36, borderRadius: 5, border: '2px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.3 }}>📷</div></td>
-                                                <td><EditCell value={newLibItem.name} onChange={v => setNewLibItem(p => ({ ...p, name: v }))} /></td>
-                                                <td><EditCell value={newLibItem.unit} onChange={v => setNewLibItem(p => ({ ...p, unit: v }))} /></td>
-                                                <td><EditCell value={newLibItem.unitPrice} onChange={v => setNewLibItem(p => ({ ...p, unitPrice: v }))} type="number" /></td>
-                                                <td><EditCell value={newLibItem.mainMaterial} onChange={v => setNewLibItem(p => ({ ...p, mainMaterial: v }))} type="number" /></td>
-                                                <td><EditCell value={newLibItem.labor} onChange={v => setNewLibItem(p => ({ ...p, labor: v }))} type="number" /></td>
-                                                <td><div style={{ display: 'flex', gap: 4 }}>
-                                                    <button className="btn btn-primary btn-sm" onClick={saveNewLib} style={{ fontSize: 11 }}>✓</button>
-                                                    <button className="btn btn-ghost btn-sm" onClick={() => setNewLibItem(null)} style={{ fontSize: 11 }}>✕</button>
-                                                </div></td>
-                                            </tr>
-                                        )}
                                         {filteredL.map(item => {
                                             const isEditing = editingL?.id === item.id;
                                             const d = isEditing ? editingL.data : item;
@@ -872,9 +861,8 @@ export default function ProductsPage() {
                                 <div className="form-row">
                                     <div className="form-group" style={{ flex: 1 }}>
                                         <label className="form-label">Thương hiệu</label>
-                                        <select className="form-select" value={d.brand || ''} onChange={e => set('brand', e.target.value)}>
-                                            {BRANDS.map(b => <option key={b.n} value={b.n}>{b.n || '-- Không --'}</option>)}
-                                        </select>
+                                        <input className="form-input" list="brand-list-edit" value={d.brand || ''} onChange={e => set('brand', e.target.value)} placeholder="Nhập hoặc chọn thương hiệu..." />
+                                        <datalist id="brand-list-edit">{BRANDS.filter(b => b.n).map(b => <option key={b.n} value={b.n} />)}</datalist>
                                     </div>
                                     <div className="form-group" style={{ flex: 1 }}>
                                         <label className="form-label">Nhà cung cấp</label>
@@ -977,9 +965,8 @@ export default function ProductsPage() {
                             <div className="form-row">
                                 <div className="form-group" style={{ flex: 2 }}>
                                     <label className="form-label">Thương hiệu</label>
-                                    <select className="form-select" value={addForm.brand} onChange={e => setAddForm(f => ({ ...f, brand: e.target.value }))}>
-                                        {BRANDS.map(b => <option key={b.n} value={b.n}>{b.n || '-- Không --'}</option>)}
-                                    </select>
+                                    <input className="form-input" list="brand-list-add" value={addForm.brand} onChange={e => setAddForm(f => ({ ...f, brand: e.target.value }))} placeholder="Nhập hoặc chọn thương hiệu..." />
+                                    <datalist id="brand-list-add">{BRANDS.filter(b => b.n).map(b => <option key={b.n} value={b.n} />)}</datalist>
                                 </div>
                             </div>
                             <div className="form-group">
@@ -1042,6 +1029,104 @@ export default function ProductsPage() {
                         <div className="modal-footer">
                             <button className="btn btn-ghost" onClick={() => setShowAddModal(false)}>Hủy</button>
                             <button className="btn btn-primary" onClick={saveNewProduct}>Tạo sản phẩm</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Library Category Modal */}
+            {showAddCatModal && (
+                <div className="modal-overlay" onClick={() => setShowAddCatModal(false)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+                        <div className="modal-header">
+                            <h3 style={{ margin: 0 }}>📁 Thêm danh mục mới</h3>
+                            <button className="modal-close" onClick={() => setShowAddCatModal(false)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="form-group">
+                                <label className="form-label">Tên danh mục *</label>
+                                <input
+                                    className="form-input"
+                                    autoFocus
+                                    value={newCatName}
+                                    onChange={e => setNewCatName(e.target.value)}
+                                    placeholder="VD: Nhân công, Sơn bả, Điện nước..."
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter' && newCatName.trim()) {
+                                            setFilterCatL(newCatName.trim());
+                                            setShowAddCatModal(false);
+                                            setNewLibItem({ name: '', category: newCatName.trim(), subcategory: '', unit: 'cái', mainMaterial: 0, auxMaterial: 0, labor: 0, unitPrice: 0, description: '', image: '' });
+                                            setShowAddLibModal(true);
+                                        }
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setShowAddCatModal(false)}>Hủy</button>
+                            <button className="btn btn-primary" disabled={!newCatName.trim()} onClick={() => {
+                                setFilterCatL(newCatName.trim());
+                                setShowAddCatModal(false);
+                                setNewLibItem({ name: '', category: newCatName.trim(), subcategory: '', unit: 'cái', mainMaterial: 0, auxMaterial: 0, labor: 0, unitPrice: 0, description: '', image: '' });
+                                setShowAddLibModal(true);
+                            }}>Tạo danh mục</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Library Item Modal */}
+            {showAddLibModal && newLibItem && (
+                <div className="modal-overlay" onClick={() => { setShowAddLibModal(false); setNewLibItem(null); }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+                        <div className="modal-header">
+                            <h3 style={{ margin: 0 }}>🔧 Thêm hạng mục thi công</h3>
+                            <button className="modal-close" onClick={() => { setShowAddLibModal(false); setNewLibItem(null); }}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="form-row">
+                                <div className="form-group" style={{ flex: 2 }}>
+                                    <label className="form-label">Tên hạng mục *</label>
+                                    <input className="form-input" autoFocus value={newLibItem.name} onChange={e => setNewLibItem(p => ({ ...p, name: e.target.value }))} placeholder="VD: Sơn tường Dulux 2 lớp" onKeyDown={e => e.key === 'Enter' && saveNewLib()} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">ĐVT *</label>
+                                    <input className="form-input" value={newLibItem.unit} onChange={e => setNewLibItem(p => ({ ...p, unit: e.target.value }))} placeholder="m2" />
+                                </div>
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group" style={{ flex: 2 }}>
+                                    <label className="form-label">Danh mục</label>
+                                    <input className="form-input" list="lib-cat-list" value={newLibItem.category} onChange={e => setNewLibItem(p => ({ ...p, category: e.target.value }))} placeholder="VD: Nhân công, Sơn..." />
+                                    <datalist id="lib-cat-list">{lCats.map(c => <option key={c} value={c} />)}</datalist>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Đơn giá</label>
+                                    <input className="form-input" type="number" value={newLibItem.unitPrice || ''} onChange={e => setNewLibItem(p => ({ ...p, unitPrice: Number(e.target.value) }))} placeholder="0" />
+                                </div>
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">VL chính</label>
+                                    <input className="form-input" type="number" value={newLibItem.mainMaterial || ''} onChange={e => setNewLibItem(p => ({ ...p, mainMaterial: Number(e.target.value) }))} placeholder="0" />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Nhân công</label>
+                                    <input className="form-input" type="number" value={newLibItem.labor || ''} onChange={e => setNewLibItem(p => ({ ...p, labor: Number(e.target.value) }))} placeholder="0" />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">VL phụ</label>
+                                    <input className="form-input" type="number" value={newLibItem.auxMaterial || ''} onChange={e => setNewLibItem(p => ({ ...p, auxMaterial: Number(e.target.value) }))} placeholder="0" />
+                                </div>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Mô tả</label>
+                                <textarea className="form-input" rows={2} value={newLibItem.description} onChange={e => setNewLibItem(p => ({ ...p, description: e.target.value }))} placeholder="Ghi chú thêm về quy cách, tiêu chuẩn..." style={{ resize: 'vertical' }} />
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => { setShowAddLibModal(false); setNewLibItem(null); }}>Hủy</button>
+                            <button className="btn btn-primary" onClick={saveNewLib}>Tạo hạng mục</button>
                         </div>
                     </div>
                 </div>

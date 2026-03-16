@@ -19,7 +19,7 @@ const C = {
 const statusColor = { green: '#16a34a', yellow: '#d97706', red: '#dc2626' };
 const cpiColor = (v) => !v ? '#9ca3af' : v >= 1 ? '#16a34a' : v >= 0.95 ? '#d97706' : '#dc2626';
 
-export default function VarianceTable({ projectId }) {
+export default function VarianceTable({ projectId, onTotalBudgetLoaded }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [costFilter, setCostFilter] = useState('Tất cả');
@@ -32,7 +32,12 @@ export default function VarianceTable({ projectId }) {
         setLoading(true);
         fetch(`/api/budget/variance?projectId=${projectId}&planType=tracking`)
             .then(r => r.json())
-            .then(setData)
+            .then(d => {
+                setData(d);
+                if (d?.summary?.totalBudget !== undefined) {
+                    onTotalBudgetLoaded?.(d.summary.totalBudget);
+                }
+            })
             .catch(() => {})
             .finally(() => setLoading(false));
     };

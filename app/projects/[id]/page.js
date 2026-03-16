@@ -354,6 +354,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
     };
 
     const [quotationImportRows, setQuotationImportRows] = useState(null);
+    const [liveBudgetTotal, setLiveBudgetTotal] = useState(null);
 
     // Bulk import material plans from quotation items → open BudgetQuickAdd pre-filled
     const importMPFromQuotation = async () => {
@@ -678,10 +679,11 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                     <BudgetLockBar
                         projectId={id}
                         budgetStatus={p.budgetStatus}
-                        budgetTotal={p.budgetTotal}
+                        budgetTotal={liveBudgetTotal !== null ? liveBudgetTotal : p.budgetTotal}
                         budgetLockedAt={p.budgetLockedAt}
                         budgetLockedBy={p.budgetLockedBy}
                         onLocked={() => window.location.reload()}
+                        onUnlocked={() => window.location.reload()}
                     />
 
                     <div className="card" style={{ padding: 20, marginTop: 16 }}>
@@ -701,7 +703,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                                 </div>
                             )}
                         </div>
-                        <VarianceTable key={`v-${varianceKey}`} projectId={id} />
+                        <VarianceTable key={`v-${varianceKey}`} projectId={id} onTotalBudgetLoaded={setLiveBudgetTotal} />
                     </div>
                     <div className="card" style={{ padding: 20, marginTop: 16 }}>
                         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>📈 S-Curve — Tiến độ Chi phí</h3>
