@@ -2405,6 +2405,20 @@ body {
     font-size: 20px;
   }
 
+  /* === FINANCE SUB-TABS === */
+  .finance-sub-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .finance-sub-tabs::-webkit-scrollbar { display: none; }
+  .finance-sub-tabs button {
+    padding: 8px 14px !important;
+    font-size: 12px !important;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
   /* === CHART BARS === */
   .chart-bar-container {
     height: 150px;
@@ -2412,6 +2426,102 @@ body {
 
   .chart-bar {
     width: 12px;
+  }
+
+  /* === PROJECT DETAIL: HEADER MOBILE === */
+  .project-header-row {
+    flex-direction: column !important;
+  }
+
+  .project-header-progress {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    padding: 8px 12px !important;
+    background: var(--surface-alt) !important;
+    border-radius: 8px !important;
+    margin-top: 4px !important;
+  }
+
+  .project-header-progress .progress-bar {
+    width: 100px !important;
+  }
+
+  /* === PROJECT TABS: MOBILE ICON-ONLY === */
+  .project-tabs {
+    padding: 4px 6px !important;
+    gap: 2px !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .project-tabs::-webkit-scrollbar { display: none; }
+
+  .project-tab {
+    padding: 7px 10px !important;
+    font-size: 11px !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    min-width: 52px !important;
+    scroll-snap-align: start;
+    flex-shrink: 0 !important;
+    line-height: 1.2 !important;
+  }
+
+  /* Hide label text on inactive tabs, show only icon */
+  .project-tab:not(.active) .tab-label {
+    display: none !important;
+  }
+
+  .project-tab.active .tab-label {
+    display: block !important;
+    font-size: 9px !important;
+    white-space: nowrap !important;
+  }
+
+  .project-tab .tab-count {
+    font-size: 9px !important;
+    padding: 1px 4px !important;
+  }
+
+  /* === OVERVIEW GRID: 1 COLUMN === */
+  .overview-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .overview-grid .card[style*="gridColumn"] {
+    grid-column: 1 !important;
+  }
+
+  /* === CARD PADDING: COMPACT === */
+  .project-detail-header {
+    padding: 12px !important;
+  }
+
+  .card-header {
+    padding: 10px 12px !important;
+  }
+
+  /* === STATS GRID: 3+2 LAYOUT === */
+  .project-quick-stats {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 4px !important;
+    margin-top: 10px !important;
+  }
+
+  .project-quick-stats > div {
+    padding: 6px 4px !important;
+  }
+
+  .project-quick-stats > div > div:first-child {
+    font-size: 13px !important;
+  }
+
+  .project-quick-stats > div > div:last-child {
+    font-size: 10px !important;
   }
 }
 

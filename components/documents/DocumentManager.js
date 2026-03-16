@@ -2,6 +2,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { SPACES, DOC_CATEGORIES, STATUS_CONFIG } from '@/lib/document-constants';
 
+function useIsMobile() {
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        const check = () => setIsMobile(window.innerWidth <= 768);
+        check();
+        window.addEventListener('resize', check);
+        return () => window.removeEventListener('resize', check);
+    }, []);
+    return isMobile;
+}
+
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const fmtSize = (bytes) => {
     if (!bytes || bytes === 0) return '—';
@@ -244,7 +255,7 @@ function UploadModal({ onClose, onUpload, folders, preselectedFolderId, parentDo
                     >
                         <div style={{ fontSize: 32, marginBottom: 6 }}>📁</div>
                         <div style={{ fontSize: 14, fontWeight: 600 }}>Kéo thả file vào đây</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>hoặc click để chọn file (tối đa 200MB)</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>hoặc click để chọn file — mọi định dạng, không giới hạn dung lượng</div>
                         <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={e => handleFiles(e.target.files)} />
                     </div>
 
@@ -457,6 +468,7 @@ function DocCard({ doc, onPreview, onNewVersion, onDelete, onStatusChange, flatF
 
 // ============ MAIN DOCUMENT MANAGER ============
 export default function DocumentManager({ projectId, onRefresh }) {
+    const isMobile = useIsMobile();
     const [folders, setFolders] = useState([]);
     const [documents, setDocuments] = useState([]);
     const [selectedFolderId, setSelectedFolderId] = useState(null);
@@ -468,6 +480,7 @@ export default function DocumentManager({ projectId, onRefresh }) {
     const [modal, setModal] = useState(null);
     const [selectedDoc, setSelectedDoc] = useState(null);
     const [totalDocs, setTotalDocs] = useState(0);
+    const [showFolderPanel, setShowFolderPanel] = useState(false);
 
     const fetchFolders = useCallback(async () => {
         try {
@@ -553,49 +566,111 @@ export default function DocumentManager({ projectId, onRefresh }) {
     const flatten = (list, depth = 0) => { for (const f of list) { flatFolders.push({ id: f.id, name: f.name, depth }); if (f.children) flatten(f.children, depth + 1); } };
     flatten(folders);
 
-    return (
-        <div style={{ display: 'flex', gap: 0, minHeight: 500 }}>
-            {/* LEFT: Folder Tree */}
-            <div style={{ width: 260, flexShrink: 0, borderRight: '1px solid var(--border-light)', background: 'var(--bg-card)', borderRadius: '12px 0 0 12px', overflow: 'hidden' }}>
-                <div style={{ padding: '16px 12px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, fontSize: 14 }}>Thư mục</span>
-                    {folders.length === 0 && <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={handleInitFolders}>Tạo mặc định</button>}
-                </div>
-                <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 300px)' }}>
-                    <FolderTree folders={folders} selectedFolderId={selectedFolderId} onSelect={setSelectedFolderId} onCreateFolder={handleCreateFolder} />
-                </div>
-            </div>
+    // Selected folder name for breadcrumb
+    const selectedFolderName = selectedFolderId === null ? 'Tất cả tài liệu'
+        : selectedFolderId === 'unsorted' ? 'Chưa phân loại'
+        : flatFolders.find(f => f.id === selectedFolderId)?.name || '';
 
-            {/* RIGHT: Document List */}
-            <div style={{ flex: 1, background: 'var(--bg-card)', borderRadius: '0 12px 12px 0', overflow: 'hidden' }}>
-                {/* Toolbar */}
-                <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-light)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <input className="form-input" style={{ flex: 1, minWidth: 120, padding: '6px 12px', fontSize: 13 }} placeholder="Tìm tài liệu..." value={search} onChange={e => setSearch(e.target.value)} />
-                    <select className="form-select" style={{ width: 'auto', padding: '6px 28px 6px 10px', fontSize: 12 }} value={spaceFilter} onChange={e => setSpaceFilter(e.target.value)}>
-                        <option value="">🏠 Tất cả KV</option>
-                        {SPACES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <select className="form-select" style={{ width: 'auto', padding: '6px 28px 6px 10px', fontSize: 12 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-                        <option value="">Tất cả TT</option>
-                        {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.icon} {k}</option>)}
-                    </select>
-                    {/* View toggle */}
-                    <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-                        <button onClick={() => setViewMode('grid')} style={{ padding: '5px 10px', background: viewMode === 'grid' ? 'var(--accent-primary)' : 'transparent', color: viewMode === 'grid' ? '#fff' : 'var(--text-muted)', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1 }} title="Grid View">▦</button>
-                        <button onClick={() => setViewMode('list')} style={{ padding: '5px 10px', background: viewMode === 'list' ? 'var(--accent-primary)' : 'transparent', color: viewMode === 'list' ? '#fff' : 'var(--text-muted)', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1 }} title="List View">☰</button>
-                    </div>
-                    <button className="btn btn-primary btn-sm" onClick={() => setModal('upload')}>+ Upload</button>
+    return (
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 0, minHeight: 400 }}>
+
+            {/* ===== MOBILE: Folder selector as collapsible panel ===== */}
+            {isMobile ? (
+                <div style={{ background: 'var(--bg-card)', borderRadius: 10, marginBottom: 8, overflow: 'hidden', border: '1px solid var(--border-light)' }}>
+                    {/* Folder toggle header */}
+                    <button
+                        onClick={() => setShowFolderPanel(v => !v)}
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                    >
+                        <span style={{ fontSize: 16 }}>📁</span>
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{selectedFolderName}</span>
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{totalDocs} tài liệu</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4 }}>{showFolderPanel ? '▲' : '▼'}</span>
+                    </button>
+                    {showFolderPanel && (
+                        <div style={{ borderTop: '1px solid var(--border-light)', maxHeight: 260, overflowY: 'auto' }}>
+                            {folders.length === 0 && (
+                                <div style={{ padding: '8px 14px' }}>
+                                    <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={handleInitFolders}>Tạo thư mục mặc định</button>
+                                </div>
+                            )}
+                            <FolderTree
+                                folders={folders}
+                                selectedFolderId={selectedFolderId}
+                                onSelect={(id) => { setSelectedFolderId(id); setShowFolderPanel(false); }}
+                                onCreateFolder={handleCreateFolder}
+                            />
+                        </div>
+                    )}
                 </div>
+            ) : (
+                /* ===== DESKTOP: Left folder panel ===== */
+                <div style={{ width: 260, flexShrink: 0, borderRight: '1px solid var(--border-light)', background: 'var(--bg-card)', borderRadius: '12px 0 0 12px', overflow: 'hidden' }}>
+                    <div style={{ padding: '16px 12px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 700, fontSize: 14 }}>Thư mục</span>
+                        {folders.length === 0 && <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={handleInitFolders}>Tạo mặc định</button>}
+                    </div>
+                    <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 300px)' }}>
+                        <FolderTree folders={folders} selectedFolderId={selectedFolderId} onSelect={setSelectedFolderId} onCreateFolder={handleCreateFolder} />
+                    </div>
+                </div>
+            )}
+
+            {/* ===== RIGHT / MAIN: Document list ===== */}
+            <div style={{ flex: 1, background: 'var(--bg-card)', borderRadius: isMobile ? 10 : '0 12px 12px 0', overflow: 'hidden', border: isMobile ? '1px solid var(--border-light)' : 'none' }}>
+                {/* Toolbar */}
+                {isMobile ? (
+                    <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-light)' }}>
+                        {/* Row 1: search + upload */}
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                            <input className="form-input" style={{ flex: 1, padding: '8px 12px', fontSize: 13 }} placeholder="Tìm tài liệu..." value={search} onChange={e => setSearch(e.target.value)} />
+                            <button className="btn btn-primary btn-sm" style={{ padding: '8px 14px', fontSize: 13, whiteSpace: 'nowrap' }} onClick={() => setModal('upload')}>+ Upload</button>
+                        </div>
+                        {/* Row 2: filters + view toggle */}
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <select className="form-select" style={{ flex: 1, padding: '6px 8px', fontSize: 12 }} value={spaceFilter} onChange={e => setSpaceFilter(e.target.value)}>
+                                <option value="">🏠 Tất cả KV</option>
+                                {SPACES.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <select className="form-select" style={{ flex: 1, padding: '6px 8px', fontSize: 12 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                                <option value="">Tất cả TT</option>
+                                {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.icon} {k}</option>)}
+                            </select>
+                            <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-color)', flexShrink: 0 }}>
+                                <button onClick={() => setViewMode('grid')} style={{ padding: '6px 10px', background: viewMode === 'grid' ? 'var(--accent-primary)' : 'transparent', color: viewMode === 'grid' ? '#fff' : 'var(--text-muted)', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>▦</button>
+                                <button onClick={() => setViewMode('list')} style={{ padding: '6px 10px', background: viewMode === 'list' ? 'var(--accent-primary)' : 'transparent', color: viewMode === 'list' ? '#fff' : 'var(--text-muted)', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>☰</button>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-light)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <input className="form-input" style={{ flex: 1, minWidth: 120, padding: '6px 12px', fontSize: 13 }} placeholder="Tìm tài liệu..." value={search} onChange={e => setSearch(e.target.value)} />
+                        <select className="form-select" style={{ width: 'auto', padding: '6px 28px 6px 10px', fontSize: 12 }} value={spaceFilter} onChange={e => setSpaceFilter(e.target.value)}>
+                            <option value="">🏠 Tất cả KV</option>
+                            {SPACES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <select className="form-select" style={{ width: 'auto', padding: '6px 28px 6px 10px', fontSize: 12 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                            <option value="">Tất cả TT</option>
+                            {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.icon} {k}</option>)}
+                        </select>
+                        <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                            <button onClick={() => setViewMode('grid')} style={{ padding: '5px 10px', background: viewMode === 'grid' ? 'var(--accent-primary)' : 'transparent', color: viewMode === 'grid' ? '#fff' : 'var(--text-muted)', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1 }} title="Grid View">▦</button>
+                            <button onClick={() => setViewMode('list')} style={{ padding: '5px 10px', background: viewMode === 'list' ? 'var(--accent-primary)' : 'transparent', color: viewMode === 'list' ? '#fff' : 'var(--text-muted)', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1 }} title="List View">☰</button>
+                        </div>
+                        <button className="btn btn-primary btn-sm" onClick={() => setModal('upload')}>+ Upload</button>
+                    </div>
+                )}
 
                 {/* Stats bar */}
-                <div style={{ padding: '6px 16px', fontSize: 12, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>{totalDocs} tài liệu</span>
-                    {selectedFolderId && selectedFolderId !== 'unsorted' && <span>{flatFolders.find(f => f.id === selectedFolderId)?.name || ''}</span>}
-                    {selectedFolderId === 'unsorted' && <span>Chưa phân loại</span>}
-                </div>
+                {!isMobile && (
+                    <div style={{ padding: '6px 16px', fontSize: 12, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>{totalDocs} tài liệu</span>
+                        <span>{selectedFolderName}</span>
+                    </div>
+                )}
 
                 {/* Content */}
-                <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 360px)', padding: viewMode === 'grid' ? 16 : 0 }}>
+                <div style={{ overflowY: 'auto', maxHeight: isMobile ? 'none' : 'calc(100vh - 360px)', padding: viewMode === 'grid' ? (isMobile ? 10 : 16) : 0 }}>
                     {loading ? (
                         <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
                     ) : documents.length === 0 ? (
@@ -606,7 +681,7 @@ export default function DocumentManager({ projectId, onRefresh }) {
                         </div>
                     ) : viewMode === 'grid' ? (
                         /* ======== GRID VIEW ======== */
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(220px, 1fr))', gap: isMobile ? 10 : 16 }}>
                             {documents.map(doc => (
                                 <DocCard
                                     key={doc.id}
@@ -620,8 +695,38 @@ export default function DocumentManager({ projectId, onRefresh }) {
                                 />
                             ))}
                         </div>
+                    ) : isMobile ? (
+                        /* ======== MOBILE LIST VIEW ======== */
+                        <div style={{ padding: '0 0 8px' }}>
+                            {documents.map(doc => {
+                                const st = STATUS_CONFIG[doc.status] || STATUS_CONFIG['Nháp'];
+                                return (
+                                    <div key={doc.id} style={{ display: 'flex', gap: 10, padding: '10px 12px', borderBottom: '1px solid var(--border-light)', alignItems: 'flex-start' }}>
+                                        <div style={{ fontSize: 28, flexShrink: 0, lineHeight: 1 }} onClick={() => { if (doc.fileUrl) { setSelectedDoc(doc); setModal('preview'); } }}>
+                                            {getFileIcon(doc.mimeType, doc.fileName)}
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: doc.fileUrl ? 'pointer' : 'default', color: doc.fileUrl ? 'var(--text-accent)' : 'var(--text-primary)' }}
+                                                onClick={() => { if (doc.fileUrl) { setSelectedDoc(doc); setModal('preview'); } }}>
+                                                {doc.name}
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 6, marginTop: 3, flexWrap: 'wrap', alignItems: 'center' }}>
+                                                <span className={`badge ${st.color}`} style={{ fontSize: 10, padding: '1px 5px' }}>{st.icon} {doc.status}</span>
+                                                <span className="badge info" style={{ fontSize: 10, padding: '1px 5px' }}>v{doc.version}</span>
+                                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{fmtSize(doc.fileSize)}</span>
+                                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{fmtDate(doc.createdAt)}</span>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                                            {doc.fileUrl && <a href={doc.fileUrl} download className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: 14 }} target="_blank" rel="noopener">⬇️</a>}
+                                            <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: 14, color: 'var(--status-danger)' }} onClick={() => handleDeleteDoc(doc.id)}>🗑️</button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     ) : (
-                        /* ======== LIST VIEW ======== */
+                        /* ======== DESKTOP LIST VIEW ======== */
                         <div className="table-container">
                             <table className="data-table">
                                 <thead>

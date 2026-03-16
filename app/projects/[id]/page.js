@@ -34,6 +34,7 @@ export default function ProjectDetailPage() {
     const [modal, setModal] = useState(null);
     const [msSheet, setMsSheet] = useState(null);
     const [financeSubTab, setFinanceSubTab] = useState('payments');
+    const [isMobile, setIsMobile] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [editForm, setEditForm] = useState({});
     const [saving, setSaving] = useState(false);
@@ -103,6 +104,12 @@ export default function ProjectDetailPage() {
     const [savingNt, setSavingNt] = useState(false);
     const fetchData = () => { fetch(`/api/projects/${id}`).then(r => r.json()).then(d => { setData(d); setLoading(false); }); };
     useEffect(fetchData, [id]);
+    useEffect(() => {
+        const check = () => setIsMobile(window.innerWidth < 768);
+        check();
+        window.addEventListener('resize', check);
+        return () => window.removeEventListener('resize', check);
+    }, []);
 
     const openEdit = () => {
         if (!data) return;
@@ -213,6 +220,8 @@ export default function ProjectDetailPage() {
     // PO from materials
     const [poForm, setPoForm] = useState({ supplier: '', supplierId: '', deliveryDate: '', notes: '', deliveryType: 'Giao thẳng dự án', deliveryAddress: '' });
     const [poItems, setPoItems] = useState([]);
+    const [newPoItem, setNewPoItem] = useState({ productName: '', unit: '', quantity: '', unitPrice: '' });
+    const [editingPoId, setEditingPoId] = useState(null);
     const [suppliers, setSuppliers] = useState([]);
     const [supplierSearch, setSupplierSearch] = useState('');
     const openPOModal = async () => {
@@ -225,72 +234,194 @@ export default function ProjectDetailPage() {
         setPoItems(unordered.map(m => ({ productName: m.product?.name || '', unit: m.product?.unit || '', quantity: m.quantity - m.orderedQty, unitPrice: m.unitPrice || 0, amount: (m.quantity - m.orderedQty) * (m.unitPrice || 0), productId: m.productId, _mpId: m.id })));
         setPoForm({ supplier: '', supplierId: '', deliveryDate: '', notes: '', deliveryType: 'Giao thẳng dự án', deliveryAddress: data?.address || '' });
         setSupplierSearch('');
+        setNewPoItem({ productName: '', unit: '', quantity: '', unitPrice: '' });
+        setEditingPoId(null);
         setModal('po');
     };
     const printPO = (po) => {
         const sup = po.supplierRel || {};
         const fmtN = (n) => new Intl.NumberFormat('vi-VN').format(n || 0);
+        const fmtC = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Math.round(n || 0));
         const fmtD = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+        // Number to Vietnamese words
+        const numToWords = (n) => {
+            if (!n || n === 0) return 'Không đồng';
+            const u = ['', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
+            const rg = (num, lz) => { const h=Math.floor(num/100),t=Math.floor((num%100)/10),o=num%10; let s=''; if(h)s+=u[h]+' trăm '; if(t===0){if(o)s+=(h||lz?'lẻ ':'')+u[o]+' ';}else if(t===1){s+='mười '+(o===5?'lăm ':o?u[o]+' ':'');}else{s+=u[t]+' mươi '+(o===1?'mốt ':o===5?'lăm ':o?u[o]+' ':'');} return s; };
+            const ty=Math.floor(n/1e9),tr=Math.floor((n%1e9)/1e6),ng=Math.floor((n%1e6)/1e3),rm=n%1e3;
+            let r=''; if(ty)r+=rg(ty,false)+'tỷ '; if(tr)r+=rg(tr,!!ty)+'triệu '; if(ng)r+=rg(ng,!!(ty||tr))+'nghìn '; if(rm)r+=rg(rm,!!(ty||tr||ng));
+            r=r.trim(); return r.charAt(0).toUpperCase()+r.slice(1)+' đồng';
+        };
+        const logoSvg = `<svg width="52" height="52" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="10" fill="#E05B0A"/><rect x="20" y="18" width="18" height="64" rx="2" fill="white"/><polygon points="38,50 72,18 88,18 55,50" fill="white"/><polygon points="38,50 72,82 88,82 55,50" fill="white"/><polygon points="38,50 55,40 55,60" fill="#E05B0A"/></svg>`;
         const rows = (po.items || []).map((it, i) => `
-            <tr>
+            <tr class="${i % 2 === 1 ? 'alt' : ''}">
                 <td class="center">${i + 1}</td>
-                <td>${it.productName}</td>
-                <td class="center">${it.unit}</td>
+                <td>${it.productName || ''}</td>
+                <td class="center">${it.unit || ''}</td>
                 <td class="num">${fmtN(it.quantity)}</td>
                 <td class="num">${fmtN(it.unitPrice)}</td>
-                <td class="num">${fmtN(it.amount)}</td>
+                <td class="num bold">${fmtN(it.amount)}</td>
             </tr>`).join('');
+        const statusColors = { 'Nháp':'#94a3b8','Chờ duyệt':'#f59e0b','Đang giao':'#3b82f6','Đã giao':'#10b981','Đã thanh toán':'#6366f1','Huỷ':'#ef4444' };
+        const stColor = statusColors[po.status] || '#64748b';
         const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Phiếu mua hàng ${po.code}</title>
 <style>
-  *{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:13px;color:#000;margin:15mm 20mm}
-  h2{text-align:center;font-size:17px;margin:0 0 2px;text-transform:uppercase}
-  .sub{text-align:center;font-size:12px;color:#555;margin-bottom:16px}
-  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
-  .info-box{border:1px solid #bbb;padding:8px 12px;border-radius:3px}
-  .info-box h4{margin:0 0 6px;font-size:11px;text-transform:uppercase;color:#666;border-bottom:1px solid #ddd;padding-bottom:3px}
-  .row{display:flex;gap:6px;margin-bottom:3px;font-size:12px}
-  .lbl{font-weight:bold;min-width:80px;flex-shrink:0}
-  table{width:100%;border-collapse:collapse;margin:10px 0}
-  th{background:#e8e8e8;padding:7px 8px;text-align:left;border:1px solid #bbb;font-size:11px}
-  td{padding:6px 8px;border:1px solid #ccc;font-size:12px}
-  .center{text-align:center}.num{text-align:right}
-  tfoot td{font-weight:bold;background:#f0f0f0}
-  .sigs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:36px;text-align:center}
-  .sig h4{font-size:12px;margin:0 0 4px}.sig p{font-size:11px;color:#666;margin:0 0 50px}
-  .notes-box{border:1px solid #ddd;padding:8px 12px;border-radius:3px;font-size:12px;margin-top:10px}
-  .print-btn{display:block;margin:16px auto;padding:8px 24px;background:#1a3a8f;color:#fff;border:none;border-radius:4px;font-size:13px;cursor:pointer}
-  @media print{.print-btn{display:none}body{margin:10mm 15mm}}
+  @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Be Vietnam Pro',Arial,sans-serif;font-size:12.5px;color:#1e293b;background:#fff}
+  .page{max-width:820px;margin:0 auto;padding:0}
+  /* HEADER */
+  .header{background:#1e3a5f;color:#fff;padding:18px 28px;display:flex;align-items:center;gap:18px;position:relative;overflow:hidden}
+  .header::after{content:'SCT  ·  SCT  ·  SCT  ·  SCT  ·  SCT  ·  SCT  ·  SCT  ·  SCT  ·  SCT  ·  SCT';position:absolute;right:-10px;bottom:6px;font-size:9px;color:rgba(255,255,255,0.08);letter-spacing:4px;white-space:nowrap;text-transform:uppercase;font-weight:700}
+  .logo-wrap{flex-shrink:0}
+  .company-info{flex:1}
+  .company-name{font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;line-height:1.2}
+  .company-name span{color:#E05B0A}
+  .company-sub{font-size:10.5px;color:rgba(255,255,255,0.65);margin-top:3px}
+  .doc-badge{flex-shrink:0;text-align:right}
+  .doc-badge .doc-type{font-size:11px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:1px}
+  /* ORANGE ACCENT STRIP */
+  .accent-strip{background:#E05B0A;height:4px}
+  /* DOC TITLE SECTION */
+  .title-section{background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:16px 28px;display:flex;align-items:center;justify-content:space-between}
+  .doc-title{font-size:20px;font-weight:800;color:#1e3a5f;text-transform:uppercase;letter-spacing:1px}
+  .doc-meta{text-align:right;font-size:11.5px;color:#64748b;line-height:1.8}
+  .doc-meta strong{color:#1e3a5f;font-weight:600}
+  .status-pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:10.5px;font-weight:700;color:#fff;background:${stColor};margin-top:4px}
+  /* BODY */
+  .body{padding:18px 28px}
+  /* INFO GRID */
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+  .info-card{border:1.5px solid #e2e8f0;border-radius:6px;overflow:hidden}
+  .info-card-head{background:#1e3a5f;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:6px 12px}
+  .info-card-body{padding:10px 12px}
+  .info-row{display:flex;gap:8px;margin-bottom:5px;font-size:12px;align-items:flex-start}
+  .info-row:last-child{margin-bottom:0}
+  .lbl{font-weight:600;color:#64748b;min-width:90px;flex-shrink:0;font-size:11px}
+  .val{color:#1e293b;font-weight:500}
+  .val.accent{color:#E05B0A;font-weight:700}
+  /* TABLE */
+  table{width:100%;border-collapse:collapse;margin-bottom:12px}
+  thead tr{background:#1e3a5f}
+  thead th{color:#fff;padding:9px 10px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;border:none}
+  thead th.center{text-align:center}
+  thead th.num{text-align:right}
+  tbody tr{border-bottom:1px solid #f1f5f9}
+  tbody tr.alt{background:#f8fafc}
+  tbody td{padding:8px 10px;font-size:12.5px;color:#1e293b;border:none}
+  .center{text-align:center}.num{text-align:right}.bold{font-weight:700}
+  /* TOTAL ROW */
+  .total-row{background:#1e3a5f;color:#fff}
+  .total-row td{padding:10px 10px;font-weight:700;font-size:13px;border:none}
+  .total-row .num{color:#fff}
+  .total-row .total-label{text-align:right;letter-spacing:0.5px;text-transform:uppercase;font-size:11px}
+  .total-row .total-amt{font-size:15px;color:#fff}
+  /* AMOUNT IN WORDS */
+  .amt-words{background:#fff7ed;border:1.5px solid #fed7aa;border-radius:6px;padding:8px 14px;font-size:12px;color:#9a3412;margin-bottom:14px}
+  .amt-words strong{font-weight:700}
+  /* NOTES */
+  .notes-box{border:1.5px solid #e2e8f0;border-radius:6px;padding:10px 14px;font-size:12px;color:#475569;margin-bottom:16px;background:#f8fafc}
+  .notes-box strong{color:#1e3a5f;font-weight:700}
+  /* SIGNATURES */
+  .sig-section{margin-top:20px;margin-bottom:10px}
+  .sig-date{text-align:right;font-size:11.5px;color:#64748b;margin-bottom:16px;font-style:italic}
+  .sigs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;text-align:center}
+  .sig-box{border:1.5px solid #e2e8f0;border-radius:6px;padding:12px 8px 8px;background:#fafafa}
+  .sig-box h4{font-size:11.5px;font-weight:700;color:#1e3a5f;text-transform:uppercase;margin-bottom:3px}
+  .sig-box p{font-size:10.5px;color:#94a3b8;margin-bottom:52px}
+  .sig-box .sig-name{font-size:11px;color:#64748b;border-top:1px solid #e2e8f0;padding-top:6px;min-height:22px}
+  /* FOOTER */
+  .footer{background:#1e3a5f;color:rgba(255,255,255,0.55);font-size:10px;text-align:center;padding:10px 28px;display:flex;justify-content:space-between;align-items:center}
+  .footer .footer-brand{color:#E05B0A;font-weight:700;font-size:11px}
+  /* PRINT BUTTON */
+  .print-btn{display:block;margin:20px auto 8px;padding:10px 32px;background:#E05B0A;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:0.5px}
+  .print-btn:hover{background:#c74d08}
+  @media print{
+    .print-btn{display:none}
+    body{font-size:11.5px}
+    .header{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .accent-strip,.total-row,thead tr,.info-card-head,.footer{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
 </style></head><body>
-<h2>Phiếu Mua Hàng</h2>
-<p class="sub">Số: <strong>${po.code}</strong> &nbsp;·&nbsp; Ngày đặt: <strong>${fmtD(po.orderDate)}</strong>${po.deliveryDate ? ` &nbsp;·&nbsp; Giao dự kiến: <strong>${fmtD(po.deliveryDate)}</strong>` : ''}</p>
-<div class="info-grid">
-  <div class="info-box"><h4>Nhà cung cấp</h4>
-    <div class="row"><span class="lbl">Tên NCC:</span><strong>${po.supplier}</strong></div>
-    ${sup.phone ? `<div class="row"><span class="lbl">Điện thoại:</span>${sup.phone}</div>` : ''}
-    ${sup.address ? `<div class="row"><span class="lbl">Địa chỉ:</span>${sup.address}</div>` : ''}
-    ${sup.taxCode ? `<div class="row"><span class="lbl">MST:</span>${sup.taxCode}</div>` : ''}
-    ${sup.bankAccount ? `<div class="row"><span class="lbl">TK Ngân hàng:</span>${sup.bankAccount}${sup.bankName ? ` — ${sup.bankName}` : ''}</div>` : ''}
+<div class="page">
+  <div class="header">
+    <div class="logo-wrap">${logoSvg}</div>
+    <div class="company-info">
+      <div class="company-name">Kiến Trúc Đô Thị <span>SCT</span></div>
+      <div class="company-sub">Thiết kế · Thi công · Nội thất trọn gói</div>
+      <div class="company-sub" style="margin-top:2px">📞 (028) 6686 8888 &nbsp;|&nbsp; ✉ info@sct.vn &nbsp;|&nbsp; 🌐 www.sct.vn</div>
+    </div>
+    <div class="doc-badge">
+      <div class="doc-type">Tài liệu nội bộ</div>
+    </div>
   </div>
-  <div class="info-box"><h4>Thông tin giao hàng</h4>
-    ${po.project ? `<div class="row"><span class="lbl">Dự án:</span>${po.project.name || ''}</div>` : ''}
-    <div class="row"><span class="lbl">Hình thức:</span>${po.deliveryType}</div>
-    ${po.deliveryAddress ? `<div class="row"><span class="lbl">Địa chỉ:</span>${po.deliveryAddress}</div>` : ''}
+  <div class="accent-strip"></div>
+  <div class="title-section">
+    <div class="doc-title">Phiếu Mua Hàng</div>
+    <div class="doc-meta">
+      <div>Số phiếu: <strong>${po.code}</strong></div>
+      <div>Ngày đặt: <strong>${fmtD(po.orderDate)}</strong></div>
+      ${po.deliveryDate ? `<div>Giao dự kiến: <strong>${fmtD(po.deliveryDate)}</strong></div>` : ''}
+      <div><span class="status-pill">${po.status || 'Nháp'}</span></div>
+    </div>
+  </div>
+  <div class="body">
+    <div class="info-grid">
+      <div class="info-card">
+        <div class="info-card-head">Nhà cung cấp</div>
+        <div class="info-card-body">
+          <div class="info-row"><span class="lbl">Tên NCC</span><span class="val accent">${po.supplier || '—'}</span></div>
+          ${sup.phone ? `<div class="info-row"><span class="lbl">Điện thoại</span><span class="val">${sup.phone}</span></div>` : ''}
+          ${sup.address ? `<div class="info-row"><span class="lbl">Địa chỉ</span><span class="val">${sup.address}</span></div>` : ''}
+          ${sup.taxCode ? `<div class="info-row"><span class="lbl">MST</span><span class="val">${sup.taxCode}</span></div>` : ''}
+          ${sup.bankAccount ? `<div class="info-row"><span class="lbl">TK Ngân hàng</span><span class="val">${sup.bankAccount}${sup.bankName ? ` — ${sup.bankName}` : ''}</span></div>` : ''}
+        </div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-head">Thông tin giao hàng</div>
+        <div class="info-card-body">
+          ${po.project ? `<div class="info-row"><span class="lbl">Dự án</span><span class="val accent">${po.project.name || ''}</span></div>` : ''}
+          <div class="info-row"><span class="lbl">Hình thức</span><span class="val">${po.deliveryType || '—'}</span></div>
+          ${po.deliveryAddress ? `<div class="info-row"><span class="lbl">Địa chỉ GH</span><span class="val">${po.deliveryAddress}</span></div>` : ''}
+          ${po.receivedDate ? `<div class="info-row"><span class="lbl">Ngày nhận</span><span class="val">${fmtD(po.receivedDate)}</span></div>` : ''}
+        </div>
+      </div>
+    </div>
+    <table>
+      <thead><tr>
+        <th class="center" style="width:36px">#</th>
+        <th>Tên hàng hóa / Vật tư</th>
+        <th class="center" style="width:52px">ĐVT</th>
+        <th class="num" style="width:68px">Số lượng</th>
+        <th class="num" style="width:115px">Đơn giá (VNĐ)</th>
+        <th class="num" style="width:125px">Thành tiền (VNĐ)</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tr class="total-row">
+        <td colspan="5" class="total-label">Tổng cộng</td>
+        <td class="num total-amt">${fmtC(po.totalAmount)}</td>
+      </tr>
+    </table>
+    <div class="amt-words"><strong>Bằng chữ:</strong> ${numToWords(Math.round(po.totalAmount || 0))}</div>
+    ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div>` : ''}
+    <div class="sig-section">
+      <div class="sig-date">TP. Hồ Chí Minh, ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}</div>
+      <div class="sigs">
+        <div class="sig-box"><h4>Người lập phiếu</h4><p>(Ký, ghi rõ họ tên)</p><div class="sig-name"></div></div>
+        <div class="sig-box"><h4>Giám đốc</h4><p>(Ký, đóng dấu)</p><div class="sig-name"></div></div>
+        <div class="sig-box"><h4>Đại diện NCC</h4><p>(Ký, ghi rõ họ tên)</p><div class="sig-name"></div></div>
+      </div>
+    </div>
+    <button class="print-btn" onclick="window.print()">🖨&nbsp; In phiếu mua hàng</button>
+  </div>
+  <div class="footer">
+    <span class="footer-brand">KIẾN TRÚC ĐÔ THỊ SCT</span>
+    <span>Phiếu mua hàng ${po.code} &nbsp;|&nbsp; Ngày in: ${new Date().toLocaleDateString('vi-VN')}</span>
+    <span>Tài liệu nội bộ — không phát hành ra ngoài</span>
   </div>
 </div>
-<table>
-  <thead><tr><th style="width:36px">#</th><th>Tên hàng hóa / Vật tư</th><th style="width:50px">ĐVT</th><th style="width:70px">SL</th><th style="width:110px">Đơn giá (VNĐ)</th><th style="width:120px">Thành tiền (VNĐ)</th></tr></thead>
-  <tbody>${rows}</tbody>
-  <tfoot><tr><td colspan="5" class="num">Tổng cộng:</td><td class="num">${fmtN(po.totalAmount)}</td></tr></tfoot>
-</table>
-${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div>` : ''}
-<div class="sigs">
-  <div class="sig"><h4>Người lập phiếu</h4><p>(Ký, ghi rõ họ tên)</p></div>
-  <div class="sig"><h4>Giám đốc</h4><p>(Ký, đóng dấu)</p></div>
-  <div class="sig"><h4>Đại diện NCC</h4><p>(Ký, ghi rõ họ tên)</p></div>
-</div>
-<button class="print-btn" onclick="window.print()">🖨 In phiếu mua hàng</button>
 </body></html>`;
-        const w = window.open('', '_blank', 'width=850,height=700');
+        const w = window.open('', '_blank', 'width=900,height=750');
         w.document.write(html);
         w.document.close();
     };
@@ -298,10 +429,26 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
         setPoItems(prev => { const u = [...prev]; u[idx] = { ...u[idx], [field]: value }; if (field === 'quantity' || field === 'unitPrice') u[idx].amount = (Number(u[idx].quantity) || 0) * (Number(u[idx].unitPrice) || 0); return u; });
     };
     const removePOItem = (idx) => setPoItems(prev => prev.filter((_, i) => i !== idx));
+    const addNewPoItem = () => {
+        setPoItems(prev => [...prev, { productName: '', unit: '', quantity: 0, unitPrice: 0, amount: 0, productId: null, _mpId: null }]);
+    };
     const createPO = async () => {
-        if (!poForm.supplierId) return alert('Vui lòng chọn nhà cung cấp');
+        if (!poForm.supplier?.trim()) return alert('Vui lòng nhập nhà cung cấp');
         if (poItems.length === 0) return alert('Không có vật tư nào để đặt');
         const totalAmount = poItems.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+        if (editingPoId) {
+            // UPDATE existing PO
+            const res = await fetch(`/api/purchase-orders/${editingPoId}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...poForm,
+                    items: poItems.map(({ _mpId, id: _id, purchaseOrderId: _pid, ...rest }) => ({ ...rest, quantity: Number(rest.quantity), unitPrice: Number(rest.unitPrice), amount: Number(rest.amount), materialPlanId: _mpId || undefined })),
+                }),
+            });
+            if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi cập nhật PO'); }
+            setModal(null); setPoItems([]); setNewPoItem({ productName: '', unit: '', quantity: '', unitPrice: '' }); setEditingPoId(null); fetchData();
+            return;
+        }
         const res = await fetch('/api/purchase-orders', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -319,7 +466,26 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                 await fetch(`/api/material-plans/${item._mpId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderedQty: newOrdered, status: newStatus }) }).catch(() => { });
             }
         }
-        setModal(null); setPoItems([]); fetchData(); setTab('purchase');
+        setModal(null); setPoItems([]); setNewPoItem({ productName: '', unit: '', quantity: '', unitPrice: '' }); fetchData(); setTab('purchase');
+    };
+    const openEditPO = async (po) => {
+        if (suppliers.length === 0) {
+            const res = await fetch('/api/suppliers?limit=500');
+            if (res.ok) setSuppliers((await res.json()).data || []);
+        }
+        setEditingPoId(po.id);
+        setPoForm({
+            supplier: po.supplier || '',
+            supplierId: po.supplierId || '',
+            deliveryDate: po.deliveryDate ? po.deliveryDate.slice(0, 10) : '',
+            notes: po.notes || '',
+            deliveryType: po.deliveryType || 'Giao thẳng dự án',
+            deliveryAddress: po.deliveryAddress || '',
+        });
+        setPoItems((po.items || []).map(i => ({ ...i, _mpId: i.materialPlanId || null })));
+        setSupplierSearch(po.supplier || '');
+        setNewPoItem({ productName: '', unit: '', quantity: '', unitPrice: '' });
+        setModal('po');
     };
 
     // Add Material Plan
@@ -637,7 +803,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             <div className="project-tabs">
                 {tabs.map(t => (
                     <button key={t.key} className={`project-tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>
-                        <span>{t.icon}</span> {t.label}
+                        <span>{t.icon}</span><span className="tab-label">{t.label}</span>
                         {t.count > 0 && <span className="tab-count">{t.count}</span>}
                     </button>
                 ))}
@@ -803,7 +969,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             {tab === 'finance' && (
                 <div>
                     {/* Finance Sub-tabs */}
-                    <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '2px solid var(--border-light)', paddingBottom: 0 }}>
+                    <div className="finance-sub-tabs" style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '2px solid var(--border-light)', paddingBottom: 0 }}>
                         {[{ key: 'payments', label: '💵 Thu tiền' }, { key: 'expenses', label: '💸 Chi phí' }, { key: 'settlement', label: '🧮 Lãi / Lỗ' }].map(st2 => (
                             <button key={st2.key} onClick={() => setFinanceSubTab(st2.key)}
                                 style={{ padding: '10px 20px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', borderRadius: '8px 8px 0 0', background: financeSubTab === st2.key ? 'var(--bg-card)' : 'transparent', color: financeSubTab === st2.key ? 'var(--accent-primary)' : 'var(--text-muted)', borderBottom: financeSubTab === st2.key ? '2px solid var(--accent-primary)' : '2px solid transparent', marginBottom: -2, transition: 'all 0.2s' }}>
@@ -932,34 +1098,66 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             {/* TAB: Phiếu công việc */}
             {tab === 'workorders' && (
                 <div className="card">
-                    <div className="card-header">
+                    <div className="card-header" style={{ flexWrap: 'wrap', gap: 8 }}>
                         <span className="card-title">📋 Phiếu công việc</span>
-                        <div style={{ display: 'flex', gap: 8 }}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                             <span className="badge warning">{p.workOrders.filter(w => w.status === 'Chờ xử lý').length} chờ</span>
                             <span className="badge info">{p.workOrders.filter(w => w.status === 'Đang xử lý').length} đang làm</span>
                             <span className="badge success">{p.workOrders.filter(w => w.status === 'Hoàn thành').length} xong</span>
                             <button className="btn btn-primary btn-sm" onClick={() => setModal('workorder')}>+ Thêm phiếu</button>
                         </div>
                     </div>
-                    <div className="table-container"><table className="data-table">
-                        <thead><tr><th>Mã</th><th>Tiêu đề</th><th>Loại</th><th>Ưu tiên</th><th>Người thực hiện</th><th>Hạn</th><th>Trạng thái</th><th></th></tr></thead>
-                        <tbody>{p.workOrders.map(wo => (
-                            <tr key={wo.id}>
-                                <td className="accent">{wo.code}</td>
-                                <td className="primary">{wo.title}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{wo.description}</div></td>
-                                <td><span className="badge muted">{wo.category}</span></td>
-                                <td><span className={`badge ${wo.priority === 'Cao' ? 'danger' : wo.priority === 'Trung bình' ? 'warning' : 'muted'}`}>{wo.priority}</span></td>
-                                <td style={{ fontSize: 13 }}>{wo.assignee || '—'}</td>
-                                <td style={{ fontSize: 12 }}>{fmtDate(wo.dueDate)}</td>
-                                <td>
-                                    <select value={wo.status} onChange={e => updateWorkOrder(wo.id, e.target.value)} className="form-select" style={{ padding: '4px 28px 4px 8px', fontSize: 12, minWidth: 110 }}>
-                                        <option>Chờ xử lý</option><option>Đang xử lý</option><option>Hoàn thành</option><option>Quá hạn</option>
-                                    </select>
-                                </td>
-                            </tr>
-                        ))}</tbody>
-                    </table></div>
-                    {p.workOrders.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có phiếu công việc</div>}
+                    {isMobile ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                            {p.workOrders.map(wo => (
+                                <div key={wo.id} style={{ padding: '12px 14px', borderBottom: '1px solid var(--border-light)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 2 }}>{wo.title}</div>
+                                            {wo.description && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{wo.description}</div>}
+                                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                                                <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--accent-primary)', opacity: 0.7 }}>{wo.code}</span>
+                                                <span className="badge muted" style={{ fontSize: 10 }}>{wo.category}</span>
+                                                <span className={`badge ${wo.priority === 'Cao' ? 'danger' : wo.priority === 'Trung bình' ? 'warning' : 'muted'}`} style={{ fontSize: 10 }}>{wo.priority}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                                            {wo.assignee && <span>👤 {wo.assignee}</span>}
+                                            {wo.dueDate && <span style={{ marginLeft: 8 }}>📅 {fmtDate(wo.dueDate)}</span>}
+                                        </div>
+                                        <select value={wo.status} onChange={e => updateWorkOrder(wo.id, e.target.value)} className="form-select" style={{ padding: '6px 28px 6px 10px', fontSize: 12, minWidth: 120, borderRadius: 8 }}>
+                                            <option>Chờ xử lý</option><option>Đang xử lý</option><option>Hoàn thành</option><option>Quá hạn</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            ))}
+                            {p.workOrders.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có phiếu công việc</div>}
+                        </div>
+                    ) : (
+                        <>
+                        <div className="table-container"><table className="data-table">
+                            <thead><tr><th>Mã</th><th>Tiêu đề</th><th>Loại</th><th>Ưu tiên</th><th>Người thực hiện</th><th>Hạn</th><th>Trạng thái</th></tr></thead>
+                            <tbody>{p.workOrders.map(wo => (
+                                <tr key={wo.id}>
+                                    <td className="accent">{wo.code}</td>
+                                    <td className="primary">{wo.title}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{wo.description}</div></td>
+                                    <td><span className="badge muted">{wo.category}</span></td>
+                                    <td><span className={`badge ${wo.priority === 'Cao' ? 'danger' : wo.priority === 'Trung bình' ? 'warning' : 'muted'}`}>{wo.priority}</span></td>
+                                    <td style={{ fontSize: 13 }}>{wo.assignee || '—'}</td>
+                                    <td style={{ fontSize: 12 }}>{fmtDate(wo.dueDate)}</td>
+                                    <td>
+                                        <select value={wo.status} onChange={e => updateWorkOrder(wo.id, e.target.value)} className="form-select" style={{ padding: '4px 28px 4px 8px', fontSize: 12, minWidth: 110 }}>
+                                            <option>Chờ xử lý</option><option>Đang xử lý</option><option>Hoàn thành</option><option>Quá hạn</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                            ))}</tbody>
+                        </table></div>
+                        {p.workOrders.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có phiếu công việc</div>}
+                        </>
+                    )}
                 </div>
             )}
 
@@ -980,6 +1178,42 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                                 <button className="btn btn-primary btn-sm" onClick={openPOModal}>🛒 Tạo PO ({p.materialPlans.filter(m => m.status === 'Chưa đặt' || m.status === 'Đặt một phần').length} vật tư)</button>
                             )}
                         </div>
+                        {isMobile ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                {p.materialPlans.map(m => {
+                                    const missing = m.quantity - m.receivedQty;
+                                    const overReceived = m.receivedQty > m.quantity;
+                                    const stBadge = m.status === 'Đã đặt đủ' || m.status === 'Đã nhận đủ' ? 'success' : m.status === 'Đặt một phần' || m.status === 'Nhận một phần' ? 'warning' : 'danger';
+                                    return (
+                                        <div key={m.id} style={{ padding: '12px 14px', borderBottom: '1px solid var(--border-light)', background: overReceived ? 'rgba(239,68,68,0.05)' : '' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>{m.product?.name}</div>
+                                                    <span style={{ fontFamily: 'monospace', fontSize: 10, opacity: 0.5 }}>{m.product?.code}</span>
+                                                    {overReceived && <div style={{ fontSize: 11, color: 'var(--status-danger)', fontWeight: 600, marginTop: 2 }}>⚠ Nhận vượt {m.receivedQty - m.quantity} {m.product?.unit}</div>}
+                                                </div>
+                                                <span className={`badge ${stBadge}`} style={{ fontSize: 10, flexShrink: 0, marginLeft: 8 }}>{m.status}</span>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, fontSize: 12, textAlign: 'center', background: 'var(--surface-alt)', borderRadius: 8, padding: '8px 4px', marginBottom: 8 }}>
+                                                <div><div style={{ fontWeight: 700 }}>{m.quantity}</div><div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Cần</div></div>
+                                                <div><div style={{ fontWeight: 700, color: 'var(--status-info)' }}>{m.orderedQty}</div><div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Đã đặt</div></div>
+                                                <div><div style={{ fontWeight: 700, color: overReceived ? 'var(--status-danger)' : 'var(--status-success)' }}>{m.receivedQty}</div><div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Đã nhận</div></div>
+                                                <div><div style={{ fontWeight: 700, color: missing > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>{missing > 0 ? missing : '✓'}</div><div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Còn thiếu</div></div>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{m.product?.unit} · {fmt(m.unitPrice)}</span>
+                                                <div style={{ display: 'flex', gap: 6 }}>
+                                                    <button className="btn btn-ghost btn-sm" onClick={() => openReqModal(m)} style={{ fontSize: 12, padding: '5px 10px' }}>📋 Yêu cầu</button>
+                                                    {m.orderedQty === 0 && <button className="btn btn-ghost btn-sm" onClick={() => deleteMaterialPlan(m.id)} style={{ fontSize: 12, padding: '5px 8px', color: 'var(--status-danger)' }}>🗑</button>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {p.materialPlans.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có kế hoạch vật tư</div>}
+                            </div>
+                        ) : (
+                        <>
                         <div className="table-container"><table className="data-table">
                             <thead><tr><th>Mã</th><th>Vật tư</th><th>SL cần</th><th>Đã đặt</th><th>Đã nhận</th><th>Còn thiếu</th><th title="Số lượng còn được yêu cầu = SL Cần - Đã Đặt">Được gọi</th><th>Đơn giá</th><th>TT</th><th></th></tr></thead>
                             <tbody>{p.materialPlans.map(m => {
@@ -1009,6 +1243,8 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                             })}</tbody>
                         </table></div>
                         {p.materialPlans.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có kế hoạch vật tư — bấm "+ Thêm vật tư" để bắt đầu</div>}
+                        </>
+                        )}
                     </div>
                 </div>
             )}
@@ -1042,6 +1278,7 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                                         <span className="badge purple">{fmt(po.totalAmount)}</span>
                                         <button className="btn btn-ghost btn-sm" title="In phiếu mua hàng" onClick={() => printPO(po)}>🖨 In phiếu</button>
+                                        <button className="btn btn-ghost btn-sm" title="Chỉnh sửa phiếu" onClick={() => openEditPO(po)}>✏️ Sửa</button>
                                         {canApprove && <button className="btn btn-sm btn-info" onClick={() => approvePO(po.id)}>✓ Duyệt / Đặt hàng</button>}
                                         {canReceive && <button className="btn btn-sm btn-success" onClick={() => openGRN(po)}>📦 Nghiệm thu</button>}
                                     </div>
@@ -1443,24 +1680,37 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
             {modal === 'po' && (
                 <div className="modal-overlay" onClick={() => setModal(null)}>
                     <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 820 }}>
-                        <div className="modal-header"><h3>🛒 Tạo đơn mua hàng</h3><button className="modal-close" onClick={() => setModal(null)}>×</button></div>
+                        <div className="modal-header"><h3>{editingPoId ? '✏️ Chỉnh sửa phiếu mua hàng' : '🛒 Tạo đơn mua hàng'}</h3><button className="modal-close" onClick={() => { setModal(null); setEditingPoId(null); }}>×</button></div>
                         <div className="modal-body">
                             <div className="form-row">
                                 <div className="form-group" style={{ flex: 2 }}>
                                     <label className="form-label">Nhà cung cấp *</label>
-                                    {poForm.supplierId ? (
+                                    {poForm.supplier ? (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--bg-hover)', borderRadius: 6, border: '1px solid var(--border-color)' }}>
                                             <div style={{ flex: 1 }}>
                                                 <strong style={{ fontSize: 13 }}>{poForm.supplier}</strong>
-                                                {(() => { const s = suppliers.find(x => x.id === poForm.supplierId); return s ? <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>{s.code} · {s.phone}</span> : null; })()}
+                                                {poForm.supplierId
+                                                    ? (() => { const s = suppliers.find(x => x.id === poForm.supplierId); return s ? <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>{s.code} · {s.phone}</span> : null; })()
+                                                    : <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>✏️ Nhập thủ công</span>
+                                                }
                                             </div>
                                             <button type="button" style={{ fontSize: 11, color: 'var(--status-danger)', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => { setPoForm(f => ({ ...f, supplierId: '', supplier: '' })); setSupplierSearch(''); }}>✕ Đổi</button>
                                         </div>
                                     ) : (
                                         <div>
-                                            <input className="form-input" autoFocus placeholder="Tìm tên hoặc mã nhà cung cấp..." value={supplierSearch} onChange={e => setSupplierSearch(e.target.value)} />
+                                            <input className="form-input" autoFocus placeholder="Tìm hoặc nhập tên nhà cung cấp..." value={supplierSearch} onChange={e => setSupplierSearch(e.target.value)}
+                                                onKeyDown={e => { if (e.key === 'Enter' && supplierSearch.trim()) { setPoForm(f => ({ ...f, supplierId: '', supplier: supplierSearch.trim() })); } }} />
                                             {supplierSearch && (
-                                                <div style={{ border: '1px solid var(--border-color)', borderRadius: 6, maxHeight: 180, overflowY: 'auto', marginTop: 4, background: 'var(--bg-card)', position: 'relative', zIndex: 10 }}>
+                                                <div style={{ border: '1px solid var(--border-color)', borderRadius: 6, maxHeight: 200, overflowY: 'auto', marginTop: 4, background: 'var(--bg-card)', position: 'relative', zIndex: 10 }}>
+                                                    {/* Manual entry option at top */}
+                                                    <div onClick={() => { setPoForm(f => ({ ...f, supplierId: '', supplier: supplierSearch.trim() })); }}
+                                                        style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border-color)', fontSize: 13, background: 'rgba(35,64,147,0.04)', display: 'flex', alignItems: 'center', gap: 6 }}
+                                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(35,64,147,0.04)'}>
+                                                        <span style={{ fontSize: 16 }}>✏️</span>
+                                                        <span>Dùng: <strong>"{supplierSearch}"</strong></span>
+                                                        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4 }}>(nhập thủ công)</span>
+                                                    </div>
                                                     {suppliers.filter(s => { const q = supplierSearch.toLowerCase(); return s.name?.toLowerCase().includes(q) || s.code?.toLowerCase().includes(q); }).slice(0, 15).map(s => (
                                                         <div key={s.id} onClick={() => { setPoForm(f => ({ ...f, supplierId: s.id, supplier: s.name })); setSupplierSearch(s.name); }}
                                                             style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border-color)', fontSize: 13 }}
@@ -1471,9 +1721,6 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                                                             {s.phone && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>· {s.phone}</span>}
                                                         </div>
                                                     ))}
-                                                    {suppliers.filter(s => { const q = supplierSearch.toLowerCase(); return s.name?.toLowerCase().includes(q) || s.code?.toLowerCase().includes(q); }).length === 0 && (
-                                                        <div style={{ padding: '8px 12px', color: 'var(--text-muted)', fontSize: 13 }}>Không tìm thấy — kiểm tra danh sách NCC</div>
-                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -1502,25 +1749,34 @@ ${po.notes ? `<div class="notes-box"><strong>Ghi chú:</strong> ${po.notes}</div
                             )}
                             <div className="form-group"><label className="form-label">Ghi chú</label><textarea className="form-input" rows={2} value={poForm.notes} onChange={e => setPoForm({ ...poForm, notes: e.target.value })} /></div>
                             <div style={{ marginTop: 8 }}>
-                                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>📦 Danh sách vật tư ({poItems.length} mục)</div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                                    <span style={{ fontSize: 13, fontWeight: 600 }}>📦 Danh sách vật tư ({poItems.length} mục)</span>
+                                    <button className="btn btn-ghost btn-sm" onClick={addNewPoItem} style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>+ Thêm dòng</button>
+                                </div>
                                 <div className="table-container"><table className="data-table">
-                                    <thead><tr><th>Sản phẩm</th><th>ĐVT</th><th>SL đặt</th><th>Đơn giá</th><th>Thành tiền</th><th></th></tr></thead>
-                                    <tbody>{poItems.map((item, idx) => (
-                                        <tr key={idx}>
-                                            <td className="primary">{item.productName}</td>
-                                            <td>{item.unit}</td>
-                                            <td><input type="number" className="form-input" style={{ width: 80, padding: '4px 8px' }} value={item.quantity} onChange={e => updatePOItem(idx, 'quantity', e.target.value)} /></td>
-                                            <td><input type="number" className="form-input" style={{ width: 110, padding: '4px 8px' }} value={item.unitPrice} onChange={e => updatePOItem(idx, 'unitPrice', e.target.value)} /></td>
-                                            <td className="amount">{fmt(item.amount)}</td>
-                                            <td><button className="btn btn-ghost btn-sm" onClick={() => removePOItem(idx)} style={{ color: 'var(--status-danger)' }}>✕</button></td>
-                                        </tr>
-                                    ))}</tbody>
+                                    <thead><tr><th>Tên hàng hóa / Vật tư</th><th style={{ width: 64 }}>ĐVT</th><th style={{ width: 90 }}>SL đặt</th><th style={{ width: 120 }}>Đơn giá</th><th style={{ width: 120 }}>Thành tiền</th><th style={{ width: 36 }}></th></tr></thead>
+                                    <tbody>
+                                        {poItems.map((item, idx) => (
+                                            <tr key={idx}>
+                                                <td><input className="form-input" style={{ padding: '4px 8px', fontSize: 13 }} placeholder="Tên hàng hóa..." value={item.productName} onChange={e => updatePOItem(idx, 'productName', e.target.value)} /></td>
+                                                <td><input className="form-input" style={{ width: 60, padding: '4px 6px', fontSize: 13 }} placeholder="ĐVT" value={item.unit} onChange={e => updatePOItem(idx, 'unit', e.target.value)} /></td>
+                                                <td><input type="number" className="form-input" style={{ width: 80, padding: '4px 8px' }} min="0" step="any" value={item.quantity} onChange={e => updatePOItem(idx, 'quantity', e.target.value)} /></td>
+                                                <td><input type="number" className="form-input" style={{ width: 110, padding: '4px 8px' }} min="0" step="1000" value={item.unitPrice} onChange={e => updatePOItem(idx, 'unitPrice', e.target.value)} /></td>
+                                                <td className="amount" style={{ fontWeight: 600 }}>{fmt(item.amount)}</td>
+                                                <td><button className="btn btn-ghost btn-sm" onClick={() => removePOItem(idx)} style={{ color: 'var(--status-danger)', padding: '2px 6px' }}>✕</button></td>
+                                            </tr>
+                                        ))}
+                                        {poItems.length === 0 && (
+                                            <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '16px 12px', fontSize: 13 }}>
+                                                Nhấn <strong>+ Thêm dòng</strong> để thêm vật tư
+                                            </td></tr>
+                                        )}
+                                    </tbody>
                                     <tfoot><tr><td colSpan={4} style={{ textAlign: 'right', fontWeight: 700, padding: '8px 12px' }}>Tổng cộng:</td><td className="amount" style={{ fontWeight: 700, color: 'var(--accent-primary)', fontSize: 15 }}>{fmt(poItems.reduce((s, i) => s + (Number(i.amount) || 0), 0))}</td><td></td></tr></tfoot>
                                 </table></div>
-                                {poItems.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 16, textAlign: 'center' }}>Không có vật tư chưa đặt — vào Tab Vật tư để thêm vật tư trước</div>}
                             </div>
                         </div>
-                        <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setModal(null)}>Hủy</button><button className="btn btn-primary" onClick={createPO}>🛒 Tạo đơn mua hàng</button></div>
+                        <div className="modal-footer"><button className="btn btn-ghost" onClick={() => { setModal(null); setEditingPoId(null); }}>Hủy</button><button className="btn btn-primary" onClick={createPO}>{editingPoId ? '💾 Lưu thay đổi' : '🛒 Tạo đơn mua hàng'}</button></div>
                     </div>
                 </div>
             )}

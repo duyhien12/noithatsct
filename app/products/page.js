@@ -56,6 +56,9 @@ export default function ProductsPage() {
     const [searchP, setSearchP] = useState('');
     const [filterSupplyType, setFilterSupplyType] = useState('');
     const [filterStockStatus, setFilterStockStatus] = useState('');
+    const [isMobile, setIsMobile] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [showFilters, setShowFilters] = useState(false);
     const [viewMode, setViewMode] = useState('list');
     const [editingP, setEditingP] = useState(null);
     const [quickEditP, setQuickEditP] = useState(new Map());
@@ -92,6 +95,17 @@ export default function ProductsPage() {
     const imgUpRef = useRef(null);
     const imgUpTarget = useRef(null);
     const [productDragState, setProductDragState] = useState(null);
+
+    useEffect(() => {
+        const check = () => {
+            const mobile = window.innerWidth < 768;
+            setIsMobile(mobile);
+            if (mobile) setViewMode(v => v === 'list' ? 'grid' : v);
+        };
+        check();
+        window.addEventListener('resize', check);
+        return () => window.removeEventListener('resize', check);
+    }, []);
 
     const fetchCategories = useCallback(() => {
         fetch('/api/product-categories').then(r => r.json()).then(async cats => {
@@ -492,48 +506,101 @@ export default function ProductsPage() {
 
             {/* ===== PRODUCTS ===== */}
             {tab === 'products' && (
-                <div style={{ display: 'flex', minHeight: 'calc(100vh - 200px)', border: '1px solid var(--border-color)', borderRadius: 8, overflow: 'hidden' }}>
-                    <CategorySidebar categories={categories} activeCatId={activeCatId}
-                        onSelect={id => {
-                            setActiveCatId(id);
-                            if (id?.startsWith('__str__')) {
-                                const cat = categories.find(c => c.id === id);
-                                setActiveCatName(cat?.name || null);
-                            } else {
-                                setActiveCatName(null);
-                            }
-                            setSelectedIds(new Set());
-                        }}
-                        totalCount={products.length} onRefresh={() => { fetchCategories(); fetchProducts(); }}
-                        dragState={productDragState} setDragState={setProductDragState}
-                        onProductDrop={async (productIds, catId, catName) => {
-                            await fetch('/api/products', {
-                                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ action: 'bulkCategory', ids: productIds, categoryId: catId, category: catName }),
-                            });
-                            fetchProducts(); fetchCategories();
-                        }} />
+                <div style={{ display: 'flex', minHeight: isMobile ? 'auto' : 'calc(100vh - 200px)', border: '1px solid var(--border-color)', borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
+
+                    {/* Mobile sidebar overlay backdrop */}
+                    {isMobile && sidebarOpen && (
+                        <div onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 40 }} />
+                    )}
+
+                    {/* Sidebar */}
+                    <div style={isMobile ? {
+                        position: 'fixed', top: 0, left: sidebarOpen ? 0 : '-260px', width: 240, height: '100vh',
+                        zIndex: 50, transition: 'left 0.25s ease', boxShadow: sidebarOpen ? '4px 0 20px rgba(0,0,0,0.2)' : 'none',
+                        overflowY: 'auto', background: 'var(--bg-card)'
+                    } : {}}>
+                        <CategorySidebar categories={categories} activeCatId={activeCatId}
+                            onSelect={id => {
+                                setActiveCatId(id);
+                                if (id?.startsWith('__str__')) {
+                                    const cat = categories.find(c => c.id === id);
+                                    setActiveCatName(cat?.name || null);
+                                } else {
+                                    setActiveCatName(null);
+                                }
+                                setSelectedIds(new Set());
+                                if (isMobile) setSidebarOpen(false);
+                            }}
+                            totalCount={products.length} onRefresh={() => { fetchCategories(); fetchProducts(); }}
+                            dragState={productDragState} setDragState={setProductDragState}
+                            onProductDrop={async (productIds, catId, catName) => {
+                                await fetch('/api/products', {
+                                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ action: 'bulkCategory', ids: productIds, categoryId: catId, category: catName }),
+                                });
+                                fetchProducts(); fetchCategories();
+                            }} />
+                    </div>
+
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                         {/* Toolbar */}
+                        {isMobile ? (
+                            <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {/* Row 1: category button + search + add */}
+                                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                    <button onClick={() => setSidebarOpen(true)} style={{ flexShrink: 0, padding: '7px 10px', border: '1px solid var(--border-color)', borderRadius: 7, background: activeCatId ? 'var(--primary)' : 'var(--surface-alt)', color: activeCatId ? '#fff' : 'var(--text-primary)', fontSize: 13, cursor: 'pointer' }} title="Danh mục">☰</button>
+                                    <input className="form-input" placeholder="🔍 Tìm sản phẩm..." value={searchP} onChange={e => setSearchP(e.target.value)} style={{ flex: 1, minWidth: 0, fontSize: 13, padding: '7px 10px', borderRadius: 7 }} />
+                                    <button onClick={() => setShowFilters(f => !f)} style={{ flexShrink: 0, padding: '7px 10px', border: '1px solid var(--border-color)', borderRadius: 7, background: (filterSupplyType || filterStockStatus) ? '#234093' : 'var(--surface-alt)', color: (filterSupplyType || filterStockStatus) ? '#fff' : 'var(--text-primary)', fontSize: 13, cursor: 'pointer' }}>⚙️</button>
+                                    <button onClick={addNewProduct} style={{ flexShrink: 0, padding: '7px 12px', border: 'none', borderRadius: 7, background: '#DBB35E', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+</button>
+                                </div>
+                                {/* Row 2: filters (collapsible) */}
+                                {showFilters && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '6px 0' }}>
+                                        <div style={{ display: 'flex', gap: 6 }}>
+                                            <select className="form-select" value={filterSupplyType} onChange={e => setFilterSupplyType(e.target.value)} style={{ flex: 1, fontSize: 12, padding: '6px 8px' }}>
+                                                <option value="">Tất cả nguồn cung</option>{SUPPLY_TYPES.map(t => <option key={t}>{t}</option>)}
+                                            </select>
+                                            <div style={{ display: 'flex', gap: 0, background: 'var(--surface-alt)', borderRadius: 6, padding: 2, border: '1px solid var(--border-color)' }}>
+                                                <button onClick={() => setViewMode('list')} style={{ fontSize: 11, padding: '4px 8px', border: 'none', borderRadius: 4, cursor: 'pointer', background: viewMode === 'list' ? '#fff' : 'transparent', fontWeight: viewMode === 'list' ? 600 : 400 }}>☰</button>
+                                                <button onClick={() => setViewMode('grid')} style={{ fontSize: 11, padding: '4px 8px', border: 'none', borderRadius: 4, cursor: 'pointer', background: viewMode === 'grid' ? '#fff' : 'transparent', fontWeight: viewMode === 'grid' ? 600 : 400 }}>⊞</button>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 4 }}>
+                                            {[['', 'Tất cả', '#666'], ['ok', '🟢 Còn', '#22c55e'], ['low', '🟡 Sắp hết', '#eab308'], ['out', '🔴 Hết', '#ef4444']].map(([v, l, c]) => (
+                                                <button key={v} onClick={() => setFilterStockStatus(v)} style={{ flex: 1, fontSize: 11, padding: '5px 4px', border: '1px solid var(--border-color)', borderRadius: 6, cursor: 'pointer', background: filterStockStatus === v ? c : 'var(--surface-alt)', color: filterStockStatus === v ? '#fff' : 'var(--text-muted)', fontWeight: filterStockStatus === v ? 700 : 400 }}>{l}</button>
+                                            ))}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 4 }}>
+                                            <button className="btn btn-ghost btn-sm" onClick={() => excelInputRef.current?.click()} style={{ flex: 1, fontSize: 12 }}>📥 Import</button>
+                                            <button className="btn btn-ghost btn-sm" onClick={() => { setPasteText(''); setShowPasteModal(true); }} style={{ flex: 1, fontSize: 12 }}>📋 Paste</button>
+                                            <button className="btn btn-ghost btn-sm" onClick={downloadTemplate} style={{ flex: 1, fontSize: 12 }}>📄 Mẫu</button>
+                                        </div>
+                                    </div>
+                                )}
+                                <input ref={excelInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleExcelFile} />
+                                {/* Stats row */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--text-muted)' }}>
+                                    <span>📦 <strong>{filteredP.length}</strong> sản phẩm</span>
+                                    {lowStock > 0 && <span style={{ color: '#eab308' }}>⚠️ {lowStock} sắp hết</span>}
+                                    {outStock > 0 && <span style={{ color: '#ef4444' }}>🔴 {outStock} hết</span>}
+                                    {selectedIds.size > 0 && <button className="btn btn-sm" style={{ fontSize: 11, background: '#ea580c', color: '#fff', border: 'none' }} onClick={() => { const bad = [...selectedIds].filter(id => normalizeSupply(products.find(p => p.id === id)?.supplyType) !== 'Mua ngoài'); if (bad.length) return alert('Chỉ chọn SP "Mua ngoài"'); router.push('/purchasing?createPO=1&products=' + [...selectedIds].join(',')); }}>🛒 PO ({selectedIds.size})</button>}
+                                </div>
+                            </div>
+                        ) : (
                         <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                             <input className="form-input" placeholder="🔍 Tìm SP..." value={searchP} onChange={e => setSearchP(e.target.value)} style={{ flex: 1, minWidth: 0, fontSize: 12, padding: '6px 10px', borderRadius: 6 }} />
                             <select className="form-select" value={filterSupplyType} onChange={e => setFilterSupplyType(e.target.value)} style={{ fontSize: 11, padding: '6px 8px' }}>
                                 <option value="">Nguồn cung</option>{SUPPLY_TYPES.map(t => <option key={t}>{t}</option>)}
                             </select>
-
-                            {/* View toggle */}
                             <div style={{ display: 'flex', gap: 0, background: 'var(--surface-alt)', borderRadius: 6, padding: 2, border: '1px solid var(--border-color)' }}>
                                 <button onClick={() => setViewMode('list')} style={{ fontSize: 11, padding: '4px 10px', border: 'none', borderRadius: 4, cursor: 'pointer', background: viewMode === 'list' ? '#fff' : 'transparent', fontWeight: viewMode === 'list' ? 600 : 400, boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', color: viewMode === 'list' ? '#234093' : 'var(--text-secondary)' }}>☰ Danh sách</button>
                                 <button onClick={() => setViewMode('grid')} style={{ fontSize: 11, padding: '4px 10px', border: 'none', borderRadius: 4, cursor: 'pointer', background: viewMode === 'grid' ? '#fff' : 'transparent', fontWeight: viewMode === 'grid' ? 600 : 400, boxShadow: viewMode === 'grid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', color: viewMode === 'grid' ? '#234093' : 'var(--text-secondary)' }}>⊞ Dạng lưới</button>
                             </div>
-
-                            {/* Stock filter with labels */}
                             <div style={{ display: 'flex', gap: 2, background: 'var(--surface-alt)', borderRadius: 6, padding: 2, border: '1px solid var(--border-color)' }}>
                                 {[['', 'Tất cả', '#666'], ['ok', '🟢 Còn hàng', '#22c55e'], ['low', '🟡 Sắp hết', '#eab308'], ['out', '🔴 Hết hàng', '#ef4444']].map(([v, l, c]) => (
                                     <button key={v} onClick={() => setFilterStockStatus(v)} title={l} style={{ fontSize: 10, padding: '4px 8px', border: 'none', borderRadius: 4, cursor: 'pointer', background: filterStockStatus === v ? '#fff' : 'transparent', fontWeight: filterStockStatus === v ? 600 : 400, boxShadow: filterStockStatus === v ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', color: filterStockStatus === v ? c : 'var(--text-muted)' }}>{l}</button>
                                 ))}
                             </div>
-
                             <div style={{ marginLeft: 'auto', display: 'flex', gap: 4, alignItems: 'center' }}>
                                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>📦 <strong>{filteredP.length}</strong></span>
                                 {lowStock > 0 && <span style={{ fontSize: 10, color: '#eab308' }}>⚠️{lowStock}</span>}
@@ -546,6 +613,7 @@ export default function ProductsPage() {
                                 <button className="btn btn-ghost btn-sm" onClick={() => { setPasteText(''); setShowPasteModal(true); }} title="Paste từ Excel">📋 Paste</button>
                             </div>
                         </div>
+                        )}
                         <BulkActionsBar selectedIds={selectedIds} categories={leafCats} onDone={() => { setSelectedIds(new Set()); fetchProducts(); fetchCategories(); }} />
                         {quickEditP.size > 0 && (
                             <div style={{ padding: '6px 16px', background: 'linear-gradient(90deg, #234093, #3b5998)', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--border-color)' }}>
@@ -611,7 +679,7 @@ export default function ProductsPage() {
 
                                 {/* ========= GRID/CARD VIEW ========= */}
                                 {viewMode === 'grid' && (
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(195px, 1fr))', gap: 12, padding: 12 }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(195px, 1fr))', gap: isMobile ? 8 : 12, padding: isMobile ? 8 : 12 }}>
                                         {filteredP.map(p => {
                                             const ss = stockStatus(p);
                                             const sc = SUPPLY_COLOR[normalizeSupply(p.supplyType)] || { bg: '#f5f5f5', color: '#666' };
@@ -661,9 +729,17 @@ export default function ProductsPage() {
 
             {/* ===== LIBRARY ===== */}
             {tab === 'library' && (
-                <div style={{ display: 'flex', gap: 0, minHeight: 500, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', gap: 0, minHeight: isMobile ? 'auto' : 500, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-color)', position: 'relative' }}>
+                    {/* Mobile backdrop */}
+                    {isMobile && sidebarOpen && (
+                        <div onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 40 }} />
+                    )}
                     {/* Sidebar danh mục flat */}
-                    <div style={{ width: 210, flexShrink: 0, borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', background: 'var(--surface-alt)' }}>
+                    <div style={isMobile ? {
+                        position: 'fixed', top: 0, left: sidebarOpen ? 0 : '-260px', width: 240, height: '100vh',
+                        zIndex: 50, transition: 'left 0.25s ease', boxShadow: sidebarOpen ? '4px 0 20px rgba(0,0,0,0.2)' : 'none',
+                        overflowY: 'auto', background: 'var(--surface-alt)', borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column'
+                    } : { width: 210, flexShrink: 0, borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', background: 'var(--surface-alt)' }}>
                         <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-color)', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8 }}>DANH MỤC</div>
                         <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border-color)' }}>
                             <input className="form-input" placeholder="Tìm kiếm..." value={searchL} onChange={e => setSearchL(e.target.value)} style={{ fontSize: 12, padding: '5px 8px', width: '100%' }} />
@@ -712,6 +788,9 @@ export default function ProductsPage() {
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-card)', overflow: 'hidden' }}>
                         <div className="card-header" style={{ borderTop: 'none', borderLeft: 'none', borderRight: 'none' }}>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1 }}>
+                                {isMobile && (
+                                    <button onClick={() => setSidebarOpen(true)} style={{ padding: '5px 8px', border: '1px solid var(--border-color)', borderRadius: 6, background: filterCatL ? 'var(--primary)' : 'var(--surface-alt)', color: filterCatL ? '#fff' : 'var(--text-primary)', fontSize: 13, cursor: 'pointer', flexShrink: 0 }}>☰</button>
+                                )}
                                 <span style={{ fontSize: 13, fontWeight: 600 }}>
                                     {filterCatL ? `📁 ${filterCatL}` : 'Tất cả hạng mục'}
                                 </span>

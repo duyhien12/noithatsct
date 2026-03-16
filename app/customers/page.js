@@ -11,8 +11,7 @@ const fmtShort = (n) => {
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
 
 const PIPELINE = [
-    { key: 'Lead', label: 'Lead', color: '#94a3b8', bg: '#f1f5f9' },
-    { key: 'Prospect', label: 'Prospect', color: '#f59e0b', bg: '#fef3c7' },
+    { key: 'Khách nội thất', label: 'Khách nội thất', color: '#06b6d4', bg: '#cffafe' },
     { key: 'Tư vấn', label: 'Tư vấn', color: '#3b82f6', bg: '#dbeafe' },
     { key: 'Báo giá', label: 'Báo giá', color: '#8b5cf6', bg: '#ede9fe' },
     { key: 'Ký HĐ', label: 'Ký HĐ', color: '#10b981', bg: '#d1fae5' },
@@ -29,7 +28,7 @@ export default function CustomersPage() {
     const [filterSource, setFilterSource] = useState('');
     const [view, setView] = useState('kanban');
     const [showModal, setShowModal] = useState(false);
-    const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: 'Lead', taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0 });
+    const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: 'Khách nội thất', taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0 });
     const [dragId, setDragId] = useState(null);
     const [dragOver, setDragOver] = useState(null);
     const isDragging = useRef(false);
@@ -47,10 +46,10 @@ export default function CustomersPage() {
     const handleSubmit = async () => {
         if (!form.name.trim()) return alert('Vui lòng nhập tên khách hàng');
         if (!form.phone.trim()) return alert('Vui lòng nhập số điện thoại');
-        const res = await fetch('/api/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, status: form.pipelineStage === 'VIP' ? 'VIP' : form.pipelineStage === 'Lead' ? 'Lead' : form.pipelineStage === 'Prospect' ? 'Prospect' : 'Khách hàng' }) });
+        const res = await fetch('/api/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, status: form.pipelineStage === 'VIP' ? 'VIP' : 'Khách hàng' }) });
         if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi tạo khách hàng'); }
         setShowModal(false);
-        setForm({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: 'Lead', taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0 });
+        setForm({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: 'Khách nội thất', taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0 });
         fetchCustomers();
     };
 
@@ -62,7 +61,7 @@ export default function CustomersPage() {
     };
 
     const moveTo = async (id, stage) => {
-        const status = stage === 'VIP' ? 'VIP' : stage === 'Lead' ? 'Lead' : stage === 'Prospect' ? 'Prospect' : 'Khách hàng';
+        const status = stage === 'VIP' ? 'VIP' : 'Khách hàng';
         await fetch(`/api/customers/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pipelineStage: stage, status }) });
         fetchCustomers();
     };
@@ -75,7 +74,7 @@ export default function CustomersPage() {
 
     const stats = {
         total: customers.length,
-        leads: customers.filter(c => c.pipelineStage === 'Lead' || c.pipelineStage === 'Prospect').length,
+        leads: customers.filter(c => c.pipelineStage === 'Khách nội thất').length,
         active: customers.filter(c => ['Tư vấn', 'Báo giá', 'Ký HĐ', 'Thi công'].includes(c.pipelineStage)).length,
         vip: customers.filter(c => c.pipelineStage === 'VIP').length,
         totalValue: customers.reduce((s, c) => s + (c.estimatedValue || 0), 0),
@@ -121,7 +120,7 @@ export default function CustomersPage() {
                 {view === 'kanban' && (
                 <div className="desktop-table-view kanban-board" style={{ gap: 6, paddingBottom: 20, minHeight: 400, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                     {PIPELINE.map(stage => {
-                        const cards = filtered.filter(c => (c.pipelineStage || c.status || 'Lead') === stage.key);
+                        const cards = filtered.filter(c => (c.pipelineStage || c.status || 'Khách nội thất') === stage.key);
                         const stageValue = cards.reduce((s, c) => s + (c.estimatedValue || 0), 0);
                         const isOver = dragOver === stage.key;
                         return (
@@ -173,7 +172,7 @@ export default function CustomersPage() {
                         <div className="table-container"><table className="data-table">
                             <thead><tr><th>Mã</th><th>Tên KH</th><th>SĐT</th><th>Pipeline</th><th>Nguồn</th><th>Giá trị deal</th><th>Doanh thu</th><th>DA</th><th></th></tr></thead>
                             <tbody>{filtered.map(c => {
-                                const stage = PIPELINE.find(p => p.key === (c.pipelineStage || 'Lead')) || PIPELINE[0];
+                                const stage = PIPELINE.find(p => p.key === (c.pipelineStage || 'Khách nội thất')) || PIPELINE[0];
                                 return (
                                     <tr key={c.id} onClick={() => router.push(`/customers/${c.id}`)} style={{ cursor: 'pointer' }}>
                                         <td className="accent">{c.code}</td>
@@ -195,7 +194,7 @@ export default function CustomersPage() {
                     {/* Mobile card list - always rendered, CSS shows only on mobile */}
                     <div className="mobile-card-list">
                         {filtered.map(c => {
-                            const stage = PIPELINE.find(p => p.key === (c.pipelineStage || 'Lead')) || PIPELINE[0];
+                            const stage = PIPELINE.find(p => p.key === (c.pipelineStage || 'Khách nội thất')) || PIPELINE[0];
                             return (
                                 <div key={c.id} className="mobile-card-item" onClick={() => router.push(`/customers/${c.id}`)}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

@@ -3,103 +3,119 @@ import { NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { isR2Configured, uploadToR2 } from '@/lib/r2';
-import sharp from 'sharp';
-
-const ALLOWED_MIME_TYPES = [
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-    'image/gif',
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'image/svg+xml',
-    'application/zip',
-    'application/x-rar-compressed',
-    'application/vnd.rar',
-    'application/octet-stream', // for .dwg, .dxf
-];
-
-const ALLOWED_EXTENSIONS = [
-    '.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf',
-    '.doc', '.docx', '.xls', '.xlsx', '.svg',
-    '.zip', '.rar', '.dwg', '.dxf',
-];
 
 const ALLOWED_UPLOAD_TYPES = ['products', 'library', 'proofs', 'documents'];
-
-const MAX_FILE_SIZE_DEFAULT = 5 * 1024 * 1024; // 5MB
-const MAX_FILE_SIZE_DOCUMENTS = 200 * 1024 * 1024; // 200MB
-
 const THUMBNAIL_MIME = ['image/jpeg', 'image/png', 'image/webp'];
 
 async function generateThumbnail(buffer, mimeType) {
     if (!THUMBNAIL_MIME.includes(mimeType)) return null;
     try {
-        const thumbBuffer = await sharp(buffer)
+        const sharp = (await import('sharp')).default;
+        return await sharp(buffer)
             .resize({ width: 480, height: 270, fit: 'cover', position: 'center' })
             .jpeg({ quality: 70, progressive: true })
             .toBuffer();
-        return thumbBuffer;
     } catch {
         return null;
     }
 }
 
+// Stream Web ReadableStream → busboy via PassThrough (no size limit)
+function parseMultipart(webStream, contentType) {
+    return new Promise((resolve, reject) => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const Busboy = require('busboy');
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { PassThrough } = require('stream');
+
+        const bb = Busboy({ headers: { 'content-type': contentType }, limits: {} });
+        const pt = new PassThrough();
+        pt.pipe(bb);
+
+        const fields = {};
+        let fileName = '', fileMime = 'application/octet-stream';
+        const fileChunks = [];
+
+        bb.on('field', (name, val) => { fields[name] = val; });
+        bb.on('file', (_name, stream, info) => {
+            fileName = info.filename || '';
+            fileMime = info.mimeType || 'application/octet-stream';
+            stream.on('data', (chunk) => fileChunks.push(chunk));
+            stream.on('error', reject);
+        });
+        bb.on('finish', () => {
+            resolve({
+                fields,
+                fileBuffer: fileChunks.length > 0 ? Buffer.concat(fileChunks) : null,
+                fileName,
+                fileMime,
+            });
+        });
+        bb.on('error', reject);
+        pt.on('error', reject);
+
+        // Pump Web ReadableStream → PassThrough chunk by chunk
+        const reader = webStream.getReader();
+        const pump = async () => {
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) { pt.end(); break; }
+                    if (!pt.write(value)) {
+                        // wait for drain if backpressure
+                        await new Promise(r => pt.once('drain', r));
+                    }
+                }
+            } catch (err) {
+                pt.destroy(err);
+                reject(err);
+            }
+        };
+        pump();
+    });
+}
+
 export const POST = withAuth(async (request) => {
-    const formData = await request.formData();
-    const file = formData.get('file');
-    const type = formData.get('type') || 'products';
+    const contentType = request.headers.get('content-type') || '';
 
-    if (!file) return NextResponse.json({ error: 'No file' }, { status: 400 });
+    if (!request.body) {
+        return NextResponse.json({ error: 'Request body is empty.' }, { status: 400 });
+    }
 
-    // Validate upload type
+    let parsed;
+    try {
+        parsed = await parseMultipart(request.body, contentType);
+    } catch (err) {
+        console.error('[upload] parse error:', err?.message, err?.stack);
+        return NextResponse.json({ error: `Lỗi đọc file: ${err?.message || 'unknown'}` }, { status: 400 });
+    }
+
+    const { fields, fileBuffer, fileName, fileMime } = parsed;
+    const type = fields.type || 'products';
+
+    if (!fileBuffer || fileBuffer.length === 0) {
+        return NextResponse.json({ error: 'Không tìm thấy file trong request.' }, { status: 400 });
+    }
     if (!ALLOWED_UPLOAD_TYPES.includes(type)) {
-        return NextResponse.json({ error: `Loại upload không hợp lệ. Cho phép: ${ALLOWED_UPLOAD_TYPES.join(', ')}` }, { status: 400 });
+        return NextResponse.json({ error: `Loại upload không hợp lệ: ${type}` }, { status: 400 });
     }
 
-    // Validate MIME type and extension
-    const ext = path.extname(file.name).toLowerCase();
-    if (!ALLOWED_MIME_TYPES.includes(file.type) && !ALLOWED_EXTENSIONS.includes(ext)) {
-        return NextResponse.json({ error: 'Loại file không được hỗ trợ' }, { status: 400 });
-    }
+    const ext = path.extname(fileName).toLowerCase();
+    const filename = `${crypto.randomUUID()}${ext || '.bin'}`;
 
-    // Validate file size (documents allow 50MB, others 5MB)
-    const maxSize = type === 'documents' ? MAX_FILE_SIZE_DOCUMENTS : MAX_FILE_SIZE_DEFAULT;
-    const maxLabel = type === 'documents' ? '200MB' : '5MB';
-    const bytes = await file.arrayBuffer();
-    if (bytes.byteLength > maxSize) {
-        return NextResponse.json({ error: `File quá lớn (tối đa ${maxLabel})` }, { status: 400 });
-    }
-
-    const buffer = Buffer.from(bytes);
-
-    // Generate unique filename using UUID (prevents filename leakage and path traversal)
-    const fileExt = ext || '.jpg';
-    const filename = `${crypto.randomUUID()}${fileExt}`;
-
-    let url, thumbnailUrl = '';
-
-    // Generate thumbnail for images
-    const thumbBuffer = type === 'documents' ? await generateThumbnail(buffer, file.type) : null;
+    let url = '', thumbnailUrl = '';
+    const thumbBuffer = type === 'documents' ? await generateThumbnail(fileBuffer, fileMime) : null;
     const thumbFilename = thumbBuffer ? `${crypto.randomUUID()}.jpg` : null;
 
-    // Upload to R2 if configured, otherwise local filesystem
     if (isR2Configured) {
-        const key = `${type}/${filename}`;
-        url = await uploadToR2(buffer, key, file.type);
+        url = await uploadToR2(fileBuffer, `${type}/${filename}`, fileMime);
         if (thumbBuffer && thumbFilename) {
-            const thumbKey = `${type}/thumbnails/${thumbFilename}`;
-            thumbnailUrl = await uploadToR2(thumbBuffer, thumbKey, 'image/jpeg');
+            thumbnailUrl = await uploadToR2(thumbBuffer, `${type}/thumbnails/${thumbFilename}`, 'image/jpeg');
         }
     } else {
-        // Fallback: local filesystem
         const uploadDir = path.join(process.cwd(), 'public', 'uploads', type);
         await mkdir(uploadDir, { recursive: true });
-        const filepath = path.join(uploadDir, filename);
-        await writeFile(filepath, buffer);
+        await writeFile(path.join(uploadDir, filename), fileBuffer);
         url = `/uploads/${type}/${filename}`;
 
         if (thumbBuffer && thumbFilename) {
