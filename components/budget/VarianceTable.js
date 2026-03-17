@@ -58,6 +58,12 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded }) {
 
     const cancelEdit = () => { setEditingId(null); setEditForm({}); };
 
+    const deleteItem = async (id) => {
+        if (!confirm('Xóa dòng này khỏi dự toán?')) return;
+        await fetch(`/api/material-plans/${id}`, { method: 'DELETE' });
+        reload();
+    };
+
     const saveEdit = async (id) => {
         setSaving(true);
         const actualCost = (Number(editForm.actualUnitPrice) || 0) * (Number(editForm.budgetQty) || 0);
@@ -166,8 +172,12 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded }) {
                                 style={{ padding: '3px 7px', fontSize: 13, background: '#6b7280', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✕</button>
                         </div>
                     ) : (
-                        <button onClick={() => startEdit(item)}
-                            style={{ padding: '2px 6px', fontSize: 11, background: 'none', border: '1px solid #d1d5db', borderRadius: 4, cursor: 'pointer', color: '#6b7280' }}>✏️</button>
+                        <div style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
+                            <button onClick={() => startEdit(item)}
+                                style={{ padding: '2px 6px', fontSize: 11, background: 'none', border: '1px solid #d1d5db', borderRadius: 4, cursor: 'pointer', color: '#6b7280' }}>✏️</button>
+                            <button onClick={() => deleteItem(item.id)}
+                                style={{ padding: '2px 6px', fontSize: 11, background: 'none', border: '1px solid #fca5a5', borderRadius: 4, cursor: 'pointer', color: '#dc2626' }}>🗑️</button>
+                        </div>
                     )}
                 </td>
             </tr>
