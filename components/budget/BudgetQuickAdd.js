@@ -353,11 +353,6 @@ export default function BudgetQuickAdd({ projectId, products, onDone, onClose, i
                 {/* Quick add rows */}
                 {mode === 'quick' && (
                     <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
-                        {unmatchedCount > 0 && (
-                            <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13, color: '#d97706', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                ⚠️ <span><strong>{unmatchedCount} dòng</strong> chưa khớp sản phẩm — cần chọn sản phẩm để lưu</span>
-                            </div>
-                        )}
 
                         {/* Batch set group1 */}
                         <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -422,11 +417,16 @@ export default function BudgetQuickAdd({ projectId, products, onDone, onClose, i
                                                     ) : (
                                                         <div style={{ position: 'relative' }}>
                                                             <input type="text"
-                                                                placeholder={row.productName || '🔍 Tìm sản phẩm...'}
-                                                                value={activeRowIdx === idx ? productSearch : ''}
+                                                                placeholder="Nhập tên hoặc tìm sản phẩm..."
+                                                                value={activeRowIdx === idx ? productSearch : (row.productName || '')}
                                                                 onChange={e => { setProductSearch(e.target.value); setActiveRowIdx(idx); }}
-                                                                onFocus={() => setActiveRowIdx(idx)}
-                                                                style={{ ...inputStyle, fontSize: 12, padding: '5px 8px', border: `1px solid ${isUnmatched ? '#fbbf24' : 'var(--border-light)'}` }} />
+                                                                onFocus={() => { setActiveRowIdx(idx); setProductSearch(row.productName || ''); }}
+                                                                onBlur={() => setTimeout(() => {
+                                                                    if (productSearch.trim()) updateRow(idx, 'productName', productSearch.trim());
+                                                                    setActiveRowIdx(null);
+                                                                    setProductSearch('');
+                                                                }, 150)}
+                                                                style={{ ...inputStyle, fontSize: 12, padding: '5px 8px', border: `1px solid ${row.productName && !row.productId ? '#10b981' : 'var(--border-light)'}` }} />
                                                             {activeRowIdx === idx && filteredProducts.length > 0 && (
                                                                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 8, maxHeight: 200, overflow: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', marginTop: 2 }}>
                                                                     {filteredProducts.map(p => (
@@ -533,7 +533,6 @@ export default function BudgetQuickAdd({ projectId, products, onDone, onClose, i
                         <div style={{ fontSize: 14 }}>
                             <span style={{ color: 'var(--text-muted)' }}>{rows.length} dòng · </span>
                             <strong style={{ color: validCount > 0 ? 'var(--status-success)' : 'var(--text-muted)' }}>{validCount} hợp lệ</strong>
-                            {unmatchedCount > 0 && <span style={{ color: '#d97706', marginLeft: 8 }}>· {unmatchedCount} chưa khớp SP</span>}
                             <span style={{ marginLeft: 12, fontWeight: 700, color: 'var(--accent-primary)', fontSize: 15 }}>{fmt(totalAmount)}đ</span>
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
