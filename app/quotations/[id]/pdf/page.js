@@ -191,13 +191,13 @@ export default function QuotationPDFPage() {
                         border-radius: 0 !important;
                     }
                     @page {
-                        size: A4 landscape;
-                        margin: 0;
+                        size: A4 portrait;
+                        margin: 10mm 12mm;
                     }
                 }
 
                 .pdf-page {
-                    max-width: 1100px;
+                    max-width: 820px;
                     margin: 20px auto 40px;
                     background: #fff;
                     box-shadow: 0 4px 40px rgba(0,0,0,0.12);
@@ -712,25 +712,39 @@ export default function QuotationPDFPage() {
 
                     {/* ====== TABLE CONTENT ====== */}
                     {(() => {
+                        const toRoman = (n) => {
+                            const vals = [1000,900,500,400,100,90,50,40,10,9,5,4,1];
+                            const syms = ['M','CM','D','CD','C','XC','L','XL','X','IX','V','IV','I'];
+                            let r = '';
+                            for (let i = 0; i < vals.length; i++) {
+                                while (n >= vals[i]) { r += syms[i]; n -= vals[i]; }
+                            }
+                            return r;
+                        };
+                        const fmtAmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0));
+
                         if (!q.categories || q.categories.length === 0) {
-                            // Fallback: flat items
                             return (
                                 <table className="mn-table">
                                     <thead><tr>
-                                        <th className="c" style={{ width: 30 }}>STT</th>
-                                        <th>Hạng mục</th><th>Diễn giải</th>
-                                        <th className="c">ĐVT</th><th className="r">SL</th>
-                                        <th className="r">Đơn giá</th><th className="r">Thành tiền</th>
+                                        <th className="c" style={{ width: 36 }}>STT</th>
+                                        <th>TÊN HẠNG MỤC</th>
+                                        <th className="c" style={{ width: 44 }}>ĐVT</th>
+                                        <th className="r" style={{ width: 44 }}>SL</th>
+                                        <th className="r" style={{ width: 90 }}>ĐƠN GIÁ</th>
+                                        <th className="r" style={{ width: 100 }}>THÀNH TIỀN</th>
                                     </tr></thead>
                                     <tbody>{q.items?.map((item, i) => (
                                         <tr key={item.id}>
                                             <td className="c">{i + 1}</td>
-                                            <td style={{ fontWeight: 600 }}>{item.name}</td>
-                                            <td><span className="mn-desc">{item.description}</span></td>
+                                            <td>
+                                                <div style={{ fontWeight: 600 }}>{item.name}</div>
+                                                {item.description && <div style={{ fontSize: 9, color: BRAND.textMid, fontStyle: 'italic', marginTop: 2 }}>{item.description}</div>}
+                                            </td>
                                             <td className="c">{item.unit}</td>
-                                            <td className="r">{fmtNum(item.quantity)}</td>
-                                            <td className="r">{fmt(item.unitPrice)}</td>
-                                            <td className="r amt">{fmt(item.amount)}</td>
+                                            <td className="r">{fmtAmt(item.quantity)}</td>
+                                            <td className="r">{fmtAmt(item.unitPrice)}</td>
+                                            <td className="r amt">{fmtAmt(item.amount)}</td>
                                         </tr>
                                     ))}</tbody>
                                 </table>
@@ -746,117 +760,79 @@ export default function QuotationPDFPage() {
                             grouped[g].push(cat);
                         });
 
-                        return groupOrder.map((groupName, gi) => {
-                            const subs = grouped[groupName];
-                            const groupTotal = subs.reduce((s, c) => s + (c.subtotal || 0), 0);
-                            return (
-                                <div key={gi}>
-                                    {subs.map((cat, ci) => {
-                                        const items = cat.items || [];
-                                        const hasAnyImage = items.some(i => i.image);
-                                        const hasAnyDim = items.some(i => i.length || i.width || i.height);
-                                        const hasAnyVolDiff = items.some(i => {
-                                            const v = Number(i.volume) || Number(i.quantity) || 0;
-                                            const q = Number(i.quantity) || 0;
-                                            return v !== q;
-                                        });
+                        return (
+                            <table className="mn-table" style={{ borderRadius: 6, overflow: 'hidden' }}>
+                                <thead>
+                                    <tr>
+                                        <th className="c" style={{ width: 36 }}>STT</th>
+                                        <th style={{ textAlign: 'left' }}>TÊN HẠNG MỤC</th>
+                                        <th className="c" style={{ width: 44 }}>ĐVT</th>
+                                        <th className="r" style={{ width: 44 }}>SL</th>
+                                        <th className="r" style={{ width: 90 }}>ĐƠN GIÁ</th>
+                                        <th className="r" style={{ width: 110 }}>THÀNH TIỀN</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {groupOrder.map((groupName, gi) => {
+                                        const subs = grouped[groupName];
+                                        const groupTotal = subs.reduce((s, c) => s + (c.subtotal || 0), 0);
+                                        const catLetter = String.fromCharCode(65 + gi);
                                         return (
-                                            <div key={cat.id || ci}>
-                                                {/* Block 1: Header */}
-                                                <div className="mn-cat-main" style={{ marginTop: (gi > 0 || ci > 0) ? 18 : 0 }}>
-                                                    <div className="mn-cat-group-label">#{gi + 1}.{ci + 1}</div>
-                                                    <div className="mn-cat-room-block">
-                                                        <div className="mn-cat-room-subtitle">{(groupName || q.type || '').toUpperCase()}</div>
-                                                        <div className="mn-space-name">{cat.name || `Khu vực ${ci + 1}`}</div>
-                                                    </div>
-                                                </div>
-                                                {/* Block 2: Table + Image side-by-side */}
-                                                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <table className="mn-table">
-                                                            <thead><tr>
-                                                                <th className="c" style={{ width: 28 }}>STT</th>
-                                                                {hasAnyImage && <th className="c" style={{ width: 52 }}>Ảnh</th>}
-                                                                <th>Hạng mục / Sản phẩm</th>
-                                                                <th className="c" style={{ width: 38 }}>ĐVT</th>
-                                                                {hasAnyDim && <th className="r" style={{ width: 36 }}>Dài</th>}
-                                                                {hasAnyDim && <th className="r" style={{ width: 36 }}>Rộng</th>}
-                                                                {hasAnyDim && <th className="r" style={{ width: 36 }}>Cao</th>}
-                                                                <th className="r" style={{ width: 36 }}>SL</th>
-                                                                {hasAnyVolDiff && <th className="r" style={{ width: 40 }}>KL</th>}
-                                                                <th className="r" style={{ width: 80 }}>Đơn giá</th>
-                                                                <th className="r" style={{ width: 88 }}>Thành tiền</th>
-                                                            </tr></thead>
-                                                            <tbody>
-                                                                {items.map((item, ii) => {
-                                                                    const totalCols = 4 + (hasAnyImage ? 1 : 0) + (hasAnyDim ? 3 : 0) + (hasAnyVolDiff ? 1 : 0);
-                                                                    return (
-                                                                        <React.Fragment key={item.id || ii}>
-                                                                            <tr style={{ background: ii % 2 === 1 ? '#fafbfc' : '#fff' }}>
-                                                                                <td className="c" style={{ color: BRAND.textLight, fontSize: 9 }}>{ii + 1}</td>
-                                                                                {hasAnyImage && <td className="c">
-                                                                                    {item.image ? <img src={item.image} className="item-img" alt="" /> : <div className="no-img">—</div>}
-                                                                                </td>}
-                                                                                <td>
-                                                                                    <div style={{ fontWeight: 600, fontSize: 11 }}>{item.name}</div>
-                                                                                    {item.description && <div style={{ fontSize: 9, color: BRAND.textMid, fontStyle: 'italic', marginTop: 2, wordWrap: 'break-word', whiteSpace: 'normal' }}>{item.description}</div>}
-                                                                                </td>
-                                                                                <td className="c">{item.unit}</td>
-                                                                                {hasAnyDim && <td className="r">{item.length ? fmtNum(item.length) : ''}</td>}
-                                                                                {hasAnyDim && <td className="r">{item.width ? fmtNum(item.width) : ''}</td>}
-                                                                                {hasAnyDim && <td className="r">{item.height ? fmtNum(item.height) : ''}</td>}
-                                                                                <td className="r">{fmtNum(item.quantity)}</td>
-                                                                                {hasAnyVolDiff && <td className="r">{fmtNum(item.volume || item.quantity)}</td>}
-                                                                                <td className="r">{fmt(item.unitPrice)}</td>
-                                                                                <td className="r amt">{fmt(item.amount)}</td>
-                                                                            </tr>
-                                                                            {/* Sub-items (phụ kiện) */}
-                                                                            {(item.subItems || []).map((si, sii) => (
-                                                                                <tr key={`sub-${ii}-${sii}`} style={{ background: '#f8f9fc' }}>
-                                                                                    <td className="c" style={{ fontSize: 8, opacity: 0.3 }}>↳</td>
-                                                                                    {hasAnyImage && <td></td>}
-                                                                                    <td style={{ paddingLeft: 18 }}>
-                                                                                        <div style={{ fontSize: 10, fontStyle: 'italic', color: BRAND.textMid }}>{si.name}</div>
-                                                                                        {si.description && <div style={{ fontSize: 8, color: BRAND.textLight, marginTop: 1 }}>{si.description}</div>}
-                                                                                    </td>
-                                                                                    <td className="c">{si.unit}</td>
-                                                                                    {hasAnyDim && <td className="r">{si.length ? fmtNum(si.length) : ''}</td>}
-                                                                                    {hasAnyDim && <td className="r">{si.width ? fmtNum(si.width) : ''}</td>}
-                                                                                    {hasAnyDim && <td className="r">{si.height ? fmtNum(si.height) : ''}</td>}
-                                                                                    <td className="r">{fmtNum(si.quantity)}</td>
-                                                                                    {hasAnyVolDiff && <td className="r">{fmtNum(si.volume || si.quantity)}</td>}
-                                                                                    <td className="r">{fmt(si.unitPrice)}</td>
-                                                                                    <td className="r">{fmt(si.amount)}</td>
-                                                                                </tr>
-                                                                            ))}
-                                                                        </React.Fragment>
-                                                                    );
-                                                                })}
-                                                                <tr className="mn-sub-total">
-                                                                    <td colSpan={99} style={{ padding: '8px 12px' }}>
-                                                                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
-                                                                            <span style={{ opacity: 0.6, fontSize: 9 }}>▸</span>
-                                                                            <span>Tổng {cat.name || `Khu vực ${ci + 1}`}</span>
-                                                                            <span style={{ fontWeight: 900, minWidth: 100, textAlign: 'right' }}>{fmt(cat.subtotal)} đ</span>
-                                                                        </div>
+                                            <React.Fragment key={gi}>
+                                                {/* ── Hàng A/B/C: Hạng mục chính ── */}
+                                                <tr style={{ background: BRAND.blue }}>
+                                                    <td className="c" style={{ fontWeight: 900, fontSize: 13, color: '#fff', padding: '9px 6px' }}>{catLetter}</td>
+                                                    <td colSpan={4} style={{ fontWeight: 800, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: '#fff', padding: '9px 8px' }}>{groupName}</td>
+                                                    <td className="r" style={{ fontWeight: 900, fontSize: 12, color: BRAND.gold, padding: '9px 8px', whiteSpace: 'nowrap' }}>{fmtAmt(groupTotal)}</td>
+                                                </tr>
+
+                                                {subs.map((cat, ci) => (
+                                                    <React.Fragment key={cat.id || ci}>
+                                                        {/* ── Hàng I/II/III: Phân mục ── */}
+                                                        <tr style={{ background: '#f0f2f5' }}>
+                                                            <td className="c" style={{ fontWeight: 700, fontSize: 11, color: BRAND.blue, fontStyle: 'italic' }}>{toRoman(ci + 1)}</td>
+                                                            <td colSpan={4} style={{ fontWeight: 700, fontSize: 11, color: BRAND.textDark, fontStyle: 'italic', padding: '7px 8px' }}>{cat.name || `Khu vực ${ci + 1}`}</td>
+                                                            <td className="r" style={{ fontWeight: 700, fontSize: 11, color: BRAND.blue, padding: '7px 8px', whiteSpace: 'nowrap' }}>{fmtAmt(cat.subtotal || 0)}</td>
+                                                        </tr>
+
+                                                        {/* ── Hàng 1/2/3: Items ── */}
+                                                        {(cat.items || []).map((item, ii) => (
+                                                            <React.Fragment key={item.id || ii}>
+                                                                <tr style={{ background: ii % 2 === 1 ? '#fafbfc' : '#fff' }}>
+                                                                    <td className="c" style={{ color: BRAND.textMid, fontSize: 10 }}>{ii + 1}</td>
+                                                                    <td style={{ padding: '6px 8px' }}>
+                                                                        <div style={{ fontWeight: 600, fontSize: 11, color: BRAND.textDark }}>{item.name}</div>
+                                                                        {item.description && <div style={{ fontSize: 9, color: BRAND.textMid, fontStyle: 'italic', marginTop: 2, lineHeight: 1.4 }}>{item.description}</div>}
                                                                     </td>
+                                                                    <td className="c" style={{ fontSize: 10 }}>{item.unit}</td>
+                                                                    <td className="r" style={{ fontSize: 10 }}>{fmtAmt(item.volume || item.quantity)}</td>
+                                                                    <td className="r" style={{ fontSize: 10 }}>{fmtAmt(item.unitPrice)}</td>
+                                                                    <td className="r" style={{ fontWeight: 700, color: BRAND.blue, fontSize: 11 }}>{fmtAmt(item.amount)}</td>
                                                                 </tr>
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                    {cat.image && (
-                                                        <div style={{ width: 220, flexShrink: 0 }}>
-                                                            <img src={cat.image} alt={cat.name || ''} style={{ width: '100%', borderRadius: 6, border: `2px solid ${BRAND.blue}20` }} />
-                                                            <div style={{ fontSize: 7, color: BRAND.textMid, fontStyle: 'italic', marginTop: 3, textAlign: 'center' }}>{cat.name || 'Phối cảnh'}</div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
+                                                                {/* Sub-items (phụ kiện) */}
+                                                                {(item.subItems || []).map((si, sii) => (
+                                                                    <tr key={`sub-${ii}-${sii}`} style={{ background: '#f8f9fc' }}>
+                                                                        <td className="c" style={{ fontSize: 8, opacity: 0.35 }}>↳</td>
+                                                                        <td style={{ paddingLeft: 22, padding: '4px 8px 4px 22px' }}>
+                                                                            <div style={{ fontSize: 10, fontStyle: 'italic', color: BRAND.textMid }}>{si.name}</div>
+                                                                            {si.description && <div style={{ fontSize: 8, color: BRAND.textLight, marginTop: 1 }}>{si.description}</div>}
+                                                                        </td>
+                                                                        <td className="c" style={{ fontSize: 9 }}>{si.unit}</td>
+                                                                        <td className="r" style={{ fontSize: 9 }}>{fmtAmt(si.volume || si.quantity)}</td>
+                                                                        <td className="r" style={{ fontSize: 9 }}>{fmtAmt(si.unitPrice)}</td>
+                                                                        <td className="r" style={{ fontSize: 9, opacity: 0.7 }}>{fmtAmt(si.amount || 0)}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </React.Fragment>
+                                                        ))}
+                                                    </React.Fragment>
+                                                ))}
+                                            </React.Fragment>
                                         );
                                     })}
-                                </div>
-                            );
-                        });
+                                </tbody>
+                            </table>
+                        );
                     })()}
 
                     {/* NOTES */}

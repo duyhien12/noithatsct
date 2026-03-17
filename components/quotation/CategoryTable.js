@@ -213,7 +213,7 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                         <tr>
                             <th style={{ width: 30 }}>#</th>
                             <th style={{ width: 36 }}></th>
-                            <th style={{ minWidth: 160 }}>HẠNG MỤC / SẢN PHẨM</th>
+                            <th style={{ minWidth: 180 }}>HẠNG MỤC / SẢN PHẨM</th>
                             <th style={{ width: 60 }}>DÀI</th>
                             <th style={{ width: 60 }}>RỘNG</th>
                             <th style={{ width: 60 }}>CAO</th>
@@ -222,7 +222,6 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                             <th style={{ width: 55 }}>ĐVT</th>
                             <th style={{ width: 90 }}>ĐƠN GIÁ</th>
                             <th style={{ width: 100 }}>THÀNH TIỀN</th>
-                            <th style={{ minWidth: 120 }}>MÔ TẢ</th>
                             <th style={{ width: 30 }}></th>
                         </tr>
                     </thead>
@@ -243,7 +242,9 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                             )}
                                         </td>
                                         <td>
-                                            <input className="form-input form-input-compact" value={item.name} onChange={e => updateItem(mi, si, ii, 'name', e.target.value)} placeholder="Tên" />
+                                            <input className="form-input form-input-compact" value={item.name} onChange={e => updateItem(mi, si, ii, 'name', e.target.value)} placeholder="Tên hạng mục / sản phẩm" />
+                                            <input className="form-input form-input-compact" value={item.description} onChange={e => updateItem(mi, si, ii, 'description', e.target.value)}
+                                                placeholder="Mô tả..." style={{ marginTop: 3, fontSize: 11, opacity: 0.7, fontStyle: 'italic' }} />
                                             <InlineVariants
                                                 productId={item.productId}
                                                 basePrice={item.mainMaterial || 0}
@@ -288,7 +289,6 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                         </td>
                                         <td><input className="form-input form-input-compact" type="number" value={item.unitPrice || ''} onChange={e => updateItem(mi, si, ii, 'unitPrice', e.target.value)} /></td>
                                         <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-primary)', fontSize: 12 }}>{fmt(item.amount)}</td>
-                                        <td><input className="form-input form-input-compact" value={item.description} onChange={e => updateItem(mi, si, ii, 'description', e.target.value)} /></td>
                                         <td>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                 <button className="btn btn-ghost" onClick={() => removeItem(mi, si, ii)} style={{ padding: '2px 4px', fontSize: 11 }}>✕</button>
@@ -313,6 +313,8 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                                         updateSubItem(mi, si, ii, sii, 'productId', p.id);
                                                     }}
                                                 />
+                                                <input className="form-input form-input-compact" value={si_item.description || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'description', e.target.value)}
+                                                    placeholder="Mô tả..." style={{ marginTop: 3, fontSize: 11, opacity: 0.7, fontStyle: 'italic' }} />
                                             </td>
                                             <td><input className="form-input form-input-compact" type="number" value={si_item.length || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'length', e.target.value)} placeholder="0" /></td>
                                             <td><input className="form-input form-input-compact" type="number" value={si_item.width || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'width', e.target.value)} placeholder="0" /></td>
@@ -326,7 +328,6 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                             </td>
                                             <td><input className="form-input form-input-compact" type="number" value={si_item.unitPrice || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'unitPrice', e.target.value)} /></td>
                                             <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 11, opacity: 0.7 }}>{fmt(si_item.amount || 0)}</td>
-                                            <td><input className="form-input form-input-compact" value={si_item.description || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'description', e.target.value)} /></td>
                                             <td><button className="btn btn-ghost" onClick={() => removeSubItem(mi, si, ii, sii)} style={{ padding: '2px 4px', fontSize: 10 }}>✕</button></td>
                                         </tr>
                                     ))}
