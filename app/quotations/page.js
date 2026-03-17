@@ -50,6 +50,15 @@ export default function QuotationsPage() {
         setDeleteTarget(null);
     };
 
+    const handleConfirmKH = async (q, e) => {
+        e.stopPropagation();
+        try {
+            await apiFetch(`/api/quotations/${q.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Xác nhận' }) });
+            toast.success(`BG ${q.code} — KH đã xác nhận!`);
+            fetchData();
+        } catch (err) { toast.error(err.message); }
+    };
+
     const handleCreateContract = (q, e) => {
         e.stopPropagation();
         router.push(`/contracts/create?quotationId=${q.id}&customerId=${q.customerId}&projectId=${q.projectId || ''}&type=${encodeURIComponent(q.type)}&value=${q.grandTotal}`);
@@ -111,10 +120,17 @@ export default function QuotationsPage() {
                                         <td style={{ fontWeight: 700 }}>{fmtCurrency(q.grandTotal)}</td>
                                         <td><span className={`badge ${STATUS_BADGE[q.status] || 'muted'}`}>{q.status}</span></td>
                                         <td style={{ display: 'flex', gap: 4 }}>
+                                            {!['Xác nhận', 'Hợp đồng', 'Từ chối'].includes(q.status) && (
+                                                <button className="btn btn-sm" title="Khách hàng đã duyệt báo giá"
+                                                    style={{ background: '#16a34a', color: '#fff', fontWeight: 600 }}
+                                                    onClick={(e) => handleConfirmKH(q, e)}>
+                                                    ✓ KH duyệt
+                                                </button>
+                                            )}
                                             {q.status === 'Xác nhận' && (
                                                 <button className="btn btn-primary btn-sm" title="Tạo hợp đồng"
                                                     onClick={(e) => handleCreateContract(q, e)}>
-                                                    Tạo HĐ
+                                                    📋 Tạo HĐ
                                                 </button>
                                             )}
                                             <button className="btn btn-ghost" title="Xem PDF"
@@ -144,6 +160,13 @@ export default function QuotationsPage() {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <span style={{ fontWeight: 700, fontSize: 15 }}>{fmtCurrency(q.grandTotal)}</span>
                                         <div style={{ display: 'flex', gap: 4 }}>
+                                            {!['Xác nhận', 'Hợp đồng', 'Từ chối'].includes(q.status) && (
+                                                <button className="btn btn-sm" style={{ background: '#16a34a', color: '#fff', fontWeight: 600 }}
+                                                    onClick={(e) => handleConfirmKH(q, e)}>✓ KH duyệt</button>
+                                            )}
+                                            {q.status === 'Xác nhận' && (
+                                                <button className="btn btn-primary btn-sm" onClick={(e) => handleCreateContract(q, e)}>📋 Tạo HĐ</button>
+                                            )}
                                             <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); window.open(`/quotations/${q.id}/pdf`, '_blank'); }}>📄</button>
                                             <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); setDeleteTarget(q.id); }}>🗑️</button>
                                         </div>

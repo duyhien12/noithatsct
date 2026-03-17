@@ -147,6 +147,22 @@ export const PUT = withAuth(async (request, { params }) => {
     return NextResponse.json(result);
 });
 
+// PATCH: cập nhật status nhanh (KH xác nhận, gửi KH...)
+export const PATCH = withAuth(async (request, { params }) => {
+    const { id } = await params;
+    const existing = await prisma.quotation.findUnique({ where: { id }, select: { status: true } });
+    if (!existing) return NextResponse.json({ error: 'Không tìm thấy' }, { status: 404 });
+    if (LOCKED_STATUSES.includes(existing.status)) {
+        return NextResponse.json({ error: `Báo giá đã "${existing.status}" — không thể thay đổi.` }, { status: 403 });
+    }
+    const { status } = await request.json();
+    if (!['Nháp', 'Gửi KH', 'Xác nhận', 'Từ chối'].includes(status)) {
+        return NextResponse.json({ error: 'Trạng thái không hợp lệ' }, { status: 400 });
+    }
+    const updated = await prisma.quotation.update({ where: { id }, data: { status } });
+    return NextResponse.json({ status: updated.status });
+});
+
 export const DELETE = withAuth(async (request, { params }) => {
     const { id } = await params;
 

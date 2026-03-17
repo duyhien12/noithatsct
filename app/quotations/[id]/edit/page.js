@@ -198,6 +198,18 @@ export default function EditQuotationPage() {
     const isWarning = qMeta.status === 'Gửi KH';
     const isConfirmed = qMeta.status === 'Xác nhận';
 
+    const handleConfirmKH = async () => {
+        try {
+            await apiFetch(`/api/quotations/${params.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'Xác nhận' }) });
+            setQMeta(m => ({ ...m, status: 'Xác nhận' }));
+            toast.success('Đã xác nhận KH duyệt báo giá!');
+        } catch (err) { toast.error(err.message); }
+    };
+
+    const handleGoToContract = () => {
+        router.push(`/contracts/create?quotationId=${params.id}&customerId=${form.customerId}&projectId=${form.projectId || ''}&type=${encodeURIComponent(form.type)}&value=${hook.grandTotal || 0}`);
+    };
+
     if (loading) return <div style={{ padding: 60, textAlign: 'center' }}>Đang tải...</div>;
 
     return (
@@ -222,11 +234,25 @@ export default function EditQuotationPage() {
                         <button className="btn btn-ghost" onClick={() => window.open(`/quotations/${params.id}/pdf`, '_blank')}>📄 PDF</button>
                         {isLocked ? (
                             <>
+                                {qMeta.status === 'Xác nhận' && (
+                                    <button className="btn btn-primary" onClick={handleGoToContract}>📋 Tạo hợp đồng</button>
+                                )}
                                 <button className="btn btn-secondary" onClick={() => handleClone('supplemental')}>📋 Tạo BG bổ sung</button>
                                 <button className="btn btn-ghost" onClick={() => handleClone('copy')}>📋 Tạo bản copy</button>
                             </>
                         ) : (
-                            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Đang lưu...' : 'Cập nhật'}</button>
+                            <>
+                                {!['Xác nhận', 'Từ chối'].includes(qMeta.status) && (
+                                    <button className="btn btn-sm" style={{ background: '#16a34a', color: '#fff', fontWeight: 600 }}
+                                        onClick={handleConfirmKH} title="Khách hàng đã duyệt báo giá này">
+                                        ✓ KH xác nhận
+                                    </button>
+                                )}
+                                {isConfirmed && (
+                                    <button className="btn btn-primary" onClick={handleGoToContract}>📋 Tạo hợp đồng</button>
+                                )}
+                                <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Đang lưu...' : 'Cập nhật'}</button>
+                            </>
                         )}
                     </div>
                 </div>
@@ -244,8 +270,9 @@ export default function EditQuotationPage() {
                     </div>
                 )}
                 {isConfirmed && (
-                    <div style={{ padding: '10px 16px', background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 8, marginBottom: 12, fontSize: 13 }}>
-                        ⚠️ BG đã được KH xác nhận. Sửa sẽ tự động chuyển về "Gửi KH" và tăng phiên bản (v{qMeta.revision} → v{qMeta.revision + 1}).
+                    <div style={{ padding: '10px 16px', background: 'rgba(22,163,74,0.08)', border: '1px solid rgba(22,163,74,0.3)', borderRadius: 8, marginBottom: 12, fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>✅ Khách hàng đã xác nhận báo giá. Sửa sẽ tự động chuyển về "Gửi KH" và tăng phiên bản.</span>
+                        <button className="btn btn-primary btn-sm" onClick={handleGoToContract} style={{ whiteSpace: 'nowrap', marginLeft: 12 }}>📋 Tạo hợp đồng</button>
                     </div>
                 )}
                 {qMeta.parentId && (
