@@ -224,58 +224,133 @@ export default function CustomersPage() {
                 </div>
             </>)}
 
-            {/* Modal thêm KH - uses CSS classes for mobile full-screen */}
+            {/* Modal thêm KH */}
             {showModal && (
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
-                        <div className="modal-header"><h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Thêm khách hàng mới</h3><button className="modal-close" onClick={() => setShowModal(false)}>×</button></div>
-                        <div className="modal-body">
-                            <h4 style={{ color: 'var(--text-accent)', fontSize: 13, marginBottom: 12, borderBottom: '1px solid var(--border-light)', paddingBottom: 6 }}>👤 Thông tin cơ bản</h4>
-                            <div className="form-group"><label className="form-label">Tên khách hàng *</label><input className="form-input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
-                            <div className="form-row">
-                                <div className="form-group"><label className="form-label">SĐT *</label><input className="form-input" type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
-                                <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
-                            </div>
-                            <div className="form-row">
-                                <div className="form-group"><label className="form-label">Giới tính</label><select className="form-select" value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}><option>Nam</option><option>Nữ</option></select></div>
-                                <div className="form-group"><label className="form-label">Loại</label><select className="form-select" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}><option>Cá nhân</option><option>Doanh nghiệp</option></select></div>
-                            </div>
-                            <div className="form-group"><label className="form-label">Địa chỉ</label><input className="form-input" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} /></div>
-                            <div className="form-row">
-                                <div className="form-group"><label className="form-label">Pipeline</label>
-                                    <select className="form-select" value={form.pipelineStage} onChange={e => setForm({ ...form, pipelineStage: e.target.value })}>
-                                        {PIPELINE.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
-                                    </select>
-                                </div>
-                                <div className="form-group"><label className="form-label">Nguồn</label>
-                                    <select className="form-select" value={form.source} onChange={e => setForm({ ...form, source: e.target.value })}>
-                                        <option value="">Chọn...</option>
-                                        {SOURCES.map(s => <option key={s}>{s}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="form-row">
-                                <div className="form-group"><label className="form-label">Giá trị deal dự kiến</label><input className="form-input" type="number" inputMode="numeric" value={form.estimatedValue || ''} onChange={e => setForm({ ...form, estimatedValue: parseFloat(e.target.value) || 0 })} placeholder="VND" /></div>
-                                <div className="form-group"><label className="form-label">MST</label><input className="form-input" value={form.taxCode} onChange={e => setForm({ ...form, taxCode: e.target.value })} /></div>
-                            </div>
-                            <div className="form-group"><label className="form-label">Người đại diện</label><input className="form-input" value={form.representative} onChange={e => setForm({ ...form, representative: e.target.value })} /></div>
-
-                            <h4 style={{ color: 'var(--text-accent)', fontSize: 13, margin: '20px 0 12px', borderBottom: '1px solid var(--border-light)', paddingBottom: 6 }}>🏠 Thông tin dự án</h4>
-                            <div className="form-row">
-                                <div className="form-group"><label className="form-label">NV kinh doanh</label><input className="form-input" value={form.salesPerson} onChange={e => setForm({ ...form, salesPerson: e.target.value })} /></div>
-                                <div className="form-group"><label className="form-label">NV thiết kế</label><input className="form-input" value={form.designer} onChange={e => setForm({ ...form, designer: e.target.value })} /></div>
-                            </div>
-                            <div className="form-group"><label className="form-label">Tên dự án</label><input className="form-input" value={form.projectName} onChange={e => setForm({ ...form, projectName: e.target.value })} placeholder="VD: Biệt thự anh Minh" /></div>
-                            <div className="form-group"><label className="form-label">Địa chỉ dự án</label><input className="form-input" value={form.projectAddress} onChange={e => setForm({ ...form, projectAddress: e.target.value })} /></div>
-
-                            <h4 style={{ color: 'var(--text-accent)', fontSize: 13, margin: '20px 0 12px', borderBottom: '1px solid var(--border-light)', paddingBottom: 6 }}>📞 Liên hệ phụ</h4>
-                            <div className="form-row">
-                                <div className="form-group"><label className="form-label">Người liên hệ 2</label><input className="form-input" value={form.contactPerson2} onChange={e => setForm({ ...form, contactPerson2: e.target.value })} /></div>
-                                <div className="form-group"><label className="form-label">SĐT 2</label><input className="form-input" type="tel" value={form.phone2} onChange={e => setForm({ ...form, phone2: e.target.value })} /></div>
-                            </div>
-                            <div className="form-group"><label className="form-label">Ghi chú</label><textarea className="form-input" rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
+                        <div className="modal-header">
+                            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>➕ Thêm khách hàng mới</h3>
+                            <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
                         </div>
-                        <div className="modal-footer"><button className="btn btn-secondary" onClick={() => setShowModal(false)}>Hủy</button><button className="btn btn-primary" onClick={handleSubmit}>Lưu</button></div>
+                        <div className="modal-body" style={{ padding: '16px 20px' }}>
+
+                            {/* Section 1: Thông tin cơ bản */}
+                            <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-primary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    👤 Thông tin cơ bản
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'none' }}>Tên khách hàng *</label>
+                                        <input className="form-input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Nguyễn Văn A" style={{ textTransform: 'none' }} />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Số điện thoại *</label>
+                                        <input className="form-input" type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="0901 234 567" />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Email</label>
+                                        <input className="form-input" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="email@example.com" />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Giới tính</label>
+                                        <select className="form-select" value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}>
+                                            <option>Nam</option><option>Nữ</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Loại khách hàng</label>
+                                        <select className="form-select" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
+                                            <option>Cá nhân</option><option>Doanh nghiệp</option>
+                                        </select>
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Địa chỉ</label>
+                                        <input className="form-input" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Số nhà, đường, quận/huyện, tỉnh/thành" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section 2: CRM */}
+                            <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-primary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    🎯 Thông tin CRM
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Pipeline</label>
+                                        <select className="form-select" value={form.pipelineStage} onChange={e => setForm({ ...form, pipelineStage: e.target.value })}>
+                                            {PIPELINE.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Nguồn khách</label>
+                                        <select className="form-select" value={form.source} onChange={e => setForm({ ...form, source: e.target.value })}>
+                                            <option value="">— Chọn nguồn —</option>
+                                            {SOURCES.map(s => <option key={s}>{s}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Giá trị deal dự kiến</label>
+                                        <input className="form-input" type="number" inputMode="numeric" value={form.estimatedValue || ''} onChange={e => setForm({ ...form, estimatedValue: parseFloat(e.target.value) || 0 })} placeholder="0 đ" />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Mã số thuế</label>
+                                        <input className="form-input" value={form.taxCode} onChange={e => setForm({ ...form, taxCode: e.target.value })} placeholder="MST (nếu có)" />
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Người đại diện</label>
+                                        <input className="form-input" value={form.representative} onChange={e => setForm({ ...form, representative: e.target.value })} placeholder="Tên người đại diện (nếu là doanh nghiệp)" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section 3: Dự án */}
+                            <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-primary)', marginBottom: 12 }}>🏠 Thông tin dự án</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>NV kinh doanh</label>
+                                        <input className="form-input" value={form.salesPerson} onChange={e => setForm({ ...form, salesPerson: e.target.value })} placeholder="Tên nhân viên KD" />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>NV thiết kế</label>
+                                        <input className="form-input" value={form.designer} onChange={e => setForm({ ...form, designer: e.target.value })} placeholder="Tên nhân viên TK" />
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Tên dự án</label>
+                                        <input className="form-input" value={form.projectName} onChange={e => setForm({ ...form, projectName: e.target.value })} placeholder="VD: Biệt thự anh Minh, Q.7" />
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Địa chỉ dự án</label>
+                                        <input className="form-input" value={form.projectAddress} onChange={e => setForm({ ...form, projectAddress: e.target.value })} placeholder="Địa chỉ công trình" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section 4: Liên hệ phụ + Ghi chú */}
+                            <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px' }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-primary)', marginBottom: 12 }}>📞 Liên hệ phụ & Ghi chú</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Người liên hệ 2</label>
+                                        <input className="form-input" value={form.contactPerson2} onChange={e => setForm({ ...form, contactPerson2: e.target.value })} placeholder="Họ tên" />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>SĐT 2</label>
+                                        <input className="form-input" type="tel" value={form.phone2} onChange={e => setForm({ ...form, phone2: e.target.value })} placeholder="0901 234 567" />
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Ghi chú</label>
+                                        <textarea className="form-input" rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Ghi chú thêm về khách hàng..." />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Hủy</button>
+                            <button className="btn btn-primary" onClick={handleSubmit}>💾 Lưu khách hàng</button>
+                        </div>
                     </div>
                 </div>
             )}
