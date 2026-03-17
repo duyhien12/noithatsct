@@ -232,7 +232,7 @@ export default function CustomersPage() {
                             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>➕ Thêm khách hàng mới</h3>
                             <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
                         </div>
-                        <div className="modal-body" style={{ padding: '16px 20px' }}>
+                        <div className="modal-body" style={{ padding: '16px 20px', maxHeight: '70vh', overflowY: 'auto' }}>
 
                             {/* Section 1: Thông tin cơ bản */}
                             <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
