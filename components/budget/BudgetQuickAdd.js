@@ -216,8 +216,10 @@ export default function BudgetQuickAdd({ projectId, products, onDone, onClose, i
         setMode('quick');
     };
 
+    const isRowValid = (r) => (r.productId || (r.productName || '').trim()) && Number(r.quantity) > 0;
+
     const handleSaveAll = async () => {
-        const validRows = rows.filter(r => r.productId && r.quantity > 0);
+        const validRows = rows.filter(isRowValid);
         if (validRows.length === 0) return;
         setSaving(true);
         try {
@@ -228,7 +230,8 @@ export default function BudgetQuickAdd({ projectId, products, onDone, onClose, i
                     projectId,
                     source: 'Dự toán nhanh',
                     items: validRows.map(r => ({
-                        productId: r.productId,
+                        productId: r.productId || null,
+                        customName: r.productId ? '' : (r.productName || '').trim(),
                         quantity: Number(r.quantity),
                         unitPrice: Number(r.unitPrice),
                         actualCost: (Number(r.actualUnitPrice) || 0) * (Number(r.quantity) || 0),
@@ -258,8 +261,8 @@ export default function BudgetQuickAdd({ projectId, products, onDone, onClose, i
     const costTypes = [...new Set([...categoryOptions, ...(products || []).map(p => p.category).filter(Boolean)])];
 
     const totalAmount = rows.reduce((s, r) => s + (Number(r.quantity) || 0) * (Number(r.unitPrice) || 0), 0);
-    const validCount = rows.filter(r => r.productId && r.quantity > 0).length;
-    const unmatchedCount = rows.filter(r => !r.productId && r.productName).length;
+    const validCount = rows.filter(isRowValid).length;
+    const unmatchedCount = 0;
 
     const inputStyle = {
         padding: '7px 10px',

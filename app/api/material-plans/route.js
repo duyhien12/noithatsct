@@ -43,15 +43,20 @@ export const POST = withAuth(async (request) => {
         if (!projectId) return NextResponse.json({ error: 'projectId bắt buộc' }, { status: 400 });
 
         const result = await prisma.$transaction(async (tx) => {
-            // Dedup only within same planType
             const pt = items[0]?.planType || 'tracking';
-            const existingRaw = await tx.materialPlan.findMany({ where: { projectId, planType: pt }, select: { productId: true } });
+            // Dedup by productId (for items with product linked)
+            const existingRaw = await tx.materialPlan.findMany({ where: { projectId, planType: pt, productId: { not: null } }, select: { productId: true } });
             const existingSet = new Set(existingRaw.map(e => e.productId));
 
-            const validItems = items.filter(i => i.productId && !existingSet.has(i.productId));
+            // Valid: has (productId not already existing) OR (customName with no productId)
+            const validItems = items.filter(i =>
+                (i.productId && !existingSet.has(i.productId)) ||
+                (!i.productId && (i.customName || '').trim())
+            );
             const newPlans = validItems.map(i => ({
                 projectId,
-                productId: i.productId,
+                productId: i.productId || null,
+                customName: i.customName || '',
                 quantity: Number(i.quantity) || 0,
                 unitPrice: Number(i.unitPrice) || 0,
                 totalAmount: (Number(i.quantity) || 0) * (Number(i.unitPrice) || 0),
@@ -69,11 +74,6 @@ export const POST = withAuth(async (request) => {
 
             if (newPlans.length > 0) {
                 await tx.materialPlan.createMany({ data: newPlans });
-
-                if (pt !== 'tracking') {
-                    const productIds = validItems.map(i => i.productId);
-                    await tx.materialPlan.updateMany({ where: { projectId, productId: { in: productIds } }, data: { planType: pt } });
-                }
             }
             return { created: newPlans.length, skipped: items.length - newPlans.length };
         });

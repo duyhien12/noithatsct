@@ -526,8 +526,9 @@ model MaterialPlan {
   supplierTag     String   @default("")            // Công ty cấp | Thầu phụ cấp
   actualCost      Float    @default(0)             // Tổng thực tế thi công
   planType        String   @default("tracking")    // budget | tracking
-  productId       String
-  product         Product       @relation(fields: [productId], references: [id])
+  customName      String   @default("")            // tên tự nhập (khi không có sản phẩm trong DB)
+  productId       String?
+  product         Product?      @relation(fields: [productId], references: [id])
   projectId       String
   project         Project       @relation(fields: [projectId], references: [id])
   requisitions    MaterialRequisition[]
