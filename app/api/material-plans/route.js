@@ -45,8 +45,8 @@ export const POST = withAuth(async (request) => {
         const result = await prisma.$transaction(async (tx) => {
             const pt = items[0]?.planType || 'tracking';
             // Dedup by productId (for items with product linked)
-            const existingRaw = await tx.materialPlan.findMany({ where: { projectId, planType: pt, productId: { not: null } }, select: { productId: true } });
-            const existingSet = new Set(existingRaw.map(e => e.productId));
+            const existingRaw = await tx.materialPlan.findMany({ where: { projectId, planType: pt }, select: { productId: true } });
+            const existingSet = new Set(existingRaw.map(e => e.productId).filter(Boolean));
 
             // Valid: has (productId not already existing) OR (customName with no productId)
             const validItems = items.filter(i =>
@@ -56,20 +56,19 @@ export const POST = withAuth(async (request) => {
             const newPlans = validItems.map(i => ({
                 projectId,
                 productId: i.productId || null,
-                customName: i.customName || '',
                 quantity: Number(i.quantity) || 0,
                 unitPrice: Number(i.unitPrice) || 0,
                 totalAmount: (Number(i.quantity) || 0) * (Number(i.unitPrice) || 0),
                 budgetUnitPrice: Number(i.unitPrice) || 0,
                 actualCost: Number(i.actualCost) || 0,
                 type: i.type || 'Chính',
-                category: i.category || '',
+                category: i.category || i.customName || '',
                 costType: i.costType || 'Vật tư',
                 group1: i.group1 || '',
                 group2: i.group2 || '',
                 supplierTag: i.supplierTag || '',
                 status: 'Chưa đặt',
-                notes: i.notes || (source ? `Từ ${source}` : ''),
+                notes: i.customName ? `[${i.customName}]${i.notes ? ' ' + i.notes : ''}` : (i.notes || (source ? `Từ ${source}` : '')),
             }));
 
             if (newPlans.length > 0) {
