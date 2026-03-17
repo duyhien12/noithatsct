@@ -191,13 +191,13 @@ export default function QuotationPDFPage() {
                         border-radius: 0 !important;
                     }
                     @page {
-                        size: A4 portrait;
+                        size: A4 landscape;
                         margin: 10mm 12mm;
                     }
                 }
 
                 .pdf-page {
-                    max-width: 820px;
+                    max-width: 1100px;
                     margin: 20px auto 40px;
                     background: #fff;
                     box-shadow: 0 4px 40px rgba(0,0,0,0.12);
