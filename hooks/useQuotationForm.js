@@ -203,6 +203,7 @@ export default function useQuotationForm() {
             subcategories: [...mcs[mi].subcategories, emptySubcategory()],
         };
         setMainCategories(mcs);
+        setActiveSubIdx(mcs[mi].subcategories.length); // new subcategory index = old length
     };
 
     const removeSubcategory = (mi, si) => {
