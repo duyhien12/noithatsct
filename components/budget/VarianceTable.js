@@ -47,12 +47,12 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded }) {
     const startEdit = (item) => {
         setEditingId(item.id);
         setEditForm({
-            budgetQty: item.budgetQty,
-            budgetUnitPrice: item.budgetUnitPrice,
-            actualUnitPrice: item.actualTotal > 0 && item.budgetQty > 0 ? (item.actualTotal / item.budgetQty) : 0,
-            costType: item.costType,
-            group1: item.group1,
-            group2: item.group2,
+            budgetQty: item.budgetQty ?? 0,
+            budgetUnitPrice: item.budgetUnitPrice ?? 0,
+            actualUnitPrice: item.avgActualPrice ?? 0,
+            costType: item.costType || 'Vật tư',
+            group1: item.group1 || '',
+            group2: item.group2 || '',
         });
     };
 
@@ -66,22 +66,34 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded }) {
 
     const saveEdit = async (id) => {
         setSaving(true);
-        const actualCost = (Number(editForm.actualUnitPrice) || 0) * (Number(editForm.budgetQty) || 0);
-        await fetch(`/api/material-plans/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                quantity: Number(editForm.budgetQty),
-                budgetUnitPrice: Number(editForm.budgetUnitPrice),
-                actualCost,
-                costType: editForm.costType,
-                group1: editForm.group1,
-                group2: editForm.group2,
-            }),
-        });
-        setSaving(false);
-        setEditingId(null);
-        reload();
+        try {
+            const qty = Number(editForm.budgetQty) || 0;
+            const price = Number(editForm.budgetUnitPrice) || 0;
+            const actualUnitPrice = Number(editForm.actualUnitPrice) || 0;
+            const res = await fetch(`/api/material-plans/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    quantity: qty,
+                    budgetUnitPrice: price,
+                    actualCost: actualUnitPrice * qty,
+                    costType: editForm.costType,
+                    group1: editForm.group1,
+                    group2: editForm.group2,
+                }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                alert(err.error || 'Lỗi lưu dữ liệu');
+                return;
+            }
+            setEditingId(null);
+            reload();
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        } finally {
+            setSaving(false);
+        }
     };
 
     if (loading) return <div style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>Đang tải...</div>;
