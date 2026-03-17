@@ -11,7 +11,7 @@ export default function QuotationSummary({ hook }) {
     const {
         form, setForm,
         directCost, adjustmentAmount, total,
-        discountAmount, afterDiscount, totalDeductions, grandTotal,
+        discountAmount, afterDiscount, vatAmount, totalDeductions, grandTotal,
         deductions, addDeduction, removeDeduction, updateDeduction,
         products,
     } = hook;
@@ -76,6 +76,12 @@ export default function QuotationSummary({ hook }) {
                             style={{ width: 50, display: 'inline-block', margin: '0 4px' }} />%</span>
                         <span className="quotation-summary-value" style={{ color: 'var(--status-danger)' }}>-{fmt(discountAmount)} đ</span>
                     </div>
+                    <div className="quotation-summary-row">
+                        <span>Thuế VAT <input className="form-input form-input-compact" type="number"
+                            value={form.vat ?? ''} onChange={e => setForm({ ...form, vat: parseFloat(e.target.value) || 0 })}
+                            style={{ width: 50, display: 'inline-block', margin: '0 4px' }} />%</span>
+                        <span className="quotation-summary-value" style={{ color: 'var(--status-success)' }}>+{fmt(vatAmount)} đ</span>
+                    </div>
 
                     {/* ====== DEDUCTIONS / PROMOTIONS ====== */}
                     {deductions.length > 0 && (
@@ -139,11 +145,6 @@ export default function QuotationSummary({ hook }) {
                             <span className="quotation-summary-value" style={{ color: 'var(--status-danger)' }}>-{fmt(totalDeductions)} đ</span>
                         </div>
                     )}
-
-                    {/* Note VAT */}
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', padding: '6px 0', borderTop: '1px solid var(--border-light)', marginTop: 4 }}>
-                        * Đơn giá đã bao gồm VAT
-                    </div>
 
                     <div className="quotation-summary-row quotation-summary-grand">
                         <span>TỔNG GIÁ TRỊ BÁO GIÁ</span><span className="quotation-summary-value">{fmt(grandTotal)} đ</span>
