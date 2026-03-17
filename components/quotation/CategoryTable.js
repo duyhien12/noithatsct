@@ -153,18 +153,14 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
     }, []);
 
     const handleQuickAdd = useCallback((item) => {
-        // Directly add — variant selection will be inline in the table
-        hook.setActiveMainIdx(mi);
-        hook.setActiveSubIdx(si);
-        setTimeout(() => {
-            if (item._type === 'library') addFromLibrary(item);
-            else addFromProduct(item);
-        }, 0);
+        // Pass mi/si explicitly to avoid stale activeSubIdx state bug
+        if (item._type === 'library') addFromLibrary(item, mi);
+        else addFromProduct(item, mi, si);
         setQuickSearch('');
         setQuickResults([]);
         setShowQuickDrop(false);
         setTimeout(() => quickRef.current?.focus(), 50);
-    }, [addFromLibrary, addFromProduct, mi, si, hook]);
+    }, [addFromLibrary, addFromProduct, mi, si]);
 
     const handleQuickKeyDown = (e) => {
         if (e.key === 'ArrowDown') {

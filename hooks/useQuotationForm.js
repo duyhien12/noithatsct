@@ -379,8 +379,8 @@ export default function useQuotationForm() {
     // Tree add handlers (single)
     // ========================================
     // Library item → add as SUBCATEGORY (level 2)
-    const addFromLibrary = (libItem) => {
-        const mi = activeMainIdx;
+    const addFromLibrary = (libItem, explicitMi) => {
+        const mi = explicitMi !== undefined ? explicitMi : activeMainIdx;
         const mcs = [...mainCategories];
         const newSub = {
             _key: Date.now() + Math.random(),
@@ -394,9 +394,9 @@ export default function useQuotationForm() {
     };
 
     // Product → add as LINE ITEM (level 3) — unchanged
-    const addFromProduct = (prod) => {
-        const mi = activeMainIdx;
-        const si = activeSubIdx;
+    const addFromProduct = (prod, explicitMi, explicitSi) => {
+        const mi = explicitMi !== undefined ? explicitMi : activeMainIdx;
+        const si = explicitSi !== undefined ? explicitSi : activeSubIdx;
         const mcs = [...mainCategories];
         const sub = mcs[mi].subcategories[si];
         const existing = sub.items.filter(i => i.name.trim() !== '');
