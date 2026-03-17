@@ -572,8 +572,8 @@ export default function useQuotationForm() {
     // CALCULATIONS
     // ========================================
     const directCost = mainCategories.reduce((s, mc) => s + mc.subtotal, 0);
-    const managementFee = directCost * (form.managementFeeRate || 0) / 100;
-    const beforeAdjust = directCost + managementFee + (form.designFee || 0) + (form.otherFee || 0);
+    const managementFee = 0;
+    const beforeAdjust = directCost + (form.designFee || 0) + (form.otherFee || 0);
     const adjustmentAmount = form.adjustmentType === 'percent'
         ? beforeAdjust * (form.adjustment || 0) / 100
         : (form.adjustment || 0);
