@@ -11,7 +11,7 @@ export default function QuotationSummary({ hook }) {
     const {
         form, setForm,
         directCost, adjustmentAmount, total,
-        discountAmount, afterDiscount, vatAmount, totalDeductions, grandTotal,
+        discountAmount, afterDiscount, totalDeductions, grandTotal,
         deductions, addDeduction, removeDeduction, updateDeduction,
         products,
     } = hook;
@@ -76,13 +76,6 @@ export default function QuotationSummary({ hook }) {
                             style={{ width: 50, display: 'inline-block', margin: '0 4px' }} />%</span>
                         <span className="quotation-summary-value" style={{ color: 'var(--status-danger)' }}>-{fmt(discountAmount)} đ</span>
                     </div>
-                    <div className="quotation-summary-row">
-                        <span>Thuế VAT <input className="form-input form-input-compact" type="number"
-                            value={form.vat ?? ''} onChange={e => setForm({ ...form, vat: parseFloat(e.target.value) || 0 })}
-                            style={{ width: 50, display: 'inline-block', margin: '0 4px' }} />%</span>
-                        <span className="quotation-summary-value" style={{ color: 'var(--status-success)' }}>+{fmt(vatAmount)} đ</span>
-                    </div>
-
                     {/* ====== DEDUCTIONS / PROMOTIONS ====== */}
                     {deductions.length > 0 && (
                         <div style={{ borderTop: '1px dashed var(--border-color)', margin: '8px 0', paddingTop: 8 }}>

@@ -580,9 +580,8 @@ export default function useQuotationForm() {
     const total = beforeAdjust + adjustmentAmount;
     const discountAmount = total * (form.discount || 0) / 100;
     const afterDiscount = total - discountAmount;
-    const vatAmount = afterDiscount * (form.vat || 0) / 100;
     const totalDeductions = deductions.reduce((s, d) => s + (d.amount || 0), 0);
-    const grandTotal = afterDiscount + vatAmount - totalDeductions;
+    const grandTotal = afterDiscount - totalDeductions;
 
     // ========================================
     // BUILD PAYLOAD for API (flatten 3-level → categories with group)
@@ -668,7 +667,7 @@ export default function useQuotationForm() {
         // Calculation
         recalc,
         directCost, managementFee, adjustmentAmount, total,
-        discountAmount, afterDiscount, vatAmount, grandTotal,
+        discountAmount, afterDiscount, grandTotal,
         totalDeductions,
         // Deductions
         deductions, setDeductions, addDeduction, removeDeduction, updateDeduction,
