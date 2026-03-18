@@ -31,14 +31,21 @@ function buildPrintHTML(project, items, summary) {
     let rowsHTML = '';
     let globalStt = 0;
 
-    g1Order.forEach((g1, gi) => {
+    g1Order.forEach((g1) => {
         const d = hierarchy[g1];
         const allG1 = [...d.direct, ...Object.values(d.subgroups).flat()];
         const g1Budget = allG1.reduce((s, i) => s + (i.budgetTotal || 0), 0);
         const g1Actual = allG1.reduce((s, i) => s + (i.actualTotal || 0), 0);
         const g1Var = g1Budget - g1Actual;
 
-        rowsHTML += `<tr class="g1-header"><td colspan="9">▌ ${g1} &nbsp;&nbsp; DT: ${fmt(g1Budget)} &nbsp;&nbsp; ${g1Actual > 0 ? (g1Var >= 0 ? '+' : '') + fmt(g1Var) : ''}</td></tr>`;
+        rowsHTML += `<tr class="g1-header">
+          <td colspan="9">
+            <span class="g1-bar"></span>
+            ${g1}
+            <span style="margin-left:16px;font-size:10px;opacity:.85">DT: ${fmt(g1Budget)}</span>
+            ${g1Actual > 0 ? `<span style="margin-left:10px;font-size:10px;color:${g1Var >= 0 ? '#86efac' : '#fca5a5'}">${g1Var >= 0 ? '+' : ''}${fmt(g1Var)}</span>` : ''}
+          </td>
+        </tr>`;
 
         const g2Keys = d.g2Order.filter((v, i, a) => a.indexOf(v) === i);
         const sections = [];
@@ -51,7 +58,7 @@ function buildPrintHTML(project, items, summary) {
             const sVar = sBudget - sActual;
 
             if (sections.length > 1 || label !== g1) {
-                rowsHTML += `<tr class="g2-header"><td colspan="9">${ALPHA[si2]}. ${label}</td></tr>`;
+                rowsHTML += `<tr class="g2-header"><td colspan="9">${ALPHA[si2]}. &nbsp;${label}</td></tr>`;
             }
 
             si.forEach(item => {
@@ -59,129 +66,242 @@ function buildPrintHTML(project, items, summary) {
                 const ap = item.avgActualPrice || 0;
                 const p = item.budgetUnitPrice || 0;
                 const variance = (item.budgetTotal || 0) - (item.actualTotal || 0);
-                rowsHTML += `<tr>
-                    <td class="center">${globalStt}</td>
-                    <td>${item.productName || ''}${item.productCode ? `<br><span class="sub">${item.productCode}</span>` : ''}</td>
+                const rowClass = globalStt % 2 === 0 ? ' class="even"' : '';
+                rowsHTML += `<tr${rowClass}>
+                    <td class="center num">${globalStt}</td>
+                    <td class="name-cell">${item.productName || ''}${item.productCode ? `<br><span class="sub">${item.productCode}</span>` : ''}</td>
                     <td class="center">${item.unit || ''}</td>
                     <td class="right">${item.budgetQty || 0}</td>
-                    <td class="right">${fmt(p)}</td>
-                    <td class="right blue">${fmt(item.budgetTotal || 0)}</td>
-                    <td class="right ${ap > p ? 'red' : ap > 0 ? 'green' : 'gray'}">${ap > 0 ? fmt(ap) : '—'}</td>
-                    <td class="right ${item.actualTotal > item.budgetTotal ? 'red' : item.actualTotal > 0 ? 'green' : 'gray'}">${item.actualTotal > 0 ? fmt(item.actualTotal) : '—'}</td>
-                    <td class="right ${variance >= 0 ? 'green' : 'red'}">${item.actualTotal > 0 ? (variance >= 0 ? '+' : '') + fmt(variance) : '—'}</td>
+                    <td class="right">${p > 0 ? fmt(p) : '—'}</td>
+                    <td class="right blue bold">${fmt(item.budgetTotal || 0)}</td>
+                    <td class="right ${ap > p * 1.05 ? 'red' : ap > 0 ? 'orange' : 'muted'}">${ap > 0 ? fmt(ap) : '—'}</td>
+                    <td class="right ${item.actualTotal > item.budgetTotal * 1.05 ? 'red bold' : item.actualTotal > 0 ? 'orange bold' : 'muted'}">${item.actualTotal > 0 ? fmt(item.actualTotal) : '—'}</td>
+                    <td class="right ${variance >= 0 ? 'green bold' : 'red bold'}">${item.actualTotal > 0 ? (variance >= 0 ? '+' : '') + fmt(variance) : '—'}</td>
                 </tr>`;
             });
 
             rowsHTML += `<tr class="subtotal">
-                <td colspan="5" class="right">Cộng ${label}:</td>
-                <td class="right blue">${fmt(sBudget)}</td>
+                <td colspan="5" class="right italic">Cộng ${label}:</td>
+                <td class="right blue bold">${fmt(sBudget)}</td>
                 <td></td>
-                <td class="right ${sActual > sBudget ? 'red' : 'green'}">${sActual > 0 ? fmt(sActual) : '—'}</td>
-                <td class="right ${sVar >= 0 ? 'green' : 'red'}">${sActual > 0 ? (sVar >= 0 ? '+' : '') + fmt(sVar) : '—'}</td>
+                <td class="right ${sActual > sBudget ? 'red bold' : 'bold'}">${sActual > 0 ? fmt(sActual) : '—'}</td>
+                <td class="right ${sVar >= 0 ? 'green bold' : 'red bold'}">${sActual > 0 ? (sVar >= 0 ? '+' : '') + fmt(sVar) : '—'}</td>
             </tr>`;
         });
     });
 
     const totalVar = (summary?.totalBudget || 0) - (summary?.totalActual || 0);
+    const cpi = summary?.overallCpi;
 
-    return `<!DOCTYPE html><html><head><meta charset="utf-8">
+    return `<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8">
 <title>Bảng theo dõi Chênh lệch Vật tư — ${project?.name || ''}</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Arial', sans-serif; font-size: 11px; color: #1a1a1a; background: #fff; }
-  .page { max-width: 1000px; margin: 0 auto; padding: 24px 28px; }
-  /* Header */
-  .brand-bar { background: #f97316; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; border-radius: 8px 8px 0 0; }
-  .brand-name { color: white; font-size: 18px; font-weight: 900; letter-spacing: 1px; }
-  .brand-sub { color: rgba(255,255,255,0.85); font-size: 10px; margin-top: 2px; }
-  .brand-date { color: rgba(255,255,255,0.9); font-size: 10px; text-align: right; }
-  .doc-header { background: #1e3a5f; color: white; padding: 14px 20px; text-align: center; }
-  .doc-title { font-size: 15px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; }
-  .doc-sub { font-size: 10px; color: rgba(255,255,255,0.75); margin-top: 4px; }
-  /* Project info */
-  .project-info { padding: 12px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-top: none; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-  .info-row { display: flex; gap: 6px; font-size: 11px; }
-  .info-label { color: #6b7280; min-width: 90px; }
-  .info-value { font-weight: 600; color: #1e3a5f; }
-  /* Summary */
-  .summary-bar { display: flex; gap: 0; margin: 16px 0 12px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-  .sum-item { flex: 1; padding: 10px 16px; text-align: center; border-right: 1px solid #e2e8f0; }
-  .sum-item:last-child { border-right: none; }
-  .sum-label { font-size: 10px; color: #6b7280; margin-bottom: 3px; }
-  .sum-value { font-size: 14px; font-weight: 800; }
-  /* Table */
-  table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-  th { background: #1e3a5f; color: white; font-size: 10px; font-weight: 700; padding: 7px 5px; text-align: center; border: 1px solid #1e3a5f; white-space: nowrap; }
-  td { border: 1px solid #d1d5db; padding: 5px 6px; font-size: 10.5px; vertical-align: middle; }
-  tr:nth-child(even) td { background: #f9fafb; }
-  .g1-header td { background: #1e3a5f !important; color: white; font-weight: 700; font-size: 11px; padding: 7px 10px; }
-  .g2-header td { background: #fde68a !important; color: #78350f; font-weight: 700; padding: 6px 12px; }
-  .subtotal td { background: #fce4d6 !important; font-weight: 700; }
-  .total-row td { background: #1e3a5f !important; color: white; font-weight: 700; font-size: 12px; }
+  body { font-family: 'Be Vietnam Pro', 'Arial', sans-serif; font-size: 11px; color: #1a1a1a; background: #f1f5f9; }
+  .page { max-width: 1060px; margin: 20px auto; background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,.12); border-radius: 12px; overflow: hidden; }
+
+  /* ── HEADER ── */
+  .header-wrap { background: linear-gradient(135deg, #1e3a5f 0%, #0f2240 100%); position: relative; overflow: hidden; }
+  .header-wrap::before { content: ''; position: absolute; right: -40px; top: -40px; width: 200px; height: 200px;
+    background: rgba(249,115,22,.15); border-radius: 50%; }
+  .header-wrap::after { content: ''; position: absolute; right: 60px; bottom: -30px; width: 120px; height: 120px;
+    background: rgba(249,115,22,.08); border-radius: 50%; }
+  .brand-row { display: flex; align-items: center; justify-content: space-between; padding: 18px 28px 0; position: relative; z-index: 1; }
+  .logo-block { display: flex; align-items: center; gap: 14px; }
+  .logo-diamond { width: 48px; height: 48px; background: #f97316; transform: rotate(45deg); border-radius: 4px;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(249,115,22,.5); flex-shrink: 0; }
+  .logo-k { transform: rotate(-45deg); font-size: 22px; font-weight: 900; color: white; letter-spacing: -1px; }
+  .brand-text { color: white; }
+  .brand-name { font-size: 22px; font-weight: 900; letter-spacing: 3px; line-height: 1; }
+  .brand-tagline { font-size: 9.5px; color: rgba(255,255,255,.65); letter-spacing: 1.5px; margin-top: 3px; text-transform: uppercase; }
+  .header-meta { text-align: right; color: rgba(255,255,255,.75); font-size: 10px; line-height: 1.7; }
+  .header-meta strong { color: white; font-weight: 600; }
+  .title-row { padding: 16px 28px 20px; text-align: center; position: relative; z-index: 1; }
+  .doc-title { font-size: 17px; font-weight: 900; color: white; letter-spacing: 3px; text-transform: uppercase; }
+  .doc-subtitle { font-size: 9px; color: rgba(255,255,255,.5); letter-spacing: 2px; margin-top: 5px; text-transform: uppercase; }
+  .orange-stripe { height: 4px; background: linear-gradient(90deg, #f97316, #fb923c, #f97316); }
+
+  /* ── PROJECT INFO ── */
+  .project-section { padding: 16px 28px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 32px; }
+  .info-row { display: flex; align-items: baseline; gap: 8px; font-size: 11px; }
+  .info-label { color: #64748b; min-width: 88px; font-size: 10.5px; }
+  .info-value { font-weight: 700; color: #1e3a5f; font-size: 11.5px; }
+
+  /* ── SUMMARY CARDS ── */
+  .summary-section { padding: 16px 28px; background: white; border-bottom: 2px solid #f1f5f9; }
+  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .sum-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; position: relative; overflow: hidden; }
+  .sum-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .sum-card.budget::before { background: #3b82f6; }
+  .sum-card.actual::before { background: #64748b; }
+  .sum-card.variance::before { background: #22c55e; }
+  .sum-card.cpi::before { background: #f97316; }
+  .sum-label { font-size: 9.5px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+  .sum-value { font-size: 15px; font-weight: 800; line-height: 1; }
+
+  /* ── TABLE ── */
+  .table-section { padding: 0 28px 20px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 10.5px; }
+  thead th { background: #1e3a5f; color: white; font-size: 10px; font-weight: 700; padding: 8px 6px;
+    text-align: center; border: 1px solid #0f2240; white-space: nowrap; letter-spacing: .3px; }
+  thead th:nth-child(2) { text-align: left; padding-left: 10px; }
+  td { border: 1px solid #e2e8f0; padding: 5.5px 6px; vertical-align: middle; }
+  tr.even td { background: #f8fafc; }
+  .g1-header td { background: #1e3a5f !important; color: white; font-weight: 700; font-size: 11px;
+    padding: 8px 12px; border-color: #0f2240 !important; }
+  .g1-bar { display: inline-block; width: 4px; height: 14px; background: #f97316; border-radius: 2px;
+    vertical-align: middle; margin-right: 8px; }
+  .g2-header td { background: #fffbeb !important; color: #92400e; font-weight: 700; padding: 6px 14px;
+    font-size: 10.5px; border-left: 4px solid #f59e0b !important; }
+  .subtotal td { background: #fff7ed !important; font-weight: 600; font-size: 10px; }
+  .total-row td { background: #1e3a5f !important; color: white; font-weight: 800; font-size: 11px;
+    padding: 9px 6px; border-color: #0f2240 !important; }
+  .name-cell { padding-left: 10px !important; max-width: 260px; }
+  .num { color: #94a3b8; width: 28px; }
   .center { text-align: center; }
   .right { text-align: right; }
-  .blue { color: #1d4ed8; font-weight: 600; }
-  .green { color: #16a34a; font-weight: 600; }
-  .red { color: #dc2626; font-weight: 600; }
-  .gray { color: #9ca3af; }
-  .sub { font-size: 9px; color: #9ca3af; }
-  /* Footer */
-  .footer { margin-top: 24px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 10px; color: #6b7280; border-top: 2px solid #f97316; padding-top: 12px; }
-  .sign-box { text-align: center; }
-  .sign-title { font-weight: 700; color: #1e3a5f; font-size: 11px; }
-  .sign-line { border-bottom: 1px solid #d1d5db; width: 120px; margin: 40px auto 4px; }
-  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .page { padding: 12px 16px; } }
+  .bold { font-weight: 700; }
+  .italic { font-style: italic; color: #64748b; }
+  .blue { color: #1d4ed8; }
+  .green { color: #16a34a; }
+  .orange { color: #ea580c; }
+  .red { color: #dc2626; }
+  .muted { color: #9ca3af; }
+  .sub { font-size: 9px; color: #94a3b8; }
+
+  /* ── FOOTER ── */
+  .footer-section { padding: 20px 28px 24px; border-top: 3px solid #f97316; background: #f8fafc; }
+  .footer-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .footer-brand { font-size: 10px; color: #94a3b8; line-height: 1.8; }
+  .footer-brand strong { color: #1e3a5f; font-size: 12px; letter-spacing: 1px; }
+  .sign-area { display: flex; gap: 60px; }
+  .sign-box { text-align: center; min-width: 120px; }
+  .sign-title { font-weight: 700; color: #1e3a5f; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  .sign-note { font-size: 9px; color: #94a3b8; margin-top: 2px; }
+  .sign-line { border-bottom: 1px solid #cbd5e1; width: 100%; margin: 44px auto 6px; }
+
+  @media print {
+    body { background: white; }
+    .page { margin: 0; box-shadow: none; border-radius: 0; max-width: 100%; }
+    .table-section { padding: 0 16px 12px; }
+    .brand-row, .title-row { padding-left: 16px; padding-right: 16px; }
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 </style></head><body>
 <div class="page">
-  <div class="brand-bar">
-    <div><div class="brand-name">SCT</div><div class="brand-sub">CÔNG TY NỘI THẤT SCT</div></div>
-    <div class="brand-date">Ngày in: ${fmtDate()}<br>Người lập: ${typeof window !== 'undefined' ? '' : ''}</div>
-  </div>
-  <div class="doc-header">
-    <div class="doc-title">Bảng theo dõi chênh lệch vật tư</div>
-    <div class="doc-sub">MATERIAL VARIANCE TRACKING REPORT</div>
-  </div>
-  <div class="project-info">
-    <div class="info-row"><span class="info-label">Công trình:</span><span class="info-value">${project?.name || '—'}</span></div>
-    <div class="info-row"><span class="info-label">Mã dự án:</span><span class="info-value">${project?.code || '—'}</span></div>
-    <div class="info-row"><span class="info-label">Khách hàng:</span><span class="info-value">${project?.customer?.name || '—'}</span></div>
-    <div class="info-row"><span class="info-label">Địa chỉ:</span><span class="info-value">${project?.address || '—'}</span></div>
-  </div>
-  <div class="summary-bar">
-    <div class="sum-item"><div class="sum-label">Tổng Dự toán</div><div class="sum-value" style="color:#1d4ed8">${fmt(summary?.totalBudget || 0)}đ</div></div>
-    <div class="sum-item"><div class="sum-label">Tổng Thực tế</div><div class="sum-value" style="color:#111">${fmt(summary?.totalActual || 0)}đ</div></div>
-    <div class="sum-item"><div class="sum-label">Chênh lệch</div><div class="sum-value" style="color:${totalVar >= 0 ? '#16a34a' : '#dc2626'}">${totalVar >= 0 ? '+' : ''}${fmt(totalVar)}đ</div></div>
-    <div class="sum-item"><div class="sum-label">CPI</div><div class="sum-value" style="color:${(summary?.overallCpi || 0) >= 1 ? '#16a34a' : '#dc2626'}">${summary?.overallCpi?.toFixed(2) || '—'}</div></div>
-  </div>
-  <table>
-    <thead><tr>
-      <th style="width:32px">#</th>
-      <th>HẠNG MỤC / SẢN PHẨM</th>
-      <th style="width:48px">ĐVT</th>
-      <th style="width:52px">SL</th>
-      <th style="width:90px">ĐG DT</th>
-      <th style="width:100px">TỔNG DT</th>
-      <th style="width:90px">ĐG TT</th>
-      <th style="width:100px">TỔNG TT</th>
-      <th style="width:100px">CHÊNH LỆCH</th>
-    </tr></thead>
-    <tbody>${rowsHTML}
-      <tr class="total-row">
-        <td colspan="5" class="right">TỔNG CỘNG:</td>
-        <td class="right">${fmt(summary?.totalBudget || 0)}</td>
-        <td></td>
-        <td class="right">${summary?.totalActual > 0 ? fmt(summary.totalActual) : '—'}</td>
-        <td class="right" style="color:${totalVar >= 0 ? '#86efac' : '#fca5a5'}">${summary?.totalActual > 0 ? (totalVar >= 0 ? '+' : '') + fmt(totalVar) : '—'}</td>
-      </tr>
-    </tbody>
-  </table>
-  <div class="footer">
-    <div style="font-size:10px;color:#9ca3af">SCT — Hệ thống ERP Nội thất &nbsp;|&nbsp; Tài liệu nội bộ</div>
-    <div style="display:flex;gap:48px">
-      <div class="sign-box"><div class="sign-title">Lập bảng</div><div class="sign-line"></div><div>Ký tên</div></div>
-      <div class="sign-box"><div class="sign-title">Giám đốc duyệt</div><div class="sign-line"></div><div>Ký tên</div></div>
+
+  <!-- HEADER -->
+  <div class="header-wrap">
+    <div class="brand-row">
+      <div class="logo-block">
+        <div class="logo-diamond"><span class="logo-k">K</span></div>
+        <div class="brand-text">
+          <div class="brand-name">SCT</div>
+          <div class="brand-tagline">CÔNG TY NỘI THẤT SCT</div>
+        </div>
+      </div>
+      <div class="header-meta">
+        <div>Ngày in: <strong>${fmtDate()}</strong></div>
+        <div>Mã CT: <strong>${project?.code || '—'}</strong></div>
+      </div>
+    </div>
+    <div class="title-row">
+      <div class="doc-title">Bảng theo dõi chênh lệch vật tư</div>
+      <div class="doc-subtitle">Material Variance Tracking Report</div>
     </div>
   </div>
+  <div class="orange-stripe"></div>
+
+  <!-- PROJECT INFO -->
+  <div class="project-section">
+    <div class="info-grid">
+      <div class="info-row"><span class="info-label">Công trình:</span><span class="info-value">${project?.name || '—'}</span></div>
+      <div class="info-row"><span class="info-label">Mã dự án:</span><span class="info-value">${project?.code || '—'}</span></div>
+      <div class="info-row"><span class="info-label">Khách hàng:</span><span class="info-value">${project?.customer?.name || '—'}</span></div>
+      <div class="info-row"><span class="info-label">Địa chỉ:</span><span class="info-value">${project?.address || '—'}</span></div>
+    </div>
+  </div>
+
+  <!-- SUMMARY CARDS -->
+  <div class="summary-section">
+    <div class="summary-grid">
+      <div class="sum-card budget">
+        <div class="sum-label">Tổng Dự toán</div>
+        <div class="sum-value" style="color:#1d4ed8">${fmt(summary?.totalBudget || 0)}<span style="font-size:11px;font-weight:600">đ</span></div>
+      </div>
+      <div class="sum-card actual">
+        <div class="sum-label">Tổng Thực tế</div>
+        <div class="sum-value" style="color:#334155">${fmt(summary?.totalActual || 0)}<span style="font-size:11px;font-weight:600">đ</span></div>
+      </div>
+      <div class="sum-card variance">
+        <div class="sum-label">Chênh lệch</div>
+        <div class="sum-value" style="color:${totalVar >= 0 ? '#16a34a' : '#dc2626'}">${totalVar >= 0 ? '+' : ''}${fmt(totalVar)}<span style="font-size:11px;font-weight:600">đ</span></div>
+      </div>
+      <div class="sum-card cpi">
+        <div class="sum-label">CPI (hiệu quả chi phí)</div>
+        <div class="sum-value" style="color:${(cpi || 0) >= 1 ? '#16a34a' : (cpi || 0) >= 0.9 ? '#ea580c' : '#dc2626'}">${cpi != null ? cpi.toFixed(2) : '—'}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-section">
+    <table>
+      <thead><tr>
+        <th style="width:28px">#</th>
+        <th style="text-align:left;padding-left:10px">HẠNG MỤC / SẢN PHẨM</th>
+        <th style="width:50px">ĐVT</th>
+        <th style="width:50px">SL</th>
+        <th style="width:90px">ĐG DT</th>
+        <th style="width:100px">TỔNG DT</th>
+        <th style="width:90px">ĐG TT</th>
+        <th style="width:100px">TỔNG TT</th>
+        <th style="width:100px">CHÊNH LỆCH</th>
+      </tr></thead>
+      <tbody>${rowsHTML}
+        <tr class="total-row">
+          <td colspan="5" class="right" style="letter-spacing:.5px">TỔNG CỘNG</td>
+          <td class="right">${fmt(summary?.totalBudget || 0)}</td>
+          <td></td>
+          <td class="right">${(summary?.totalActual || 0) > 0 ? fmt(summary.totalActual) : '—'}</td>
+          <td class="right" style="color:${totalVar >= 0 ? '#86efac' : '#fca5a5'}">${(summary?.totalActual || 0) > 0 ? (totalVar >= 0 ? '+' : '') + fmt(totalVar) : '—'}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer-section">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <strong>SCT</strong><br>
+        Hệ thống ERP Nội thất &nbsp;·&nbsp; Tài liệu nội bộ<br>
+        <span style="font-size:9px">In ngày ${fmtDate()}</span>
+      </div>
+      <div style="font-size:9px;color:#cbd5e1;text-align:right">
+        Chênh lệch dương (+) = tiết kiệm so với dự toán<br>
+        CPI &gt; 1.0 = hiệu quả tốt &nbsp;|&nbsp; CPI &lt; 1.0 = vượt dự toán
+      </div>
+    </div>
+    <div class="sign-area" style="justify-content:flex-end">
+      <div class="sign-box">
+        <div class="sign-title">Lập bảng</div>
+        <div class="sign-note">Kỹ thuật / Kinh doanh</div>
+        <div class="sign-line"></div>
+        <div style="font-size:10px;color:#64748b">Ký tên &amp; ghi rõ họ tên</div>
+      </div>
+      <div class="sign-box">
+        <div class="sign-title">Giám đốc duyệt</div>
+        <div class="sign-note">Ban lãnh đạo SCT</div>
+        <div class="sign-line"></div>
+        <div style="font-size:10px;color:#64748b">Ký tên &amp; đóng dấu</div>
+      </div>
+    </div>
+  </div>
+
 </div>
 </body></html>`;
 }
