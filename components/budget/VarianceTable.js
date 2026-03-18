@@ -202,6 +202,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     const [newSubName, setNewSubName] = useState('');
     const [addingG1, setAddingG1] = useState(false);
     const [newG1Name, setNewG1Name] = useState('');
+    const [renamingSection, setRenamingSection] = useState(null); // { key, g1, g2, value }
 
     const exportPDF = () => {
         const html = buildPrintHTML(project, items, summary);
@@ -318,6 +319,28 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
             }),
         });
         setAddingG1(false); setNewG1Name(''); reload();
+    };
+
+    const submitRenameSection = async () => {
+        if (!renamingSection) return;
+        const { g1, g2, value } = renamingSection;
+        const newName = value.trim();
+        if (!newName) { setRenamingSection(null); return; }
+
+        // Find all items in this section and update their group field
+        const toUpdate = items.filter(i =>
+            i.group1 === g1 && (g2 ? i.group2 === g2 : !i.group2)
+        );
+        const field = g2 ? 'group2' : 'group1';
+        for (const item of toUpdate) {
+            await fetch(`/api/material-plans/${item.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [field]: newName }),
+            });
+        }
+        setRenamingSection(null);
+        reload();
     };
 
     const submitAddSub = async (g1) => {
@@ -461,13 +484,36 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
         const variance = budget - actual;
         const isAdding = addingTo?.g1 === g1 && addingTo?.g2 === g2;
 
+        const isRenaming = renamingSection?.key === key;
+
         return (
             <div key={key} style={{ marginBottom: 16, border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
-                <div style={{ background: '#fde68a', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-                    onClick={() => setCollapsed(p => ({ ...p, [key]: !p[key] }))}>
-                    <span style={{ fontSize: 13, color: '#78350f' }}>{isCollapsed ? '▶' : '▼'}</span>
+                <div style={{ background: '#fde68a', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 13, color: '#78350f', cursor: 'pointer' }}
+                        onClick={() => setCollapsed(p => ({ ...p, [key]: !p[key] }))}>
+                        {isCollapsed ? '▶' : '▼'}
+                    </span>
                     <span style={{ fontWeight: 700, fontSize: 13, color: '#78350f', minWidth: 24 }}>{sttLetter}.</span>
-                    <span style={{ fontWeight: 600, fontSize: 13, color: '#92400e', flex: 1 }}>{label}</span>
+                    {isRenaming ? (
+                        <input
+                            autoFocus
+                            style={{ flex: 1, padding: '3px 8px', fontSize: 13, fontWeight: 700, border: '2px solid #92400e', borderRadius: 6, outline: 'none', background: '#fffbeb', color: '#92400e' }}
+                            value={renamingSection.value}
+                            onChange={e => setRenamingSection(r => ({ ...r, value: e.target.value }))}
+                            onKeyDown={e => { if (e.key === 'Enter') submitRenameSection(); if (e.key === 'Escape') setRenamingSection(null); }}
+                            onBlur={submitRenameSection}
+                            onClick={e => e.stopPropagation()}
+                        />
+                    ) : (
+                        <span
+                            style={{ fontWeight: 600, fontSize: 13, color: '#92400e', flex: 1, cursor: 'pointer' }}
+                            onClick={() => setCollapsed(p => ({ ...p, [key]: !p[key] }))}
+                            onDoubleClick={e => { e.stopPropagation(); setRenamingSection({ key, g1, g2, value: label }); }}
+                            title="Double-click để đổi tên">
+                            {label}
+                            <span style={{ marginLeft: 6, fontSize: 10, color: '#b45309', opacity: 0.6 }}>✏️</span>
+                        </span>
+                    )}
                     <span style={{ fontSize: 12, color: '#92400e' }}>DT: <strong>{fmt(budget)}</strong></span>
                     {actual > 0 && (
                         <span style={{ fontSize: 12, marginLeft: 8, color: variance >= 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>
