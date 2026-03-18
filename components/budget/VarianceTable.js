@@ -275,13 +275,15 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
         if (!e) return;
         const body = buildBody(id, e);
         if (!body) return;
+        // Clear edits immediately to prevent retry loops on blur
+        setEdits(prev => { const n = { ...prev }; delete n[id]; setDirty(Object.keys(n).length > 0); return n; });
         try {
-            await fetch(`/api/material-plans/${id}`, {
+            const res = await fetch(`/api/material-plans/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             });
-            setEdits(prev => { const n = { ...prev }; delete n[id]; setDirty(Object.keys(n).length > 0); return n; });
+            if (!res.ok) { console.error('saveItem failed', await res.text()); return; }
             // Update local items to reflect saved values without full reload
             setItems(prev => prev.map(i => {
                 if (i.id !== id) return i;
@@ -299,7 +301,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                     ...(e.unit !== undefined ? { unit: e.unit } : {}),
                 };
             }));
-        } catch { /* silent — user can still click Lưu manually */ }
+        } catch (err) { console.error('saveItem error', err); }
     };
 
     const saveAll = async () => {

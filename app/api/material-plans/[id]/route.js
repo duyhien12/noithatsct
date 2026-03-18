@@ -6,6 +6,9 @@ export const PUT = withAuth(async (request, { params }) => {
     const { id } = await params;
     const body = await request.json();
 
+    // Ensure unit column exists (idempotent migration)
+    await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN IF NOT EXISTS "unit" TEXT NOT NULL DEFAULT ''`.catch(() => {});
+
     const sets = [];
     const vals = [];
     let idx = 1;
