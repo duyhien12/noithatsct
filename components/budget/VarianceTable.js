@@ -235,10 +235,11 @@ function buildPrintHTML(project, items, summary) {
   .sign-line  { border-bottom: 1px solid rgba(255,255,255,.25); margin: 44px auto 6px; }
   .sign-name  { font-size: 9.5px; color: rgba(255,255,255,.6); }
 
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
   @media print {
-    body { background: #fff; }
+    body { background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .page { margin: 0; box-shadow: none; max-width: 100%; }
-    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   }
 </style></head><body>
 <div class="page">

@@ -30,7 +30,7 @@ function calcItem(item) {
     return { ...item, amount };
 }
 
-function ProductSearch({ value, onSelect, onFreeText, products }) {
+function ProductSearch({ value, onSelect, onFreeText, onBlur: onBlurProp, products }) {
     const [search, setSearch] = useState('');
     const [results, setResults] = useState([]);
     const [open, setOpen] = useState(false);
@@ -59,6 +59,7 @@ function ProductSearch({ value, onSelect, onFreeText, products }) {
                 onBlur={() => setTimeout(() => {
                     if (search.trim() && !results.length) onFreeText(search.trim());
                     setOpen(false);
+                    onBlurProp?.();
                 }, 200)}
                 onChange={e => { setSearch(e.target.value); onFreeText(e.target.value); setOpen(true); }}
             />
@@ -395,8 +396,14 @@ export default function BudgetEstimateForm({ projectId }) {
     const [saving, setSaving] = useState(false);
     const [dirty, setDirty] = useState(false);
     const [products, setProducts] = useState([]);
+    const dirtyRef = useRef(false);
+    const savingRef = useRef(false);
+    const catsRef = useRef(null);
     const [editingCatName, setEditingCatName] = useState(null);
     const [editingSubName, setEditingSubName] = useState(null);
+
+    // Keep catsRef in sync so autoSave can read latest without stale closure
+    useEffect(() => { catsRef.current = cats; }, [cats]);
 
     useEffect(() => {
         fetch(`/api/projects/${projectId}/budget-estimate`)
@@ -413,10 +420,11 @@ export default function BudgetEstimateForm({ projectId }) {
         fetch('/api/products?limit=1000').then(r => r.json()).then(d => setProducts(d.data || d || [])).catch(() => {});
     }, [projectId]);
 
-    const mark = useCallback(() => setDirty(true), []);
+    const mark = useCallback(() => { setDirty(true); dirtyRef.current = true; }, []);
 
     const save = async () => {
         setSaving(true);
+        savingRef.current = true;
         try {
             await fetch(`/api/projects/${projectId}/budget-estimate`, {
                 method: 'PUT',
@@ -424,9 +432,30 @@ export default function BudgetEstimateForm({ projectId }) {
                 body: JSON.stringify({ data: cats }),
             });
             setDirty(false);
+            dirtyRef.current = false;
         } catch { alert('Lỗi lưu dữ liệu'); }
         setSaving(false);
+        savingRef.current = false;
     };
+
+    const autoSave = useCallback(() => {
+        if (!dirtyRef.current || savingRef.current) return;
+        const data = catsRef.current;
+        if (!data) return;
+        setSaving(true);
+        savingRef.current = true;
+        fetch(`/api/projects/${projectId}/budget-estimate`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data }),
+        }).then(() => {
+            setDirty(false);
+            dirtyRef.current = false;
+        }).catch(() => {}).finally(() => {
+            setSaving(false);
+            savingRef.current = false;
+        });
+    }, [projectId]);
 
     const addCat = () => {
         const newCat = emptyMainCat('Hạng mục mới');
@@ -531,206 +560,207 @@ export default function BudgetEstimateForm({ projectId }) {
     const activeCat = cats[activeIdx] || cats[0];
     if (!activeCat) return null;
 
-    const cell = { border: '1px solid #e5e7eb', padding: '4px 6px' };
-    const th = { ...cell, background: SCT.navy, color: 'white', fontSize: 11, fontWeight: 700, textAlign: 'center', whiteSpace: 'nowrap' };
+    // VarianceTable-matching styles
+    const thS = { background: '#1e3a5f', color: 'white', fontWeight: 700, textAlign: 'center', fontSize: 11, padding: '8px 6px', border: '1px solid #1e3a5f', whiteSpace: 'nowrap' };
+    const cellS = { border: '1px solid #d1d5db', padding: '5px 7px', fontSize: 12 };
+    const inpS = { width: '100%', padding: '3px 5px', fontSize: 11, border: '1px solid #93c5fd', borderRadius: 3, outline: 'none', background: '#eff6ff', boxSizing: 'border-box' };
+
+    const renderRow = (item, ii, si) => {
+        const rowBg = ii % 2 === 0 ? '#f9fafb' : '#fff';
+        return (
+            <tr key={item._k} style={{ background: rowBg }}>
+                <td style={{ ...cellS, textAlign: 'center', color: '#9ca3af', fontSize: 11, width: 32 }}>{ii + 1}</td>
+                <td style={{ ...cellS, padding: '3px 4px' }}>
+                    <ProductSearch
+                        value={item.name}
+                        products={products}
+                        onSelect={(p) => { selectProduct(activeIdx, si, ii, p); setTimeout(autoSave, 300); }}
+                        onFreeText={(txt) => updateItem(activeIdx, si, ii, 'name', txt)}
+                        onBlur={autoSave}
+                    />
+                </td>
+                <td style={{ ...cellS, padding: '3px 4px', width: 52 }}>
+                    <input style={{ ...inpS, textAlign: 'center' }}
+                        value={item.unit || ''}
+                        placeholder="m², cái..."
+                        onChange={e => updateItem(activeIdx, si, ii, 'unit', e.target.value)}
+                        onBlur={autoSave}
+                    />
+                </td>
+                <td style={{ ...cellS, padding: '3px 4px', width: 72 }}>
+                    <input style={{ ...inpS, textAlign: 'right' }} type="number"
+                        value={item.qty || ''}
+                        placeholder="1"
+                        onChange={e => updateItem(activeIdx, si, ii, 'qty', parseFloat(e.target.value) || 0)}
+                        onFocus={e => e.target.select()}
+                        onBlur={autoSave}
+                    />
+                </td>
+                <td style={{ ...cellS, padding: '3px 4px', width: 120 }}>
+                    <input style={{ ...inpS, textAlign: 'right' }} type="number"
+                        value={item.unitPrice || ''}
+                        placeholder="0"
+                        onChange={e => updateItem(activeIdx, si, ii, 'unitPrice', parseFloat(e.target.value) || 0)}
+                        onFocus={e => e.target.select()}
+                        onBlur={autoSave}
+                    />
+                </td>
+                <td style={{ ...cellS, textAlign: 'right', fontWeight: 600, color: '#2563eb', width: 115 }}>
+                    {fmt(item.amount || 0)}
+                </td>
+                <td style={{ ...cellS, textAlign: 'center', padding: '3px 4px', width: 36 }}>
+                    <button onClick={() => removeItem(activeIdx, si, ii)} title="Xóa"
+                        style={{ padding: '2px 7px', fontSize: 11, background: 'none', border: '1px solid #fca5a5', borderRadius: 4, cursor: 'pointer', color: '#dc2626' }}>🗑</button>
+                </td>
+            </tr>
+        );
+    };
 
     return (
         <div>
-            {/* Top bar */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-                {/* Grand total summary */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ background: `linear-gradient(135deg, ${SCT.orange}, #c2410c)`, color: 'white', padding: '8px 18px', borderRadius: 10, boxShadow: '0 2px 8px rgba(234,88,12,0.3)' }}>
-                        <div style={{ fontSize: 10, opacity: 0.85, marginBottom: 1, letterSpacing: '0.5px', fontWeight: 600 }}>TỔNG DỰ TRÙ</div>
-                        <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '0.5px' }}>{fmt(grandTotal)} đ</div>
+            {/* Top bar — Summary + Actions */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+                <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <span style={{ fontSize: 11, color: '#9ca3af' }}>Tổng dự trù</span>
+                        <span style={{ fontWeight: 700, fontSize: 14, color: '#2563eb' }}>{fmt(grandTotal)} đ</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <span style={{ fontSize: 11, color: '#9ca3af' }}>Hạng mục hiện tại</span>
+                        <span style={{ fontWeight: 700, fontSize: 14, color: '#1e3a5f' }}>{fmt(catTotal(activeCat))} đ</span>
                     </div>
                 </div>
-
-                {/* Action buttons */}
-                <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                        onClick={() => exportBudgetPDF({ cats, projectId })}
-                        style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: `1.5px solid ${SCT.orange}`, background: '#fff', color: SCT.orange, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.15s' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = SCT.orangeLight; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
-                    >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-                        Xuất PDF
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button onClick={save} disabled={saving}
+                        style={{ padding: '7px 18px', fontSize: 13, fontWeight: 700, borderRadius: 8, border: 'none', cursor: 'pointer',
+                            background: dirty ? '#1e3a5f' : '#4b7ab5', color: 'white',
+                            boxShadow: '0 2px 8px rgba(30,58,95,0.25)', display: 'flex', alignItems: 'center', gap: 6,
+                            opacity: saving ? 0.7 : 1 }}>
+                        💾 {saving ? 'Đang lưu...' : dirty ? 'Lưu *' : 'Lưu'}
                     </button>
-                    <button
-                        onClick={save}
-                        disabled={saving || !dirty}
-                        style={{
-                            padding: '8px 20px', fontSize: 13, fontWeight: 700, borderRadius: 8, border: 'none',
-                            background: dirty ? SCT.navy : '#e5e7eb',
-                            color: dirty ? 'white' : '#9ca3af',
-                            cursor: dirty ? 'pointer' : 'default',
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            boxShadow: dirty ? '0 2px 8px rgba(30,58,95,0.25)' : 'none',
-                        }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                        {saving ? 'Đang lưu...' : 'Lưu dự trù'}
+                    <button onClick={() => exportBudgetPDF({ cats, projectId })}
+                        style={{ padding: '7px 16px', fontSize: 12, fontWeight: 700, borderRadius: 8, border: 'none', cursor: 'pointer',
+                            background: '#f97316', color: 'white', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        📄 Xuất PDF
                     </button>
                 </div>
             </div>
 
-            {/* Main category tabs */}
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 16, borderBottom: `2px solid ${SCT.orangeBorder}`, paddingBottom: 8 }}>
+            {/* Tabs — VarianceTable style (blue) */}
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 16, borderBottom: '2px solid #e5e7eb', paddingBottom: 8, alignItems: 'center' }}>
                 {cats.map((c, ci) => {
                     const isActive = ci === activeIdx;
                     const total = catTotal(c);
                     return (
-                        <div key={c._k} style={{ display: 'flex', alignItems: 'stretch' }}>
+                        <div key={c._k} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                             {editingCatName === ci ? (
-                                <input autoFocus className="form-input form-input-compact"
-                                    defaultValue={c.name}
-                                    style={{ fontSize: 13, width: 140, borderRadius: 8 }}
-                                    onBlur={e => { renameCat(ci, e.target.value || c.name); setEditingCatName(null); }}
-                                    onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
-                                />
+                                <>
+                                    <input autoFocus
+                                        style={{ padding: '5px 10px', fontSize: 13, border: '2px solid #2563eb', borderRadius: 8, outline: 'none', width: 180, fontWeight: 700 }}
+                                        defaultValue={c.name}
+                                        onBlur={e => { renameCat(ci, e.target.value || c.name); setEditingCatName(null); }}
+                                        onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditingCatName(null); }}
+                                    />
+                                    <button onClick={() => setEditingCatName(null)}
+                                        style={{ padding: '4px 7px', fontSize: 12, background: 'none', border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer', color: '#6b7280' }}>✕</button>
+                                </>
                             ) : (
-                                <button
-                                    onClick={() => setActiveIdx(ci)}
-                                    onDoubleClick={() => setEditingCatName(ci)}
-                                    style={{
-                                        padding: '7px 14px', fontSize: 13,
-                                        fontWeight: isActive ? 700 : 500,
-                                        border: isActive ? `2px solid ${SCT.orange}` : '1px solid #e5e7eb',
-                                        borderRight: 'none',
-                                        borderRadius: '8px 0 0 8px',
-                                        background: isActive ? SCT.orangeLight : '#fff',
-                                        cursor: 'pointer',
-                                        color: isActive ? SCT.orange : '#374151',
-                                        whiteSpace: 'nowrap',
-                                    }}>
-                                    {c.name}
-                                    {total > 0 && (
-                                        <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 600, color: isActive ? SCT.orange : '#9ca3af' }}>
-                                            {fmt(total)}
-                                        </span>
-                                    )}
-                                </button>
+                                <>
+                                    <button onClick={() => setActiveIdx(ci)}
+                                        style={{ padding: '7px 16px', fontSize: 13, fontWeight: isActive ? 700 : 500, borderRadius: 8,
+                                            border: isActive ? '2px solid #2563eb' : '1px solid #e5e7eb',
+                                            background: isActive ? '#eff6ff' : 'white', cursor: 'pointer',
+                                            color: isActive ? '#2563eb' : '#374151', whiteSpace: 'nowrap' }}>
+                                        {c.name}
+                                        {total > 0 && <span style={{ marginLeft: 6, fontSize: 11, color: isActive ? '#3b82f6' : '#9ca3af' }}>{fmt(total)}</span>}
+                                    </button>
+                                    <button onClick={() => { setActiveIdx(ci); setEditingCatName(ci); }} title="Đổi tên"
+                                        style={{ padding: '3px 6px', fontSize: 11, background: 'none', border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>✏️</button>
+                                    <button onClick={() => removeCat(ci)} title="Xóa hạng mục"
+                                        style={{ padding: '3px 6px', fontSize: 11, background: 'none', border: '1px solid #fca5a5', borderRadius: 6, cursor: 'pointer', color: '#dc2626', lineHeight: 1 }}>✕</button>
+                                </>
                             )}
-                            <button onClick={() => removeCat(ci)} title="Xóa hạng mục"
-                                style={{ padding: '7px 7px', fontSize: 11, border: isActive ? `2px solid ${SCT.orange}` : '1px solid #e5e7eb', borderLeft: 'none', borderRadius: '0 8px 8px 0', background: isActive ? SCT.orangeLight : '#fff', cursor: 'pointer', color: '#ef4444' }}>×</button>
                         </div>
                     );
                 })}
                 <button onClick={addCat}
-                    style={{ padding: '7px 14px', fontSize: 13, border: `1px dashed ${SCT.orange}`, borderRadius: 8, background: 'transparent', cursor: 'pointer', color: SCT.orange, fontWeight: 500 }}>
+                    style={{ padding: '7px 14px', fontSize: 13, border: '1px dashed #93c5fd', borderRadius: 8, background: 'transparent', cursor: 'pointer', color: '#2563eb', fontWeight: 500 }}>
                     + Thêm
                 </button>
             </div>
 
-            {/* Subcategories */}
-            {activeCat.subcats.map((sub, si) => (
-                <div key={sub._k} style={{ marginBottom: 16, border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-                    {/* Subcat header */}
-                    <div style={{ background: `linear-gradient(to right, ${SCT.orangeLight}, #fff)`, padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: `2px solid ${SCT.orangeBorder}` }}>
-                        <button onClick={() => toggleSubcat(activeIdx, si)}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: SCT.orange, padding: 0, lineHeight: 1, width: 18, flexShrink: 0 }}>
-                            {sub.collapsed ? '▶' : '▼'}
-                        </button>
-                        <div style={{ width: 26, height: 26, borderRadius: 6, background: SCT.orange, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>
-                            {String.fromCharCode(65 + si)}
+            {/* Subcategories — VarianceTable section style (amber header) */}
+            {activeCat.subcats.map((sub, si) => {
+                const subTot = subcatTotal(sub);
+                return (
+                    <div key={sub._k} style={{ marginBottom: 16, border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
+                        {/* Section header — amber like VarianceTable */}
+                        <div style={{ background: '#fde68a', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 13, color: '#78350f', cursor: 'pointer' }}
+                                onClick={() => toggleSubcat(activeIdx, si)}>
+                                {sub.collapsed ? '▶' : '▼'}
+                            </span>
+                            <span style={{ fontWeight: 700, fontSize: 13, color: '#78350f', minWidth: 24 }}>{String.fromCharCode(65 + si)}.</span>
+                            {editingSubName?.ci === activeIdx && editingSubName?.si === si ? (
+                                <input autoFocus
+                                    style={{ flex: 1, padding: '3px 8px', fontSize: 13, fontWeight: 700, border: '2px solid #92400e', borderRadius: 6, outline: 'none', background: '#fffbeb', color: '#92400e' }}
+                                    defaultValue={sub.name}
+                                    onBlur={e => { renameSubcat(activeIdx, si, e.target.value || sub.name); setEditingSubName(null); }}
+                                    onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditingSubName(null); }}
+                                />
+                            ) : (
+                                <span style={{ fontWeight: 600, fontSize: 13, color: '#92400e', flex: 1, cursor: 'pointer' }}
+                                    onClick={() => toggleSubcat(activeIdx, si)}>
+                                    {sub.name}
+                                    <span style={{ marginLeft: 6, fontSize: 10, color: '#b45309', opacity: 0.6 }}>✏️</span>
+                                </span>
+                            )}
+                            {editingSubName?.ci !== activeIdx || editingSubName?.si !== si ? (
+                                <button onClick={() => setEditingSubName({ ci: activeIdx, si })} title="Đổi tên"
+                                    style={{ background: 'none', border: '1px solid #d97706', borderRadius: 5, cursor: 'pointer', color: '#92400e', fontSize: 11, padding: '2px 7px', lineHeight: 1, flexShrink: 0 }}>✏️</button>
+                            ) : null}
+                            <span style={{ fontSize: 12, color: '#92400e' }}>DT: <strong>{fmt(subTot)}</strong></span>
+                            <button onClick={() => removeSubcat(activeIdx, si)} title="Xóa mục"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#dc2626', padding: '0 2px', lineHeight: 1 }}>✕</button>
                         </div>
-                        {editingSubName?.ci === activeIdx && editingSubName?.si === si ? (
-                            <input autoFocus className="form-input form-input-compact"
-                                defaultValue={sub.name}
-                                style={{ fontSize: 13, flex: 1 }}
-                                onBlur={e => { renameSubcat(activeIdx, si, e.target.value || sub.name); setEditingSubName(null); }}
-                                onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
-                            />
-                        ) : (
-                            <span onDoubleClick={() => setEditingSubName({ ci: activeIdx, si })}
-                                style={{ fontSize: 13, fontWeight: 700, color: '#7c2d12', flex: 1, cursor: 'text' }}
-                                title="Double-click để đổi tên">{sub.name}</span>
-                        )}
-                        <span style={{ fontSize: 12, fontWeight: 700, color: SCT.orange }}>{fmt(subcatTotal(sub))} đ</span>
-                        <button onClick={() => removeSubcat(activeIdx, si)} title="Xóa mục"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#dc2626', padding: '0 2px', lineHeight: 1 }}>✕</button>
-                    </div>
 
-                    {/* Items table */}
-                    {!sub.collapsed && (
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                                <thead>
-                                    <tr>
-                                        <th style={{ ...th, width: 36 }}>#</th>
-                                        <th style={{ ...th, minWidth: 220, textAlign: 'left', paddingLeft: 10 }}>HẠNG MỤC / SẢN PHẨM</th>
-                                        <th style={{ ...th, width: 60 }}>SL</th>
-                                        <th style={{ ...th, width: 80 }}>ĐVT</th>
-                                        <th style={{ ...th, width: 130 }}>ĐƠN GIÁ (đ)</th>
-                                        <th style={{ ...th, width: 140 }}>THÀNH TIỀN (đ)</th>
-                                        <th style={{ ...th, width: 36 }}></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {sub.items.map((item, ii) => (
-                                        <tr key={item._k} style={{ background: ii % 2 === 0 ? '#fff' : '#fafafa' }}>
-                                            <td style={{ ...cell, textAlign: 'center', color: '#9ca3af', fontSize: 11 }}>{ii + 1}</td>
-                                            <td style={{ ...cell, padding: '3px 4px' }}>
-                                                <ProductSearch
-                                                    value={item.name}
-                                                    products={products}
-                                                    onSelect={(p) => selectProduct(activeIdx, si, ii, p)}
-                                                    onFreeText={(txt) => updateItem(activeIdx, si, ii, 'name', txt)}
-                                                />
-                                            </td>
-                                            <td style={{ ...cell, padding: '3px 4px' }}>
-                                                <input type="number" className="form-input form-input-compact"
-                                                    style={{ width: '100%', textAlign: 'right', fontSize: 12 }}
-                                                    value={item.qty || ''}
-                                                    placeholder="1"
-                                                    onChange={e => updateItem(activeIdx, si, ii, 'qty', parseFloat(e.target.value) || 0)}
-                                                />
-                                            </td>
-                                            <td style={{ ...cell, padding: '3px 4px' }}>
-                                                <input type="text" className="form-input form-input-compact"
-                                                    style={{ width: '100%', fontSize: 12 }}
-                                                    value={item.unit || ''}
-                                                    placeholder="m², cái..."
-                                                    onChange={e => updateItem(activeIdx, si, ii, 'unit', e.target.value)}
-                                                />
-                                            </td>
-                                            <td style={{ ...cell, padding: '3px 4px' }}>
-                                                <input type="number" className="form-input form-input-compact"
-                                                    style={{ width: '100%', textAlign: 'right', fontSize: 12 }}
-                                                    value={item.unitPrice || ''}
-                                                    placeholder="0"
-                                                    onChange={e => updateItem(activeIdx, si, ii, 'unitPrice', parseFloat(e.target.value) || 0)}
-                                                />
-                                            </td>
-                                            <td style={{ ...cell, textAlign: 'right', fontWeight: 700, color: item.amount > 0 ? SCT.orange : '#d1d5db', fontSize: 12 }}>
-                                                {item.amount > 0 ? fmt(item.amount) : '—'}
-                                            </td>
-                                            <td style={{ ...cell, textAlign: 'center', padding: '3px 4px' }}>
-                                                <button onClick={() => removeItem(activeIdx, si, ii)}
-                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 13, padding: '2px 4px', lineHeight: 1 }}>✕</button>
-                                            </td>
+                        {!sub.collapsed && (
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                    <thead>
+                                        <tr>
+                                            <th style={{ ...thS, width: 32 }}>#</th>
+                                            <th style={{ ...thS, textAlign: 'left' }}>HẠNG MỤC / SẢN PHẨM</th>
+                                            <th style={{ ...thS, width: 52 }}>ĐVT</th>
+                                            <th style={{ ...thS, width: 72 }}>SL</th>
+                                            <th style={{ ...thS, width: 120 }}>ĐƠN GIÁ DT</th>
+                                            <th style={{ ...thS, width: 115 }}>THÀNH TIỀN</th>
+                                            <th style={{ ...thS, width: 36 }}></th>
                                         </tr>
-                                    ))}
-                                    {/* Subtotal row */}
-                                    <tr style={{ background: '#fff7ed' }}>
-                                        <td colSpan={5} style={{ ...cell, textAlign: 'right', fontWeight: 700, fontSize: 12, color: '#7c2d12', borderColor: SCT.orangeBorder }}>
-                                            Cộng {sub.name}:
-                                        </td>
-                                        <td style={{ ...cell, textAlign: 'right', fontWeight: 800, color: SCT.orange, borderColor: SCT.orangeBorder }}>{fmt(subcatTotal(sub))}</td>
-                                        <td style={{ ...cell, borderColor: SCT.orangeBorder }} />
-                                    </tr>
-                                </tbody>
-                            </table>
-                            <div style={{ padding: '8px 12px', background: '#fafafa' }}>
-                                <button onClick={() => addItem(activeIdx, si)}
-                                    style={{ fontSize: 12, color: SCT.navy, background: 'none', border: `1px dashed ${SCT.navyMid}`, borderRadius: 6, padding: '4px 14px', cursor: 'pointer', fontWeight: 500 }}>
-                                    + Thêm dòng
-                                </button>
+                                    </thead>
+                                    <tbody>
+                                        {sub.items.map((item, ii) => renderRow(item, ii, si))}
+                                        {/* Subtotal row */}
+                                        <tr style={{ background: '#fce4d6' }}>
+                                            <td colSpan={5} style={{ ...cellS, textAlign: 'right', fontWeight: 700, fontSize: 12, color: '#92400e' }}>
+                                                Cộng {sub.name}:
+                                            </td>
+                                            <td style={{ ...cellS, textAlign: 'right', fontWeight: 700, color: '#1d4ed8' }}>{fmt(subTot)}</td>
+                                            <td style={cellS} />
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <div style={{ padding: '8px 12px' }}>
+                                    <button onClick={() => addItem(activeIdx, si)}
+                                        style={{ fontSize: 12, color: '#2563eb', background: 'none', border: '1px dashed #93c5fd', borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>
+                                        + Thêm dòng
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    )}
-                </div>
-            ))}
+                        )}
+                    </div>
+                );
+            })}
 
             {/* Footer: Add subcat + Grand total */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
@@ -738,7 +768,7 @@ export default function BudgetEstimateForm({ projectId }) {
                     style={{ fontSize: 13, color: '#16a34a', background: 'none', border: '1px dashed #86efac', borderRadius: 8, padding: '7px 18px', cursor: 'pointer', fontWeight: 500 }}>
                     + Thêm mục con
                 </button>
-                <div style={{ background: `linear-gradient(135deg, ${SCT.navy}, ${SCT.navyMid})`, color: 'white', padding: '12px 24px', borderRadius: 10, textAlign: 'right', boxShadow: '0 4px 12px rgba(30,58,95,0.25)' }}>
+                <div style={{ background: 'linear-gradient(135deg, #1e3a5f, #2d5480)', color: 'white', padding: '12px 24px', borderRadius: 10, textAlign: 'right', boxShadow: '0 4px 12px rgba(30,58,95,0.25)' }}>
                     <div style={{ fontSize: 10, opacity: 0.75, marginBottom: 3, letterSpacing: '1px', fontWeight: 600 }}>TỔNG DỰ TRÙ KINH PHÍ</div>
                     <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '0.5px' }}>{fmt(grandTotal)} <span style={{ fontSize: 13, fontWeight: 400, opacity: 0.8 }}>đ</span></div>
                 </div>
