@@ -392,6 +392,8 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     };
 
     const reload = useCallback(() => {
+        // Preserve scroll position so the page doesn't jump to top after reload
+        const scrollY = window.scrollY;
         setLoading(true);
         fetch(`/api/budget/variance?projectId=${projectId}&planType=tracking`)
             .then(r => {
@@ -409,7 +411,11 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                 console.error('[VarianceTable] Lỗi tải dữ liệu:', err);
                 setItems([]);
             })
-            .finally(() => setLoading(false));
+            .finally(() => {
+                setLoading(false);
+                // Restore scroll after React re-render
+                requestAnimationFrame(() => window.scrollTo({ top: scrollY, behavior: 'instant' }));
+            });
     }, [projectId]);
 
     useEffect(() => { reload(); }, [reload]);
