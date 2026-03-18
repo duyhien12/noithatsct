@@ -193,7 +193,7 @@ export default function ExpensesPage() {
     };
 
     const statusBadge = (s) => {
-        const map = { 'Chờ duyệt': 'warning', 'Đã duyệt': 'info', 'Đã chi': 'accent', 'Hoàn thành': 'success', 'Từ chối': 'danger' };
+        const map = { 'Chờ duyệt': 'warning', 'Đã duyệt': 'info', 'Đã chi': 'accent', 'Hoàn thành': 'success', 'Từ chối': 'danger', 'Chờ thanh toán': 'warning', 'Đã thanh toán': 'success' };
         return map[s] || 'muted';
     };
 
@@ -228,7 +228,7 @@ export default function ExpensesPage() {
                     <input className="form-input" placeholder="🔍 Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
                     <select className="form-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                         <option value="">Tất cả TT</option>
-                        <option>Chờ duyệt</option><option>Đã duyệt</option><option>Đã chi</option><option>Hoàn thành</option><option>Từ chối</option>
+                        <option>Chờ duyệt</option><option>Đã duyệt</option><option>Đã chi</option><option>Hoàn thành</option><option>Từ chối</option><option>Chờ thanh toán</option><option>Đã thanh toán</option>
                     </select>
                     <select className="form-select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
                         <option value="">Tất cả HM</option>
@@ -258,7 +258,22 @@ export default function ExpensesPage() {
                                     <td style={{ fontSize: 12 }}>{e.submittedBy || '—'}</td>
                                     <td style={{ fontSize: 12 }}>{fmtDate(e.date)}</td>
                                     <td>
-                                        <span className={`badge ${statusBadge(e.status)}`}>{e.status}</span>
+                                        <select
+                                            value={e.status}
+                                            onChange={ev => updateStatus(e.id, ev.target.value)}
+                                            style={{
+                                                fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--border)',
+                                                background: 'var(--bg-secondary)', cursor: 'pointer', maxWidth: 140,
+                                            }}
+                                        >
+                                            <option>Chờ duyệt</option>
+                                            <option>Đã duyệt</option>
+                                            <option>Đã chi</option>
+                                            <option>Hoàn thành</option>
+                                            <option>Từ chối</option>
+                                            <option>Chờ thanh toán</option>
+                                            <option>Đã thanh toán</option>
+                                        </select>
                                         {e.proofUrl && <a href={e.proofUrl} target="_blank" rel="noreferrer" title="Xem chứng từ" style={{ marginLeft: 4 }}>📎</a>}
                                     </td>
                                     <td>
@@ -275,6 +290,14 @@ export default function ExpensesPage() {
                                             {/* Step 3→4: Hoàn thành */}
                                             {e.status === 'Đã chi' && (
                                                 <button className="btn btn-sm" style={{ background: 'var(--status-success)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Hoàn thành')}>✅ Hoàn thành</button>
+                                            )}
+                                            {/* Chờ thanh toán → Đã thanh toán */}
+                                            {e.status === 'Chờ thanh toán' && (
+                                                <button className="btn btn-sm" style={{ background: 'var(--status-success)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Đã thanh toán')}>✓ Đã thanh toán</button>
+                                            )}
+                                            {/* Đã thanh toán → Chờ thanh toán (undo) */}
+                                            {e.status === 'Đã thanh toán' && (
+                                                <button className="btn btn-sm" style={{ background: 'var(--status-warning)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Chờ thanh toán')}>↩ Chờ TT</button>
                                             )}
                                             {/* Mở lại từ chối */}
                                             {e.status === 'Từ chối' && (

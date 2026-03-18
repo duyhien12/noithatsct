@@ -24,6 +24,14 @@ function PurchasingContent() {
     const [poItems, setPoItems] = useState([{ productName: '', unit: 'cái', quantity: 1, unitPrice: 0, amount: 0, productId: null }]);
     const [saving, setSaving] = useState(false);
 
+    // Approve & phiếu chi
+    const [approvingId, setApprovingId] = useState(null);
+    const [showPhieuChiModal, setShowPhieuChiModal] = useState(false);
+    const [approvedPO, setApprovedPO] = useState(null);
+    const [phieuChiDesc, setPhieuChiDesc] = useState('');
+    const [phieuChiNotes, setPhieuChiNotes] = useState('');
+    const [creatingPhieuChi, setCreatingPhieuChi] = useState(false);
+
     const fetchOrders = () => {
         setLoading(true);
         fetch('/api/purchase-orders?limit=1000').then(r => r.json()).then(d => { setOrders(d.data || []); setLoading(false); });
@@ -70,6 +78,46 @@ function PurchasingContent() {
     };
 
     const poTotal = poItems.reduce((s, it) => s + (it.amount || 0), 0);
+
+    const approvePO = async (po) => {
+        if (!confirm(`Duyệt đơn hàng ${po.code} — ${po.supplier}?`)) return;
+        setApprovingId(po.id);
+        const res = await fetch(`/api/purchase-orders/${po.id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'Đã duyệt' }),
+        });
+        setApprovingId(null);
+        if (!res.ok) return alert('Lỗi duyệt PO');
+        fetchOrders();
+        setApprovedPO(po);
+        setPhieuChiDesc(`Phiếu chi mua hàng ${po.code} — ${po.supplier}`);
+        setPhieuChiNotes(`Từ PO ${po.code}`);
+        setShowPhieuChiModal(true);
+    };
+
+    const createPhieuChi = async () => {
+        if (!approvedPO) return;
+        setCreatingPhieuChi(true);
+        const res = await fetch('/api/project-expenses', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                description: phieuChiDesc || `Phiếu chi ${approvedPO.code}`,
+                amount: approvedPO.totalAmount,
+                projectId: approvedPO.projectId || null,
+                expenseType: 'Mua hàng',
+                category: 'Vật tư',
+                status: 'Chờ thanh toán',
+                recipientType: 'supplier',
+                recipientName: approvedPO.supplier,
+                notes: phieuChiNotes,
+            }),
+        });
+        setCreatingPhieuChi(false);
+        if (!res.ok) { const e = await res.json(); return alert(e.error || 'Lỗi tạo phiếu chi'); }
+        setShowPhieuChiModal(false);
+        setApprovedPO(null);
+        alert('✅ Đã tạo phiếu chi thành công!');
+    };
 
     const createPO = async () => {
         if (!poForm.supplier.trim()) return alert('Vui lòng nhập nhà cung cấp');
@@ -120,9 +168,11 @@ function PurchasingContent() {
                 </div>
                 {loading ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (
                     <div className="table-container"><table className="data-table">
-                        <thead><tr><th>Mã PO</th><th>NCC</th><th>Dự án</th><th>Tổng tiền</th><th>Đã TT</th><th>Số SP</th><th>Ngày đặt</th><th>Giao hàng</th><th>Trạng thái</th></tr></thead>
+                        <thead><tr><th>Mã PO</th><th>NCC</th><th>Dự án</th><th>Tổng tiền</th><th>Đã TT</th><th>Số SP</th><th>Ngày đặt</th><th>Giao hàng</th><th>Trạng thái</th><th></th></tr></thead>
                         <tbody>{filtered.map(o => {
                             const rate = pct(o.paidAmount, o.totalAmount);
+                            const canApprove = ['Nháp', 'Chờ duyệt', 'Chờ duyệt vượt định mức'].includes(o.status);
+                            const isDuyet = o.status === 'Đã duyệt';
                             return (
                                 <tr key={o.id} onClick={() => o.projectId && router.push(`/projects/${o.projectId}`)} style={{ cursor: o.projectId ? 'pointer' : 'default' }}>
                                     <td className="accent">{o.code}</td>
@@ -139,6 +189,32 @@ function PurchasingContent() {
                                     <td style={{ fontSize: 12 }}>{fmtDate(o.orderDate)}</td>
                                     <td style={{ fontSize: 12 }}>{fmtDate(o.deliveryDate)}</td>
                                     <td><span className={`badge ${STATUS_BADGE[o.status] || 'badge-default'}`}>{o.status}</span></td>
+                                    <td onClick={e => e.stopPropagation()} style={{ whiteSpace: 'nowrap' }}>
+                                        {canApprove && (
+                                            <button
+                                                className="btn btn-sm"
+                                                style={{ background: '#16a34a', color: '#fff', fontSize: 12, padding: '4px 10px' }}
+                                                onClick={() => approvePO(o)}
+                                                disabled={approvingId === o.id}
+                                            >
+                                                {approvingId === o.id ? '...' : '✓ Duyệt'}
+                                            </button>
+                                        )}
+                                        {isDuyet && (
+                                            <button
+                                                className="btn btn-sm btn-primary"
+                                                style={{ fontSize: 12, padding: '4px 10px' }}
+                                                onClick={() => {
+                                                    setApprovedPO(o);
+                                                    setPhieuChiDesc(`Phiếu chi mua hàng ${o.code} — ${o.supplier}`);
+                                                    setPhieuChiNotes(`Từ PO ${o.code}`);
+                                                    setShowPhieuChiModal(true);
+                                                }}
+                                            >
+                                                + Phiếu chi
+                                            </button>
+                                        )}
+                                    </td>
                                 </tr>
                             );
                         })}</tbody>
@@ -146,6 +222,48 @@ function PurchasingContent() {
                 )}
                 {!loading && filtered.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Không có dữ liệu</div>}
             </div>
+
+            {/* Phiếu chi modal */}
+            {showPhieuChiModal && approvedPO && (
+                <div className="modal-overlay" onClick={() => setShowPhieuChiModal(false)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 500, width: '95%' }}>
+                        <div className="modal-header">
+                            <h3>💸 Tạo phiếu chi</h3>
+                            <button className="modal-close" onClick={() => setShowPhieuChiModal(false)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: 13 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                    <span style={{ color: 'var(--text-muted)' }}>Mã PO</span>
+                                    <strong>{approvedPO.code}</strong>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                    <span style={{ color: 'var(--text-muted)' }}>Nhà cung cấp</span>
+                                    <strong>{approvedPO.supplier}</strong>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ color: 'var(--text-muted)' }}>Số tiền</span>
+                                    <strong style={{ color: 'var(--status-danger)', fontSize: 15 }}>{fmt(approvedPO.totalAmount)}</strong>
+                                </div>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Mô tả phiếu chi *</label>
+                                <input className="form-input" value={phieuChiDesc} onChange={e => setPhieuChiDesc(e.target.value)} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Ghi chú</label>
+                                <input className="form-input" value={phieuChiNotes} onChange={e => setPhieuChiNotes(e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setShowPhieuChiModal(false)}>Bỏ qua</button>
+                            <button className="btn btn-primary" onClick={createPhieuChi} disabled={creatingPhieuChi}>
+                                {creatingPhieuChi ? 'Đang tạo...' : '💸 Tạo phiếu chi'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Create PO Modal */}
             {showModal && (

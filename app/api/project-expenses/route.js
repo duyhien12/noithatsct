@@ -36,9 +36,11 @@ export const GET = withAuth(async (request) => {
 export const POST = withAuth(async (request) => {
     const body = await request.json();
     const data = expenseCreateSchema.parse(body);
+    // Strip null values (optional date fields transform undefined→null, which Prisma rejects for non-nullable fields)
+    const cleanData = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== null));
     const code = await generateCode('projectExpense', 'CP');
     const expense = await prisma.projectExpense.create({
-        data: { code, ...data },
+        data: { code, ...cleanData },
     });
     return NextResponse.json(expense, { status: 201 });
 });
