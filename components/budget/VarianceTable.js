@@ -257,20 +257,59 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
         setDirty(true);
     };
 
+    const buildBody = (id, e) => {
+        const item = items.find(i => i.id === id);
+        if (!item) return null;
+        const qty = Number(e.qty ?? item.budgetQty) || 0;
+        const price = Number(e.price ?? item.budgetUnitPrice) || 0;
+        const ap = Number(e.ap ?? item.avgActualPrice) || 0;
+        const body = { quantity: qty, budgetUnitPrice: price, actualCost: ap * qty };
+        if (e.name !== undefined && !item.productCode) body.category = e.name;
+        if (e.unit !== undefined) body.unit = e.unit;
+        return body;
+    };
+
+    // Auto-save single item on blur
+    const saveItem = async (id) => {
+        const e = edits[id];
+        if (!e) return;
+        const body = buildBody(id, e);
+        if (!body) return;
+        try {
+            await fetch(`/api/material-plans/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            setEdits(prev => { const n = { ...prev }; delete n[id]; setDirty(Object.keys(n).length > 0); return n; });
+            // Update local items to reflect saved values without full reload
+            setItems(prev => prev.map(i => {
+                if (i.id !== id) return i;
+                const qty = Number(e.qty ?? i.budgetQty) || 0;
+                const price = Number(e.price ?? i.budgetUnitPrice) || 0;
+                const ap = Number(e.ap ?? i.avgActualPrice) || 0;
+                return {
+                    ...i,
+                    budgetQty: qty,
+                    budgetUnitPrice: price,
+                    budgetTotal: qty * price,
+                    avgActualPrice: ap,
+                    actualTotal: ap * qty,
+                    ...(e.name !== undefined && !i.productCode ? { productName: e.name } : {}),
+                    ...(e.unit !== undefined ? { unit: e.unit } : {}),
+                };
+            }));
+        } catch { /* silent — user can still click Lưu manually */ }
+    };
+
     const saveAll = async () => {
         setAllSaving(true);
         try {
             const changed = Object.keys(edits);
             for (const id of changed) {
-                const item = items.find(i => i.id === id);
-                if (!item) continue;
                 const e = edits[id];
-                const qty = Number(e.qty ?? item.budgetQty) || 0;
-                const price = Number(e.price ?? item.budgetUnitPrice) || 0;
-                const ap = Number(e.ap ?? item.avgActualPrice) || 0;
-                const body = { quantity: qty, budgetUnitPrice: price, actualCost: ap * qty };
-                if (e.name !== undefined && !item.productCode) body.category = e.name;
-                if (e.unit !== undefined) body.unit = e.unit;
+                const body = buildBody(id, e);
+                if (!body) continue;
                 await fetch(`/api/material-plans/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -430,6 +469,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                         <input style={{ ...inpStyle, textAlign: 'left' }}
                             value={name}
                             onChange={e => updateEdit(item.id, 'name', e.target.value)}
+                            onBlur={() => saveItem(item.id)}
                             placeholder="Tên hạng mục..."
                         />
                     ) : (
@@ -445,6 +485,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                     <input style={{ ...inpStyle, textAlign: 'center' }}
                         value={getVal(item, 'unit')}
                         onChange={e => updateEdit(item.id, 'unit', e.target.value)}
+                        onBlur={() => saveItem(item.id)}
                         placeholder="m², cái..." />
                 </td>
 
@@ -453,6 +494,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                     <input style={{ ...inpStyle, textAlign: 'right' }} type="number"
                         value={getVal(item, 'qty')}
                         onChange={e => updateEdit(item.id, 'qty', e.target.value)}
+                        onBlur={() => saveItem(item.id)}
                         onFocus={e => e.target.select()} />
                 </td>
 
@@ -461,6 +503,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                     <input style={{ ...inpStyle, textAlign: 'right' }} type="number"
                         value={getVal(item, 'price')}
                         onChange={e => updateEdit(item.id, 'price', e.target.value)}
+                        onBlur={() => saveItem(item.id)}
                         onFocus={e => e.target.select()} />
                 </td>
 
@@ -474,6 +517,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                     <input style={{ ...inpStyle, textAlign: 'right', color: ap > p ? '#dc2626' : ap > 0 ? '#16a34a' : undefined }} type="number"
                         value={getVal(item, 'ap')}
                         onChange={e => updateEdit(item.id, 'ap', e.target.value)}
+                        onBlur={() => saveItem(item.id)}
                         onFocus={e => e.target.select()} />
                 </td>
 
