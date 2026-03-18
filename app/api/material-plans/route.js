@@ -56,6 +56,9 @@ export const GET = withAuth(async (request) => {
 });
 
 export const POST = withAuth(async (request) => {
+    // Ensure unit column exists (idempotent)
+    await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN IF NOT EXISTS "unit" TEXT NOT NULL DEFAULT ''`.catch(() => {});
+
     const body = await request.json();
 
     // Bulk mode
@@ -89,15 +92,16 @@ export const POST = withAuth(async (request) => {
             const customName = (i.customName || '').trim();
             const productId = i.productId || null;
 
+            const unitVal = i.unit || '';
             if (productId) {
                 await prisma.$executeRaw`
-                    INSERT INTO "MaterialPlan" (id, "projectId", "productId", quantity, "unitPrice", "totalAmount", "budgetUnitPrice", "actualCost", type, category, "costType", group1, group2, "supplierTag", status, notes, "planType", "wastePercent", "isLocked", "orderedQty", "receivedQty", "drawingUrl", "drawingNote", "createdAt")
-                    VALUES (gen_random_uuid(), ${projectId}, ${productId}, ${qty}, ${price}, ${qty * price}, ${price}, ${actualCost}, 'Chính', ${customName}, ${costType}, ${group1}, ${group2}, ${supplierTag}, 'Chưa đặt', ${notes}, ${pt}, 5, false, 0, 0, '', '', NOW())
+                    INSERT INTO "MaterialPlan" (id, "projectId", "productId", quantity, "unitPrice", "totalAmount", "budgetUnitPrice", "actualCost", type, category, "costType", group1, group2, "supplierTag", status, notes, "planType", "wastePercent", "isLocked", "orderedQty", "receivedQty", "drawingUrl", "drawingNote", "unit", "createdAt")
+                    VALUES (gen_random_uuid(), ${projectId}, ${productId}, ${qty}, ${price}, ${qty * price}, ${price}, ${actualCost}, 'Chính', ${customName}, ${costType}, ${group1}, ${group2}, ${supplierTag}, 'Chưa đặt', ${notes}, ${pt}, 5, false, 0, 0, '', '', ${unitVal}, NOW())
                 `;
             } else {
                 await prisma.$executeRaw`
-                    INSERT INTO "MaterialPlan" (id, "projectId", quantity, "unitPrice", "totalAmount", "budgetUnitPrice", "actualCost", type, category, "costType", group1, group2, "supplierTag", status, notes, "planType", "wastePercent", "isLocked", "orderedQty", "receivedQty", "drawingUrl", "drawingNote", "createdAt")
-                    VALUES (gen_random_uuid(), ${projectId}, ${qty}, ${price}, ${qty * price}, ${price}, ${actualCost}, 'Chính', ${customName}, ${costType}, ${group1}, ${group2}, ${supplierTag}, 'Chưa đặt', ${notes}, ${pt}, 5, false, 0, 0, '', '', NOW())
+                    INSERT INTO "MaterialPlan" (id, "projectId", quantity, "unitPrice", "totalAmount", "budgetUnitPrice", "actualCost", type, category, "costType", group1, group2, "supplierTag", status, notes, "planType", "wastePercent", "isLocked", "orderedQty", "receivedQty", "drawingUrl", "drawingNote", "unit", "createdAt")
+                    VALUES (gen_random_uuid(), ${projectId}, ${qty}, ${price}, ${qty * price}, ${price}, ${actualCost}, 'Chính', ${customName}, ${costType}, ${group1}, ${group2}, ${supplierTag}, 'Chưa đặt', ${notes}, ${pt}, 5, false, 0, 0, '', '', ${unitVal}, NOW())
                 `;
             }
         }

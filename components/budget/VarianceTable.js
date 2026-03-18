@@ -193,12 +193,15 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     const [costFilter, setCostFilter] = useState('Tất cả');
     const [activeTab, setActiveTab] = useState(0);
     const [collapsed, setCollapsed] = useState({});
-    const [editingRow, setEditingRow] = useState(null); // { id, name, qty, budgetUnitPrice, actualUnitPrice }
-    const [saving, setSaving] = useState(false);
+    const [edits, setEdits] = useState({}); // { [id]: { qty, price, ap, name } }
+    const [dirty, setDirty] = useState(false);
+    const [allSaving, setAllSaving] = useState(false);
     const [addingTo, setAddingTo] = useState(null); // { g1, g2 }
-    const [addForm, setAddForm] = useState({ name: '', qty: 1, budgetUnitPrice: 0 });
+    const [addForm, setAddForm] = useState({ name: '', unit: '', qty: 1, budgetUnitPrice: 0, actualUnitPrice: 0 });
     const [addingSubTo, setAddingSubTo] = useState(null);
     const [newSubName, setNewSubName] = useState('');
+    const [addingG1, setAddingG1] = useState(false);
+    const [newG1Name, setNewG1Name] = useState('');
 
     const exportPDF = () => {
         const html = buildPrintHTML(project, items, summary);
@@ -216,6 +219,8 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
             .then(d => {
                 setItems(d.items || []);
                 setSummary(d.summary || null);
+                setEdits({});
+                setDirty(false);
                 if (d?.summary?.totalBudget !== undefined) onTotalBudgetLoaded?.(d.summary.totalBudget);
             })
             .catch(() => {})
@@ -224,43 +229,48 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
 
     useEffect(() => { reload(); }, [reload]);
 
-    const startEdit = (item) => {
-        setEditingRow({
-            id: item.id,
-            name: item.productName || '',
-            isCustom: !item.productCode, // only custom items can rename
-            qty: item.budgetQty ?? 0,
-            budgetUnitPrice: item.budgetUnitPrice ?? 0,
-            actualUnitPrice: item.avgActualPrice ?? 0,
-        });
+    // Get current value (local edit override or original)
+    const getVal = (item, field) => {
+        const e = edits[item.id];
+        if (e && e[field] !== undefined) return e[field];
+        switch (field) {
+            case 'qty': return item.budgetQty ?? 0;
+            case 'price': return item.budgetUnitPrice ?? 0;
+            case 'ap': return item.avgActualPrice ?? 0;
+            case 'name': return item.productName || item.category || '';
+            case 'unit': return item.unit || '';
+        }
+        return '';
     };
 
-    const cancelEdit = () => setEditingRow(null);
+    const updateEdit = (id, field, val) => {
+        setEdits(prev => ({ ...prev, [id]: { ...prev[id], [field]: val } }));
+        setDirty(true);
+    };
 
-    const saveEdit = async () => {
-        if (!editingRow) return;
-        setSaving(true);
+    const saveAll = async () => {
+        setAllSaving(true);
         try {
-            const qty = Number(editingRow.qty) || 0;
-            const price = Number(editingRow.budgetUnitPrice) || 0;
-            const ap = Number(editingRow.actualUnitPrice) || 0;
-            const body = {
-                quantity: qty,
-                budgetUnitPrice: price,
-                actualCost: ap * qty,
-            };
-            if (editingRow.isCustom && editingRow.name) body.category = editingRow.name;
-
-            const res = await fetch(`/api/material-plans/${editingRow.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-            });
-            if (!res.ok) { alert('Lỗi lưu'); return; }
-            setEditingRow(null);
+            const changed = Object.keys(edits);
+            for (const id of changed) {
+                const item = items.find(i => i.id === id);
+                if (!item) continue;
+                const e = edits[id];
+                const qty = Number(e.qty ?? item.budgetQty) || 0;
+                const price = Number(e.price ?? item.budgetUnitPrice) || 0;
+                const ap = Number(e.ap ?? item.avgActualPrice) || 0;
+                const body = { quantity: qty, budgetUnitPrice: price, actualCost: ap * qty };
+                if (e.name !== undefined && !item.productCode) body.category = e.name;
+                if (e.unit !== undefined) body.unit = e.unit;
+                await fetch(`/api/material-plans/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+            }
             reload();
-        } catch { alert('Lỗi kết nối'); }
-        finally { setSaving(false); }
+        } catch { alert('Lỗi lưu'); }
+        finally { setAllSaving(false); }
     };
 
     const deleteItem = async (id) => {
@@ -271,20 +281,37 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
 
     const submitAddItem = async (g1, g2) => {
         if (!addForm.name.trim()) return;
+        const qty = Number(addForm.qty) || 0;
+        const ap = Number(addForm.actualUnitPrice) || 0;
         const res = await fetch('/api/material-plans', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 items: [{
                     customName: addForm.name,
-                    quantity: Number(addForm.qty) || 0,
+                    unit: addForm.unit || '',
+                    quantity: qty,
                     unitPrice: Number(addForm.budgetUnitPrice) || 0,
+                    actualCost: ap * qty,
                     costType: 'Vật tư', group1: g1 || '', group2: g2 || '', planType: 'tracking',
                 }],
                 projectId,
             }),
         });
-        if (res.ok) { setAddingTo(null); setAddForm({ name: '', qty: 1, budgetUnitPrice: 0 }); reload(); }
+        if (res.ok) { setAddingTo(null); setAddForm({ name: '', unit: '', qty: 1, budgetUnitPrice: 0, actualUnitPrice: 0 }); reload(); }
+    };
+
+    const submitAddG1 = async () => {
+        if (!newG1Name.trim()) return;
+        await fetch('/api/material-plans', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                items: [{ customName: 'Hạng mục mới', quantity: 0, unitPrice: 0, costType: 'Vật tư', group1: newG1Name.trim(), group2: '', planType: 'tracking' }],
+                projectId,
+            }),
+        });
+        setAddingG1(false); setNewG1Name(''); reload();
     };
 
     const submitAddSub = async (g1) => {
@@ -301,7 +328,6 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     };
 
     if (loading) return <div style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>Đang tải...</div>;
-    if (!items.length) return <div style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>Chưa có dữ liệu dự toán</div>;
 
     const allItems = costFilter === 'Tất cả' ? items : items.filter(i => i.costType === costFilter);
 
@@ -325,40 +351,36 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     const activeData = hierarchy[activeG1] || { subgroups: {}, g2Order: [], direct: [] };
 
     const liveAgg = (sectionItems) => sectionItems.reduce((acc, item) => {
-        const isEditing = editingRow?.id === item.id;
-        const q = isEditing ? (Number(editingRow.qty) || 0) : (item.budgetQty || 0);
-        const p = isEditing ? (Number(editingRow.budgetUnitPrice) || 0) : (item.budgetUnitPrice || 0);
-        const ap = isEditing ? (Number(editingRow.actualUnitPrice) || 0) : (item.avgActualPrice || 0);
+        const q = Number(getVal(item, 'qty')) || 0;
+        const p = Number(getVal(item, 'price')) || 0;
+        const ap = Number(getVal(item, 'ap')) || 0;
         acc.budget += q * p;
         acc.actual += ap * q;
         return acc;
     }, { budget: 0, actual: 0 });
 
-    const setEF = (field, val) => setEditingRow(prev => ({ ...prev, [field]: val }));
-
     const renderRow = (item, stt) => {
-        const isEditing = editingRow?.id === item.id;
-        const q = isEditing ? (Number(editingRow.qty) || 0) : (item.budgetQty || 0);
-        const p = isEditing ? (Number(editingRow.budgetUnitPrice) || 0) : (item.budgetUnitPrice || 0);
-        const ap = isEditing ? (Number(editingRow.actualUnitPrice) || 0) : (item.avgActualPrice || 0);
+        const q = Number(getVal(item, 'qty')) || 0;
+        const p = Number(getVal(item, 'price')) || 0;
+        const ap = Number(getVal(item, 'ap')) || 0;
+        const name = getVal(item, 'name');
         const budgetTotal = q * p;
         const actualTotal = ap * q;
         const variance = budgetTotal - actualTotal;
-        const name = isEditing ? editingRow.name : (item.productName || '');
-
-        const rowBg = isEditing ? '#eff6ff' : stt % 2 === 0 ? '#f9fafb' : '#fff';
+        const isCustom = !item.productCode;
+        const hasEdit = !!edits[item.id];
+        const rowBg = hasEdit ? '#fffbeb' : stt % 2 === 0 ? '#f9fafb' : '#fff';
 
         return (
-            <tr key={item.id} style={{ background: rowBg, outline: isEditing ? '2px solid #93c5fd' : 'none', outlineOffset: -1 }}>
+            <tr key={item.id} style={{ background: rowBg }}>
                 <td style={{ ...cellStyle, textAlign: 'center', color: '#9ca3af', fontSize: 11, width: 32 }}>{stt}</td>
 
                 {/* HẠNG MỤC */}
-                <td style={{ ...cellStyle, padding: isEditing ? '3px 4px' : '5px 7px' }}>
-                    {isEditing && editingRow.isCustom ? (
+                <td style={{ ...cellStyle, padding: '3px 4px' }}>
+                    {isCustom ? (
                         <input style={{ ...inpStyle, textAlign: 'left' }}
-                            value={editingRow.name}
-                            onChange={e => setEF('name', e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && saveEdit()}
+                            value={name}
+                            onChange={e => updateEdit(item.id, 'name', e.target.value)}
                             placeholder="Tên hạng mục..."
                         />
                     ) : (
@@ -370,24 +392,27 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                 </td>
 
                 {/* ĐVT */}
-                <td style={{ ...cellStyle, textAlign: 'center', color: '#475569', fontSize: 11, width: 52 }}>{item.unit}</td>
+                <td style={{ ...cellStyle, padding: '3px 4px', width: 70 }}>
+                    <input style={{ ...inpStyle, textAlign: 'center' }}
+                        value={getVal(item, 'unit')}
+                        onChange={e => updateEdit(item.id, 'unit', e.target.value)}
+                        placeholder="m², cái..." />
+                </td>
 
                 {/* SL */}
-                <td style={{ ...cellStyle, padding: isEditing ? '3px 4px' : '5px 7px', width: 62, textAlign: 'right' }}>
-                    {isEditing ? (
-                        <input style={{ ...inpStyle, textAlign: 'right' }} type="number"
-                            value={editingRow.qty} onChange={e => setEF('qty', e.target.value)}
-                            onFocus={e => e.target.select()} />
-                    ) : q}
+                <td style={{ ...cellStyle, padding: '3px 4px', width: 72 }}>
+                    <input style={{ ...inpStyle, textAlign: 'right' }} type="number"
+                        value={getVal(item, 'qty')}
+                        onChange={e => updateEdit(item.id, 'qty', e.target.value)}
+                        onFocus={e => e.target.select()} />
                 </td>
 
                 {/* ĐG DT */}
-                <td style={{ ...cellStyle, padding: isEditing ? '3px 4px' : '5px 7px', width: 105, textAlign: 'right' }}>
-                    {isEditing ? (
-                        <input style={{ ...inpStyle, textAlign: 'right' }} type="number"
-                            value={editingRow.budgetUnitPrice} onChange={e => setEF('budgetUnitPrice', e.target.value)}
-                            onFocus={e => e.target.select()} />
-                    ) : fmt(p)}
+                <td style={{ ...cellStyle, padding: '3px 4px', width: 110 }}>
+                    <input style={{ ...inpStyle, textAlign: 'right' }} type="number"
+                        value={getVal(item, 'price')}
+                        onChange={e => updateEdit(item.id, 'price', e.target.value)}
+                        onFocus={e => e.target.select()} />
                 </td>
 
                 {/* TỔNG DT */}
@@ -396,14 +421,11 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                 </td>
 
                 {/* ĐG TT */}
-                <td style={{ ...cellStyle, padding: isEditing ? '3px 4px' : '5px 7px', width: 105, textAlign: 'right',
-                    fontWeight: ap > 0 ? 600 : 400,
-                    color: !isEditing ? (ap > p ? '#dc2626' : ap > 0 ? '#16a34a' : '#9ca3af') : undefined }}>
-                    {isEditing ? (
-                        <input style={{ ...inpStyle, textAlign: 'right', color: ap > p ? '#dc2626' : '#16a34a' }} type="number"
-                            value={editingRow.actualUnitPrice} onChange={e => setEF('actualUnitPrice', e.target.value)}
-                            onFocus={e => e.target.select()} />
-                    ) : (ap > 0 ? fmt(ap) : '—')}
+                <td style={{ ...cellStyle, padding: '3px 4px', width: 110 }}>
+                    <input style={{ ...inpStyle, textAlign: 'right', color: ap > p ? '#dc2626' : ap > 0 ? '#16a34a' : undefined }} type="number"
+                        value={getVal(item, 'ap')}
+                        onChange={e => updateEdit(item.id, 'ap', e.target.value)}
+                        onFocus={e => e.target.select()} />
                 </td>
 
                 {/* TỔNG TT */}
@@ -419,22 +441,9 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                 </td>
 
                 {/* Actions */}
-                <td style={{ ...cellStyle, textAlign: 'center', padding: '3px 4px', width: 72 }}>
-                    {isEditing ? (
-                        <div style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
-                            <button onClick={saveEdit} disabled={saving}
-                                style={{ padding: '3px 9px', fontSize: 12, background: '#16a34a', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 700 }}>✓</button>
-                            <button onClick={cancelEdit}
-                                style={{ padding: '3px 7px', fontSize: 12, background: '#6b7280', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}>✕</button>
-                        </div>
-                    ) : (
-                        <div style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
-                            <button onClick={() => startEdit(item)} title="Sửa dòng"
-                                style={{ padding: '2px 7px', fontSize: 11, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 4, cursor: 'pointer', color: '#2563eb' }}>✏️</button>
-                            <button onClick={() => deleteItem(item.id)} title="Xóa"
-                                style={{ padding: '2px 7px', fontSize: 11, background: 'none', border: '1px solid #fca5a5', borderRadius: 4, cursor: 'pointer', color: '#dc2626' }}>🗑</button>
-                        </div>
-                    )}
+                <td style={{ ...cellStyle, textAlign: 'center', padding: '3px 4px', width: 36 }}>
+                    <button onClick={() => deleteItem(item.id)} title="Xóa"
+                        style={{ padding: '2px 7px', fontSize: 11, background: 'none', border: '1px solid #fca5a5', borderRadius: 4, cursor: 'pointer', color: '#dc2626' }}>🗑</button>
                 </td>
             </tr>
         );
@@ -492,7 +501,11 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                                                 onKeyDown={e => { if (e.key === 'Enter') submitAddItem(g1, g2); if (e.key === 'Escape') setAddingTo(null); }}
                                             />
                                         </td>
-                                        <td style={cellStyle} />
+                                        <td style={{ ...cellStyle, padding: '3px 4px' }}>
+                                            <input style={{ ...inpStyle, textAlign: 'center' }}
+                                                placeholder="ĐVT" value={addForm.unit || ''}
+                                                onChange={e => setAddForm(f => ({ ...f, unit: e.target.value }))} />
+                                        </td>
                                         <td style={{ ...cellStyle, padding: '3px 4px' }}>
                                             <input style={{ ...inpStyle, textAlign: 'right' }} type="number"
                                                 placeholder="SL" value={addForm.qty || ''}
@@ -503,9 +516,18 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                                                 placeholder="Đơn giá DT" value={addForm.budgetUnitPrice || ''}
                                                 onChange={e => setAddForm(f => ({ ...f, budgetUnitPrice: e.target.value }))} />
                                         </td>
-                                        <td style={{ ...cellStyle, textAlign: 'right', color: '#2563eb', fontWeight: 600 }} colSpan={4}>
+                                        <td style={{ ...cellStyle, textAlign: 'right', color: '#2563eb', fontWeight: 600 }}>
                                             {fmt((Number(addForm.qty) || 0) * (Number(addForm.budgetUnitPrice) || 0))}
                                         </td>
+                                        <td style={{ ...cellStyle, padding: '3px 4px' }}>
+                                            <input style={{ ...inpStyle, textAlign: 'right', color: '#16a34a' }} type="number"
+                                                placeholder="Đơn giá TT" value={addForm.actualUnitPrice || ''}
+                                                onChange={e => setAddForm(f => ({ ...f, actualUnitPrice: e.target.value }))} />
+                                        </td>
+                                        <td style={{ ...cellStyle, textAlign: 'right', color: '#16a34a', fontWeight: 600 }}>
+                                            {fmt((Number(addForm.qty) || 0) * (Number(addForm.actualUnitPrice) || 0))}
+                                        </td>
+                                        <td style={{ ...cellStyle, textAlign: 'right', fontWeight: 700, color: '#9ca3af' }}>—</td>
                                         <td style={{ ...cellStyle, padding: '3px 4px' }}>
                                             <div style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
                                                 <button onClick={() => submitAddItem(g1, g2)}
@@ -552,6 +574,34 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     const allTabItems = [...(activeData.direct || []), ...g2Keys.flatMap(g2 => activeData.subgroups[g2] || [])];
     const { budget: tabBudget, actual: tabActual } = liveAgg(allTabItems);
 
+    if (!items.length) return (
+        <div style={{ padding: 24 }}>
+            <div style={{ textAlign: 'center', color: '#9ca3af', marginBottom: 20 }}>Chưa có dữ liệu. Tạo hạng mục đầu tiên để bắt đầu nhập.</div>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+                {addingG1 ? (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input autoFocus
+                            style={{ padding: '7px 14px', fontSize: 13, border: '1px solid #93c5fd', borderRadius: 8, outline: 'none', width: 200 }}
+                            placeholder="Tên hạng mục chính..."
+                            value={newG1Name}
+                            onChange={e => setNewG1Name(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') submitAddG1(); if (e.key === 'Escape') setAddingG1(false); }}
+                        />
+                        <button onClick={submitAddG1}
+                            style={{ padding: '7px 16px', fontSize: 13, background: '#16a34a', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700 }}>✓ Thêm</button>
+                        <button onClick={() => setAddingG1(false)}
+                            style={{ padding: '7px 12px', fontSize: 13, background: 'none', border: '1px solid #d1d5db', borderRadius: 8, cursor: 'pointer', color: '#6b7280' }}>✕</button>
+                    </div>
+                ) : (
+                    <button onClick={() => { setAddingG1(true); setNewG1Name(''); }}
+                        style={{ padding: '9px 24px', fontSize: 14, border: '2px dashed #93c5fd', borderRadius: 10, background: 'transparent', cursor: 'pointer', color: '#2563eb', fontWeight: 600 }}>
+                        + Thêm hạng mục chính
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+
     return (
         <div>
             {/* Summary */}
@@ -569,6 +619,12 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                     ))}
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button onClick={saveAll} disabled={!dirty || allSaving}
+                        style={{ padding: '7px 18px', fontSize: 13, fontWeight: 700, borderRadius: 8, border: 'none', cursor: dirty ? 'pointer' : 'default',
+                            background: dirty ? '#1e3a5f' : '#e5e7eb', color: dirty ? 'white' : '#9ca3af',
+                            boxShadow: dirty ? '0 2px 8px rgba(30,58,95,0.25)' : 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        💾 {allSaving ? 'Đang lưu...' : 'Lưu'}
+                    </button>
                     <button onClick={exportPDF}
                         style={{ padding: '7px 16px', fontSize: 12, fontWeight: 700, borderRadius: 8, border: 'none', cursor: 'pointer',
                             background: '#f97316', color: 'white', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -588,7 +644,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
             </div>
 
             {/* Tabs */}
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 16, borderBottom: '2px solid #e5e7eb', paddingBottom: 8 }}>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 16, borderBottom: '2px solid #e5e7eb', paddingBottom: 8, alignItems: 'center' }}>
                 {g1Order.map((g1, ti) => {
                     const d = hierarchy[g1];
                     const allG1 = [...d.direct, ...Object.values(d.subgroups).flat()];
@@ -607,6 +663,26 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                         </button>
                     );
                 })}
+                {addingG1 ? (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <input autoFocus
+                            style={{ padding: '6px 12px', fontSize: 13, border: '1px solid #93c5fd', borderRadius: 8, outline: 'none', width: 160 }}
+                            placeholder="Tên hạng mục..."
+                            value={newG1Name}
+                            onChange={e => setNewG1Name(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') submitAddG1(); if (e.key === 'Escape') setAddingG1(false); }}
+                        />
+                        <button onClick={submitAddG1}
+                            style={{ padding: '5px 12px', fontSize: 12, background: '#16a34a', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>✓</button>
+                        <button onClick={() => setAddingG1(false)}
+                            style={{ padding: '5px 9px', fontSize: 12, background: 'none', border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer', color: '#6b7280' }}>✕</button>
+                    </div>
+                ) : (
+                    <button onClick={() => { setAddingG1(true); setNewG1Name(''); }}
+                        style={{ padding: '7px 14px', fontSize: 13, border: '1px dashed #93c5fd', borderRadius: 8, background: 'transparent', cursor: 'pointer', color: '#2563eb', fontWeight: 500 }}>
+                        + Thêm
+                    </button>
+                )}
             </div>
 
             {/* Sections */}

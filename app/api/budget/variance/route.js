@@ -66,7 +66,7 @@ export const GET = withAuth(async (request) => {
             id: plan.id,
             productName: plan.productName || plan.category || '',
             productCode: plan.productCode || '',
-            unit: plan.productUnit || '',
+            unit: plan.productUnit || plan.unit || '',
             category: plan.category || '',
             costType: plan.costType || 'Vật tư',
             group1: plan.group1 || '',

@@ -29,6 +29,7 @@ export const PUT = withAuth(async (request, { params }) => {
     if (body.group2 !== undefined)         add('group2', body.group2);
     if (body.supplierTag !== undefined)    add('supplierTag', body.supplierTag);
     if (body.category !== undefined)       add('category', body.category);
+    if (body.unit !== undefined)           add('unit', body.unit);
 
     // Recompute totalAmount if quantity or price changed
     if (body.quantity !== undefined || body.unitPrice !== undefined || body.budgetUnitPrice !== undefined) {
