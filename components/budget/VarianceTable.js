@@ -61,14 +61,15 @@ function buildPrintHTML(project, items, summary) {
                 rowsHTML += `<tr class="g2-header"><td colspan="9">${ALPHA[si2]}. &nbsp;${label}</td></tr>`;
             }
 
-            si.forEach(item => {
+            si.forEach((item, rowIdx) => {
                 globalStt++;
+                const sectionStt = rowIdx + 1;
                 const ap = item.avgActualPrice || 0;
                 const p = item.budgetUnitPrice || 0;
                 const variance = (item.budgetTotal || 0) - (item.actualTotal || 0);
-                const rowClass = globalStt % 2 === 0 ? ' class="even"' : '';
+                const rowClass = sectionStt % 2 === 0 ? ' class="even"' : '';
                 rowsHTML += `<tr${rowClass}>
-                    <td class="center num">${globalStt}</td>
+                    <td class="center num">${sectionStt}</td>
                     <td class="name-cell">${item.productName || ''}${item.productCode ? `<br><span class="sub">${item.productCode}</span>` : ''}</td>
                     <td class="center">${item.unit || ''}</td>
                     <td class="right">${item.budgetQty || 0}</td>
