@@ -413,8 +413,12 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
             })
             .finally(() => {
                 setLoading(false);
-                // Restore scroll after React re-render
-                requestAnimationFrame(() => window.scrollTo({ top: scrollY, behavior: 'instant' }));
+                // Double-RAF ensures scroll restores after all React re-renders complete
+                requestAnimationFrame(() =>
+                    requestAnimationFrame(() =>
+                        window.scrollTo({ top: scrollY, behavior: 'instant' })
+                    )
+                );
             });
     }, [projectId]);
 
@@ -522,6 +526,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
 
     const submitAddItem = async (g1, g2) => {
         if (!addForm.name.trim()) return;
+        const savedScroll = window.scrollY;
         const qty = Number(addForm.qty) || 0;
         const ap = Number(addForm.actualUnitPrice) || 0;
         const res = await fetch('/api/material-plans', {
@@ -539,7 +544,17 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                 projectId,
             }),
         });
-        if (res.ok) { setAddingTo(null); setAddForm({ name: '', unit: '', qty: 1, budgetUnitPrice: 0, actualUnitPrice: 0 }); reload(); }
+        if (res.ok) {
+            setAddingTo(null);
+            setAddForm({ name: '', unit: '', qty: 1, budgetUnitPrice: 0, actualUnitPrice: 0 });
+            reload();
+            // Ensure scroll is restored after the reload re-render
+            requestAnimationFrame(() =>
+                requestAnimationFrame(() =>
+                    window.scrollTo({ top: savedScroll, behavior: 'instant' })
+                )
+            );
+        }
     };
 
     const submitAddG1 = async () => {
