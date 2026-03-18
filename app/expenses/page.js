@@ -141,121 +141,131 @@ export default function ExpensesPage() {
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Times New Roman',serif;font-size:13px;color:#111;background:#fff}
-.page{padding:28px 40px;max-width:780px;margin:0 auto}
-/* ── HEADER ── */
-.header{display:flex;align-items:stretch;margin-bottom:0}
-.header-left{display:flex;align-items:center;gap:14px;flex:1;padding-right:20px;border-right:1px solid #C9A84C}
-.logo-svg{flex-shrink:0}
-.company-info{flex:1}
-.company-name{font-size:10px;font-weight:800;color:#1C3A6B;text-transform:uppercase;letter-spacing:.5px;line-height:1.4}
-.company-sub{font-size:8.5px;color:#555;margin-top:3px;line-height:1.5}
-.header-right{padding-left:18px;font-size:8.5px;color:#444;line-height:1.7;text-align:right;min-width:200px;display:flex;flex-direction:column;justify-content:center}
-.header-right b{color:#1C3A6B}
-/* ── GOLD STRIPE ── */
-.gold-stripe{height:4px;background:linear-gradient(90deg,#1C3A6B 0%,#C9A84C 50%,#1C3A6B 100%);margin:12px 0 18px}
-/* ── TITLE ── */
-.doc-title{text-align:center;margin-bottom:6px}
-.doc-title h1{font-size:20px;font-weight:bold;text-transform:uppercase;letter-spacing:4px;color:#1C3A6B}
-.doc-title .sub{font-size:11px;color:#777;margin-top:4px}
-.doc-no{text-align:center;font-size:11px;color:#555;margin-bottom:16px}
-.doc-no span{background:#f0f4fa;border:1px solid #c5d0e0;padding:2px 12px;border-radius:10px;color:#1C3A6B;font-weight:700}
-/* ── INFO TABLE ── */
-.info-table{width:100%;border-collapse:collapse;margin-bottom:18px}
-.info-table tr td{padding:6px 10px;font-size:12.5px;border-bottom:1px dotted #dde3ee}
-.info-table tr td:first-child{color:#555;width:160px;font-style:italic}
-.info-table tr td:last-child{font-weight:600;color:#111}
-/* ── AMOUNT BOX ── */
-.amount-box{border:2px solid #1C3A6B;border-radius:6px;padding:14px 20px;text-align:center;background:linear-gradient(135deg,#f5f8ff,#eef2fa);margin:16px 0}
-.amount-box .lbl{font-size:10px;text-transform:uppercase;letter-spacing:3px;color:#1C3A6B;margin-bottom:6px;font-weight:600}
-.amount-box .val{font-size:26px;font-weight:bold;color:#1C3A6B;letter-spacing:1px}
-.amount-box .val span{color:#C9A84C}
-.amount-box .words{font-size:11px;color:#666;margin-top:6px;font-style:italic}
-/* ── SIGNATURES ── */
-.sign-row{display:flex;justify-content:space-between;margin-top:36px;text-align:center}
+.page{padding:30px 44px;max-width:800px;margin:0 auto}
+/* HEADER */
+.header{display:flex;align-items:center;gap:18px;padding-bottom:14px;border-bottom:3px solid #F47920}
+.logo-wrap{flex-shrink:0}
+.company-block{flex:1}
+.co-name{font-size:13px;font-weight:900;color:#222;text-transform:uppercase;letter-spacing:.6px;font-family:Arial,sans-serif}
+.co-tagline{font-size:9.5px;color:#F47920;font-style:italic;margin-top:2px;font-family:Arial,sans-serif}
+.co-addr{font-size:9px;color:#555;margin-top:5px;line-height:1.6}
+.voucher-meta{text-align:right;font-size:9px;color:#444;line-height:1.9;border-left:2px solid #F47920;padding-left:14px;min-width:170px}
+.voucher-meta b{color:#222;font-size:10px}
+/* ORANGE DIVIDER */
+.divider{height:3px;background:linear-gradient(90deg,#F47920,#ffb347,#F47920);margin:14px 0 18px}
+/* TITLE */
+.title-block{text-align:center;margin-bottom:14px}
+.title-block h1{font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:5px;color:#222;font-family:Arial,sans-serif}
+.title-block .en{font-size:10px;color:#F47920;letter-spacing:3px;text-transform:uppercase;margin-top:2px;font-family:Arial,sans-serif}
+.doc-no{text-align:center;margin-bottom:16px}
+.doc-no span{display:inline-block;background:#fff4ec;border:1.5px solid #F47920;padding:2px 16px;border-radius:20px;font-weight:700;font-size:11px;color:#c45a00;font-family:Arial,sans-serif}
+/* INFO TABLE */
+.info-table{width:100%;border-collapse:collapse;margin-bottom:16px}
+.info-table td{padding:7px 10px;font-size:12.5px;border-bottom:1px dotted #e0d8d0}
+.info-table td:first-child{color:#666;width:155px;font-style:italic}
+.info-table td:last-child{font-weight:700;color:#111}
+/* AMOUNT */
+.amount-box{border:2px solid #F47920;border-radius:8px;padding:16px 24px;text-align:center;background:linear-gradient(135deg,#fff8f3,#fff);margin:16px 0}
+.amount-box .lbl{font-size:9.5px;text-transform:uppercase;letter-spacing:3px;color:#F47920;margin-bottom:8px;font-weight:700;font-family:Arial,sans-serif}
+.amount-box .val{font-size:28px;font-weight:900;color:#222;font-family:Arial,sans-serif}
+.amount-box .val em{color:#F47920;font-style:normal}
+.amount-box .words{font-size:11px;color:#888;margin-top:8px;font-style:italic}
+/* SIGNATURES */
+.sign-row{display:flex;justify-content:space-between;margin-top:40px;text-align:center}
 .sign-col{width:30%}
-.sign-col .role{font-weight:700;font-size:12px;color:#1C3A6B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-.sign-col .date-sign{font-size:10px;color:#888;margin-bottom:56px}
-.sign-col .hint{font-size:9.5px;font-style:italic;color:#aaa;border-top:1px solid #bbb;padding-top:4px}
-/* ── FOOTER ── */
-.footer{margin-top:20px;border-top:1px solid #dde3ee;padding-top:10px;display:flex;justify-content:space-between;align-items:center}
-.footer-brand{font-size:8.5px;color:#1C3A6B;font-weight:700;letter-spacing:.5px}
-.footer-contact{font-size:8.5px;color:#888}
-/* ── PRINT BUTTON ── */
+.sign-col .role{font-weight:800;font-size:11.5px;color:#222;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;font-family:Arial,sans-serif}
+.sign-col .date-s{font-size:9.5px;color:#999;margin-bottom:54px}
+.sign-col .hint{font-size:9px;font-style:italic;color:#bbb;border-top:1px solid #ddd;padding-top:5px}
+/* FOOTER */
+.footer{margin-top:22px;padding-top:10px;border-top:2px solid #F47920;display:flex;justify-content:space-between;align-items:center}
+.footer-brand{font-size:9px;font-weight:800;color:#F47920;letter-spacing:.5px;font-family:Arial,sans-serif}
+.footer-info{font-size:8.5px;color:#999}
+/* PRINT BTN */
 .no-print{position:fixed;top:12px;right:12px;z-index:9999}
-.no-print button{padding:10px 22px;font-size:13px;cursor:pointer;background:#1C3A6B;color:#fff;border:none;border-radius:6px;font-weight:700;box-shadow:0 2px 8px rgba(28,58,107,.3)}
+.no-print button{padding:10px 24px;font-size:13px;cursor:pointer;background:#F47920;color:#fff;border:none;border-radius:6px;font-weight:700;box-shadow:0 2px 8px rgba(244,121,32,.4)}
 @media print{.no-print{display:none!important}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style></head><body>
 <div class="no-print"><button onclick="window.print()">🖨️ In phiếu chi</button></div>
 <div class="page">
+
   <div class="header">
-    <div class="header-left">
-      <svg class="logo-svg" width="64" height="64" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="120" height="120" rx="12" fill="#1C3A6B"/>
-        <polygon points="60,18 100,55 100,95 20,95 20,55" fill="none" stroke="#C9A84C" stroke-width="5"/>
-        <rect x="45" y="70" width="30" height="25" fill="#C9A84C"/>
-        <polygon points="60,18 100,55 20,55" fill="#F47920" opacity=".9"/>
-        <text x="60" y="52" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold" font-family="Arial">SCT</text>
+    <div class="logo-wrap">
+      <!-- SCT Logo: orange diamond with bold K -->
+      <svg width="72" height="72" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Diamond shape -->
+        <g transform="translate(80,80) rotate(45) translate(-52,-52)">
+          <rect width="104" height="104" rx="8" fill="#F47920"/>
+        </g>
+        <!-- K letter -->
+        <text x="80" y="96" text-anchor="middle" fill="#111" font-size="82" font-weight="900" font-family="Arial Black,Arial,sans-serif" letter-spacing="-4">K</text>
+        <!-- Corner tick marks -->
+        <line x1="80" y1="4" x2="80" y2="16" stroke="#222" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="80" y1="144" x2="80" y2="156" stroke="#222" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="4" y1="80" x2="16" y2="80" stroke="#222" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="144" y1="80" x2="156" y2="80" stroke="#222" stroke-width="3.5" stroke-linecap="round"/>
       </svg>
-      <div class="company-info">
-        <div class="company-name">Công ty TNHH Kiến Trúc Đô Thị SCT</div>
-        <div class="company-sub">🌐 kientrucsct.com &nbsp;|&nbsp; 📞 0xxx xxx xxx</div>
-        <div class="company-sub">📍 Địa chỉ công ty, Thành phố</div>
+    </div>
+    <div class="company-block">
+      <div class="co-name">Kiến Trúc Đô Thị SCT</div>
+      <div class="co-tagline">Cùng bạn xây dựng ước mơ</div>
+      <div class="co-addr">
+        📍 149 Nguyễn Tất Thành, Phường Văn Phú, Tỉnh Lào Cai<br>
+        📞 0914 998 822 &nbsp;|&nbsp; 🌐 kientrucsct.com
       </div>
     </div>
-    <div class="header-right">
+    <div class="voucher-meta">
       <div><b>Mã phiếu:</b> ${e.code}</div>
-      <div><b>Ngày:</b> ${today}</div>
-      <div><b>Loại:</b> ${e.expenseType || 'Chi phí'}</div>
+      <div><b>Ngày lập:</b> ${today}</div>
+      <div><b>Hạng mục:</b> ${e.category || '—'}</div>
+      <div><b>Trạng thái:</b> ${e.status}</div>
     </div>
   </div>
 
-  <div class="gold-stripe"></div>
+  <div class="divider"></div>
 
-  <div class="doc-title">
+  <div class="title-block">
     <h1>Phiếu Chi Tiền</h1>
-    <div class="sub">PAYMENT VOUCHER</div>
+    <div class="en">Payment Voucher</div>
   </div>
-  <div class="doc-no">Số: <span>${e.code}</span></div>
+  <div class="doc-no"><span>Số: ${e.code}</span></div>
 
   <table class="info-table">
     <tr><td>Người nhận tiền:</td><td>${e.recipientName || e.submittedBy || '...'}</td></tr>
     ${e.recipientType ? `<tr><td>Loại đối tượng:</td><td>${e.recipientType}</td></tr>` : ''}
-    ${e.project ? `<tr><td>Dự án:</td><td>${e.project.code} — ${e.project.name}</td></tr>` : ''}
-    <tr><td>Hạng mục:</td><td>${e.category || '—'}</td></tr>
+    ${e.project ? `<tr><td>Công trình / Dự án:</td><td>${e.project.code} — ${e.project.name}</td></tr>` : ''}
     <tr><td>Nội dung chi:</td><td>${e.description}</td></tr>
     ${e.notes ? `<tr><td>Ghi chú:</td><td>${e.notes}</td></tr>` : ''}
-    <tr><td>Trạng thái:</td><td>${e.status}</td></tr>
   </table>
 
   <div class="amount-box">
     <div class="lbl">Số tiền chi</div>
-    <div class="val">${amountText} <span>đ</span></div>
-    <div class="words">(Bằng chữ: _____________________________________________)</div>
+    <div class="val">${amountText} <em>đ</em></div>
+    <div class="words">(Bằng chữ: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</div>
   </div>
 
-  ${e.proofUrl ? `<div style="text-align:center;margin:12px 0"><div style="font-size:10px;color:#888;margin-bottom:4px;font-style:italic">Chứng từ đính kèm:</div><img src="${e.proofUrl}" style="max-width:220px;max-height:140px;border:1px solid #dde3ee;border-radius:4px" /></div>` : ''}
+  ${e.proofUrl ? `<div style="text-align:center;margin:10px 0"><div style="font-size:9.5px;color:#aaa;margin-bottom:4px;font-style:italic">Chứng từ đính kèm</div><img src="${e.proofUrl}" style="max-width:200px;max-height:130px;border:1px solid #eee;border-radius:4px"/></div>` : ''}
 
   <div class="sign-row">
     <div class="sign-col">
       <div class="role">Người lập phiếu</div>
-      <div class="date-sign">Ngày ${today}</div>
+      <div class="date-s">Ngày ${today}</div>
       <div class="hint">(Ký, ghi rõ họ tên)</div>
     </div>
     <div class="sign-col">
       <div class="role">Giám đốc</div>
-      <div class="date-sign">Ngày &nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp; năm</div>
+      <div class="date-s">Ngày &nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp; năm 2026</div>
       <div class="hint">(Ký, ghi rõ họ tên)</div>
     </div>
     <div class="sign-col">
       <div class="role">Người nhận tiền</div>
-      <div class="date-sign">Ngày ${today}</div>
+      <div class="date-s">Ngày ${today}</div>
       <div class="hint">(Ký, ghi rõ họ tên)</div>
     </div>
   </div>
 
   <div class="footer">
-    <div class="footer-brand">KIẾN TRÚC ĐÔ THỊ SCT</div>
-    <div class="footer-contact">kientrucsct.com &nbsp;|&nbsp; Mã: ${e.code} &nbsp;|&nbsp; ${today}</div>
+    <div class="footer-brand">KIẾN TRÚC ĐÔ THỊ SCT — Cùng bạn xây dựng ước mơ</div>
+    <div class="footer-info">Mã: ${e.code} &nbsp;|&nbsp; ${today}</div>
   </div>
 </div>
 </body></html>`);
