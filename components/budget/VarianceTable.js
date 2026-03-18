@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0));
 const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -371,6 +371,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     const [edits, setEdits] = useState({}); // { [id]: { qty, price, ap, name } }
     const [dirty, setDirty] = useState(false);
     const [allSaving, setAllSaving] = useState(false);
+    const savingItems = useRef(new Set()); // guard against concurrent save-on-blur retry
     const [addingTo, setAddingTo] = useState(null); // { g1, g2 }
     const [addForm, setAddForm] = useState({ name: '', unit: '', qty: 1, budgetUnitPrice: 0, actualUnitPrice: 0 });
     const [addingSubTo, setAddingSubTo] = useState(null);
@@ -446,20 +447,25 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
 
     // Auto-save single item on blur
     const saveItem = async (id) => {
+        // Guard: skip if this item is already mid-save (prevents retry loop on rapid blur)
+        if (savingItems.current.has(id)) return;
         const e = edits[id];
         if (!e) return;
         const body = buildBody(id, e);
         if (!body) return;
-        // Clear edits immediately to prevent retry loops on blur
-        setEdits(prev => { const n = { ...prev }; delete n[id]; setDirty(Object.keys(n).length > 0); return n; });
+        savingItems.current.add(id);
         try {
             const res = await fetch(`/api/material-plans/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             });
-            if (!res.ok) { console.error('saveItem failed', await res.text()); return; }
-            // Update local items to reflect saved values without full reload
+            if (!res.ok) {
+                console.error('saveItem failed', await res.text());
+                return; // keep edits so user still sees their typed value
+            }
+            // Success: clear this item's edits and update local state
+            setEdits(prev => { const n = { ...prev }; delete n[id]; setDirty(Object.keys(n).length > 0); return n; });
             setItems(prev => prev.map(i => {
                 if (i.id !== id) return i;
                 const qty = Number(e.qty ?? i.budgetQty) || 0;
@@ -476,7 +482,11 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                     ...(e.unit !== undefined ? { unit: e.unit } : {}),
                 };
             }));
-        } catch (err) { console.error('saveItem error', err); }
+        } catch (err) {
+            console.error('saveItem error', err);
+        } finally {
+            savingItems.current.delete(id);
+        }
     };
 
     const saveAll = async () => {
