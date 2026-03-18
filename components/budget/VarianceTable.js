@@ -97,111 +97,161 @@ function buildPrintHTML(project, items, summary) {
     return `<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8">
 <title>Bảng theo dõi Chênh lệch Vật tư — ${project?.name || ''}</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Be Vietnam Pro', 'Arial', sans-serif; font-size: 11px; color: #1a1a1a; background: #f1f5f9; }
-  .page { max-width: 1060px; margin: 20px auto; background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,.12); border-radius: 12px; overflow: hidden; }
+  body { font-family: 'Be Vietnam Pro', Arial, sans-serif; font-size: 11px; color: #1a1a1a; background: #e5e7eb; }
+  .page { max-width: 1080px; margin: 20px auto; background: #fff; box-shadow: 0 8px 40px rgba(0,0,0,.18); border-radius: 0; overflow: hidden; }
 
-  /* ── HEADER ── */
-  .header-wrap { background: linear-gradient(135deg, #1e3a5f 0%, #0f2240 100%); position: relative; overflow: hidden; }
-  .header-wrap::before { content: ''; position: absolute; right: -40px; top: -40px; width: 200px; height: 200px;
-    background: rgba(249,115,22,.15); border-radius: 50%; }
-  .header-wrap::after { content: ''; position: absolute; right: 60px; bottom: -30px; width: 120px; height: 120px;
-    background: rgba(249,115,22,.08); border-radius: 50%; }
-  .brand-row { display: flex; align-items: center; justify-content: space-between; padding: 18px 28px 0; position: relative; z-index: 1; }
-  .logo-block { display: flex; align-items: center; gap: 14px; }
-  .logo-diamond { width: 48px; height: 48px; background: #f97316; transform: rotate(45deg); border-radius: 4px;
-    display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(249,115,22,.5); flex-shrink: 0; }
-  .logo-k { transform: rotate(-45deg); font-size: 22px; font-weight: 900; color: white; letter-spacing: -1px; }
-  .brand-text { color: white; }
-  .brand-name { font-size: 22px; font-weight: 900; letter-spacing: 3px; line-height: 1; }
-  .brand-tagline { font-size: 9.5px; color: rgba(255,255,255,.65); letter-spacing: 1.5px; margin-top: 3px; text-transform: uppercase; }
-  .header-meta { text-align: right; color: rgba(255,255,255,.75); font-size: 10px; line-height: 1.7; }
-  .header-meta strong { color: white; font-weight: 600; }
-  .title-row { padding: 16px 28px 20px; text-align: center; position: relative; z-index: 1; }
-  .doc-title { font-size: 17px; font-weight: 900; color: white; letter-spacing: 3px; text-transform: uppercase; }
-  .doc-subtitle { font-size: 9px; color: rgba(255,255,255,.5); letter-spacing: 2px; margin-top: 5px; text-transform: uppercase; }
-  .orange-stripe { height: 4px; background: linear-gradient(90deg, #f97316, #fb923c, #f97316); }
+  /* ═══ HEADER — white bg, orange wave ═══ */
+  .header-wrap { background: #ffffff; position: relative; overflow: hidden; min-height: 130px; }
+  /* Big orange wave top-right */
+  .header-wrap::before {
+    content: '';
+    position: absolute; top: -30px; right: -60px;
+    width: 360px; height: 180px;
+    background: #f97316;
+    border-radius: 0 0 0 100%;
+  }
+  /* Diamond watermark pattern */
+  .header-wrap::after {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background-image: repeating-linear-gradient(
+      45deg, rgba(249,115,22,.06) 0px, rgba(249,115,22,.06) 1px,
+      transparent 1px, transparent 28px),
+      repeating-linear-gradient(
+      -45deg, rgba(249,115,22,.06) 0px, rgba(249,115,22,.06) 1px,
+      transparent 1px, transparent 28px);
+    pointer-events: none;
+  }
+  .header-inner { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: 22px 32px 14px; }
+  /* Logo block */
+  .logo-wrap { display: flex; align-items: center; gap: 14px; }
+  .diamond-outer {
+    width: 56px; height: 56px; background: #f97316;
+    transform: rotate(45deg); border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 20px rgba(249,115,22,.55); flex-shrink: 0;
+  }
+  .diamond-k {
+    transform: rotate(-45deg);
+    font-size: 28px; font-weight: 900; color: #fff;
+    font-style: italic; letter-spacing: -2px; line-height: 1;
+  }
+  .brand-block { }
+  .brand-name { font-size: 20px; font-weight: 900; color: #1a1a1a; letter-spacing: 2px; line-height: 1; }
+  .brand-sub   { font-size: 9px; font-weight: 600; color: #f97316; letter-spacing: 2px; text-transform: uppercase; margin-top: 3px; }
+  .brand-tag   { font-size: 9px; color: #94a3b8; margin-top: 2px; font-style: italic; }
+  /* Meta top-right (over orange wave → white text) */
+  .header-meta { text-align: right; color: rgba(255,255,255,.92); font-size: 10px; line-height: 1.9; position: relative; z-index: 3; }
+  .header-meta strong { font-weight: 700; }
+  /* Title band */
+  .title-band { background: #1e3a5f; padding: 14px 32px; display: flex; align-items: center; justify-content: space-between; }
+  .doc-title { font-size: 16px; font-weight: 900; color: #fff; letter-spacing: 3px; text-transform: uppercase; }
+  .doc-sub { font-size: 9px; color: rgba(255,255,255,.5); letter-spacing: 2px; text-transform: uppercase; margin-top: 3px; }
+  .orange-accent { height: 5px; background: linear-gradient(90deg, #f97316 0%, #fb923c 50%, #f97316 100%); }
 
-  /* ── PROJECT INFO ── */
-  .project-section { padding: 16px 28px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
-  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 32px; }
+  /* ═══ PROJECT INFO ═══ */
+  .project-section { padding: 14px 32px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 40px; }
   .info-row { display: flex; align-items: baseline; gap: 8px; font-size: 11px; }
-  .info-label { color: #64748b; min-width: 88px; font-size: 10.5px; }
+  .info-label { color: #64748b; min-width: 80px; font-size: 10px; font-weight: 500; }
   .info-value { font-weight: 700; color: #1e3a5f; font-size: 11.5px; }
 
-  /* ── SUMMARY CARDS ── */
-  .summary-section { padding: 16px 28px; background: white; border-bottom: 2px solid #f1f5f9; }
-  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-  .sum-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; position: relative; overflow: hidden; }
-  .sum-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
-  .sum-card.budget::before { background: #3b82f6; }
-  .sum-card.actual::before { background: #64748b; }
-  .sum-card.variance::before { background: #22c55e; }
-  .sum-card.cpi::before { background: #f97316; }
-  .sum-label { font-size: 9.5px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
-  .sum-value { font-size: 15px; font-weight: 800; line-height: 1; }
+  /* ═══ SUMMARY ═══ */
+  .summary-section { padding: 16px 32px 18px; background: #fff; }
+  .summary-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+  .sum-card { border-radius: 10px; padding: 13px 16px; border: 1.5px solid #e2e8f0; position: relative; overflow: hidden; }
+  .sum-card::after { content: ''; position: absolute; bottom: -12px; right: -12px; width: 50px; height: 50px; border-radius: 50%; opacity: .08; }
+  .sum-card.budget  { border-top: 3.5px solid #2563eb; } .sum-card.budget::after  { background: #2563eb; }
+  .sum-card.actual  { border-top: 3.5px solid #64748b; } .sum-card.actual::after  { background: #64748b; }
+  .sum-card.variance{ border-top: 3.5px solid #16a34a; } .sum-card.variance::after{ background: #16a34a; }
+  .sum-card.cpi     { border-top: 3.5px solid #f97316; } .sum-card.cpi::after     { background: #f97316; }
+  .sum-label { font-size: 9px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 7px; }
+  .sum-value { font-size: 16px; font-weight: 900; line-height: 1; }
+  .sum-unit  { font-size: 11px; font-weight: 600; }
 
-  /* ── TABLE ── */
-  .table-section { padding: 0 28px 20px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 10.5px; }
-  thead th { background: #1e3a5f; color: white; font-size: 10px; font-weight: 700; padding: 8px 6px;
-    text-align: center; border: 1px solid #0f2240; white-space: nowrap; letter-spacing: .3px; }
-  thead th:nth-child(2) { text-align: left; padding-left: 10px; }
-  td { border: 1px solid #e2e8f0; padding: 5.5px 6px; vertical-align: middle; }
-  tr.even td { background: #f8fafc; }
-  .g1-header td { background: #1e3a5f !important; color: white; font-weight: 700; font-size: 11px;
-    padding: 8px 12px; border-color: #0f2240 !important; }
-  .g1-bar { display: inline-block; width: 4px; height: 14px; background: #f97316; border-radius: 2px;
-    vertical-align: middle; margin-right: 8px; }
-  .g2-header td { background: #fffbeb !important; color: #92400e; font-weight: 700; padding: 6px 14px;
-    font-size: 10.5px; border-left: 4px solid #f59e0b !important; }
-  .subtotal td { background: #fff7ed !important; font-weight: 600; font-size: 10px; }
-  .total-row td { background: #1e3a5f !important; color: white; font-weight: 800; font-size: 11px;
-    padding: 9px 6px; border-color: #0f2240 !important; }
-  .name-cell { padding-left: 10px !important; max-width: 260px; }
-  .num { color: #94a3b8; width: 28px; }
+  /* ═══ TABLE ═══ */
+  .table-section { padding: 4px 32px 24px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 10.5px; }
+  thead th {
+    background: #1e3a5f; color: #fff; font-size: 10px; font-weight: 700;
+    padding: 9px 7px; text-align: center; border: 1px solid #0f2240;
+    white-space: nowrap; letter-spacing: .4px;
+  }
+  thead th:nth-child(2) { text-align: left; padding-left: 12px; }
+  td { border: 1px solid #e2e8f0; padding: 6px 7px; vertical-align: middle; }
+  tr.even td { background: #fafafa; }
+  /* G1 header row — orange accent bar + navy bg */
+  .g1-header td {
+    background: #1e3a5f !important; color: #fff;
+    font-weight: 800; font-size: 11.5px; padding: 9px 14px;
+    border-color: #0f2240 !important; letter-spacing: .3px;
+  }
+  .g1-bar {
+    display: inline-block; width: 5px; height: 15px;
+    background: #f97316; border-radius: 3px;
+    vertical-align: middle; margin-right: 10px;
+  }
+  .g1-budget { font-size: 10px; opacity: .8; margin-left: 14px; font-weight: 600; }
+  .g1-var    { font-size: 10px; margin-left: 10px; }
+  /* G2 header row — light orange/amber */
+  .g2-header td {
+    background: #fff7ed !important; color: #9a3412;
+    font-weight: 700; font-size: 10.5px; padding: 7px 14px;
+    border-left: 5px solid #f97316 !important;
+  }
+  .subtotal td { background: #fef9f0 !important; font-size: 10px; font-weight: 600; }
+  .total-row td {
+    background: #f97316 !important; color: #fff !important;
+    font-weight: 900; font-size: 11.5px; padding: 10px 7px;
+    border-color: #ea580c !important; letter-spacing: .3px;
+  }
+  .name-cell { padding-left: 12px !important; }
+  .num  { color: #94a3b8; }
   .center { text-align: center; }
-  .right { text-align: right; }
-  .bold { font-weight: 700; }
+  .right  { text-align: right; }
+  .bold   { font-weight: 700; }
   .italic { font-style: italic; color: #64748b; }
-  .blue { color: #1d4ed8; }
-  .green { color: #16a34a; }
+  .blue   { color: #1d4ed8; }
+  .green  { color: #16a34a; }
   .orange { color: #ea580c; }
-  .red { color: #dc2626; }
-  .muted { color: #9ca3af; }
-  .sub { font-size: 9px; color: #94a3b8; }
+  .red    { color: #dc2626; }
+  .muted  { color: #9ca3af; }
+  .sub    { font-size: 9px; color: #94a3b8; }
 
-  /* ── FOOTER ── */
-  .footer-section { padding: 20px 28px 24px; border-top: 3px solid #f97316; background: #f8fafc; }
-  .footer-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-  .footer-brand { font-size: 10px; color: #94a3b8; line-height: 1.8; }
-  .footer-brand strong { color: #1e3a5f; font-size: 12px; letter-spacing: 1px; }
-  .sign-area { display: flex; gap: 60px; }
-  .sign-box { text-align: center; min-width: 120px; }
-  .sign-title { font-weight: 700; color: #1e3a5f; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
-  .sign-note { font-size: 9px; color: #94a3b8; margin-top: 2px; }
-  .sign-line { border-bottom: 1px solid #cbd5e1; width: 100%; margin: 44px auto 6px; }
+  /* ═══ FOOTER ═══ */
+  .footer-section { background: #1e3a5f; padding: 0; }
+  .footer-top-bar { background: #f97316; padding: 10px 32px; display: flex; align-items: center; justify-content: space-between; }
+  .footer-top-bar .ft-brand { color: #fff; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; }
+  .footer-top-bar .ft-tagline { color: rgba(255,255,255,.8); font-size: 9px; font-style: italic; }
+  .footer-body { padding: 20px 32px 24px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .footer-note { font-size: 9px; color: rgba(255,255,255,.5); line-height: 1.9; }
+  .footer-note span { color: rgba(255,255,255,.75); font-weight: 600; }
+  .sign-area { display: flex; gap: 56px; }
+  .sign-box { text-align: center; min-width: 130px; }
+  .sign-title { font-weight: 800; color: #f97316; font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; }
+  .sign-role  { font-size: 9px; color: rgba(255,255,255,.5); margin-top: 2px; }
+  .sign-line  { border-bottom: 1px solid rgba(255,255,255,.25); margin: 44px auto 6px; }
+  .sign-name  { font-size: 9.5px; color: rgba(255,255,255,.6); }
 
   @media print {
-    body { background: white; }
-    .page { margin: 0; box-shadow: none; border-radius: 0; max-width: 100%; }
-    .table-section { padding: 0 16px 12px; }
-    .brand-row, .title-row { padding-left: 16px; padding-right: 16px; }
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    body { background: #fff; }
+    .page { margin: 0; box-shadow: none; max-width: 100%; }
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
 </style></head><body>
 <div class="page">
 
-  <!-- HEADER -->
+  <!-- ═══ HEADER ═══ -->
   <div class="header-wrap">
-    <div class="brand-row">
-      <div class="logo-block">
-        <div class="logo-diamond"><span class="logo-k">K</span></div>
-        <div class="brand-text">
-          <div class="brand-name">SCT</div>
-          <div class="brand-tagline">CÔNG TY NỘI THẤT SCT</div>
+    <div class="header-inner">
+      <div class="logo-wrap">
+        <div class="diamond-outer"><span class="diamond-k">K</span></div>
+        <div class="brand-block">
+          <div class="brand-name">KIẾN TRÚC ĐÔ THỊ SCT</div>
+          <div class="brand-sub">KIẾN TRÚC · XÂY DỰNG · NỘI THẤT</div>
+          <div class="brand-tag">Cùng bạn xây dựng ước mơ</div>
         </div>
       </div>
       <div class="header-meta">
@@ -209,96 +259,100 @@ function buildPrintHTML(project, items, summary) {
         <div>Mã CT: <strong>${project?.code || '—'}</strong></div>
       </div>
     </div>
-    <div class="title-row">
+  </div>
+
+  <!-- Title band -->
+  <div class="title-band">
+    <div>
       <div class="doc-title">Bảng theo dõi chênh lệch vật tư</div>
-      <div class="doc-subtitle">Material Variance Tracking Report</div>
+      <div class="doc-sub">Material Variance Tracking Report</div>
     </div>
   </div>
-  <div class="orange-stripe"></div>
+  <div class="orange-accent"></div>
 
-  <!-- PROJECT INFO -->
+  <!-- ═══ PROJECT INFO ═══ -->
   <div class="project-section">
     <div class="info-grid">
       <div class="info-row"><span class="info-label">Công trình:</span><span class="info-value">${project?.name || '—'}</span></div>
-      <div class="info-row"><span class="info-label">Mã dự án:</span><span class="info-value">${project?.code || '—'}</span></div>
+      <div class="info-row"><span class="info-label">Mã dự án:</span> <span class="info-value">${project?.code || '—'}</span></div>
       <div class="info-row"><span class="info-label">Khách hàng:</span><span class="info-value">${project?.customer?.name || '—'}</span></div>
-      <div class="info-row"><span class="info-label">Địa chỉ:</span><span class="info-value">${project?.address || '—'}</span></div>
+      <div class="info-row"><span class="info-label">Địa chỉ:</span>   <span class="info-value">${project?.address || '—'}</span></div>
     </div>
   </div>
 
-  <!-- SUMMARY CARDS -->
+  <!-- ═══ SUMMARY CARDS ═══ -->
   <div class="summary-section">
     <div class="summary-grid">
       <div class="sum-card budget">
         <div class="sum-label">Tổng Dự toán</div>
-        <div class="sum-value" style="color:#1d4ed8">${fmt(summary?.totalBudget || 0)}<span style="font-size:11px;font-weight:600">đ</span></div>
+        <div class="sum-value" style="color:#1d4ed8">${fmt(summary?.totalBudget||0)}<span class="sum-unit">đ</span></div>
       </div>
       <div class="sum-card actual">
         <div class="sum-label">Tổng Thực tế</div>
-        <div class="sum-value" style="color:#334155">${fmt(summary?.totalActual || 0)}<span style="font-size:11px;font-weight:600">đ</span></div>
+        <div class="sum-value" style="color:#334155">${fmt(summary?.totalActual||0)}<span class="sum-unit">đ</span></div>
       </div>
       <div class="sum-card variance">
         <div class="sum-label">Chênh lệch</div>
-        <div class="sum-value" style="color:${totalVar >= 0 ? '#16a34a' : '#dc2626'}">${totalVar >= 0 ? '+' : ''}${fmt(totalVar)}<span style="font-size:11px;font-weight:600">đ</span></div>
+        <div class="sum-value" style="color:${totalVar>=0?'#16a34a':'#dc2626'}">${totalVar>=0?'+':''}${fmt(totalVar)}<span class="sum-unit">đ</span></div>
       </div>
       <div class="sum-card cpi">
-        <div class="sum-label">CPI (hiệu quả chi phí)</div>
-        <div class="sum-value" style="color:${(cpi || 0) >= 1 ? '#16a34a' : (cpi || 0) >= 0.9 ? '#ea580c' : '#dc2626'}">${cpi != null ? cpi.toFixed(2) : '—'}</div>
+        <div class="sum-label">CPI · Hiệu quả chi phí</div>
+        <div class="sum-value" style="color:${(cpi||0)>=1?'#16a34a':(cpi||0)>=.9?'#f97316':'#dc2626'}">${cpi!=null?cpi.toFixed(2):'—'}</div>
       </div>
     </div>
   </div>
 
-  <!-- TABLE -->
+  <!-- ═══ TABLE ═══ -->
   <div class="table-section">
     <table>
       <thead><tr>
         <th style="width:28px">#</th>
-        <th style="text-align:left;padding-left:10px">HẠNG MỤC / SẢN PHẨM</th>
+        <th style="text-align:left;padding-left:12px">HẠNG MỤC / SẢN PHẨM</th>
         <th style="width:50px">ĐVT</th>
         <th style="width:50px">SL</th>
-        <th style="width:90px">ĐG DT</th>
-        <th style="width:100px">TỔNG DT</th>
-        <th style="width:90px">ĐG TT</th>
-        <th style="width:100px">TỔNG TT</th>
-        <th style="width:100px">CHÊNH LỆCH</th>
+        <th style="width:92px">ĐG DT</th>
+        <th style="width:105px">TỔNG DT</th>
+        <th style="width:92px">ĐG TT</th>
+        <th style="width:105px">TỔNG TT</th>
+        <th style="width:105px">CHÊNH LỆCH</th>
       </tr></thead>
       <tbody>${rowsHTML}
         <tr class="total-row">
-          <td colspan="5" class="right" style="letter-spacing:.5px">TỔNG CỘNG</td>
-          <td class="right">${fmt(summary?.totalBudget || 0)}</td>
+          <td colspan="5" class="right" style="letter-spacing:.5px;padding-right:12px">TỔNG CỘNG</td>
+          <td class="right">${fmt(summary?.totalBudget||0)}</td>
           <td></td>
-          <td class="right">${(summary?.totalActual || 0) > 0 ? fmt(summary.totalActual) : '—'}</td>
-          <td class="right" style="color:${totalVar >= 0 ? '#86efac' : '#fca5a5'}">${(summary?.totalActual || 0) > 0 ? (totalVar >= 0 ? '+' : '') + fmt(totalVar) : '—'}</td>
+          <td class="right">${(summary?.totalActual||0)>0?fmt(summary.totalActual):'—'}</td>
+          <td class="right">${(summary?.totalActual||0)>0?(totalVar>=0?'+':'')+fmt(totalVar):'—'}</td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <!-- FOOTER -->
+  <!-- ═══ FOOTER ═══ -->
   <div class="footer-section">
-    <div class="footer-top">
-      <div class="footer-brand">
-        <strong>SCT</strong><br>
-        Hệ thống ERP Nội thất &nbsp;·&nbsp; Tài liệu nội bộ<br>
-        <span style="font-size:9px">In ngày ${fmtDate()}</span>
-      </div>
-      <div style="font-size:9px;color:#cbd5e1;text-align:right">
-        Chênh lệch dương (+) = tiết kiệm so với dự toán<br>
-        CPI &gt; 1.0 = hiệu quả tốt &nbsp;|&nbsp; CPI &lt; 1.0 = vượt dự toán
-      </div>
+    <div class="footer-top-bar">
+      <span class="ft-brand">KIẾN TRÚC ĐÔ THỊ SCT</span>
+      <span class="ft-tagline">Tư vấn thiết kế &nbsp;·&nbsp; Xây dựng trọn gói &nbsp;·&nbsp; Thi công nội ngoại thất</span>
     </div>
-    <div class="sign-area" style="justify-content:flex-end">
-      <div class="sign-box">
-        <div class="sign-title">Lập bảng</div>
-        <div class="sign-note">Kỹ thuật / Kinh doanh</div>
-        <div class="sign-line"></div>
-        <div style="font-size:10px;color:#64748b">Ký tên &amp; ghi rõ họ tên</div>
+    <div class="footer-body">
+      <div class="footer-note">
+        <div><span>(+)</span> Chênh lệch dương = tiết kiệm so với dự toán</div>
+        <div><span>CPI &gt; 1.0</span> = hiệu quả tốt &nbsp;|&nbsp; <span>CPI &lt; 1.0</span> = vượt dự toán</div>
+        <div style="margin-top:6px;font-size:8.5px">In ngày ${fmtDate()} &nbsp;·&nbsp; Tài liệu nội bộ SCT ERP</div>
       </div>
-      <div class="sign-box">
-        <div class="sign-title">Giám đốc duyệt</div>
-        <div class="sign-note">Ban lãnh đạo SCT</div>
-        <div class="sign-line"></div>
-        <div style="font-size:10px;color:#64748b">Ký tên &amp; đóng dấu</div>
+      <div class="sign-area">
+        <div class="sign-box">
+          <div class="sign-title">Lập bảng</div>
+          <div class="sign-role">Kỹ thuật / Kinh doanh</div>
+          <div class="sign-line"></div>
+          <div class="sign-name">Ký tên &amp; ghi rõ họ tên</div>
+        </div>
+        <div class="sign-box">
+          <div class="sign-title">Giám đốc duyệt</div>
+          <div class="sign-role">Ban lãnh đạo SCT</div>
+          <div class="sign-line"></div>
+          <div class="sign-name">Ký tên &amp; đóng dấu</div>
+        </div>
       </div>
     </div>
   </div>
