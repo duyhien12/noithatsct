@@ -5,38 +5,57 @@ import { NextResponse } from 'next/server';
 export const PUT = withAuth(async (request, { params }) => {
     const { id } = await params;
     const body = await request.json();
-    const { quantity, unitPrice, budgetUnitPrice, orderedQty, receivedQty, status, type, notes, actualCost, costType, group1, group2, supplierTag } = body;
 
-    const update = {};
-    if (quantity !== undefined) update.quantity = Number(quantity);
-    if (unitPrice !== undefined) update.unitPrice = Number(unitPrice);
-    if (budgetUnitPrice !== undefined) update.budgetUnitPrice = Number(budgetUnitPrice);
-    if (orderedQty !== undefined) update.orderedQty = Number(orderedQty);
-    if (receivedQty !== undefined) update.receivedQty = Number(receivedQty);
-    if (status !== undefined) update.status = status;
-    if (type !== undefined) update.type = type;
-    if (notes !== undefined) update.notes = notes;
-    if (actualCost !== undefined) update.actualCost = Number(actualCost);
-    if (costType !== undefined) update.costType = costType;
-    if (group1 !== undefined) update.group1 = group1;
-    if (group2 !== undefined) update.group2 = group2;
-    if (supplierTag !== undefined) update.supplierTag = supplierTag;
+    const sets = [];
+    const vals = [];
+    let idx = 1;
 
-    // Recompute totalAmount and budgetUnitPrice sync
-    if (quantity !== undefined || unitPrice !== undefined || budgetUnitPrice !== undefined) {
-        const current = await prisma.materialPlan.findUnique({ where: { id } });
-        const q = quantity !== undefined ? Number(quantity) : current.quantity;
-        const u = unitPrice !== undefined ? Number(unitPrice) : (budgetUnitPrice !== undefined ? Number(budgetUnitPrice) : current.unitPrice);
-        update.totalAmount = q * u;
-        if (budgetUnitPrice !== undefined) update.unitPrice = Number(budgetUnitPrice);
+    const add = (col, val) => { sets.push(`"${col}" = $${idx++}`); vals.push(val); };
+
+    if (body.quantity !== undefined)       add('quantity', Number(body.quantity));
+    if (body.unitPrice !== undefined)      add('unitPrice', Number(body.unitPrice));
+    if (body.budgetUnitPrice !== undefined) {
+        add('budgetUnitPrice', Number(body.budgetUnitPrice));
+        add('unitPrice', Number(body.budgetUnitPrice));
+    }
+    if (body.actualCost !== undefined)     add('actualCost', Number(body.actualCost));
+    if (body.orderedQty !== undefined)     add('orderedQty', Number(body.orderedQty));
+    if (body.receivedQty !== undefined)    add('receivedQty', Number(body.receivedQty));
+    if (body.status !== undefined)         add('status', body.status);
+    if (body.type !== undefined)           add('type', body.type);
+    if (body.notes !== undefined)          add('notes', body.notes);
+    if (body.costType !== undefined)       add('costType', body.costType);
+    if (body.group1 !== undefined)         add('group1', body.group1);
+    if (body.group2 !== undefined)         add('group2', body.group2);
+    if (body.supplierTag !== undefined)    add('supplierTag', body.supplierTag);
+    if (body.category !== undefined)       add('category', body.category);
+
+    // Recompute totalAmount if quantity or price changed
+    if (body.quantity !== undefined || body.unitPrice !== undefined || body.budgetUnitPrice !== undefined) {
+        const rows = await prisma.$queryRaw`SELECT quantity, "unitPrice" FROM "MaterialPlan" WHERE id = ${id}`;
+        const cur = rows[0] || {};
+        const q = body.quantity !== undefined ? Number(body.quantity) : Number(cur.quantity);
+        const u = body.budgetUnitPrice !== undefined ? Number(body.budgetUnitPrice)
+                : body.unitPrice !== undefined ? Number(body.unitPrice)
+                : Number(cur.unitPrice);
+        sets.push(`"totalAmount" = $${idx++}`);
+        vals.push(q * u);
     }
 
-    const plan = await prisma.materialPlan.update({ where: { id }, data: update });
-    return NextResponse.json(plan);
+    if (!sets.length) return NextResponse.json({ ok: true });
+
+    vals.push(id);
+    await prisma.$executeRawUnsafe(
+        `UPDATE "MaterialPlan" SET ${sets.join(', ')} WHERE id = $${idx}`,
+        ...vals
+    );
+
+    const rows = await prisma.$queryRaw`SELECT * FROM "MaterialPlan" WHERE id = ${id}`;
+    return NextResponse.json(rows[0] || {});
 });
 
 export const DELETE = withAuth(async (request, { params }) => {
     const { id } = await params;
-    await prisma.materialPlan.delete({ where: { id } });
+    await prisma.$executeRaw`DELETE FROM "MaterialPlan" WHERE id = ${id}`;
     return NextResponse.json({ ok: true });
 });

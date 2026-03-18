@@ -385,9 +385,6 @@ export default function BudgetQuickAdd({ projectId, products, onDone, onClose, i
                                             { label: 'ĐG TT', w: 90 },
                                             { label: 'Tổng TT', w: 110 },
                                             { label: 'Chênh lệch', w: 110 },
-                                            { label: 'Loại CP', w: 100 },
-                                            { label: 'Giai đoạn', w: 110 },
-                                            { label: 'Không gian', w: 110 },
                                             { label: '', w: 32 },
                                         ].map(h => (
                                             <th key={h.label} style={{ background: '#1e3a5f', color: 'white', fontWeight: 700, textAlign: 'center', fontSize: 11, padding: '7px 6px', border: '1px solid #1e3a5f', whiteSpace: 'nowrap', width: h.w }}>{h.label}</th>
@@ -482,28 +479,6 @@ export default function BudgetQuickAdd({ projectId, products, onDone, onClose, i
                                                 {/* Chênh lệch (computed: Tổng DT - Tổng TT) */}
                                                 <td style={{ ...cellStyle, textAlign: 'right', fontWeight: 600, color: actualCost > 0 ? (chenhLech >= 0 ? '#16a34a' : '#dc2626') : '#9ca3af', fontSize: 12 }}>
                                                     {actualCost > 0 ? `${chenhLech >= 0 ? '+' : ''}${fmt(chenhLech)}` : '—'}
-                                                </td>
-
-                                                {/* Loại chi phí */}
-                                                <td style={cellStyle}>
-                                                    <select value={row.costType} onChange={e => updateRow(idx, 'costType', e.target.value)}
-                                                        style={{ width: '100%', padding: '5px 4px', fontSize: 11, border: '1px solid #d1d5db', borderRadius: 4, cursor: 'pointer', background: 'white', color: '#111' }}>
-                                                        {costTypes.map(ct => <option key={ct} value={ct}>{ct}</option>)}
-                                                    </select>
-                                                </td>
-
-                                                {/* Giai đoạn */}
-                                                <td style={cellStyle}>
-                                                    <input type="text" list="group1-list" placeholder="Phần thô..." value={row.group1}
-                                                        onChange={e => updateRow(idx, 'group1', e.target.value)}
-                                                        style={{ ...inputStyle, fontSize: 11, padding: '5px 6px' }} />
-                                                </td>
-
-                                                {/* Không gian */}
-                                                <td style={cellStyle}>
-                                                    <input type="text" list="group2-list" placeholder="P.Khách..." value={row.group2}
-                                                        onChange={e => updateRow(idx, 'group2', e.target.value)}
-                                                        style={{ ...inputStyle, fontSize: 11, padding: '5px 6px' }} />
                                                 </td>
 
                                                 {/* Delete */}

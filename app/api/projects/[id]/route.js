@@ -17,7 +17,6 @@ export const GET = withAuth(async (request, { params }) => {
             transactions: { orderBy: { date: 'desc' }, take: 10 },
             contracts: { include: { payments: { orderBy: { createdAt: 'asc' } }, quotation: { select: { code: true } } } },
             workOrders: { orderBy: { createdAt: 'desc' } },
-            materialPlans: { include: { product: { select: { name: true, code: true, unit: true } } } },
             requisitions: { orderBy: { createdAt: 'desc' } },
             purchaseOrders: { include: { items: true, supplierRel: { select: { name: true, phone: true, address: true, taxCode: true, bankAccount: true, bankName: true } } }, orderBy: { createdAt: 'desc' } },
             expenses: { orderBy: { date: 'desc' } },
@@ -27,6 +26,15 @@ export const GET = withAuth(async (request, { params }) => {
         },
     });
     if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+    // Fetch materialPlans via raw SQL to avoid stale Prisma client issues with nullable productId
+    const materialPlans = await prisma.$queryRaw`
+        SELECT mp.*, p.name AS "productName", p.code AS "productCode", p.unit AS "productUnit"
+        FROM "MaterialPlan" mp
+        LEFT JOIN "Product" p ON mp."productId" = p.id
+        WHERE mp."projectId" = ${project.id}
+        ORDER BY mp."createdAt" ASC
+    `;
 
     // P&L
     const income = project.paidAmount ?? 0;
@@ -58,6 +66,7 @@ export const GET = withAuth(async (request, { params }) => {
 
     return NextResponse.json({
         ...project,
+        materialPlans,
         pnl: { income, expense, profit, profitMargin, debtFromCustomer, debtToContractors },
         settlement,
     });

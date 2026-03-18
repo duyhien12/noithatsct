@@ -16,4 +16,4 @@ export const DELETE = withAuth(async (request, { params }) => {
     const { id } = await params;
     await prisma.scheduleTemplate.delete({ where: { id } });
     return NextResponse.json({ success: true });
-}, { roles: ['giam_doc'] });
+});

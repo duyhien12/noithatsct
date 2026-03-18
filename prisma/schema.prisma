@@ -78,11 +78,12 @@ model Project {
   designer        String      @default("")
   supervisor      String      @default("")
   notes           String      @default("") @db.Text
-  budgetStatus    String      @default("draft")
-  budgetLockedAt  DateTime?
-  budgetLockedBy  String      @default("")
-  budgetTotal     Float       @default(0)
-  customerId      String
+  budgetStatus        String      @default("draft")
+  budgetLockedAt      DateTime?
+  budgetLockedBy      String      @default("")
+  budgetTotal         Float       @default(0)
+  budgetEstimateData  Json?
+  customerId          String
   customer        Customer    @relation(fields: [customerId], references: [id])
   @@index([customerId])
   quotations      Quotation[]

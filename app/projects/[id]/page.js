@@ -9,6 +9,7 @@ import VarianceTable from '@/components/budget/VarianceTable';
 import ProfitabilityWidget from '@/components/budget/ProfitabilityWidget';
 import BudgetQuickAdd from '@/components/budget/BudgetQuickAdd';
 import SCurveChart from '@/components/budget/SCurveChart';
+import BudgetEstimateForm from '@/components/budget/BudgetEstimateForm';
 import MeasurementSheet, { MeasurementActions } from '@/components/contractor/MeasurementSheet';
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
@@ -738,7 +739,7 @@ export default function ProjectDetailPage() {
                                         }
                                         return <span className={`badge ${health}`} title={healthTitle}>{healthLabel}</span>;
                                     })()}
-                                    {pnl.profit >= 0 ? <span className="badge success">📈 Lãi {fmt(pnl.profit)}</span> : <span className="badge danger">📉 Lỗ {fmt(Math.abs(pnl.profit))}</span>}
+                                    {pnl?.profit != null && (pnl.profit >= 0 ? <span className="badge success">📈 Lãi {fmt(pnl.profit)}</span> : <span className="badge danger">📉 Lỗ {fmt(Math.abs(pnl.profit))}</span>)}
                                 </div>
                                 <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{p.name}</h2>
                                 <div style={{ color: 'var(--text-muted)', marginTop: 4, fontSize: 13 }}>{p.customer?.name} • {p.address}</div>
@@ -787,7 +788,7 @@ export default function ProjectDetailPage() {
                             {[
                                 { v: `${p.area}m²`, l: 'Diện tích' }, { v: `${p.floors} tầng`, l: 'Số tầng' },
                                 { v: fmt(p.contractValue), l: 'Giá trị HĐ' }, { v: fmt(p.paidAmount), l: 'Đã thu' },
-                                { v: fmt(pnl.debtFromCustomer), l: 'KH còn nợ', c: pnl.debtFromCustomer > 0 ? 'var(--status-danger)' : 'var(--status-success)' }
+                                { v: fmt(pnl?.debtFromCustomer), l: 'KH còn nợ', c: (pnl?.debtFromCustomer ?? 0) > 0 ? 'var(--status-danger)' : 'var(--status-success)' }
                             ].map(s => (
                                 <div key={s.l} style={{ textAlign: 'center', padding: '8px 0' }}>
                                     <div style={{ fontWeight: 700, fontSize: 15, color: s.c || 'var(--text-primary)' }}>{s.v}</div>
@@ -855,21 +856,15 @@ export default function ProjectDetailPage() {
                     <div className="card" style={{ padding: 20, marginTop: 16 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                             <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>📊 Bảng theo dõi Chênh lệch Vật tư</h3>
-                            {p.budgetStatus !== 'locked' && (
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                    <button className="btn btn-primary btn-sm" onClick={async () => {
-                                        if (mpProducts.length === 0) {
-                                            const res = await fetch('/api/products?limit=500');
-                                            const json = await res.json();
-                                            setMpProducts(json.data || json || []);
-                                        }
-                                        setModal('budget_quick');
-                                    }}>+ Thêm dự toán</button>
-                                    {p.quotations?.length > 0 && <button className="btn btn-ghost btn-sm" onClick={importMPFromQuotation}>📄 Từ Báo giá</button>}
-                                </div>
-                            )}
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                {p.quotations?.length > 0 && <button className="btn btn-ghost btn-sm" onClick={importMPFromQuotation}>📄 Từ Báo giá</button>}
+                            </div>
                         </div>
-                        <VarianceTable key={`v-${varianceKey}`} projectId={id} onTotalBudgetLoaded={setLiveBudgetTotal} />
+                        <VarianceTable key={`v-${varianceKey}`} projectId={id} onTotalBudgetLoaded={setLiveBudgetTotal} project={p} />
+                    </div>
+                    <div className="card" style={{ padding: 20, marginTop: 16 }}>
+                        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>📋 Bảng dự trù kinh phí</h3>
+                        <BudgetEstimateForm projectId={id} />
                     </div>
                     <div className="card" style={{ padding: 20, marginTop: 16 }}>
                         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>📈 S-Curve — Tiến độ Chi phí</h3>

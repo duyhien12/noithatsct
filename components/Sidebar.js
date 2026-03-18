@@ -30,7 +30,7 @@ const menuItems = [
             { href: '/products', icon: Package, label: 'Sản phẩm & Vật tư' },
             { href: '/quotations', icon: ClipboardList, label: 'Báo giá', roles: ['giam_doc', 'pho_gd', 'ke_toan', 'ky_thuat', 'kinh_doanh'] },
             { href: '/work-orders', icon: Wrench, label: 'Phiếu công việc' },
-            { href: '/schedule-templates', icon: CalendarDays, label: 'Mẫu tiến độ', roles: ['giam_doc', 'pho_gd', 'ky_thuat', 'kinh_doanh'] },
+            { href: '/schedule-templates', icon: CalendarDays, label: 'Mẫu tiến độ' },
         ]
     },
     {

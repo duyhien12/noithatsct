@@ -9,79 +9,81 @@ export const GET = withAuth(async (request) => {
 
     const planType = searchParams.get('planType') || 'tracking';
 
-    // Get all material plans, filter planType in JS (Prisma client may not have field yet)
-    const allPlans = await prisma.materialPlan.findMany({
-        where: { projectId },
-        include: {
-            product: { select: { name: true, code: true, unit: true } },
-            purchaseItems: { select: { unitPrice: true, quantity: true, receivedQty: true } },
-        },
-    });
+    // Use raw query to avoid stale Prisma client issues with nullable productId
+    const allPlans = await prisma.$queryRaw`
+        SELECT
+            mp.*,
+            p.name  AS "productName",
+            p.code  AS "productCode",
+            p.unit  AS "productUnit",
+            COALESCE(
+                (SELECT SUM(poi.quantity) FROM "PurchaseOrderItem" poi WHERE poi."materialPlanId" = mp.id),
+                0
+            ) AS "totalPOQty",
+            COALESCE(
+                (SELECT SUM(poi."unitPrice" * poi.quantity) FROM "PurchaseOrderItem" poi WHERE poi."materialPlanId" = mp.id),
+                0
+            ) AS "totalPOValue",
+            COALESCE(
+                (SELECT SUM(poi."receivedQty") FROM "PurchaseOrderItem" poi WHERE poi."materialPlanId" = mp.id),
+                0
+            ) AS "actualReceivedQty"
+        FROM "MaterialPlan" mp
+        LEFT JOIN "Product" p ON mp."productId" = p.id
+        WHERE mp."projectId" = ${projectId}
+          AND COALESCE(mp."planType", 'tracking') = ${planType}
+        ORDER BY mp."createdAt" ASC
+    `;
 
-    // Filter by planType in JS (handles both old records without planType and new ones)
-    const plans = allPlans.filter(p => {
-        const pt = p.planType || 'tracking';
-        return pt === planType;
-    });
+    const variance = allPlans.map(plan => {
+        const totalPOQty = Number(plan.totalPOQty) || 0;
+        const totalPOValue = Number(plan.totalPOValue) || 0;
+        const actualReceivedQty = Number(plan.actualReceivedQty) || 0;
 
-    const variance = plans.map(plan => {
-        // Avg actual price from PO items (weighted by qty)
-        const totalPOQty = plan.purchaseItems.reduce((s, i) => s + i.quantity, 0);
-        const totalPOValue = plan.purchaseItems.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
-
-        // Received qty from PO items
-        const actualReceivedQty = plan.purchaseItems.reduce((s, i) => s + i.receivedQty, 0);
-
-        // Fallback to actualCost field when no PO items
         const hasPO = totalPOQty > 0;
-        const avgActualPrice = hasPO ? totalPOValue / totalPOQty : (plan.actualCost > 0 && plan.quantity > 0 ? plan.actualCost / plan.quantity : 0);
-        const effectiveActualTotal = hasPO ? avgActualPrice * (actualReceivedQty || plan.orderedQty) : plan.actualCost;
+        const avgActualPrice = hasPO
+            ? totalPOValue / totalPOQty
+            : (Number(plan.actualCost) > 0 && Number(plan.quantity) > 0
+                ? Number(plan.actualCost) / Number(plan.quantity)
+                : 0);
+        const effectiveActualTotal = hasPO
+            ? avgActualPrice * (actualReceivedQty || Number(plan.orderedQty))
+            : Number(plan.actualCost);
 
-        // Max allowed qty
-        const maxAllowedQty = plan.quantity * (1 + plan.wastePercent / 100);
+        const qty = Number(plan.quantity) || 0;
+        const budgetUnitPrice = Number(plan.budgetUnitPrice) || 0;
+        const wastePercent = Number(plan.wastePercent) || 5;
+        const maxAllowedQty = qty * (1 + wastePercent / 100);
+        const orderedQty = Number(plan.orderedQty) || 0;
+        const usagePercent = maxAllowedQty > 0 ? (orderedQty / maxAllowedQty) * 100 : 0;
+        const cpi = avgActualPrice > 0 ? Math.round((budgetUnitPrice / avgActualPrice) * 100) / 100 : null;
 
-        // Variance calculations
-        const priceVariance = (avgActualPrice - plan.budgetUnitPrice) * (actualReceivedQty || plan.orderedQty);
-        const qtyVariance = (actualReceivedQty || plan.orderedQty) - plan.quantity;
-        const usagePercent = maxAllowedQty > 0 ? (plan.orderedQty / maxAllowedQty) * 100 : 0;
-
-        // CPI = Budget / Actual (>1 = saving, <1 = overspending)
-        const cpi = avgActualPrice > 0 ? Math.round((plan.budgetUnitPrice / avgActualPrice) * 100) / 100 : null;
-
-        // Status: green/yellow/red
         let status = 'green';
-        if (usagePercent >= 100 || avgActualPrice > plan.budgetUnitPrice * 1.05) {
-            status = 'red';
-        } else if (usagePercent >= 90 || avgActualPrice > plan.budgetUnitPrice) {
-            status = 'yellow';
-        }
+        if (usagePercent >= 100 || avgActualPrice > budgetUnitPrice * 1.05) status = 'red';
+        else if (usagePercent >= 90 || avgActualPrice > budgetUnitPrice) status = 'yellow';
 
         return {
             id: plan.id,
-            productName: plan.product?.name || '',
-            productCode: plan.product?.code || '',
-            unit: plan.product?.unit || '',
-            category: plan.category,
-            // V2 fields
+            productName: plan.productName || plan.category || '',
+            productCode: plan.productCode || '',
+            unit: plan.productUnit || '',
+            category: plan.category || '',
             costType: plan.costType || 'Vật tư',
             group1: plan.group1 || '',
             group2: plan.group2 || '',
             drawingUrl: plan.drawingUrl || '',
             supplierTag: plan.supplierTag || '',
-            // Budget
-            budgetQty: plan.quantity,
-            budgetUnitPrice: plan.budgetUnitPrice,
-            budgetTotal: plan.quantity * plan.budgetUnitPrice,
-            wastePercent: plan.wastePercent,
+            budgetQty: qty,
+            budgetUnitPrice,
+            budgetTotal: qty * budgetUnitPrice,
+            wastePercent,
             maxAllowedQty,
-            // Actual
-            orderedQty: plan.orderedQty,
-            receivedQty: actualReceivedQty || plan.receivedQty,
+            orderedQty,
+            receivedQty: actualReceivedQty || Number(plan.receivedQty) || 0,
             avgActualPrice,
             actualTotal: effectiveActualTotal,
-            // Variance
-            priceVariance,
-            qtyVariance,
+            priceVariance: (avgActualPrice - budgetUnitPrice) * (actualReceivedQty || orderedQty),
+            qtyVariance: (actualReceivedQty || orderedQty) - qty,
             usagePercent: Math.round(usagePercent * 10) / 10,
             cpi,
             status,
@@ -89,13 +91,11 @@ export const GET = withAuth(async (request) => {
         };
     });
 
-    // Summary
     const totalBudget = variance.reduce((s, v) => s + v.budgetTotal, 0);
     const totalActual = variance.reduce((s, v) => s + v.actualTotal, 0);
     const totalVariance = totalActual - totalBudget;
     const overallCpi = totalActual > 0 ? Math.round((totalBudget / totalActual) * 100) / 100 : null;
 
-    // Group summaries
     const groups = {};
     variance.forEach(v => {
         const key = v.group1 || 'Chưa phân loại';
@@ -114,4 +114,3 @@ export const GET = withAuth(async (request) => {
         })),
     });
 });
-
