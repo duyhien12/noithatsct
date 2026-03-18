@@ -203,6 +203,8 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     const [addingG1, setAddingG1] = useState(false);
     const [newG1Name, setNewG1Name] = useState('');
     const [renamingSection, setRenamingSection] = useState(null); // { key, g1, g2, value }
+    const [renamingTab, setRenamingTab] = useState(null); // { g1, value }
+    const [newTabName, setNewTabName] = useState('');
 
     const exportPDF = () => {
         const html = buildPrintHTML(project, items, summary);
@@ -340,6 +342,24 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
             });
         }
         setRenamingSection(null);
+        reload();
+    };
+
+    const submitRenameTab = async () => {
+        if (!renamingTab) return;
+        const { g1 } = renamingTab;
+        const newName = newTabName.trim();
+        if (!newName || newName === g1) { setRenamingTab(null); return; }
+
+        const toUpdate = items.filter(i => i.group1 === g1);
+        for (const item of toUpdate) {
+            await fetch(`/api/material-plans/${item.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ group1: newName }),
+            });
+        }
+        setRenamingTab(null);
         reload();
     };
 
@@ -704,16 +724,42 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                     const { budget, actual } = liveAgg(allG1);
                     const v = budget - actual;
                     const isActive = ti === safeTab;
+                    const isRenamingThis = renamingTab?.g1 === g1;
                     return (
-                        <button key={g1} onClick={() => setActiveTab(ti)}
-                            style={{ padding: '7px 16px', fontSize: 13, fontWeight: isActive ? 700 : 500, borderRadius: 8,
-                                border: isActive ? '2px solid #2563eb' : '1px solid #e5e7eb',
-                                background: isActive ? '#eff6ff' : 'var(--bg-card)', cursor: 'pointer',
-                                color: isActive ? '#2563eb' : 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-                            {g1}
-                            {budget > 0 && <span style={{ marginLeft: 6, fontSize: 11, color: isActive ? '#3b82f6' : '#9ca3af' }}>{fmt(budget)}</span>}
-                            {actual > 0 && <span style={{ marginLeft: 4, fontSize: 10, color: v >= 0 ? '#16a34a' : '#dc2626' }}>{v >= 0 ? '▲' : '▼'}</span>}
-                        </button>
+                        <div key={g1} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            {isRenamingThis ? (
+                                <>
+                                    <input autoFocus
+                                        style={{ padding: '5px 10px', fontSize: 13, border: '2px solid #2563eb', borderRadius: 8, outline: 'none', width: 180, fontWeight: 700 }}
+                                        value={newTabName}
+                                        onChange={e => setNewTabName(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') submitRenameTab(); if (e.key === 'Escape') setRenamingTab(null); }}
+                                        onBlur={submitRenameTab}
+                                    />
+                                    <button onMouseDown={e => { e.preventDefault(); submitRenameTab(); }}
+                                        style={{ padding: '4px 8px', fontSize: 12, background: '#16a34a', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>✓</button>
+                                    <button onMouseDown={e => { e.preventDefault(); setRenamingTab(null); }}
+                                        style={{ padding: '4px 7px', fontSize: 12, background: 'none', border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer', color: '#6b7280' }}>✕</button>
+                                </>
+                            ) : (
+                                <>
+                                    <button onClick={() => setActiveTab(ti)}
+                                        style={{ padding: '7px 16px', fontSize: 13, fontWeight: isActive ? 700 : 500, borderRadius: 8,
+                                            border: isActive ? '2px solid #2563eb' : '1px solid #e5e7eb',
+                                            background: isActive ? '#eff6ff' : 'var(--bg-card)', cursor: 'pointer',
+                                            color: isActive ? '#2563eb' : 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                                        {g1}
+                                        {budget > 0 && <span style={{ marginLeft: 6, fontSize: 11, color: isActive ? '#3b82f6' : '#9ca3af' }}>{fmt(budget)}</span>}
+                                        {actual > 0 && <span style={{ marginLeft: 4, fontSize: 10, color: v >= 0 ? '#16a34a' : '#dc2626' }}>{v >= 0 ? '▲' : '▼'}</span>}
+                                    </button>
+                                    <button onClick={e => { e.stopPropagation(); setActiveTab(ti); setRenamingTab({ g1 }); setNewTabName(g1); }}
+                                        title="Đổi tên"
+                                        style={{ padding: '3px 6px', fontSize: 11, background: 'none', border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>
+                                        ✏️
+                                    </button>
+                                </>
+                            )}
+                        </div>
                     );
                 })}
                 {addingG1 ? (
