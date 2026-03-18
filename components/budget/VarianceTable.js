@@ -215,7 +215,10 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     const reload = useCallback(() => {
         setLoading(true);
         fetch(`/api/budget/variance?projectId=${projectId}&planType=tracking`)
-            .then(r => r.json())
+            .then(r => {
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return r.json();
+            })
             .then(d => {
                 setItems(d.items || []);
                 setSummary(d.summary || null);
@@ -223,7 +226,10 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                 setDirty(false);
                 if (d?.summary?.totalBudget !== undefined) onTotalBudgetLoaded?.(d.summary.totalBudget);
             })
-            .catch(() => {})
+            .catch((err) => {
+                console.error('[VarianceTable] Lỗi tải dữ liệu:', err);
+                setItems([]);
+            })
             .finally(() => setLoading(false));
     }, [projectId]);
 
@@ -619,11 +625,12 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                     ))}
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <button onClick={saveAll} disabled={!dirty || allSaving}
-                        style={{ padding: '7px 18px', fontSize: 13, fontWeight: 700, borderRadius: 8, border: 'none', cursor: dirty ? 'pointer' : 'default',
-                            background: dirty ? '#1e3a5f' : '#e5e7eb', color: dirty ? 'white' : '#9ca3af',
-                            boxShadow: dirty ? '0 2px 8px rgba(30,58,95,0.25)' : 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        💾 {allSaving ? 'Đang lưu...' : 'Lưu'}
+                    <button onClick={saveAll} disabled={allSaving}
+                        style={{ padding: '7px 18px', fontSize: 13, fontWeight: 700, borderRadius: 8, border: 'none', cursor: 'pointer',
+                            background: dirty ? '#1e3a5f' : '#4b7ab5', color: 'white',
+                            boxShadow: '0 2px 8px rgba(30,58,95,0.25)', display: 'flex', alignItems: 'center', gap: 6,
+                            opacity: allSaving ? 0.7 : 1 }}>
+                        💾 {allSaving ? 'Đang lưu...' : dirty ? 'Lưu *' : 'Lưu'}
                     </button>
                     <button onClick={exportPDF}
                         style={{ padding: '7px 16px', fontSize: 12, fontWeight: 700, borderRadius: 8, border: 'none', cursor: 'pointer',

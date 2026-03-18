@@ -3,6 +3,9 @@ import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 
 export const GET = withAuth(async (request) => {
+    // Ensure unit column exists (idempotent, first-time migration)
+    await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN IF NOT EXISTS "unit" TEXT NOT NULL DEFAULT ''`.catch(() => {});
+
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');
     if (!projectId) return NextResponse.json({ error: 'projectId required' }, { status: 400 });
