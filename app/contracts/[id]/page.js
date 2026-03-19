@@ -48,7 +48,11 @@ export default function ContractDetailPage() {
     const [editingPayments, setEditingPayments] = useState(false);
     const [paymentPhases, setPaymentPhases] = useState([]);
     const [savingPayments, setSavingPayments] = useState(false);
+    const [projectSearch, setProjectSearch] = useState('');
+    const [projectOptions, setProjectOptions] = useState([]);
+    const [showProjectMenu, setShowProjectMenu] = useState(false);
     const fileRef = useRef();
+    const projectMenuRef = useRef();
 
     const reload = () => {
         fetch(`/api/contracts/${id}`)
@@ -57,6 +61,8 @@ export default function ContractDetailPage() {
                 setData(d);
                 setForm({
                     name: d.name || '',
+                    projectId: d.projectId || '',
+                    projectName: d.project?.name || '',
                     type: d.type || 'Thi công thô',
                     status: d.status || 'Nháp',
                     contractValue: d.contractValue || 0,
@@ -73,25 +79,60 @@ export default function ContractDetailPage() {
 
     useEffect(() => { reload(); }, [id]);
 
+    useEffect(() => {
+        if (!showProjectMenu) return;
+        const t = setTimeout(() => {
+            fetch(`/api/projects?search=${encodeURIComponent(projectSearch)}&limit=10`)
+                .then(r => r.json())
+                .then(d => setProjectOptions(d.data || d));
+        }, 250);
+        return () => clearTimeout(t);
+    }, [projectSearch, showProjectMenu]);
+
+    useEffect(() => {
+        const handler = (e) => {
+            if (projectMenuRef.current && !projectMenuRef.current.contains(e.target)) {
+                setShowProjectMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
     const save = async () => {
         setSaving(true);
-        const res = await fetch(`/api/contracts/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                ...form,
-                contractValue: parseFloat(form.contractValue) || 0,
-                variationAmount: parseFloat(form.variationAmount) || 0,
-                signDate: form.signDate ? new Date(form.signDate) : null,
-                startDate: form.startDate ? new Date(form.startDate) : null,
-                endDate: form.endDate ? new Date(form.endDate) : null,
+        const { projectName, ...contractForm } = form;
+        const [res, projRes] = await Promise.all([
+            fetch(`/api/contracts/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...contractForm,
+                    projectId: form.projectId || undefined,
+                    contractValue: parseFloat(form.contractValue) || 0,
+                    variationAmount: parseFloat(form.variationAmount) || 0,
+                    signDate: form.signDate ? new Date(form.signDate) : null,
+                    startDate: form.startDate ? new Date(form.startDate) : null,
+                    endDate: form.endDate ? new Date(form.endDate) : null,
+                }),
             }),
-        });
+            form.projectId && projectName
+                ? fetch(`/api/projects/${form.projectId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: projectName }),
+                })
+                : Promise.resolve(null),
+        ]);
         if (res.ok) {
             setSaved(true);
             setTimeout(() => setSaved(false), 2500);
             const updated = await res.json();
-            setData(prev => ({ ...prev, ...updated }));
+            setData(prev => ({
+                ...prev,
+                ...updated,
+                project: prev.project ? { ...prev.project, name: projectName } : prev.project,
+            }));
         }
         setSaving(false);
     };
@@ -232,6 +273,57 @@ export default function ContractDetailPage() {
                                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                                     <label className="form-label">Tên hợp đồng</label>
                                     <input className="form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+                                </div>
+                                <div className="form-group" style={{ gridColumn: '1 / -1' }} ref={projectMenuRef}>
+                                    <label className="form-label">Dự án liên kết</label>
+                                    <div style={{ position: 'relative' }}>
+                                        <input
+                                            className="form-input"
+                                            value={projectSearch || (showProjectMenu ? '' : (form.projectName || ''))}
+                                            placeholder={form.projectName || 'Tìm dự án...'}
+                                            onChange={e => { setProjectSearch(e.target.value); setShowProjectMenu(true); }}
+                                            onFocus={() => { setProjectSearch(''); setShowProjectMenu(true); }}
+                                        />
+                                        {form.projectName && (
+                                            <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--text-muted)', pointerEvents: 'none' }}>
+                                                {data.project?.code || ''}
+                                            </span>
+                                        )}
+                                        {showProjectMenu && projectOptions.length > 0 && (
+                                            <div style={{
+                                                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                                                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                                                borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.15)', maxHeight: 220, overflowY: 'auto',
+                                            }}>
+                                                {projectOptions.map(p => (
+                                                    <div
+                                                        key={p.id}
+                                                        style={{
+                                                            padding: '9px 14px', cursor: 'pointer', fontSize: 13,
+                                                            borderBottom: '1px solid var(--border-light)',
+                                                            background: form.projectId === p.id ? 'var(--bg-hover)' : 'transparent',
+                                                        }}
+                                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                                        onMouseLeave={e => e.currentTarget.style.background = form.projectId === p.id ? 'var(--bg-hover)' : 'transparent'}
+                                                        onMouseDown={e => {
+                                                            e.preventDefault();
+                                                            setForm(f => ({ ...f, projectId: p.id, projectName: p.name }));
+                                                            setProjectSearch('');
+                                                            setShowProjectMenu(false);
+                                                        }}
+                                                    >
+                                                        <span style={{ fontWeight: 600 }}>{p.code}</span>
+                                                        <span style={{ marginLeft: 8 }}>{p.name}</span>
+                                                        {p.customer?.name && <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 11 }}>• {p.customer.name}</span>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                    <label className="form-label">Tên dự án</label>
+                                    <input className="form-input" value={form.projectName} onChange={e => setForm(f => ({ ...f, projectName: e.target.value }))} placeholder="Nhập tên dự án..." />
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Loại hợp đồng</label>
