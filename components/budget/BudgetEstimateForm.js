@@ -399,11 +399,36 @@ export default function BudgetEstimateForm({ projectId }) {
     const dirtyRef = useRef(false);
     const savingRef = useRef(false);
     const catsRef = useRef(null);
+    const autoSaveTimerRef = useRef(null);
+    const [autoSaveStatus, setAutoSaveStatus] = useState(''); // '', 'saving', 'saved'
     const [editingCatName, setEditingCatName] = useState(null);
     const [editingSubName, setEditingSubName] = useState(null);
 
-    // Keep catsRef in sync so autoSave can read latest without stale closure
-    useEffect(() => { catsRef.current = cats; }, [cats]);
+    // Keep catsRef in sync + trigger debounced auto-save on every cats change
+    useEffect(() => {
+        catsRef.current = cats;
+        if (!dirtyRef.current || cats === null) return;
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = setTimeout(() => {
+            if (!dirtyRef.current || savingRef.current) return;
+            const data = catsRef.current;
+            if (!data) return;
+            setAutoSaveStatus('saving');
+            savingRef.current = true;
+            fetch(`/api/projects/${projectId}/budget-estimate`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data }),
+            }).then(() => {
+                dirtyRef.current = false;
+                setDirty(false);
+                setAutoSaveStatus('saved');
+                setTimeout(() => setAutoSaveStatus(''), 2000);
+            }).catch(() => setAutoSaveStatus('')).finally(() => {
+                savingRef.current = false;
+            });
+        }, 1500);
+    }, [cats]);
 
     useEffect(() => {
         fetch(`/api/projects/${projectId}/budget-estimate`)
@@ -631,6 +656,15 @@ export default function BudgetEstimateForm({ projectId }) {
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {autoSaveStatus === 'saving' && (
+                        <span style={{ fontSize: 11, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ display: 'inline-block', width: 10, height: 10, border: '2px solid #93c5fd', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                            Đang lưu...
+                        </span>
+                    )}
+                    {autoSaveStatus === 'saved' && (
+                        <span style={{ fontSize: 11, color: '#16a34a' }}>✓ Đã lưu tự động</span>
+                    )}
                     <button onClick={save} disabled={saving}
                         style={{ padding: '7px 18px', fontSize: 13, fontWeight: 700, borderRadius: 8, border: 'none', cursor: 'pointer',
                             background: dirty ? '#1e3a5f' : '#4b7ab5', color: 'white',

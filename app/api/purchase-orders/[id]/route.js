@@ -70,3 +70,14 @@ export const PUT = withAuth(async (request, { params }) => {
     });
     return NextResponse.json(po);
 });
+
+export const DELETE = withAuth(async (request, { params }) => {
+    const { id } = await params;
+    const po = await prisma.purchaseOrder.findUnique({ where: { id } });
+    if (!po) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    await prisma.$transaction([
+        prisma.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: id } }),
+        prisma.purchaseOrder.delete({ where: { id } }),
+    ]);
+    return NextResponse.json({ success: true });
+});

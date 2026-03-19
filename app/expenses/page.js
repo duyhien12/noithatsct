@@ -71,7 +71,6 @@ export default function ExpensesPage() {
     // === CRUD ===
     const openCreate = () => { setEditing(null); setForm(emptyForm); setShowModal(true); };
     const openEdit = (e) => {
-        if (e.status !== 'Chờ duyệt' && e.status !== 'Từ chối') return; // only edit when pending
         setEditing(e);
         setForm({ expenseType: e.expenseType || 'Dự án', description: e.description, amount: e.amount, category: e.category, submittedBy: e.submittedBy, date: e.date?.split('T')[0] || '', notes: e.notes, projectId: e.projectId || '', recipientType: e.recipientType || '', recipientId: e.recipientId || '' });
         setShowModal(true);
@@ -136,137 +135,161 @@ export default function ExpensesPage() {
     const printExpenseVoucher = (e) => {
         const today = new Date().toLocaleDateString('vi-VN');
         const amountText = new Intl.NumberFormat('vi-VN').format(e.amount);
-        const w = window.open('', '_blank', 'width=820,height=750');
+        const w = window.open('', '_blank', 'width=860,height=800');
         w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Phiếu chi - ${e.code}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Times New Roman',serif;font-size:13px;color:#111;background:#fff}
-.page{padding:30px 44px;max-width:800px;margin:0 auto}
+body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f5;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{max-width:800px;margin:20px auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.12)}
+
+/* TOP ORANGE BAR */
+.top-bar{height:8px;background:#F47920}
+
 /* HEADER */
-.header{display:flex;align-items:center;gap:18px;padding-bottom:14px;border-bottom:3px solid #F47920}
-.logo-wrap{flex-shrink:0}
-.company-block{flex:1}
-.co-name{font-size:13px;font-weight:900;color:#222;text-transform:uppercase;letter-spacing:.6px;font-family:Arial,sans-serif}
-.co-tagline{font-size:9.5px;color:#F47920;font-style:italic;margin-top:2px;font-family:Arial,sans-serif}
-.co-addr{font-size:9px;color:#555;margin-top:5px;line-height:1.6}
-.voucher-meta{text-align:right;font-size:9px;color:#444;line-height:1.9;border-left:2px solid #F47920;padding-left:14px;min-width:170px}
-.voucher-meta b{color:#222;font-size:10px}
-/* ORANGE DIVIDER */
-.divider{height:3px;background:linear-gradient(90deg,#F47920,#ffb347,#F47920);margin:14px 0 18px}
-/* TITLE */
-.title-block{text-align:center;margin-bottom:14px}
-.title-block h1{font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:5px;color:#222;font-family:Arial,sans-serif}
-.title-block .en{font-size:10px;color:#F47920;letter-spacing:3px;text-transform:uppercase;margin-top:2px;font-family:Arial,sans-serif}
-.doc-no{text-align:center;margin-bottom:16px}
-.doc-no span{display:inline-block;background:#fff4ec;border:1.5px solid #F47920;padding:2px 16px;border-radius:20px;font-weight:700;font-size:11px;color:#c45a00;font-family:Arial,sans-serif}
-/* INFO TABLE */
-.info-table{width:100%;border-collapse:collapse;margin-bottom:16px}
-.info-table td{padding:7px 10px;font-size:12.5px;border-bottom:1px dotted #e0d8d0}
-.info-table td:first-child{color:#666;width:155px;font-style:italic}
-.info-table td:last-child{font-weight:700;color:#111}
-/* AMOUNT */
-.amount-box{border:2px solid #F47920;border-radius:8px;padding:16px 24px;text-align:center;background:linear-gradient(135deg,#fff8f3,#fff);margin:16px 0}
-.amount-box .lbl{font-size:9.5px;text-transform:uppercase;letter-spacing:3px;color:#F47920;margin-bottom:8px;font-weight:700;font-family:Arial,sans-serif}
-.amount-box .val{font-size:28px;font-weight:900;color:#222;font-family:Arial,sans-serif}
-.amount-box .val em{color:#F47920;font-style:normal}
-.amount-box .words{font-size:11px;color:#888;margin-top:8px;font-style:italic}
+.header{display:flex;align-items:center;justify-content:space-between;padding:20px 36px 16px;border-bottom:1px solid #f0ebe5}
+.logo-area{display:flex;align-items:center;gap:14px}
+.co-name{font-size:15px;font-weight:900;color:#1a1a1a;text-transform:uppercase;letter-spacing:.8px;line-height:1.2}
+.co-tagline{font-size:9px;color:#F47920;font-style:italic;margin-top:2px;letter-spacing:.3px}
+.co-info{font-size:8.5px;color:#666;margin-top:6px;line-height:1.8}
+.co-info span{margin-right:14px}
+.header-right{text-align:right;font-size:9px;color:#888;line-height:2}
+.header-right strong{color:#1a1a1a;font-size:10px}
+
+/* ORANGE BANNER — TITLE */
+.title-banner{background:#F47920;padding:18px 36px;display:flex;align-items:center;justify-content:space-between}
+.title-banner h1{font-size:26px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:6px}
+.title-banner .sub{font-size:10px;color:rgba(255,255,255,.75);letter-spacing:3px;text-transform:uppercase;margin-top:4px}
+.code-badge{background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.6);border-radius:24px;padding:6px 20px;color:#fff;font-weight:900;font-size:14px;letter-spacing:2px;white-space:nowrap}
+
+/* BODY */
+.body{padding:28px 36px}
+
+/* INFO ROWS */
+.info-grid{display:grid;grid-template-columns:180px 1fr;gap:0;margin-bottom:20px;border:1px solid #f0ebe5;border-radius:8px;overflow:hidden}
+.info-row{display:contents}
+.info-row .lbl{background:#fdf6f0;padding:10px 14px;font-size:11.5px;color:#888;border-bottom:1px solid #f0ebe5;font-style:italic}
+.info-row .val{background:#fff;padding:10px 14px;font-size:12px;font-weight:700;color:#1a1a1a;border-bottom:1px solid #f0ebe5}
+.info-row:last-child .lbl,.info-row:last-child .val{border-bottom:none}
+
+/* AMOUNT BOX */
+.amount-wrap{margin:0 0 20px;border-radius:10px;overflow:hidden;border:2px solid #F47920}
+.amount-head{background:#F47920;padding:8px 20px;font-size:9px;text-transform:uppercase;letter-spacing:3px;color:#fff;font-weight:800;text-align:center}
+.amount-body{padding:18px 20px;text-align:center;background:linear-gradient(135deg,#fff9f5,#fff)}
+.amount-val{font-size:34px;font-weight:900;color:#1a1a1a;letter-spacing:1px}
+.amount-val em{color:#F47920;font-style:normal;font-size:26px}
+.amount-words{margin-top:10px;font-size:11px;color:#999;font-style:italic;border-top:1px dashed #f0ebe5;padding-top:10px}
+.amount-words span{display:inline-block;min-width:320px;border-bottom:1px dotted #ccc;height:18px}
+
+/* PROOF */
+.proof-section{margin-bottom:20px;text-align:center}
+.proof-section img{max-width:220px;max-height:140px;border:1px solid #eee;border-radius:6px}
+.proof-label{font-size:9px;color:#aaa;margin-bottom:6px;font-style:italic}
+
 /* SIGNATURES */
-.sign-row{display:flex;justify-content:space-between;margin-top:40px;text-align:center}
-.sign-col{width:30%}
-.sign-col .role{font-weight:800;font-size:11.5px;color:#222;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;font-family:Arial,sans-serif}
-.sign-col .date-s{font-size:9.5px;color:#999;margin-bottom:54px}
-.sign-col .hint{font-size:9px;font-style:italic;color:#bbb;border-top:1px solid #ddd;padding-top:5px}
-/* FOOTER */
-.footer{margin-top:22px;padding-top:10px;border-top:2px solid #F47920;display:flex;justify-content:space-between;align-items:center}
-.footer-brand{font-size:9px;font-weight:800;color:#F47920;letter-spacing:.5px;font-family:Arial,sans-serif}
-.footer-info{font-size:8.5px;color:#999}
-/* PRINT BTN */
-.no-print{position:fixed;top:12px;right:12px;z-index:9999}
-.no-print button{padding:10px 24px;font-size:13px;cursor:pointer;background:#F47920;color:#fff;border:none;border-radius:6px;font-weight:700;box-shadow:0 2px 8px rgba(244,121,32,.4)}
-@media print{.no-print{display:none!important}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+.sign-section{display:flex;justify-content:space-between;margin:8px 0 24px;gap:12px}
+.sign-col{flex:1;text-align:center;border:1px solid #f0ebe5;border-radius:8px;padding:14px 10px}
+.sign-col .role{font-weight:900;font-size:10.5px;color:#1a1a1a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.sign-col .role-sub{font-size:8.5px;color:#aaa;margin-bottom:52px}
+.sign-col .sign-line{border-top:1px solid #ddd;padding-top:6px;font-size:8.5px;font-style:italic;color:#bbb}
+
+/* BOTTOM BAR */
+.bottom-bar{background:#F47920;padding:10px 36px;display:flex;justify-content:space-between;align-items:center}
+.bottom-brand{font-size:9.5px;font-weight:900;color:#fff;letter-spacing:.5px;text-transform:uppercase}
+.bottom-tagline{font-size:8.5px;color:rgba(255,255,255,.8);font-style:italic}
+.bottom-code{font-size:8.5px;color:rgba(255,255,255,.8)}
+
+/* PRINT */
+.no-print{position:fixed;top:16px;right:16px;z-index:9999}
+.no-print button{padding:10px 22px;font-size:13px;cursor:pointer;background:#F47920;color:#fff;border:none;border-radius:6px;font-weight:700;letter-spacing:.3px;box-shadow:0 3px 12px rgba(244,121,32,.45)}
+@media print{
+  .no-print{display:none!important}
+  body{background:#fff}
+  .page{box-shadow:none;margin:0}
+}
 </style></head><body>
 <div class="no-print"><button onclick="window.print()">🖨️ In phiếu chi</button></div>
 <div class="page">
 
+  <div class="top-bar"></div>
+
   <div class="header">
-    <div class="logo-wrap">
-      <!-- SCT Logo: orange diamond with bold K -->
-      <svg width="72" height="72" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- Diamond shape -->
-        <g transform="translate(80,80) rotate(45) translate(-52,-52)">
-          <rect width="104" height="104" rx="8" fill="#F47920"/>
+    <div class="logo-area">
+      <svg width="62" height="62" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g transform="translate(80,80) rotate(45) translate(-54,-54)">
+          <rect width="108" height="108" rx="6" fill="#F47920"/>
         </g>
-        <!-- K letter -->
-        <text x="80" y="96" text-anchor="middle" fill="#111" font-size="82" font-weight="900" font-family="Arial Black,Arial,sans-serif" letter-spacing="-4">K</text>
-        <!-- Corner tick marks -->
-        <line x1="80" y1="4" x2="80" y2="16" stroke="#222" stroke-width="3.5" stroke-linecap="round"/>
-        <line x1="80" y1="144" x2="80" y2="156" stroke="#222" stroke-width="3.5" stroke-linecap="round"/>
-        <line x1="4" y1="80" x2="16" y2="80" stroke="#222" stroke-width="3.5" stroke-linecap="round"/>
-        <line x1="144" y1="80" x2="156" y2="80" stroke="#222" stroke-width="3.5" stroke-linecap="round"/>
+        <text x="80" y="100" text-anchor="middle" fill="#fff" font-size="86" font-weight="900" font-family="Arial Black,Arial,sans-serif" letter-spacing="-4">K</text>
       </svg>
-    </div>
-    <div class="company-block">
-      <div class="co-name">Kiến Trúc Đô Thị SCT</div>
-      <div class="co-tagline">Cùng bạn xây dựng ước mơ</div>
-      <div class="co-addr">
-        📍 149 Nguyễn Tất Thành, Phường Văn Phú, Tỉnh Lào Cai<br>
-        📞 0914 998 822 &nbsp;|&nbsp; 🌐 kientrucsct.com
+      <div>
+        <div class="co-name">Kiến Trúc Đô Thị SCT</div>
+        <div class="co-tagline">Cùng bạn xây dựng ước mơ</div>
+        <div class="co-info">
+          <span>📍 149 Nguyễn Tất Thành, Tp. Yên Bái, Tỉnh Yên Bái</span><br>
+          <span>📞 0914 998 822</span><span>🌐 kientrucsct.com</span>
+        </div>
       </div>
     </div>
-    <div class="voucher-meta">
-      <div><b>Mã phiếu:</b> ${e.code}</div>
-      <div><b>Ngày lập:</b> ${today}</div>
-      <div><b>Hạng mục:</b> ${e.category || '—'}</div>
-      <div><b>Trạng thái:</b> ${e.status}</div>
+    <div class="header-right">
+      <div><strong>Ngày lập:</strong> ${today}</div>
+      <div><strong>Hạng mục:</strong> ${e.category || '—'}</div>
+      <div><strong>Trạng thái:</strong> ${e.status}</div>
     </div>
   </div>
 
-  <div class="divider"></div>
-
-  <div class="title-block">
-    <h1>Phiếu Chi Tiền</h1>
-    <div class="en">Payment Voucher</div>
-  </div>
-  <div class="doc-no"><span>Số: ${e.code}</span></div>
-
-  <table class="info-table">
-    <tr><td>Người nhận tiền:</td><td>${e.recipientName || e.submittedBy || '...'}</td></tr>
-    ${e.recipientType ? `<tr><td>Loại đối tượng:</td><td>${e.recipientType}</td></tr>` : ''}
-    ${e.project ? `<tr><td>Công trình / Dự án:</td><td>${e.project.code} — ${e.project.name}</td></tr>` : ''}
-    <tr><td>Nội dung chi:</td><td>${e.description}</td></tr>
-    ${e.notes ? `<tr><td>Ghi chú:</td><td>${e.notes}</td></tr>` : ''}
-  </table>
-
-  <div class="amount-box">
-    <div class="lbl">Số tiền chi</div>
-    <div class="val">${amountText} <em>đ</em></div>
-    <div class="words">(Bằng chữ: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</div>
-  </div>
-
-  ${e.proofUrl ? `<div style="text-align:center;margin:10px 0"><div style="font-size:9.5px;color:#aaa;margin-bottom:4px;font-style:italic">Chứng từ đính kèm</div><img src="${e.proofUrl}" style="max-width:200px;max-height:130px;border:1px solid #eee;border-radius:4px"/></div>` : ''}
-
-  <div class="sign-row">
-    <div class="sign-col">
-      <div class="role">Người lập phiếu</div>
-      <div class="date-s">Ngày ${today}</div>
-      <div class="hint">(Ký, ghi rõ họ tên)</div>
+  <div class="title-banner">
+    <div>
+      <h1>Phiếu Chi Tiền</h1>
+      <div class="sub">Payment Voucher</div>
     </div>
-    <div class="sign-col">
-      <div class="role">Giám đốc</div>
-      <div class="date-s">Ngày &nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp; năm 2026</div>
-      <div class="hint">(Ký, ghi rõ họ tên)</div>
+    <div class="code-badge">Số: ${e.code}</div>
+  </div>
+
+  <div class="body">
+    <div class="info-grid">
+      <div class="info-row"><div class="lbl">Người nhận tiền</div><div class="val">${e.recipientName || e.submittedBy || '...'}</div></div>
+      ${e.recipientType ? `<div class="info-row"><div class="lbl">Loại đối tượng</div><div class="val">${e.recipientType}</div></div>` : ''}
+      ${e.project ? `<div class="info-row"><div class="lbl">Công trình / Dự án</div><div class="val">${e.project.code} — ${e.project.name}</div></div>` : ''}
+      <div class="info-row"><div class="lbl">Nội dung chi</div><div class="val">${e.description}</div></div>
+      ${e.notes ? `<div class="info-row"><div class="lbl">Ghi chú</div><div class="val">${e.notes}</div></div>` : ''}
     </div>
-    <div class="sign-col">
-      <div class="role">Người nhận tiền</div>
-      <div class="date-s">Ngày ${today}</div>
-      <div class="hint">(Ký, ghi rõ họ tên)</div>
+
+    <div class="amount-wrap">
+      <div class="amount-head">Số tiền chi</div>
+      <div class="amount-body">
+        <div class="amount-val">${amountText} <em>đ</em></div>
+        <div class="amount-words">Bằng chữ: <span></span></div>
+      </div>
+    </div>
+
+    ${e.proofUrl ? `<div class="proof-section"><div class="proof-label">Chứng từ đính kèm</div><img src="${e.proofUrl}" alt="Chứng từ"/></div>` : ''}
+
+    <div class="sign-section">
+      <div class="sign-col">
+        <div class="role">Người lập phiếu</div>
+        <div class="role-sub">Ngày ${today}</div>
+        <div class="sign-line">(Ký, ghi rõ họ tên)</div>
+      </div>
+      <div class="sign-col">
+        <div class="role">Giám đốc</div>
+        <div class="role-sub">Ngày &nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp; năm 2026</div>
+        <div class="sign-line">(Ký, ghi rõ họ tên)</div>
+      </div>
+      <div class="sign-col">
+        <div class="role">Người nhận tiền</div>
+        <div class="role-sub">Ngày ${today}</div>
+        <div class="sign-line">(Ký, ghi rõ họ tên)</div>
+      </div>
     </div>
   </div>
 
-  <div class="footer">
-    <div class="footer-brand">KIẾN TRÚC ĐÔ THỊ SCT — Cùng bạn xây dựng ước mơ</div>
-    <div class="footer-info">Mã: ${e.code} &nbsp;|&nbsp; ${today}</div>
+  <div class="bottom-bar">
+    <div>
+      <div class="bottom-brand">Kiến Trúc Đô Thị SCT</div>
+      <div class="bottom-tagline">Cùng bạn xây dựng ước mơ</div>
+    </div>
+    <div class="bottom-code">Mã: ${e.code} &nbsp;|&nbsp; ${today}</div>
   </div>
+
 </div>
 </body></html>`);
         w.document.close();
@@ -358,6 +381,7 @@ body{font-family:'Times New Roman',serif;font-size:13px;color:#111;background:#f
                                     </td>
                                     <td>
                                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                            <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => openEdit(e)} title="Chỉnh sửa">✏️</button>
                                             {/* Step 1→2: Duyệt / Từ chối */}
                                             {e.status === 'Chờ duyệt' && (<>
                                                 <button className="btn btn-sm" style={{ background: 'var(--status-success)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Đã duyệt')}>✓ Duyệt</button>
@@ -375,22 +399,19 @@ body{font-family:'Times New Roman',serif;font-size:13px;color:#111;background:#f
                                             {e.status === 'Chờ thanh toán' && (
                                                 <button className="btn btn-sm" style={{ background: 'var(--status-success)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Đã thanh toán')}>✓ Đã thanh toán</button>
                                             )}
-                                            {/* Đã thanh toán → Chờ thanh toán (undo) */}
+                                            {/* Đã thanh toán → Hoàn thành */}
                                             {e.status === 'Đã thanh toán' && (
-                                                <button className="btn btn-sm" style={{ background: 'var(--status-warning)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Chờ thanh toán')}>↩ Chờ TT</button>
+                                                <button className="btn btn-sm" style={{ background: 'var(--status-success)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Hoàn thành')}>✅ Hoàn thành</button>
                                             )}
                                             {/* Mở lại từ chối */}
                                             {e.status === 'Từ chối' && (
                                                 <button className="btn btn-sm" style={{ background: 'var(--status-warning)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Chờ duyệt')}>↩ Mở lại</button>
                                             )}
-                                            {/* In phiếu chi */}
-                                            {(e.status === 'Đã chi' || e.status === 'Hoàn thành') && (
-                                                <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => printExpenseVoucher(e)}>🧾 Phiếu chi</button>
+                                            {/* In hoá đơn / phiếu chi */}
+                                            {(e.status === 'Đã chi' || e.status === 'Hoàn thành' || e.status === 'Đã thanh toán') && (
+                                                <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => printExpenseVoucher(e)}>🧾 In HĐ</button>
                                             )}
-                                            {/* Delete - only when pending */}
-                                            {(e.status === 'Chờ duyệt' || e.status === 'Từ chối') && (
-                                                <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(e.id)} style={{ color: 'var(--status-danger)', fontSize: 11 }}>🗑️</button>
-                                            )}
+                                            <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(e.id)} style={{ color: 'var(--status-danger)', fontSize: 11 }}>🗑️</button>
                                         </div>
                                     </td>
                                 </tr>

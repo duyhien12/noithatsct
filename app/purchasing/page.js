@@ -18,11 +18,39 @@ function PurchasingContent() {
     const [projects, setProjects] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
 
-    // Create PO modal
+    // Create/Edit PO modal
     const [showModal, setShowModal] = useState(false);
+    const [editingPO, setEditingPO] = useState(null); // null = create, object = edit
     const [poForm, setPoForm] = useState({ supplier: '', supplierId: null, projectId: '', deliveryDate: '', notes: '' });
     const [poItems, setPoItems] = useState([{ productName: '', unit: 'cái', quantity: 1, unitPrice: 0, amount: 0, productId: null }]);
     const [saving, setSaving] = useState(false);
+
+    const [deletingId, setDeletingId] = useState(null);
+
+    const openEdit = (po) => {
+        setEditingPO(po);
+        setPoForm({
+            supplier: po.supplier || '',
+            supplierId: po.supplierId || null,
+            projectId: po.projectId || '',
+            deliveryDate: po.deliveryDate ? new Date(po.deliveryDate).toISOString().split('T')[0] : '',
+            notes: po.notes || '',
+        });
+        setPoItems(po.items?.length > 0
+            ? po.items.map(it => ({ productName: it.productName, unit: it.unit, quantity: it.quantity, unitPrice: it.unitPrice, amount: it.amount, productId: it.productId || null }))
+            : [{ productName: '', unit: 'cái', quantity: 1, unitPrice: 0, amount: 0, productId: null }]
+        );
+        setShowModal(true);
+    };
+
+    const deletePO = async (po) => {
+        if (!confirm(`Xóa đơn hàng ${po.code}? Hành động này không thể hoàn tác.`)) return;
+        setDeletingId(po.id);
+        const res = await fetch(`/api/purchase-orders/${po.id}`, { method: 'DELETE' });
+        setDeletingId(null);
+        if (!res.ok) { const e = await res.json(); return alert(e.error || 'Lỗi xóa đơn hàng'); }
+        fetchOrders();
+    };
 
     // Approve & phiếu chi
     const [approvingId, setApprovingId] = useState(null);
@@ -123,19 +151,21 @@ function PurchasingContent() {
         if (!poForm.supplier.trim()) return alert('Vui lòng nhập nhà cung cấp');
         if (poItems.every(it => !it.productName.trim())) return alert('Vui lòng nhập ít nhất 1 sản phẩm');
         setSaving(true);
-        const validItems = poItems.filter(it => it.productName.trim());
-        const res = await fetch('/api/purchase-orders', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                ...poForm,
-                projectId: poForm.projectId || null,
-                totalAmount: poTotal,
-                items: validItems,
-            }),
-        });
+        const validItems = poItems.filter(it => it.productName.trim()).map(it => ({
+            ...it,
+            quantity: parseFloat(it.quantity) || 0,
+            unitPrice: parseFloat(it.unitPrice) || 0,
+            amount: (parseFloat(it.quantity) || 0) * (parseFloat(it.unitPrice) || 0),
+        }));
+        const poTotal2 = validItems.reduce((s, it) => s + it.amount, 0);
+        const payload = { ...poForm, projectId: poForm.projectId || null, totalAmount: poTotal2, items: validItems };
+        const res = editingPO
+            ? await fetch(`/api/purchase-orders/${editingPO.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+            : await fetch('/api/purchase-orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         setSaving(false);
-        if (!res.ok) { const e = await res.json(); return alert(e.error || 'Lỗi tạo PO'); }
+        if (!res.ok) { const e = await res.json(); return alert(e.error || (editingPO ? 'Lỗi cập nhật PO' : 'Lỗi tạo PO')); }
         setShowModal(false);
+        setEditingPO(null);
         setPoForm({ supplier: '', supplierId: null, projectId: '', deliveryDate: '', notes: '' });
         setPoItems([{ productName: '', unit: 'cái', quantity: 1, unitPrice: 0, amount: 0, productId: null }]);
         fetchOrders();
@@ -143,9 +173,8 @@ function PurchasingContent() {
 
     return (
         <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+            <div style={{ marginBottom: 24 }}>
                 <h2 style={{ margin: 0 }}>🛒 Mua sắm vật tư toàn công ty</h2>
-                <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Tạo PO mới</button>
             </div>
 
             <div className="stats-grid" style={{ marginBottom: 24 }}>
@@ -159,11 +188,17 @@ function PurchasingContent() {
             <div className="card">
                 <div className="card-header">
                     <h3>Danh sách đơn mua hàng</h3>
-                    <div className="filter-bar" style={{ margin: 0 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         <select className="form-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                             <option value="">Tất cả</option>
                             {statuses.map(s => <option key={s}>{s}</option>)}
                         </select>
+                        <button className="btn btn-primary" onClick={() => {
+                            setEditingPO(null);
+                            setPoForm({ supplier: '', supplierId: null, projectId: '', deliveryDate: '', notes: '' });
+                            setPoItems([{ productName: '', unit: 'cái', quantity: 1, unitPrice: 0, amount: 0, productId: null }]);
+                            setShowModal(true);
+                        }}>+ Tạo PO mới</button>
                     </div>
                 </div>
                 {loading ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (
@@ -189,7 +224,13 @@ function PurchasingContent() {
                                     <td style={{ fontSize: 12 }}>{fmtDate(o.orderDate)}</td>
                                     <td style={{ fontSize: 12 }}>{fmtDate(o.deliveryDate)}</td>
                                     <td><span className={`badge ${STATUS_BADGE[o.status] || 'badge-default'}`}>{o.status}</span></td>
-                                    <td onClick={e => e.stopPropagation()} style={{ whiteSpace: 'nowrap' }}>
+                                    <td onClick={e => e.stopPropagation()} style={{ whiteSpace: 'nowrap', display: 'flex', gap: 4, alignItems: 'center' }}>
+                                        <button
+                                            className="btn btn-sm btn-ghost"
+                                            style={{ fontSize: 12, padding: '4px 8px' }}
+                                            onClick={() => openEdit(o)}
+                                            title="Chỉnh sửa"
+                                        >✏️</button>
                                         {canApprove && (
                                             <button
                                                 className="btn btn-sm"
@@ -200,6 +241,15 @@ function PurchasingContent() {
                                                 {approvingId === o.id ? '...' : '✓ Duyệt'}
                                             </button>
                                         )}
+                                        <button
+                                            className="btn btn-sm"
+                                            style={{ background: '#ef4444', color: '#fff', fontSize: 12, padding: '4px 8px' }}
+                                            onClick={() => deletePO(o)}
+                                            disabled={deletingId === o.id}
+                                            title="Xóa đơn hàng"
+                                        >
+                                            {deletingId === o.id ? '...' : '🗑'}
+                                        </button>
                                         {isDuyet && (
                                             <button
                                                 className="btn btn-sm btn-primary"
@@ -267,11 +317,11 @@ function PurchasingContent() {
 
             {/* Create PO Modal */}
             {showModal && (
-                <div className="modal-overlay" onClick={() => setShowModal(false)}>
+                <div className="modal-overlay" onClick={() => { setShowModal(false); setEditingPO(null); }}>
                     <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 760, width: '95%' }}>
                         <div className="modal-header">
-                            <h3>Tạo đơn mua hàng (PO)</h3>
-                            <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
+                            <h3>{editingPO ? `Chỉnh sửa ${editingPO.code}` : 'Tạo đơn mua hàng (PO)'}</h3>
+                            <button className="modal-close" onClick={() => { setShowModal(false); setEditingPO(null); }}>×</button>
                         </div>
                         <div className="modal-body">
                             <div className="form-row">
@@ -365,8 +415,9 @@ function PurchasingContent() {
                                                             onChange={e => updateItem(i, 'unit', e.target.value)} />
                                                     </td>
                                                     <td style={{ padding: '6px 4px' }}>
-                                                        <input className="form-input" type="number" style={{ fontSize: 12, padding: '4px 6px' }} value={it.quantity}
-                                                            onChange={e => updateItem(i, 'quantity', Number(e.target.value))} min="0" step="0.1" />
+                                                        <input className="form-input" type="text" inputMode="decimal" style={{ fontSize: 12, padding: '4px 6px' }} value={it.quantity}
+                                                            onChange={e => updateItem(i, 'quantity', e.target.value)}
+                                                            onFocus={e => e.target.select()} />
                                                     </td>
                                                     <td style={{ padding: '6px 4px' }}>
                                                         <input className="form-input" type="number" style={{ fontSize: 12, padding: '4px 6px' }} value={it.unitPrice}
@@ -396,8 +447,8 @@ function PurchasingContent() {
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn btn-ghost" onClick={() => setShowModal(false)}>Hủy</button>
-                            <button className="btn btn-primary" onClick={createPO} disabled={saving || suppliers.find(s => s.id === poForm.supplierId)?.isBlacklisted}>{saving ? 'Đang tạo...' : 'Tạo đơn hàng'}</button>
+                            <button className="btn btn-ghost" onClick={() => { setShowModal(false); setEditingPO(null); }}>Hủy</button>
+                            <button className="btn btn-primary" onClick={createPO} disabled={saving || suppliers.find(s => s.id === poForm.supplierId)?.isBlacklisted}>{saving ? '...' : editingPO ? 'Lưu thay đổi' : 'Tạo đơn hàng'}</button>
                         </div>
                     </div>
                 </div>
