@@ -3,14 +3,75 @@ import { createContext, useContext } from 'react';
 import { useSession } from 'next-auth/react';
 
 export const ROLES = [
-    { key: 'giam_doc', label: 'Giám đốc', icon: '👑', color: '#c0392b' },
-    { key: 'pho_gd', label: 'Phó Giám đốc', icon: '🏅', color: '#e67e22' },
-    { key: 'ke_toan', label: 'Kế toán', icon: '📊', color: '#2980b9' },
-    { key: 'ky_thuat', label: 'Kỹ thuật', icon: '🔧', color: '#27ae60' },
-    { key: 'kinh_doanh', label: 'Kinh doanh', icon: '💼', color: '#8e44ad' },
+    { key: 'ban_gd',        label: 'Ban giám đốc',              icon: '👑', color: '#c0392b' },
+    { key: 'kinh_doanh',    label: 'Phòng kinh doanh',          icon: '💼', color: '#8e44ad' },
+    { key: 'xay_dung',      label: 'Phòng xây dựng',            icon: '🏗️', color: '#2980b9' },
+    { key: 'thiet_ke',      label: 'Phòng thiết kế',            icon: '✏️', color: '#16a085' },
+    { key: 'marketing',     label: 'Phòng Marketing',           icon: '📣', color: '#e91e63' },
+    { key: 'hanh_chinh_kt', label: 'Phòng hành chính kế toán',  icon: '📊', color: '#f39c12' },
+    { key: 'xuong',         label: 'Xưởng nội thất',            icon: '🪚', color: '#d35400' },
 ];
 
 const PERMISSIONS = {
+    // ── Roles mới ───────────────────────────────────────────────────────────
+    ban_gd: {
+        canApprove: true, canReject: true, canCreateExpense: true,
+        canPayExpense: true, canCompleteExpense: true, canDeleteExpense: true,
+        canCollectPayment: true, canPrintReceipt: true, canViewFinance: true,
+        canViewProjects: true, canViewAll: true,
+        canManageContractors: true, canManageSuppliers: true,
+        filterProject: null,
+    },
+    kinh_doanh: {
+        canApprove: false, canReject: false, canCreateExpense: true,
+        canPayExpense: false, canCompleteExpense: false, canDeleteExpense: false,
+        canCollectPayment: false, canPrintReceipt: false, canViewFinance: false,
+        canViewProjects: true, canViewAll: false,
+        canManageContractors: false, canManageSuppliers: false,
+        filterProject: null,
+    },
+    xay_dung: {
+        canApprove: false, canReject: false, canCreateExpense: false,
+        canPayExpense: false, canCompleteExpense: false, canDeleteExpense: false,
+        canCollectPayment: false, canPrintReceipt: false, canViewFinance: false,
+        canViewProjects: true, canViewAll: false,
+        canManageContractors: false, canManageSuppliers: false,
+        filterProject: null,
+    },
+    thiet_ke: {
+        canApprove: false, canReject: false, canCreateExpense: false,
+        canPayExpense: false, canCompleteExpense: false, canDeleteExpense: false,
+        canCollectPayment: false, canPrintReceipt: false, canViewFinance: false,
+        canViewProjects: true, canViewAll: false,
+        canManageContractors: false, canManageSuppliers: false,
+        filterProject: null,
+    },
+    marketing: {
+        canApprove: false, canReject: false, canCreateExpense: false,
+        canPayExpense: false, canCompleteExpense: false, canDeleteExpense: false,
+        canCollectPayment: false, canPrintReceipt: false, canViewFinance: false,
+        canViewProjects: false, canViewAll: false,
+        canManageContractors: false, canManageSuppliers: false,
+        filterProject: null,
+    },
+    hanh_chinh_kt: {
+        canApprove: false, canReject: false, canCreateExpense: true,
+        canPayExpense: true, canCompleteExpense: false, canDeleteExpense: false,
+        canCollectPayment: true, canPrintReceipt: true, canViewFinance: true,
+        canViewProjects: true, canViewAll: true,
+        canManageContractors: false, canManageSuppliers: true,
+        filterProject: null,
+    },
+    xuong: {
+        canApprove: false, canReject: false, canCreateExpense: false,
+        canPayExpense: false, canCompleteExpense: false, canDeleteExpense: false,
+        canCollectPayment: false, canPrintReceipt: false, canViewFinance: false,
+        canViewProjects: true, canViewAll: false,
+        canManageContractors: false, canManageSuppliers: false,
+        filterProject: null,
+    },
+
+    // ── Roles cũ — giữ để backward compat với tài khoản cũ trong DB ─────────
     giam_doc: {
         canApprove: true, canReject: true, canCreateExpense: true,
         canPayExpense: true, canCompleteExpense: true, canDeleteExpense: true,
@@ -43,32 +104,28 @@ const PERMISSIONS = {
         canManageContractors: false, canManageSuppliers: false,
         filterProject: null,
     },
-    kinh_doanh: {
-        canApprove: false, canReject: false, canCreateExpense: true,
-        canPayExpense: false, canCompleteExpense: false, canDeleteExpense: false,
-        canCollectPayment: false, canPrintReceipt: false, canViewFinance: false,
-        canViewProjects: true, canViewAll: false,
-        canManageContractors: false, canManageSuppliers: false,
-        filterProject: null,
-    },
 };
 
 const RoleContext = createContext(null);
 
-const DASHBOARD_ROLES = ['giam_doc', 'pho_gd'];
+// Roles được xem full dashboard
+const DASHBOARD_ROLES = ['ban_gd', 'giam_doc', 'pho_gd'];
 const ADMIN_EMAIL = 'admin@kientrucsct.com';
 
 export function RoleProvider({ children }) {
     const { data: session } = useSession();
-    const role = session?.user?.role || 'ky_thuat';
+    const role = session?.user?.role || 'xay_dung';
     const email = session?.user?.email || '';
-    const permissions = PERMISSIONS[role] || PERMISSIONS.ky_thuat;
-    const roleInfo = ROLES.find(r => r.key === role) || ROLES[3];
+    const permissions = PERMISSIONS[role] || PERMISSIONS.xay_dung;
+    const roleInfo = ROLES.find(r => r.key === role)
+        // fallback cho roles cũ còn trong DB
+        || { key: role, label: role, icon: '👤', color: '#6b7280' };
     const isKinhDoanh = role === 'kinh_doanh';
+    const isXuong = role === 'xuong';
     const canViewDashboard = DASHBOARD_ROLES.includes(role) || email === ADMIN_EMAIL;
 
     return (
-        <RoleContext.Provider value={{ role, email, roleInfo, permissions, isKinhDoanh, canViewDashboard }}>
+        <RoleContext.Provider value={{ role, email, roleInfo, permissions, isKinhDoanh, isXuong, canViewDashboard }}>
             {children}
         </RoleContext.Provider>
     );
@@ -76,7 +133,10 @@ export function RoleProvider({ children }) {
 
 export function useRole() {
     const ctx = useContext(RoleContext);
-    if (!ctx) return { role: 'ky_thuat', email: '', roleInfo: ROLES[3], permissions: PERMISSIONS.ky_thuat, canViewDashboard: false };
+    if (!ctx) return {
+        role: 'xay_dung', email: '', permissions: PERMISSIONS.xay_dung,
+        roleInfo: ROLES[2], isKinhDoanh: false, isXuong: false, canViewDashboard: false,
+    };
     return ctx;
 }
 

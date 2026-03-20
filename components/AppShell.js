@@ -4,11 +4,13 @@ import { useState, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Sidebar from '@/components/Sidebar';
+import SalesSidebar from '@/components/SalesSidebar';
+import WorkshopSidebar from '@/components/WorkshopSidebar';
 import Header from '@/components/Header';
 
 export default function AppShell({ children }) {
     const pathname = usePathname();
-    const { status } = useSession();
+    const { data: session, status } = useSession();
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     const toggleSidebar = useCallback(() => setSidebarOpen(prev => !prev), []);
@@ -34,9 +36,16 @@ export default function AppShell({ children }) {
         );
     }
 
+    const role = session?.user?.role;
+
+    // Choose sidebar based on role
+    let SidebarComponent = Sidebar;
+    if (role === 'kinh_doanh') SidebarComponent = SalesSidebar;
+    else if (role === 'xuong' || role === 'xay_dung') SidebarComponent = WorkshopSidebar;
+
     return (
         <div className="app-layout">
-            <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
+            <SidebarComponent isOpen={sidebarOpen} onClose={closeSidebar} />
             <div className={`sidebar-overlay ${sidebarOpen ? 'visible' : ''}`} onClick={closeSidebar} />
             <div className="main-content">
                 <Header onMenuToggle={toggleSidebar} />

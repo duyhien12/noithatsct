@@ -26,7 +26,7 @@ export const PUT = withAuth(async (request, { params }, session) => {
 
     // Status change guards
     const lockedStatuses = ['Đã duyệt', 'Phát hành'];
-    const adminRoles = ['giam_doc', 'pho_gd', 'admin'];
+    const adminRoles = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
     const userRole = session?.user?.role || '';
 
     if (data.status && lockedStatuses.includes(existing.status) && !adminRoles.includes(userRole)) {
@@ -54,7 +54,7 @@ export const DELETE = withAuth(async (request, { params }, session) => {
 
     // Block delete of approved/released docs for non-admin
     const lockedStatuses = ['Đã duyệt', 'Phát hành'];
-    const adminRoles = ['giam_doc', 'pho_gd', 'admin'];
+    const adminRoles = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
     if (lockedStatuses.includes(existing.status) && !adminRoles.includes(session?.user?.role || '')) {
         return NextResponse.json({ error: 'Không thể xóa tài liệu đã duyệt/phát hành' }, { status: 403 });
     }

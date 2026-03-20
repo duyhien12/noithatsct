@@ -17,7 +17,16 @@ export default function Dashboard() {
 
   useEffect(() => {
     // Redirect nếu không có quyền (chỉ ban lãnh đạo & admin)
+    if (role === 'kinh_doanh') {
+      router.replace('/sales');
+      return;
+    }
+    if (role === 'xuong' || role === 'xay_dung') {
+      router.replace('/workshop');
+      return;
+    }
     if (role && !canViewDashboard) {
+      // Các phòng ban khác vào thẳng trang dự án
       router.replace('/projects');
       return;
     }

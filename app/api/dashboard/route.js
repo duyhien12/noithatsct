@@ -2,7 +2,7 @@ import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 
-const DASHBOARD_ROLES = ['giam_doc', 'pho_gd'];
+const DASHBOARD_ROLES = ['ban_gd', 'giam_doc', 'pho_gd'];
 const ADMIN_EMAIL = 'admin@kientrucsct.com';
 
 export const GET = withAuth(async (request, context, session) => {

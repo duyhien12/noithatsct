@@ -11,7 +11,7 @@ const fmtShort = (n) => {
     return new Intl.NumberFormat('vi-VN').format(n);
 };
 
-const FINANCE_ROLES = ['giam_doc', 'pho_gd', 'ke_toan'];
+const FINANCE_ROLES = ['ban_gd', 'giam_doc', 'pho_gd', 'ke_toan'];
 const BUCKETS = ['0–30', '31–60', '61–90', '>90'];
 const BUCKET_COLORS = ['var(--status-success)', 'var(--accent-primary)', 'var(--status-warning)', 'var(--status-danger)'];
 const BUCKET_LABELS = { '0–30': '0–30 ngày', '31–60': '31–60 ngày', '61–90': '61–90 ngày', '>90': '>90 ngày' };

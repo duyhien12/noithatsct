@@ -21,7 +21,7 @@ export default function PipelinePage() {
     const [loading, setLoading] = useState(true);
     const [selectedStage, setSelectedStage] = useState(null);
     const { role } = useRole();
-    const canSeeFinance = ['giam_doc', 'pho_gd', 'ke_toan'].includes(role);
+    const canSeeFinance = ['ban_gd', 'giam_doc', 'pho_gd', 'ke_toan'].includes(role);
 
     useEffect(() => {
         fetch('/api/projects?limit=1000').then(r => r.json()).then(d => {

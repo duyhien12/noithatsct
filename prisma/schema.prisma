@@ -107,6 +107,7 @@ model Project {
   journalEntries  JournalEntry[]
   commitments     Commitment[]
   changeOrders    BudgetChangeOrder[]
+  workshopTasks   WorkshopTask[]
   deletedAt       DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -157,9 +158,10 @@ model Product {
   quotationItems QuotationItem[]
   materialPlans MaterialPlan[]
   purchaseItems PurchaseOrderItem[]
-  bomComponents ProductBOM[] @relation("BOMParent")
-  bomUsedIn     ProductBOM[] @relation("BOMComponent")
-  attributes    ProductAttribute[]
+  bomComponents    ProductBOM[] @relation("BOMParent")
+  bomUsedIn        ProductBOM[] @relation("BOMComponent")
+  attributes       ProductAttribute[]
+  workshopMaterials WorkshopTaskMaterial[]
   deletedAt     DateTime?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
@@ -942,4 +944,71 @@ model Commitment {
   @@index([projectId])
   @@index([journalEntryId])
   @@index([status])
+}
+
+// ============ QUẢN LÝ XƯỞNG NỘI THẤT ============
+
+model WorkshopWorker {
+  id         String   @id @default(cuid())
+  name       String
+  skill      String   @default("")
+  phone      String   @default("")
+  status     String   @default("Hoạt động")
+  hourlyRate Float    @default(0)
+  notes      String   @default("") @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  tasks       WorkshopTaskWorker[]
+  attendances WorkshopAttendance[]
+}
+
+model WorkshopTask {
+  id          String    @id @default(cuid())
+  title       String
+  description String    @default("") @db.Text
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id])
+  startDate   DateTime?
+  deadline    DateTime?
+  progress    Int       @default(0)
+  status      String    @default("Chờ làm")
+  priority    String    @default("Trung bình")
+  isLocked    Boolean   @default(false)
+  notes       String    @default("") @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workers     WorkshopTaskWorker[]
+  materials   WorkshopTaskMaterial[]
+  @@index([projectId])
+}
+
+model WorkshopTaskWorker {
+  taskId   String
+  workerId String
+  task     WorkshopTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  worker   WorkshopWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  @@id([taskId, workerId])
+}
+
+model WorkshopTaskMaterial {
+  id        String       @id @default(cuid())
+  taskId    String
+  productId String
+  quantity  Float        @default(1)
+  task      WorkshopTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  product   Product      @relation(fields: [productId], references: [id])
+  @@index([taskId])
+  @@index([productId])
+}
+
+model WorkshopAttendance {
+  id          String         @id @default(cuid())
+  workerId    String
+  worker      WorkshopWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  date        DateTime
+  hoursWorked Float          @default(8)
+  notes       String         @default("")
+  createdAt   DateTime       @default(now())
+  @@index([workerId])
+  @@unique([workerId, date])
 }

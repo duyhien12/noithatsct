@@ -10,7 +10,7 @@ const CONTRACTOR_TYPES = ['Thầu xây dựng', 'CTV thiết kế kiến trúc',
 
 const emptySup = { name: '', type: 'Vật tư xây dựng', contact: '', phone: '', email: '', address: '', taxCode: '', bankAccount: '', bankName: '', rating: 3, notes: '', isBlacklisted: false, creditLimit: 0 };
 const emptyCon = { name: '', type: 'Thầu xây dựng', phone: '', address: '', taxCode: '', bankAccount: '', bankName: '', rating: 3, notes: '', isBlacklisted: false, creditLimit: 0 };
-const FINANCE_ROLES = ['giam_doc', 'pho_gd', 'ke_toan'];
+const FINANCE_ROLES = ['ban_gd', 'giam_doc', 'pho_gd', 'ke_toan'];
 
 export default function PartnersPage() {
     const router = useRouter();
