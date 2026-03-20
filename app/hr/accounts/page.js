@@ -28,7 +28,7 @@ const ROLE_COLORS = {
     ky_thuat:      { color: '#27ae60', bg: '#e8f8f0' },
 };
 
-const EMPTY_FORM = { name: '', email: '', password: '', role: 'ky_thuat', department: '' };
+const EMPTY_FORM = { name: '', email: '', password: '', role: 'ky_thuat', department: '', phone: '' };
 
 export default function AccountsPage() {
     const { role } = useRole();
@@ -75,7 +75,7 @@ export default function AccountsPage() {
 
     const openEdit = (u) => {
         setEditTarget(u);
-        setForm({ name: u.name, email: u.email, password: '', role: u.role, department: u.department || '' });
+        setForm({ name: u.name, email: u.email, password: '', role: u.role, department: u.department || '', phone: u.phone || '' });
         setShowModal(true);
     };
 
@@ -86,7 +86,7 @@ export default function AccountsPage() {
         setSaving(true);
         try {
             if (editTarget) {
-                const body = { name: form.name, role: form.role, department: form.department };
+                const body = { name: form.name, role: form.role, department: form.department, phone: form.phone };
                 if (form.password.trim()) body.password = form.password;
                 const res = await fetch(`/api/users/${editTarget.id}`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -194,8 +194,8 @@ export default function AccountsPage() {
                                 <tr>
                                     <th>Tên</th>
                                     <th>Email</th>
-                                    <th>Vai trò</th>
                                     <th>Phòng ban</th>
+                                    <th>Vai trò</th>
                                     <th>Trạng thái</th>
                                     <th style={{ textAlign: 'right' }}>Thao tác</th>
                                 </tr>
@@ -310,7 +310,7 @@ export default function AccountsPage() {
                                 </div>
                             )}
                             <div>
-                                <label className="form-label">Vai trò *</label>
+                                <label className="form-label">Phòng ban *</label>
                                 <select className="form-select" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
                                     {ROLES.map(r => (
                                         <option key={r.key} value={r.key}>{r.icon} {r.label}</option>
@@ -327,8 +327,20 @@ export default function AccountsPage() {
                                 </div>
                             </div>
                             <div>
-                                <label className="form-label">Phòng ban</label>
-                                <input className="form-input" value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} placeholder="VD: Phòng kinh doanh, Xưởng chính..." />
+                                <label className="form-label">Vai trò</label>
+                                <select className="form-select" value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))}>
+                                    <option value="">— Chọn vai trò —</option>
+                                    <option>Trưởng phòng</option>
+                                    <option>Phó phòng</option>
+                                    <option>Nhân viên</option>
+                                    <option>Quản lý</option>
+                                    <option>Thợ chính</option>
+                                    <option>Thợ phụ</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="form-label">Số điện thoại</label>
+                                <input className="form-input" type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="0901 234 567" />
                             </div>
                             {editTarget && (
                                 <div>

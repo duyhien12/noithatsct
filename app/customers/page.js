@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useRole } from '@/contexts/RoleContext';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 const fmtShort = (n) => {
@@ -33,11 +34,23 @@ export default function CustomersPage() {
     const [dragOver, setDragOver] = useState(null);
     const isDragging = useRef(false);
     const router = useRouter();
+    const { role } = useRole();
+
+    // Lọc cột pipeline theo vai trò
+    const visiblePipeline = role === 'xuong'
+        ? PIPELINE.filter(p => p.key === 'Khách nội thất')
+        : role === 'xay_dung'
+            ? PIPELINE.filter(p => p.key !== 'Khách nội thất')
+            : PIPELINE;
 
     const fetchCustomers = async () => { setLoading(true); const r = await fetch('/api/customers?limit=1000'); const d = await r.json(); setCustomers(d.data || []); setLoading(false); };
     useEffect(() => { fetchCustomers(); }, []);
 
     const filtered = customers.filter(c => {
+        // Lọc theo vai trò
+        const stage = c.pipelineStage || 'Khách nội thất';
+        if (role === 'xuong' && stage !== 'Khách nội thất') return false;
+        if (role === 'xay_dung' && stage === 'Khách nội thất') return false;
         if (filterSource && c.source !== filterSource) return false;
         if (search && !c.name.toLowerCase().includes(search.toLowerCase()) && !(c.code || '').toLowerCase().includes(search.toLowerCase()) && !(c.phone || '').includes(search)) return false;
         return true;
@@ -119,7 +132,7 @@ export default function CustomersPage() {
                 {/* ========= KANBAN VIEW - desktop only ========= */}
                 {view === 'kanban' && (
                 <div className="desktop-table-view kanban-board" style={{ gap: 6, paddingBottom: 20, minHeight: 400, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                    {PIPELINE.map(stage => {
+                    {visiblePipeline.map(stage => {
                         const cards = filtered.filter(c => (c.pipelineStage || c.status || 'Khách nội thất') === stage.key);
                         const stageValue = cards.reduce((s, c) => s + (c.estimatedValue || 0), 0);
                         const isOver = dragOver === stage.key;

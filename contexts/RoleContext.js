@@ -116,6 +116,7 @@ export function RoleProvider({ children }) {
     const { data: session } = useSession();
     const role = session?.user?.role || 'xay_dung';
     const email = session?.user?.email || '';
+    const department = session?.user?.department || '';
     const permissions = PERMISSIONS[role] || PERMISSIONS.xay_dung;
     const roleInfo = ROLES.find(r => r.key === role)
         // fallback cho roles cũ còn trong DB
@@ -123,9 +124,11 @@ export function RoleProvider({ children }) {
     const isKinhDoanh = role === 'kinh_doanh';
     const isXuong = role === 'xuong';
     const canViewDashboard = DASHBOARD_ROLES.includes(role) || email === ADMIN_EMAIL;
+    // Nhân viên / Thợ xưởng: chỉ xem công việc, nhân công, tiến độ
+    const isXuongNhanVien = role === 'xuong' && ['Nhân viên', 'Thợ chính', 'Thợ phụ'].includes(department);
 
     return (
-        <RoleContext.Provider value={{ role, email, roleInfo, permissions, isKinhDoanh, isXuong, canViewDashboard }}>
+        <RoleContext.Provider value={{ role, email, department, roleInfo, permissions, isKinhDoanh, isXuong, isXuongNhanVien, canViewDashboard }}>
             {children}
         </RoleContext.Provider>
     );

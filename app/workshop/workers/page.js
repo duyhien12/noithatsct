@@ -2,8 +2,12 @@
 import { useState, useEffect } from 'react';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const todayStr = () => new Date().toISOString().split('T')[0];
+const fmtDateVN = (str) => {
+    if (!str) return '';
+    const d = new Date(str);
+    return d.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+};
 
 const STATUS_OPTS = ['Hoạt động', 'Tạm nghỉ', 'Nghỉ việc'];
 const STATUS_COLOR = { 'Hoạt động': '#16a34a', 'Tạm nghỉ': '#d97706', 'Nghỉ việc': '#6b7280' };
@@ -13,29 +17,33 @@ const EMPTY_FORM = { name: '', skill: '', phone: '', hourlyRate: '', status: 'Ho
 
 export default function WorkersPage() {
     const [workers, setWorkers] = useState([]);
-    const [workerTasks, setWorkerTasks] = useState({}); // workerId → tasks
-    const [attendance, setAttendance] = useState([]); // today's attendance
+    const [workerTasks, setWorkerTasks] = useState({});
+    const [attendance, setAttendance] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [selectedDate, setSelectedDate] = useState(todayStr());
     const [showModal, setShowModal] = useState(false);
     const [editTarget, setEditTarget] = useState(null);
     const [form, setForm] = useState(EMPTY_FORM);
     const [saving, setSaving] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState(null);
-    const [attendTarget, setAttendTarget] = useState(null); // worker to record attendance
-    const [attendForm, setAttendForm] = useState({ date: todayStr(), hoursWorked: 8, notes: '' });
+    const [attendTarget, setAttendTarget] = useState(null);
+    const [attendForm, setAttendForm] = useState({ hoursWorked: 8, notes: '' });
+    const [userList, setUserList] = useState([]);
+    const [nameSuggest, setNameSuggest] = useState([]);
+    const [showSuggest, setShowSuggest] = useState(false);
 
-    const fetchAll = async () => {
-        setLoading(true);
-        const [wRes, aRes, tRes] = await Promise.all([
+    useEffect(() => {
+        fetch('/api/users').then(r => r.json()).then(d => setUserList(Array.isArray(d) ? d : []));
+    }, []);
+
+    const fetchWorkers = async () => {
+        const [wRes, tRes] = await Promise.all([
             fetch('/api/workshop/workers'),
-            fetch(`/api/workshop/attendance?date=${todayStr()}`),
             fetch('/api/workshop/tasks?status=Đang làm'),
         ]);
-        const [w, a, t] = await Promise.all([wRes.json(), aRes.json(), tRes.json()]);
+        const [w, t] = await Promise.all([wRes.json(), tRes.json()]);
         setWorkers(Array.isArray(w) ? w : []);
-        setAttendance(Array.isArray(a) ? a : []);
-        // Map tasks to workers
         const taskMap = {};
         if (Array.isArray(t)) {
             t.forEach(task => {
@@ -46,12 +54,51 @@ export default function WorkersPage() {
             });
         }
         setWorkerTasks(taskMap);
+    };
+
+    const fetchAttendance = async (date) => {
+        const res = await fetch(`/api/workshop/attendance?date=${date}`);
+        const data = await res.json();
+        setAttendance(Array.isArray(data) ? data : []);
+    };
+
+    const fetchAll = async () => {
+        setLoading(true);
+        await Promise.all([fetchWorkers(), fetchAttendance(selectedDate)]);
         setLoading(false);
     };
 
     useEffect(() => { fetchAll(); }, []);
 
-    const openAdd = () => { setEditTarget(null); setForm(EMPTY_FORM); setShowModal(true); };
+    // Khi đổi ngày → refetch chấm công
+    useEffect(() => {
+        fetchAttendance(selectedDate);
+    }, [selectedDate]);
+
+    const onNameChange = (val) => {
+        setForm(f => ({ ...f, name: val }));
+        if (val.trim().length >= 1) {
+            const matches = userList.filter(u =>
+                u.name.toLowerCase().includes(val.toLowerCase())
+            );
+            setNameSuggest(matches);
+            setShowSuggest(matches.length > 0);
+        } else {
+            setShowSuggest(false);
+        }
+    };
+
+    const selectUser = (u) => {
+        setForm(f => ({
+            ...f,
+            name: u.name,
+            skill: u.department || f.skill,
+            phone: u.phone || f.phone,
+        }));
+        setShowSuggest(false);
+    };
+
+    const openAdd = () => { setEditTarget(null); setForm(EMPTY_FORM); setShowModal(true); setShowSuggest(false); };
     const openEdit = (w) => {
         setEditTarget(w);
         setForm({ name: w.name, skill: w.skill, phone: w.phone, hourlyRate: w.hourlyRate, status: w.status, notes: w.notes });
@@ -79,28 +126,44 @@ export default function WorkersPage() {
     const openAttend = (w) => {
         const existing = attendance.find(a => a.workerId === w.id);
         setAttendTarget(w);
-        setAttendForm({ date: todayStr(), hoursWorked: existing?.hoursWorked ?? 8, notes: existing?.notes ?? '' });
+        setAttendForm({ hoursWorked: existing?.hoursWorked ?? 8, notes: existing?.notes ?? '' });
     };
 
     const handleAttend = async () => {
         await fetch('/api/workshop/attendance', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ workerId: attendTarget.id, ...attendForm }),
+            body: JSON.stringify({ workerId: attendTarget.id, date: selectedDate, ...attendForm }),
         });
         setAttendTarget(null);
-        fetchAll();
+        fetchAttendance(selectedDate);
     };
 
+    // Chấm công nhanh toàn bộ nhân công đang hoạt động với 8h
+    const handleBulkAttend = async () => {
+        const active = workers.filter(w => w.status === 'Hoạt động');
+        if (!active.length) return;
+        if (!confirm(`Chấm công ${active.length} nhân công với 8 giờ cho ngày ${fmtDateVN(selectedDate)}?`)) return;
+        await Promise.all(active.map(w =>
+            fetch('/api/workshop/attendance', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ workerId: w.id, date: selectedDate, hoursWorked: 8, notes: '' }),
+            })
+        ));
+        fetchAttendance(selectedDate);
+    };
+
+    const isToday = selectedDate === todayStr();
     const filtered = workers.filter(w =>
         !search || w.name.toLowerCase().includes(search.toLowerCase()) ||
         w.skill?.toLowerCase().includes(search.toLowerCase())
     );
 
     const activeCount = workers.filter(w => w.status === 'Hoạt động').length;
-    const attendedToday = attendance.length;
-    const totalHoursToday = attendance.reduce((s, a) => s + a.hoursWorked, 0);
-    const totalCostToday = attendance.reduce((s, a) => s + a.hoursWorked * (a.worker?.hourlyRate || 0), 0);
-    const monthlyPayroll = workers.filter(w => w.status === 'Hoạt động').reduce((s, w) => s + w.hourlyRate * 8 * 26, 0);
+    const attendedCount = attendance.length;
+    const totalHours = attendance.reduce((s, a) => s + a.hoursWorked, 0);
+    // dailyRate: hourlyRate field giờ lưu đơn giá/ngày
+    const totalCost = attendance.reduce((s, a) => s + (a.hoursWorked / 8) * (a.worker?.hourlyRate || 0), 0);
+    const monthlyPayroll = workers.filter(w => w.status === 'Hoạt động').reduce((s, w) => s + w.hourlyRate * 26, 0);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -112,19 +175,19 @@ export default function WorkersPage() {
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>/ {workers.length} tổng cộng</div>
                 </div>
                 <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #16a34a' }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>✅ Chấm công hôm nay</div>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: '#16a34a' }}>{attendedToday}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{totalHoursToday} giờ làm việc</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>✅ Chấm công{isToday ? ' hôm nay' : ''}</div>
+                    <div style={{ fontSize: 28, fontWeight: 800, color: '#16a34a' }}>{attendedCount}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{totalHours} giờ làm việc</div>
                 </div>
                 <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #f59e0b' }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>💵 Chi phí hôm nay</div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: '#f59e0b' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalCostToday / 1000))}k</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Theo giờ × đơn giá</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>💵 Chi phí{isToday ? ' hôm nay' : ''}</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: '#f59e0b' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalCost / 1000))}k</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Theo ngày × đơn giá</div>
                 </div>
                 <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #8b5cf6' }}>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>📅 Quỹ lương/tháng</div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: '#8b5cf6' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(monthlyPayroll / 1e6))}tr</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>8h × 26 ngày</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>× 26 ngày/tháng</div>
                 </div>
             </div>
 
@@ -133,9 +196,42 @@ export default function WorkersPage() {
                     <h3>Danh sách nhân công</h3>
                     <button className="btn btn-primary" onClick={openAdd}>+ Thêm thợ</button>
                 </div>
-                <div className="filter-bar" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="filter-bar" style={{ borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 8 }}>
                     <input className="form-input" placeholder="🔍 Tìm theo tên, tay nghề..."
-                        value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+                        value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
+                    {/* Bộ chọn ngày chấm công */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => {
+                            const d = new Date(selectedDate);
+                            d.setDate(d.getDate() - 1);
+                            setSelectedDate(d.toISOString().split('T')[0]);
+                        }}>◀</button>
+                        <div style={{ position: 'relative' }}>
+                            <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
+                                style={{ padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text-primary)', background: 'var(--bg-card)', cursor: 'pointer' }} />
+                        </div>
+                        <button className="btn btn-ghost btn-sm" onClick={() => {
+                            const d = new Date(selectedDate);
+                            d.setDate(d.getDate() + 1);
+                            setSelectedDate(d.toISOString().split('T')[0]);
+                        }}>▶</button>
+                        {!isToday && (
+                            <button className="btn btn-ghost btn-sm" style={{ color: '#2563eb', fontWeight: 600 }} onClick={() => setSelectedDate(todayStr())}>
+                                Hôm nay
+                            </button>
+                        )}
+                    </div>
+                    <button className="btn btn-sm" style={{ background: '#dcfce7', color: '#15803d', border: 'none', fontWeight: 600, flexShrink: 0 }} onClick={handleBulkAttend}>
+                        ✅ Chấm tất cả 8h
+                    </button>
+                </div>
+
+                {/* Tiêu đề ngày đang xem */}
+                <div style={{ padding: '8px 16px', background: isToday ? '#eff6ff' : '#fef9c3', borderBottom: '1px solid var(--border-light)', fontSize: 12, color: isToday ? '#1d4ed8' : '#92400e', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    📅 {isToday ? 'Hôm nay — ' : ''}{fmtDateVN(selectedDate)}
+                    <span style={{ marginLeft: 'auto', fontWeight: 400, color: 'var(--text-muted)' }}>
+                        {attendedCount}/{activeCount} đã chấm · {totalHours}h · {new Intl.NumberFormat('vi-VN').format(Math.round(totalCost / 1000))}k
+                    </span>
                 </div>
 
                 {loading ? (
@@ -151,16 +247,16 @@ export default function WorkersPage() {
                                         <th>Họ tên</th>
                                         <th>Tay nghề</th>
                                         <th>SĐT</th>
-                                        <th>Đơn giá/giờ</th>
+                                        <th>Đơn giá/ngày</th>
                                         <th>Việc hiện tại</th>
-                                        <th>Hôm nay</th>
+                                        <th>Chấm công</th>
                                         <th>Trạng thái</th>
                                         <th style={{ textAlign: 'right' }}>Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {filtered.map(w => {
-                                        const todayRecord = attendance.find(a => a.workerId === w.id);
+                                        const rec = attendance.find(a => a.workerId === w.id);
                                         const currentTasks = workerTasks[w.id] || [];
                                         return (
                                             <tr key={w.id}>
@@ -170,7 +266,7 @@ export default function WorkersPage() {
                                                 <td style={{ fontSize: 12 }}>{w.skill || '—'}</td>
                                                 <td style={{ fontSize: 12 }}>{w.phone || '—'}</td>
                                                 <td style={{ fontWeight: 600, fontSize: 13 }}>
-                                                    {w.hourlyRate > 0 ? `${new Intl.NumberFormat('vi-VN').format(w.hourlyRate)}đ/h` : '—'}
+                                                    {w.hourlyRate > 0 ? `${new Intl.NumberFormat('vi-VN').format(w.hourlyRate)}đ/ngày` : '—'}
                                                 </td>
                                                 <td style={{ fontSize: 12 }}>
                                                     {currentTasks.length > 0
@@ -184,11 +280,16 @@ export default function WorkersPage() {
                                                     }
                                                 </td>
                                                 <td>
-                                                    {todayRecord ? (
+                                                    {rec ? (
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                            <span style={{ padding: '2px 8px', borderRadius: 20, background: '#dcfce7', color: '#15803d', fontSize: 12, fontWeight: 600 }}>
-                                                                ✓ {todayRecord.hoursWorked}h
+                                                            <span style={{ padding: '2px 10px', borderRadius: 20, background: '#dcfce7', color: '#15803d', fontSize: 12, fontWeight: 700 }}>
+                                                                ✓ {rec.hoursWorked}h
                                                             </span>
+                                                            {(rec.worker?.hourlyRate || w.hourlyRate) > 0 && (
+                                                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                                                    {new Intl.NumberFormat('vi-VN').format((rec.hoursWorked / 8) * (rec.worker?.hourlyRate || w.hourlyRate))}đ
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     ) : (
                                                         w.status === 'Hoạt động'
@@ -204,8 +305,8 @@ export default function WorkersPage() {
                                                 <td>
                                                     <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                                                         {w.status === 'Hoạt động' && (
-                                                            <button className="btn btn-sm" style={{ background: todayRecord ? '#dcfce7' : '#dbeafe', color: todayRecord ? '#15803d' : '#1d4ed8', border: 'none', fontWeight: 600 }} onClick={() => openAttend(w)}>
-                                                                {todayRecord ? '✓ Chấm' : '+ Chấm'}
+                                                            <button className="btn btn-sm" style={{ background: rec ? '#dcfce7' : '#dbeafe', color: rec ? '#15803d' : '#1d4ed8', border: 'none', fontWeight: 600 }} onClick={() => openAttend(w)}>
+                                                                {rec ? '✓ Sửa' : '+ Chấm'}
                                                             </button>
                                                         )}
                                                         <button className="btn btn-ghost btn-sm" onClick={() => openEdit(w)}>✏️</button>
@@ -226,7 +327,7 @@ export default function WorkersPage() {
                     {/* Mobile */}
                     <div className="mobile-card-list">
                         {filtered.map(w => {
-                            const todayRecord = attendance.find(a => a.workerId === w.id);
+                            const rec = attendance.find(a => a.workerId === w.id);
                             const currentTasks = workerTasks[w.id] || [];
                             return (
                                 <div key={w.id} className="mobile-card-item">
@@ -240,9 +341,9 @@ export default function WorkersPage() {
                                         </span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 8 }}>
-                                        <span style={{ color: 'var(--text-muted)' }}>{w.hourlyRate > 0 ? `${new Intl.NumberFormat('vi-VN').format(w.hourlyRate)}đ/h` : 'Chưa có đơn giá'}</span>
-                                        {todayRecord
-                                            ? <span style={{ color: '#15803d', fontWeight: 600 }}>✓ {todayRecord.hoursWorked}h hôm nay</span>
+                                        <span style={{ color: 'var(--text-muted)' }}>{w.hourlyRate > 0 ? `${new Intl.NumberFormat('vi-VN').format(w.hourlyRate)}đ/ngày` : 'Chưa có đơn giá'}</span>
+                                        {rec
+                                            ? <span style={{ color: '#15803d', fontWeight: 600 }}>✓ {rec.hoursWorked}h · {new Intl.NumberFormat('vi-VN').format((rec.hoursWorked / 8) * (rec.worker?.hourlyRate || w.hourlyRate))}đ</span>
                                             : <span style={{ color: '#dc2626' }}>Chưa chấm công</span>}
                                     </div>
                                     {currentTasks.length > 0 && (
@@ -251,7 +352,7 @@ export default function WorkersPage() {
                                         </div>
                                     )}
                                     <div style={{ display: 'flex', gap: 6 }}>
-                                        {w.status === 'Hoạt động' && <button className="btn btn-sm" onClick={() => openAttend(w)}>{todayRecord ? '✓ Cập nhật' : '+ Chấm công'}</button>}
+                                        {w.status === 'Hoạt động' && <button className="btn btn-sm" onClick={() => openAttend(w)}>{rec ? '✓ Sửa' : '+ Chấm công'}</button>}
                                         <button className="btn btn-ghost btn-sm" onClick={() => openEdit(w)}>✏️</button>
                                         <button className="btn btn-ghost btn-sm" onClick={() => setDeleteTarget(w)} style={{ color: 'var(--status-danger)' }}>🗑️</button>
                                     </div>
@@ -263,7 +364,7 @@ export default function WorkersPage() {
                 )}
             </div>
 
-            {/* Modal thêm/sửa */}
+            {/* Modal thêm/sửa nhân công */}
             {showModal && (
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
                     <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
@@ -272,9 +373,40 @@ export default function WorkersPage() {
                             <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
                         </div>
                         <div className="modal-body">
-                            <div className="form-group">
+                            <div className="form-group" style={{ position: 'relative' }}>
                                 <label className="form-label">Họ tên *</label>
-                                <input className="form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Nguyễn Văn A" />
+                                <input
+                                    className="form-input"
+                                    value={form.name}
+                                    onChange={e => onNameChange(e.target.value)}
+                                    onFocus={() => form.name && setShowSuggest(nameSuggest.length > 0)}
+                                    onBlur={() => setTimeout(() => setShowSuggest(false), 150)}
+                                    placeholder="Nhập tên hoặc chọn từ danh sách..."
+                                    autoComplete="off"
+                                />
+                                {showSuggest && (
+                                    <div style={{
+                                        position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                                        background: 'var(--bg-card)', border: '1px solid var(--border)',
+                                        borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                                        maxHeight: 200, overflowY: 'auto', marginTop: 2,
+                                    }}>
+                                        {nameSuggest.map(u => (
+                                            <div key={u.id} onMouseDown={() => selectUser(u)}
+                                                style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid var(--border-light)' }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#dbeafe', color: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>
+                                                    {u.name.split(' ').pop()[0]?.toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontWeight: 600 }}>{u.name}</div>
+                                                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{u.email} · {u.department || u.role}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                             <div className="form-row">
                                 <div className="form-group">
@@ -288,11 +420,11 @@ export default function WorkersPage() {
                             </div>
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label className="form-label">Đơn giá / giờ (VND)</label>
+                                    <label className="form-label">Đơn giá / ngày (VND)</label>
                                     <input className="form-input" type="number" value={form.hourlyRate} onChange={e => setForm(f => ({ ...f, hourlyRate: e.target.value }))} placeholder="0" />
                                     {Number(form.hourlyRate) > 0 && (
                                         <div style={{ fontSize: 11, color: '#8b5cf6', marginTop: 3 }}>
-                                            ≈ {new Intl.NumberFormat('vi-VN').format(Number(form.hourlyRate) * 8 * 26)}đ/tháng
+                                            ≈ {new Intl.NumberFormat('vi-VN').format(Number(form.hourlyRate) * 26)}đ/tháng (26 ngày)
                                         </div>
                                     )}
                                 </div>
@@ -321,19 +453,19 @@ export default function WorkersPage() {
             {/* Modal chấm công */}
             {attendTarget && (
                 <div className="modal-overlay" onClick={() => setAttendTarget(null)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
                         <div className="modal-header">
                             <h3>Chấm công — {attendTarget.name}</h3>
                             <button className="modal-close" onClick={() => setAttendTarget(null)}>×</button>
                         </div>
                         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                            <div className="form-group">
-                                <label className="form-label">Ngày</label>
-                                <input className="form-input" type="date" value={attendForm.date} onChange={e => setAttendForm(f => ({ ...f, date: e.target.value }))} />
+                            {/* Ngày đã chọn từ bảng */}
+                            <div style={{ padding: '8px 12px', borderRadius: 8, background: isToday ? '#eff6ff' : '#fef9c3', fontSize: 13, fontWeight: 600, color: isToday ? '#1d4ed8' : '#92400e' }}>
+                                📅 {fmtDateVN(selectedDate)}
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Số giờ làm việc</label>
-                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
                                     {[4, 6, 8, 10, 12].map(h => (
                                         <button key={h} type="button" onClick={() => setAttendForm(f => ({ ...f, hoursWorked: h }))}
                                             style={{ padding: '6px 16px', borderRadius: 8, border: '2px solid', cursor: 'pointer', fontWeight: 600,
@@ -348,19 +480,20 @@ export default function WorkersPage() {
                                         style={{ width: 70, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13 }} />
                                 </div>
                                 {attendTarget.hourlyRate > 0 && (
-                                    <div style={{ marginTop: 6, fontSize: 12, color: '#8b5cf6', fontWeight: 600 }}>
-                                        Chi phí: {new Intl.NumberFormat('vi-VN').format(attendForm.hoursWorked * attendTarget.hourlyRate)}đ
+                                    <div style={{ fontSize: 13, color: '#8b5cf6', fontWeight: 700 }}>
+                                        Chi phí: {new Intl.NumberFormat('vi-VN').format((attendForm.hoursWorked / 8) * attendTarget.hourlyRate)}đ
+                                        <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>({attendForm.hoursWorked}h / 8h × {new Intl.NumberFormat('vi-VN').format(attendTarget.hourlyRate)}đ/ngày)</span>
                                     </div>
                                 )}
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Ghi chú</label>
-                                <input className="form-input" value={attendForm.notes} onChange={e => setAttendForm(f => ({ ...f, notes: e.target.value }))} placeholder="VD: Làm thêm giờ..." />
+                                <input className="form-input" value={attendForm.notes} onChange={e => setAttendForm(f => ({ ...f, notes: e.target.value }))} placeholder="VD: Làm thêm giờ, nghỉ sớm..." />
                             </div>
                         </div>
                         <div className="modal-footer">
                             <button className="btn btn-ghost" onClick={() => setAttendTarget(null)}>Hủy</button>
-                            <button className="btn btn-primary" onClick={handleAttend}>Xác nhận chấm công</button>
+                            <button className="btn btn-primary" onClick={handleAttend}>✅ Xác nhận chấm công</button>
                         </div>
                     </div>
                 </div>

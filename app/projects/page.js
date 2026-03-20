@@ -1,6 +1,10 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useRole } from '@/contexts/RoleContext';
+
+const ALL_PROJECT_TYPES = ['Thiết kế kiến trúc', 'Thiết kế nội thất', 'Thi công thô', 'Thi công hoàn thiện', 'Thi công nội thất'];
+
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 export default function ProjectsPage() {
     const [projects, setProjects] = useState([]);
@@ -10,7 +14,16 @@ export default function ProjectsPage() {
     const [filterType, setFilterType] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [customers, setCustomers] = useState([]);
-    const [form, setForm] = useState({ name: '', type: 'Thiết kế kiến trúc', status: 'Khảo sát', address: '', area: '', floors: '', budget: '', customerId: '', designer: '', supervisor: '' });
+    const { role } = useRole();
+
+    // Lọc loại dự án theo vai trò
+    const visibleTypes = role === 'xuong'
+        ? ['Thi công nội thất']
+        : role === 'xay_dung'
+            ? ALL_PROJECT_TYPES.filter(t => t !== 'Thi công nội thất')
+            : ALL_PROJECT_TYPES;
+
+    const [form, setForm] = useState({ name: '', type: visibleTypes[0] || 'Thiết kế kiến trúc', status: 'Khảo sát', address: '', area: '', floors: '', budget: '', customerId: '', designer: '', supervisor: '' });
     const [submitting, setSubmitting] = useState(false);
     const submittingRef = useRef(false);
     const router = useRouter();
@@ -41,23 +54,24 @@ export default function ProjectsPage() {
         }
     };
     const stColor = { 'Khảo sát': 'badge-default', 'Thiết kế': 'badge-info', 'Thi công': 'badge-warning', 'Nghiệm thu': 'badge-success', 'Bàn giao': 'badge-success' };
-    const active = projects.filter(p => p.status === 'Thi công').length;
-    const totalContract = projects.reduce((s, p) => s + (p.contractValue || 0), 0);
-    const totalPaid = projects.reduce((s, p) => s + (p.paidAmount || 0), 0);
+    const visibleProjects = projects.filter(p => visibleTypes.includes(p.type || 'Thiết kế kiến trúc'));
+    const active = visibleProjects.filter(p => p.status === 'Thi công').length;
+    const totalContract = visibleProjects.reduce((s, p) => s + (p.contractValue || 0), 0);
+    const totalPaid = visibleProjects.reduce((s, p) => s + (p.paidAmount || 0), 0);
     return (
         <div>
             <div className="stats-grid">
-                <div className="stat-card"><div className="stat-icon">🏗️</div><div><div className="stat-value">{projects.length}</div><div className="stat-label">Tổng DA</div></div></div>
+                <div className="stat-card"><div className="stat-icon">🏗️</div><div><div className="stat-value">{visibleProjects.length}</div><div className="stat-label">Tổng DA</div></div></div>
                 <div className="stat-card"><div className="stat-icon">🔨</div><div><div className="stat-value">{active}</div><div className="stat-label">Đang thi công</div></div></div>
                 <div className="stat-card"><div className="stat-icon">💰</div><div><div className="stat-value">{fmt(totalContract)}</div><div className="stat-label">Tổng giá trị HĐ</div></div></div>
                 <div className="stat-card"><div className="stat-icon">💵</div><div><div className="stat-value">{fmt(totalPaid)}</div><div className="stat-label">Đã thu</div></div></div>
                 <div className="stat-card"><div className="stat-icon">⚠️</div><div><div className="stat-value" style={{ color: totalContract - totalPaid > 0 ? 'var(--status-danger)' : '' }}>{fmt(totalContract - totalPaid)}</div><div className="stat-label">Công nợ KH</div></div></div>
             </div>
             <div className="card" style={{ marginTop: 24 }}>
-                <div className="card-header"><h3>Danh sách dự án</h3><button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Thêm DA</button></div>
+                <div className="card-header"><h3>Danh sách dự án</h3><button className="btn btn-primary" onClick={() => { setForm(f => ({ ...f, type: visibleTypes[0] || 'Thiết kế kiến trúc' })); setShowModal(true); }}>+ Thêm DA</button></div>
                 <div className="filter-bar">
                     <input type="text" className="form-input" placeholder="🔍 Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
-                    <select className="form-select" value={filterType} onChange={e => setFilterType(e.target.value)}><option value="">Tất cả loại</option><option>Thiết kế kiến trúc</option><option>Thiết kế nội thất</option><option>Thi công thô</option><option>Thi công hoàn thiện</option><option>Thi công nội thất</option></select>
+                    <select className="form-select" value={filterType} onChange={e => setFilterType(e.target.value)}><option value="">Tất cả loại</option>{visibleTypes.map(t => <option key={t}>{t}</option>)}</select>
                     <select className="form-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}><option value="">Tất cả TT</option><option>Khảo sát</option><option>Thiết kế</option><option>Thi công</option><option>Nghiệm thu</option><option>Bàn giao</option></select>
                 </div>
                 {loading ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (<>
@@ -65,7 +79,7 @@ export default function ProjectsPage() {
                     <div className="desktop-table-view">
                         <div className="table-container"><table className="data-table">
                             <thead><tr><th>Mã</th><th>Dự án</th><th>Khách hàng</th><th>Loại</th><th>Giá trị HĐ</th><th>Đã thu</th><th>Tiến độ</th><th>TT</th><th></th></tr></thead>
-                            <tbody>{projects.map(p => (
+                            <tbody>{visibleProjects.map(p => (
                                 <tr key={p.id} onClick={() => router.push(`/projects/${p.id}`)} style={{ cursor: 'pointer' }}>
                                     <td className="accent">{p.code}</td>
                                     <td className="primary">{p.name}{p.phase ? <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.phase}</div> : null}</td>
@@ -82,7 +96,7 @@ export default function ProjectsPage() {
                     </div>
                     {/* Mobile card list */}
                     <div className="mobile-card-list">
-                        {projects.map(p => (
+                        {visibleProjects.map(p => (
                             <div key={p.id} className="mobile-card-item" onClick={() => router.push(`/projects/${p.id}`)}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -117,7 +131,7 @@ export default function ProjectsPage() {
                                 </div>
                                 <div className="form-group"><label className="form-label">Loại</label>
                                     <select className="form-select" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
-                                        <option>Thiết kế kiến trúc</option><option>Thiết kế nội thất</option><option>Thi công thô</option><option>Thi công hoàn thiện</option><option>Thi công nội thất</option>
+                                        {visibleTypes.map(t => <option key={t}>{t}</option>)}
                                     </select>
                                 </div>
                             </div>

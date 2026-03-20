@@ -7,19 +7,20 @@ import { hashSync } from 'bcryptjs';
 export const PUT = withAuth(async (req, context) => {
     const { id } = await context.params;
     const body = await req.json();
-    const { name, role, department, active, password } = body;
+    const { name, role, department, phone, active, password } = body;
 
     const updateData = {};
     if (name !== undefined) updateData.name = name.trim();
     if (role !== undefined) updateData.role = role;
     if (department !== undefined) updateData.department = department;
+    if (phone !== undefined) updateData.phone = phone.trim();
     if (active !== undefined) updateData.active = active;
     if (password?.trim()) updateData.password = hashSync(password, 10);
 
     const user = await prisma.user.update({
         where: { id },
         data: updateData,
-        select: { id: true, name: true, email: true, role: true, department: true, active: true },
+        select: { id: true, name: true, email: true, role: true, department: true, phone: true, active: true },
     });
 
     return NextResponse.json(user);

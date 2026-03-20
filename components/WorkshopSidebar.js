@@ -9,21 +9,11 @@ import {
 } from 'lucide-react';
 import { useRole } from '@/contexts/RoleContext';
 
-const menuItems = [
+const FULL_MENU = [
     {
         section: 'Tổng quan',
         items: [
             { href: '/workshop', icon: LayoutDashboard, label: 'Dashboard', exact: true },
-        ],
-    },
-    {
-        section: 'Xưởng',
-        items: [
-            { href: '/workshop/tasks', icon: Wrench, label: 'Công việc xưởng' },
-            { href: '/workshop/workers', icon: Users, label: 'Nhân công' },
-            { href: '/workshop/materials', icon: Package, label: 'Vật tư kho' },
-            { href: '/workshop/timeline', icon: BarChart2, label: 'Tiến độ (Gantt)' },
-            { href: '/work-orders', icon: Clock, label: 'Phiếu công việc' },
         ],
     },
     {
@@ -36,18 +26,42 @@ const menuItems = [
         ],
     },
     {
+        section: 'Xưởng',
+        items: [
+            { href: '/workshop/tasks', icon: Wrench, label: 'Công việc xưởng' },
+            { href: '/workshop/workers', icon: Users, label: 'Nhân công' },
+            { href: '/workshop/timeline', icon: BarChart2, label: 'Tiến độ (Gantt)' },
+            { href: '/work-orders', icon: Clock, label: 'Phiếu công việc' },
+        ],
+    },
+    {
         section: 'Kho & Mua sắm',
         items: [
             { href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho' },
             { href: '/purchasing', icon: ShoppingCart, label: 'Mua sắm VT' },
+            { href: '/workshop/materials', icon: Package, label: 'Vật tư kho' },
             { href: '/products', icon: Package, label: 'Danh mục sản phẩm' },
+        ],
+    },
+];
+
+// Nhân viên xưởng chỉ xem 3 mục này
+const NHAN_VIEN_MENU = [
+    {
+        section: 'Xưởng',
+        items: [
+            { href: '/workshop/tasks', icon: Wrench, label: 'Công việc xưởng' },
+            { href: '/workshop/workers', icon: Users, label: 'Nhân công' },
+            { href: '/workshop/timeline', icon: BarChart2, label: 'Tiến độ (Gantt)' },
         ],
     },
 ];
 
 export default function WorkshopSidebar({ isOpen, onClose }) {
     const pathname = usePathname();
-    const { roleInfo } = useRole();
+    const { roleInfo, isXuongNhanVien, department } = useRole();
+
+    const menuItems = isXuongNhanVien ? NHAN_VIEN_MENU : FULL_MENU;
 
     const handleNavClick = () => {
         if (window.innerWidth <= 768) onClose();
@@ -108,7 +122,7 @@ export default function WorkshopSidebar({ isOpen, onClose }) {
                     Vai trò
                 </div>
                 <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.15)', color: '#FFFFFF', fontWeight: 600, fontSize: 12 }}>
-                    {roleInfo.icon} {roleInfo.label}
+                    {roleInfo.icon} {roleInfo.label}{department ? ` · ${department}` : ''}
                 </div>
             </div>
         </aside>

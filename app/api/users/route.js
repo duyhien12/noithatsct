@@ -13,7 +13,7 @@ export const GET = withAuth(async (req) => {
         orderBy: { name: 'asc' },
         select: {
             id: true, name: true, email: true,
-            role: true, department: true,
+            role: true, department: true, phone: true,
             active: true, createdAt: true,
         },
     });
@@ -23,7 +23,7 @@ export const GET = withAuth(async (req) => {
 // POST: tạo user mới
 export const POST = withAuth(async (req) => {
     const body = await req.json();
-    const { name, email, password, role, department } = body;
+    const { name, email, password, role, department, phone } = body;
 
     if (!name?.trim() || !email?.trim() || !password?.trim()) {
         return NextResponse.json({ error: 'Thiếu thông tin bắt buộc' }, { status: 400 });
@@ -41,9 +41,10 @@ export const POST = withAuth(async (req) => {
             password: hashSync(password, 10),
             role: role || 'ky_thuat',
             department: department || '',
+            phone: phone?.trim() || '',
             active: true,
         },
-        select: { id: true, name: true, email: true, role: true, department: true, active: true },
+        select: { id: true, name: true, email: true, role: true, department: true, phone: true, active: true },
     });
 
     return NextResponse.json(user, { status: 201 });
