@@ -462,6 +462,8 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
         if (savingItems.current.has(id)) return;
         const e = edits[id];
         if (!e) return;
+        // Snapshot which fields we are saving now (so post-save clear only removes these)
+        const savedFields = Object.keys(e);
         const body = buildBody(id, e);
         if (!body) return;
         savingItems.current.add(id);
@@ -475,8 +477,18 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                 console.error('saveItem failed', await res.text());
                 return; // keep edits so user still sees their typed value
             }
-            // Success: clear this item's edits and update local state
-            setEdits(prev => { const n = { ...prev }; delete n[id]; setDirty(Object.keys(n).length > 0); return n; });
+            // Success: only clear fields that were included in THIS save (not any new edits typed during the request)
+            setEdits(prev => {
+                const n = { ...prev };
+                if (n[id]) {
+                    const remaining = { ...n[id] };
+                    savedFields.forEach(f => delete remaining[f]);
+                    if (Object.keys(remaining).length === 0) delete n[id];
+                    else n[id] = remaining;
+                }
+                setDirty(Object.keys(n).length > 0);
+                return n;
+            });
             setItems(prev => prev.map(i => {
                 if (i.id !== id) return i;
                 const qty = Number(e.qty ?? i.budgetQty) || 0;
