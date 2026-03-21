@@ -41,7 +41,7 @@ export default function AppShell({ children }) {
     // Choose sidebar based on role
     let SidebarComponent = Sidebar;
     if (role === 'kinh_doanh') SidebarComponent = SalesSidebar;
-    else if (role === 'xuong' || role === 'xay_dung') SidebarComponent = WorkshopSidebar;
+    else if (role === 'xuong') SidebarComponent = WorkshopSidebar;
 
     return (
         <div className="app-layout">

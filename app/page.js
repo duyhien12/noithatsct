@@ -21,8 +21,12 @@ export default function Dashboard() {
       router.replace('/sales');
       return;
     }
-    if (role === 'xuong' || role === 'xay_dung') {
+    if (role === 'xuong') {
       router.replace('/workshop');
+      return;
+    }
+    if (role === 'xay_dung') {
+      router.replace('/projects');
       return;
     }
     if (role && !canViewDashboard) {

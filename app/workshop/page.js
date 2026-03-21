@@ -152,7 +152,7 @@ export default function WorkshopDashboard() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (role && !['xuong', 'xay_dung', 'ban_gd', 'giam_doc', 'pho_gd'].includes(role)) {
+        if (role && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd'].includes(role)) {
             router.replace('/');
             return;
         }

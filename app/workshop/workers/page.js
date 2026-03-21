@@ -1,5 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useRole } from '@/contexts/RoleContext';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const todayStr = () => new Date().toISOString().split('T')[0];
@@ -16,6 +18,8 @@ const STATUS_BG   = { 'Hoạt động': '#dcfce7', 'Tạm nghỉ': '#fef3c7', 'N
 const EMPTY_FORM = { name: '', skill: '', phone: '', hourlyRate: '', status: 'Hoạt động', notes: '' };
 
 export default function WorkersPage() {
+    const router = useRouter();
+    const { role } = useRole();
     const [workers, setWorkers] = useState([]);
     const [workerTasks, setWorkerTasks] = useState({});
     const [attendance, setAttendance] = useState([]);
@@ -68,7 +72,13 @@ export default function WorkersPage() {
         setLoading(false);
     };
 
-    useEffect(() => { fetchAll(); }, []);
+    useEffect(() => {
+        if (role && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd'].includes(role)) {
+            router.replace('/');
+            return;
+        }
+        fetchAll();
+    }, [role]);
 
     // Khi đổi ngày → refetch chấm công
     useEffect(() => {

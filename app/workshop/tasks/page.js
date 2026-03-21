@@ -1,5 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { useRole } from '@/contexts/RoleContext';
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const toInput = (d) => d ? new Date(d).toISOString().split('T')[0] : '';
@@ -25,6 +27,8 @@ const EMPTY_FORM = {
 };
 
 export default function WorkshopTasksPage() {
+    const router = useRouter();
+    const { role } = useRole();
     const [tasks, setTasks] = useState([]);
     const [workers, setWorkers] = useState([]);
     const [projects, setProjects] = useState([]);
@@ -61,7 +65,13 @@ export default function WorkshopTasksPage() {
         setLoading(false);
     }, [filterStatus, filterProject]);
 
-    useEffect(() => { fetchAll(); }, [fetchAll]);
+    useEffect(() => {
+        if (role && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd'].includes(role)) {
+            router.replace('/');
+            return;
+        }
+        fetchAll();
+    }, [fetchAll, role]);
 
     const openAdd = () => { setEditTarget(null); setForm(EMPTY_FORM); setShowModal(true); };
     const openEdit = (t) => {
