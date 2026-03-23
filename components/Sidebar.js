@@ -15,6 +15,7 @@ const BAN_GD     = ['ban_gd', 'giam_doc', 'pho_gd'];           // Ban giám đ�
 const KY_THUAT   = ['xay_dung', 'thiet_ke', 'xuong', 'ky_thuat']; // Kỹ thuật / xưởng
 const KE_TOAN    = ['hanh_chinh_kt', 'ke_toan'];                // Kế toán / hành chính
 const KINH_DOANH = ['kinh_doanh', 'marketing'];                 // Kinh doanh / marketing
+const VIEWER     = ['viewer'];                                   // Chỉ xem
 
 const menuItems = [
     {
@@ -26,80 +27,80 @@ const menuItems = [
         ]
     },
     {
-        section: 'Quản lý',
+        section: 'Kinh doanh',
         items: [
             {
                 href: '/customers', icon: Users, label: 'Khách hàng',
-                roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, 'xay_dung', 'thiet_ke'],
+                roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER, 'xay_dung', 'thiet_ke'],
             },
             { href: '/projects', icon: Building2, label: 'Dự án' },
             {
+                href: '/quotations', icon: ClipboardList, label: 'Báo giá',
+                roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER, 'xay_dung', 'thiet_ke'],
+            },
+            {
                 href: '/contracts', icon: FileText, label: 'Hợp đồng',
-                roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, 'xay_dung', 'thiet_ke'],
+                roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER, 'xay_dung', 'thiet_ke'],
             },
             { href: '/products', icon: Package, label: 'Sản phẩm & Vật tư' },
-            {
-                href: '/quotations', icon: ClipboardList, label: 'Báo giá',
-                roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, 'xay_dung', 'thiet_ke'],
-            },
             { href: '/work-orders', icon: Wrench, label: 'Phiếu công việc' },
             { href: '/schedule-templates', icon: CalendarDays, label: 'Mẫu tiến độ' },
         ]
     },
     {
         section: 'Vận hành',
-        sectionRoles: [...BAN_GD, ...KE_TOAN, ...KY_THUAT, ...KINH_DOANH],
+        sectionRoles: [...BAN_GD, ...KE_TOAN, ...KY_THUAT, ...KINH_DOANH, ...VIEWER],
         items: [
             {
                 href: '/payments', icon: CreditCard, label: 'Thu tiền',
-                roles: [...BAN_GD, ...KE_TOAN],
+                roles: [...BAN_GD, ...KE_TOAN, ...VIEWER],
             },
             {
                 href: '/expenses', icon: Receipt, label: 'Chi phí',
-                roles: [...BAN_GD, ...KE_TOAN, ...KY_THUAT, ...KINH_DOANH],
+                roles: [...BAN_GD, ...KE_TOAN, ...KY_THUAT, ...KINH_DOANH, ...VIEWER],
             },
             {
                 href: '/purchasing', icon: ShoppingCart, label: 'Mua sắm VT',
-                roles: [...BAN_GD, ...KE_TOAN, ...KY_THUAT, ...KINH_DOANH],
+                roles: [...BAN_GD, ...KE_TOAN, ...KY_THUAT, ...KINH_DOANH, ...VIEWER],
             },
             {
                 href: '/partners', icon: Truck, label: 'Đối tác (NCC/TP)',
-                roles: [...BAN_GD, ...KE_TOAN],
+                roles: [...BAN_GD, ...KE_TOAN, ...VIEWER],
             },
             {
                 href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho',
-                roles: [...BAN_GD, ...KE_TOAN],
+                roles: [...BAN_GD, ...KE_TOAN, ...VIEWER],
             },
             {
                 href: '/finance', icon: Wallet, label: 'Tài chính',
-                roles: [...BAN_GD, ...KE_TOAN],
+                roles: [...BAN_GD, ...KE_TOAN, ...VIEWER],
             },
             {
                 href: '/hr', icon: UserCog, label: 'Nhân sự',
-                roles: [...BAN_GD],
+                roles: [...BAN_GD, ...VIEWER],
             },
             {
                 href: '/hr/accounts', icon: Shield, label: 'Tài khoản hệ thống',
-                roles: [...BAN_GD],
+                roles: [...BAN_GD, ...VIEWER],
             },
         ]
     },
     {
         section: 'Xưởng nội thất',
-        sectionRoles: [...BAN_GD],
+        sectionRoles: [...BAN_GD, ...VIEWER],
         items: [
-            { href: '/workshop', icon: LayoutDashboard, label: 'Dashboard xưởng', roles: [...BAN_GD] },
-            { href: '/workshop/tasks', icon: Wrench, label: 'Việc xưởng', roles: [...BAN_GD] },
-            { href: '/workshop/workers', icon: HardHat, label: 'Thợ xưởng', roles: [...BAN_GD] },
+            { href: '/workshop', icon: LayoutDashboard, label: 'Dashboard xưởng', roles: [...BAN_GD, ...VIEWER] },
+            { href: '/workshop/tasks', icon: Wrench, label: 'Việc xưởng', roles: [...BAN_GD, ...VIEWER] },
+            { href: '/workshop/workers', icon: HardHat, label: 'Thợ xưởng', roles: [...BAN_GD, ...VIEWER] },
         ]
     },
     {
         section: 'Phân tích',
-        sectionRoles: [...BAN_GD, ...KE_TOAN],
+        sectionRoles: [...BAN_GD, ...KE_TOAN, ...VIEWER],
         items: [
             {
                 href: '/reports', icon: BarChart3, label: 'Báo cáo',
-                roles: [...BAN_GD, ...KE_TOAN],
+                roles: [...BAN_GD, ...KE_TOAN, ...VIEWER],
             },
         ]
     },

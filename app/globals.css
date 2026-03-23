@@ -618,8 +618,8 @@ body {
    ======================================== */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
   margin-bottom: 28px;
 }
 
@@ -627,7 +627,10 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
-  padding: 22px;
+  padding: 20px 22px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
   transition: all var(--transition-normal);
   position: relative;
   overflow: hidden;
@@ -712,17 +715,32 @@ body {
   background: rgba(248, 113, 113, 0.1);
 }
 
+.stat-card .stat-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.stat-card > div:last-child {
+  flex: 1;
+  min-width: 0;
+}
+
 .stat-card .stat-value {
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stat-card .stat-label {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-secondary);
   margin-top: 2px;
+  white-space: nowrap;
 }
 
 /* ========================================
@@ -1208,7 +1226,19 @@ body {
   align-items: center;
   gap: 12px;
   margin-bottom: 20px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+
+.filter-bar .form-select {
+  width: auto;
+  min-width: 160px;
+  flex-shrink: 0;
+}
+
+.filter-bar .form-input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
 }
 
 .filter-bar .search-input {
@@ -1869,7 +1899,7 @@ body {
 /* --- Tablet landscape --- */
 @media (max-width: 1280px) {
   .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .warehouse-grid {
@@ -2087,17 +2117,17 @@ body {
   /* === FILTER BAR: stack vertically === */
   .filter-bar {
     flex-direction: column;
+    flex-wrap: wrap;
     gap: 8px;
     align-items: stretch;
   }
 
-  .filter-bar .search-input {
-    min-width: 0;
-    width: 100%;
-  }
-
+  .filter-bar .form-select,
+  .filter-bar .search-input,
+  .filter-bar .form-input,
   .filter-bar .filter-select {
     width: 100%;
+    min-width: 0;
   }
 
   /* === TABS: horizontal scroll === */

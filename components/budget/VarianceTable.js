@@ -296,6 +296,10 @@ function buildPrintHTML(project, items, summary) {
         <div class="sum-label">Chênh lệch</div>
         <div class="sum-value" style="color:${totalVar>=0?'#16a34a':'#dc2626'}">${totalVar>=0?'+':''}${fmt(totalVar)}<span class="sum-unit">đ</span></div>
       </div>
+      <div class="sum-card variance">
+        <div class="sum-label">Hiệu suất LN</div>
+        <div class="sum-value" style="color:${totalVar>=0?'#16a34a':'#dc2626'}">${(summary?.totalBudget||0)>0?(totalVar>=0?'+':'')+((totalVar/(summary.totalBudget))*100).toFixed(1)+'%':'—'}</div>
+      </div>
       <div class="sum-card cpi">
         <div class="sum-label">CPI · Hiệu quả chi phí</div>
         <div class="sum-value" style="color:${(cpi||0)>=1?'#16a34a':(cpi||0)>=.9?'#f97316':'#dc2626'}">${cpi!=null?cpi.toFixed(2):'—'}</div>
@@ -370,6 +374,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     const [activeTab, setActiveTab] = useState(0);
     const [collapsed, setCollapsed] = useState({});
     const [edits, setEdits] = useState({}); // { [id]: { qty, price, ap, name } }
+    const editsRef = useRef({}); // Ref để saveItem luôn đọc edits mới nhất (tránh stale closure)
     const [dirty, setDirty] = useState(false);
     const [allSaving, setAllSaving] = useState(false);
     const savingItems = useRef(new Set()); // guard against concurrent save-on-blur retry
@@ -382,6 +387,21 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     const [renamingSection, setRenamingSection] = useState(null); // { key, g1, g2, value }
     const [renamingTab, setRenamingTab] = useState(null); // { g1, value }
     const [newTabName, setNewTabName] = useState('');
+    const [showCostPanel, setShowCostPanel] = useState(false);
+    const [mgmtRate, setMgmtRate] = useState(5);       // % chi phí quản lý / Tổng DT
+    const [otherCosts, setOtherCosts] = useState(0);   // Chi phí khác (VNĐ cố định)
+
+    // Load/save chi phí vận hành từ localStorage
+    useEffect(() => {
+        if (!projectId) return;
+        const saved = localStorage.getItem(`variance_costs_${projectId}`);
+        if (saved) {
+            try { const p = JSON.parse(saved); setMgmtRate(p.mgmtRate ?? 5); setOtherCosts(p.otherCosts ?? 0); } catch {}
+        }
+    }, [projectId]);
+    const saveCosts = (rate, other) => {
+        localStorage.setItem(`variance_costs_${projectId}`, JSON.stringify({ mgmtRate: rate, otherCosts: other }));
+    };
 
     const exportPDF = () => {
         const html = buildPrintHTML(project, items, summary);
@@ -440,7 +460,9 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     };
 
     const updateEdit = (id, field, val) => {
-        setEdits(prev => ({ ...prev, [id]: { ...prev[id], [field]: val } }));
+        const next = { ...editsRef.current, [id]: { ...editsRef.current[id], [field]: val } };
+        editsRef.current = next;
+        setEdits(next);
         setDirty(true);
     };
 
@@ -460,7 +482,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     const saveItem = async (id) => {
         // Guard: skip if this item is already mid-save (prevents retry loop on rapid blur)
         if (savingItems.current.has(id)) return;
-        const e = edits[id];
+        const e = editsRef.current[id]; // dùng ref để tránh stale closure từ onBlur
         if (!e) return;
         // Snapshot which fields we are saving now (so post-save clear only removes these)
         const savedFields = Object.keys(e);
@@ -486,6 +508,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                     if (Object.keys(remaining).length === 0) delete n[id];
                     else n[id] = remaining;
                 }
+                editsRef.current = n; // đồng bộ ref sau khi clear
                 setDirty(Object.keys(n).length > 0);
                 return n;
             });
@@ -944,16 +967,22 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
             {/* Summary */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
                 <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {summary && [
-                        { label: 'Tổng DT', value: fmt(summary.totalBudget) + 'đ', color: '#2563eb' },
-                        { label: 'Tổng TT', value: fmt(summary.totalActual) + 'đ', color: '#111' },
-                        { label: 'Chênh lệch', value: (summary.totalVariance <= 0 ? '+' : '') + fmt(-summary.totalVariance) + 'đ', color: summary.totalVariance <= 0 ? '#16a34a' : '#dc2626' },
-                    ].map(s => (
-                        <div key={s.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <span style={{ fontSize: 11, color: '#9ca3af' }}>{s.label}</span>
-                            <span style={{ fontWeight: 700, fontSize: 14, color: s.color }}>{s.value}</span>
-                        </div>
-                    ))}
+                    {summary && (() => {
+                        const profit = -summary.totalVariance;
+                        const efficiency = summary.totalBudget > 0 ? (profit / summary.totalBudget * 100) : 0;
+                        const effColor = efficiency >= 0 ? '#16a34a' : '#dc2626';
+                        return [
+                            { label: 'Tổng DT', value: fmt(summary.totalBudget) + 'đ', color: '#2563eb' },
+                            { label: 'Tổng TT', value: fmt(summary.totalActual) + 'đ', color: '#111' },
+                            { label: 'Chênh lệch', value: (profit >= 0 ? '+' : '') + fmt(profit) + 'đ', color: effColor },
+                            { label: 'Hiệu suất LN', value: (efficiency >= 0 ? '+' : '') + efficiency.toFixed(1) + '%', color: effColor },
+                        ].map(s => (
+                            <div key={s.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <span style={{ fontSize: 11, color: '#9ca3af' }}>{s.label}</span>
+                                <span style={{ fontWeight: 700, fontSize: 14, color: s.color }}>{s.value}</span>
+                            </div>
+                        ));
+                    })()}
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                     <button onClick={saveAll} disabled={allSaving}
@@ -980,6 +1009,102 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                     </div>
                 </div>
             </div>
+
+            {/* Chi phí vận hành & Lợi nhuận ròng */}
+            {summary && (() => {
+                const totalDT = summary.totalBudget || 0;
+                const totalTT = summary.totalActual || 0;
+                const rawProfit = totalDT - totalTT;
+                const mgmtCost = totalDT * (mgmtRate / 100);
+                const netProfit = rawProfit - mgmtCost - otherCosts;
+                const netRate = totalDT > 0 ? (netProfit / totalDT * 100) : 0;
+                const rawRate = totalDT > 0 ? (rawProfit / totalDT * 100) : 0;
+                const isProfit = netProfit >= 0;
+                return (
+                    <div style={{ marginBottom: 16, border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden', background: 'white' }}>
+                        {/* Header toggle */}
+                        <button onClick={() => setShowCostPanel(v => !v)}
+                            style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: '#f8fafc', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#1e3a5f' }}>
+                            <span>📊 Phân tích Lợi nhuận & Chi phí vận hành</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <span style={{ fontWeight: 800, fontSize: 14, color: isProfit ? '#16a34a' : '#dc2626' }}>
+                                    LN ròng: {isProfit ? '+' : ''}{fmt(netProfit)}đ ({netRate.toFixed(1)}%)
+                                </span>
+                                <span style={{ color: '#9ca3af', fontSize: 14 }}>{showCostPanel ? '▲' : '▼'}</span>
+                            </div>
+                        </button>
+
+                        {showCostPanel && (
+                            <div style={{ padding: '16px 20px' }}>
+                                {/* Công thức */}
+                                <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: 12, lineHeight: 1.8 }}>
+                                    <div style={{ fontWeight: 700, color: '#0369a1', marginBottom: 6 }}>📐 Công thức tính:</div>
+                                    <div style={{ fontFamily: 'monospace', color: '#334155' }}>
+                                        <div>① LN thô (Chênh lệch VT) = Tổng DT − Tổng TT</div>
+                                        <div style={{ paddingLeft: 16, color: '#64748b' }}>= {fmt(totalDT)}đ − {fmt(totalTT)}đ = <strong style={{ color: rawProfit >= 0 ? '#16a34a' : '#dc2626' }}>{rawProfit >= 0 ? '+' : ''}{fmt(rawProfit)}đ ({rawRate.toFixed(1)}%)</strong></div>
+                                        <div style={{ marginTop: 4 }}>② Chi phí Quản lý = Tổng DT × {mgmtRate}%</div>
+                                        <div style={{ paddingLeft: 16, color: '#64748b' }}>= {fmt(totalDT)}đ × {mgmtRate}% = <strong style={{ color: '#dc2626' }}>−{fmt(mgmtCost)}đ</strong></div>
+                                        {otherCosts > 0 && <>
+                                            <div style={{ marginTop: 4 }}>③ Chi phí khác (cố định) = <strong style={{ color: '#dc2626' }}>−{fmt(otherCosts)}đ</strong></div>
+                                        </>}
+                                        <div style={{ marginTop: 8, borderTop: '1px solid #bae6fd', paddingTop: 8, fontWeight: 700, color: '#0369a1' }}>
+                                            LN ròng = LN thô − CP Quản lý{otherCosts > 0 ? ' − CP Khác' : ''}<br />
+                                            <span style={{ fontSize: 13, color: isProfit ? '#16a34a' : '#dc2626' }}>
+                                                = {fmt(rawProfit)}đ − {fmt(mgmtCost)}đ{otherCosts > 0 ? ` − ${fmt(otherCosts)}đ` : ''} = <strong>{isProfit ? '+' : ''}{fmt(netProfit)}đ</strong>
+                                            </span>
+                                        </div>
+                                        <div style={{ marginTop: 4, color: '#0369a1' }}>
+                                            Hiệu suất LN = LN ròng ÷ Tổng DT = <strong>{netRate.toFixed(2)}%</strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Input chi phí */}
+                                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                                    <div>
+                                        <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Chi phí Quản lý (% Tổng DT)</div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <input type="number" min="0" max="100" step="0.5"
+                                                value={mgmtRate}
+                                                onChange={e => { const v = Number(e.target.value) || 0; setMgmtRate(v); saveCosts(v, otherCosts); }}
+                                                style={{ width: 80, padding: '6px 10px', fontSize: 13, fontWeight: 700, border: '1px solid #93c5fd', borderRadius: 6, outline: 'none', textAlign: 'right' }} />
+                                            <span style={{ fontSize: 13, color: '#6b7280' }}>%</span>
+                                            <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>= −{fmt(mgmtCost)}đ</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Chi phí Khác (VNĐ cố định)</div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <input type="number" min="0" step="100000"
+                                                value={otherCosts}
+                                                onChange={e => { const v = Number(e.target.value) || 0; setOtherCosts(v); saveCosts(mgmtRate, v); }}
+                                                style={{ width: 140, padding: '6px 10px', fontSize: 13, fontWeight: 700, border: '1px solid #93c5fd', borderRadius: 6, outline: 'none', textAlign: 'right' }} />
+                                            <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>đ</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Bảng tổng hợp */}
+                                <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                                    {[
+                                        { label: 'Tổng DT (doanh thu)', value: fmt(totalDT) + 'đ', color: '#2563eb', bg: '#eff6ff' },
+                                        { label: 'Tổng TT (vật tư/nhân công)', value: '−' + fmt(totalTT) + 'đ', color: '#dc2626', bg: '#fef2f2' },
+                                        { label: `CP Quản lý (${mgmtRate}%)`, value: '−' + fmt(mgmtCost) + 'đ', color: '#f97316', bg: '#fff7ed' },
+                                        otherCosts > 0 ? { label: 'CP Khác (cố định)', value: '−' + fmt(otherCosts) + 'đ', color: '#f97316', bg: '#fff7ed' } : null,
+                                        { label: 'LN Ròng', value: (isProfit ? '+' : '') + fmt(netProfit) + 'đ', color: isProfit ? '#16a34a' : '#dc2626', bg: isProfit ? '#f0fdf4' : '#fef2f2', bold: true },
+                                        { label: 'Hiệu suất LN', value: (netRate >= 0 ? '+' : '') + netRate.toFixed(2) + '%', color: isProfit ? '#16a34a' : '#dc2626', bg: isProfit ? '#f0fdf4' : '#fef2f2', bold: true },
+                                    ].filter(Boolean).map(s => (
+                                        <div key={s.label} style={{ background: s.bg, borderRadius: 8, padding: '10px 14px', border: `1px solid ${s.color}22` }}>
+                                            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>{s.label}</div>
+                                            <div style={{ fontWeight: s.bold ? 800 : 700, fontSize: s.bold ? 16 : 13, color: s.color }}>{s.value}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 16, borderBottom: '2px solid #e5e7eb', paddingBottom: 8, alignItems: 'center' }}>

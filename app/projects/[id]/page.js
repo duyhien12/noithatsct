@@ -97,7 +97,7 @@ export default function ProjectDetailPage() {
     const [woForm, setWoForm] = useState({ title: '', category: 'Thi công', priority: 'Trung bình', assignee: '', dueDate: '', description: '' });
     const [expenseForm, setExpenseForm] = useState({ description: '', category: 'Vận chuyển', amount: '', submittedBy: '' });
     const [logForm, setLogForm] = useState({ type: 'Điện thoại', content: '', createdBy: '' });
-    const [cpForm, setCpForm] = useState({ contractorId: '', contractAmount: '', paidAmount: '0', description: '', dueDate: '', status: 'Chưa TT' });
+    const [cpForm, setCpForm] = useState({ contractorId: '', contractorName: '', contractAmount: '', paidAmount: '0', description: '', dueDate: '', status: 'Chưa TT' });
     const [contractorList, setContractorList] = useState([]);
     const [editCp, setEditCp] = useState(null); // { id, paidAmount, status }
     const [ntModal, setNtModal] = useState(null); // cp object being viewed for nghiem thu
@@ -174,13 +174,31 @@ export default function ProjectDetailPage() {
             const json = await res.json();
             setContractorList(json.data || []);
         }
-        setCpForm({ contractorId: '', contractAmount: '', paidAmount: '0', description: '', dueDate: '', status: 'Chưa TT' });
+        setCpForm({ contractorId: '', contractorName: '', contractAmount: '', paidAmount: '0', description: '', dueDate: '', status: 'Chưa TT' });
         setModal('contractor_pay');
     };
     const createContractorPayment = async () => {
-        if (!cpForm.contractorId) return alert('Chọn thầu phụ!');
+        const name = cpForm.contractorName.trim();
+        if (!name) return alert('Nhập tên thầu phụ!');
         if (!cpForm.contractAmount) return alert('Nhập giá trị hợp đồng!');
-        const res = await fetch('/api/contractor-payments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...cpForm, projectId: id, contractAmount: Number(cpForm.contractAmount), paidAmount: Number(cpForm.paidAmount) || 0 }) });
+
+        // Tìm contractor khớp tên trong danh sách (không phân biệt hoa thường)
+        let contractorId = cpForm.contractorId;
+        if (!contractorId) {
+            const match = contractorList.find(c => c.name.toLowerCase() === name.toLowerCase());
+            if (match) {
+                contractorId = match.id;
+            } else {
+                // Tạo mới contractor tự động
+                const cr = await fetch('/api/contractors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, type: 'Khác' }) });
+                if (!cr.ok) return alert('Lỗi tạo thầu phụ mới');
+                const newC = await cr.json();
+                contractorId = newC.id;
+                setContractorList(prev => [...prev, newC]);
+            }
+        }
+
+        const res = await fetch('/api/contractor-payments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...cpForm, contractorId, projectId: id, contractAmount: Number(cpForm.contractAmount), paidAmount: Number(cpForm.paidAmount) || 0 }) });
         if (!res.ok) return alert('Lỗi tạo thầu phụ');
         setModal(null); fetchData();
     };
@@ -1458,10 +1476,26 @@ export default function ProjectDetailPage() {
                         <div className="modal-body">
                             <div className="form-group">
                                 <label className="form-label">Thầu phụ *</label>
-                                <select className="form-select" value={cpForm.contractorId} onChange={e => setCpForm({ ...cpForm, contractorId: e.target.value })} autoFocus>
-                                    <option value="">-- Chọn thầu phụ --</option>
-                                    {contractorList.map(c => <option key={c.id} value={c.id}>{c.name} — {c.type}</option>)}
-                                </select>
+                                <input
+                                    className="form-input"
+                                    list="contractor-suggestions"
+                                    autoFocus
+                                    placeholder="Gõ tên hoặc chọn từ danh sách..."
+                                    value={cpForm.contractorName}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        const match = contractorList.find(c => c.name === val);
+                                        setCpForm({ ...cpForm, contractorName: val, contractorId: match ? match.id : '' });
+                                    }}
+                                />
+                                <datalist id="contractor-suggestions">
+                                    {contractorList.map(c => <option key={c.id} value={c.name}>{c.type}</option>)}
+                                </datalist>
+                                {cpForm.contractorName && !cpForm.contractorId && (
+                                    <div style={{ fontSize: 11, color: '#f97316', marginTop: 4 }}>
+                                        ✦ Thầu phụ mới — sẽ được tạo tự động khi lưu
+                                    </div>
+                                )}
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Mô tả hợp đồng</label>

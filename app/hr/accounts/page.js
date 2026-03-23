@@ -11,6 +11,7 @@ const ROLES = [
     { key: 'marketing',     label: 'Phòng Marketing',          icon: '📣' },
     { key: 'hanh_chinh_kt', label: 'Phòng hành chính kế toán', icon: '📊' },
     { key: 'xuong',         label: 'Xưởng nội thất',           icon: '🪚' },
+    { key: 'viewer',        label: 'Chỉ xem (Read-only)',      icon: '👁️' },
 ];
 
 const ROLE_COLORS = {
@@ -21,6 +22,7 @@ const ROLE_COLORS = {
     marketing:     { color: '#e91e63', bg: '#fce4ec' },
     hanh_chinh_kt: { color: '#f39c12', bg: '#fef9e7' },
     xuong:         { color: '#d35400', bg: '#fdf0e8' },
+    viewer:        { color: '#6b7280', bg: '#f3f4f6' },
     // fallback cho roles cũ
     giam_doc:      { color: '#c0392b', bg: '#fdecea' },
     pho_gd:        { color: '#e67e22', bg: '#fef3e2' },

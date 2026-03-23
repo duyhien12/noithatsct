@@ -10,6 +10,7 @@ export const ROLES = [
     { key: 'marketing',     label: 'Phòng Marketing',           icon: '📣', color: '#e91e63' },
     { key: 'hanh_chinh_kt', label: 'Phòng hành chính kế toán',  icon: '📊', color: '#f39c12' },
     { key: 'xuong',         label: 'Xưởng nội thất',            icon: '🪚', color: '#d35400' },
+    { key: 'viewer',        label: 'Chỉ xem',                   icon: '👁️', color: '#6b7280' },
 ];
 
 const PERMISSIONS = {
@@ -104,12 +105,20 @@ const PERMISSIONS = {
         canManageContractors: false, canManageSuppliers: false,
         filterProject: null,
     },
+    viewer: {
+        canApprove: false, canReject: false, canCreateExpense: false,
+        canPayExpense: false, canCompleteExpense: false, canDeleteExpense: false,
+        canCollectPayment: false, canPrintReceipt: false, canViewFinance: true,
+        canViewProjects: true, canViewAll: true,
+        canManageContractors: false, canManageSuppliers: false,
+        filterProject: null,
+    },
 };
 
 const RoleContext = createContext(null);
 
 // Roles được xem full dashboard
-const DASHBOARD_ROLES = ['ban_gd', 'giam_doc', 'pho_gd'];
+const DASHBOARD_ROLES = ['ban_gd', 'giam_doc', 'pho_gd', 'viewer'];
 const ADMIN_EMAIL = 'admin@kientrucsct.com';
 
 export function RoleProvider({ children }) {
@@ -123,12 +132,13 @@ export function RoleProvider({ children }) {
         || { key: role, label: role, icon: '👤', color: '#6b7280' };
     const isKinhDoanh = role === 'kinh_doanh';
     const isXuong = role === 'xuong';
+    const isViewer = role === 'viewer';
     const canViewDashboard = DASHBOARD_ROLES.includes(role) || email === ADMIN_EMAIL;
     // Nhân viên / Thợ xưởng: chỉ xem công việc, nhân công, tiến độ
     const isXuongNhanVien = role === 'xuong' && ['Nhân viên', 'Thợ chính', 'Thợ phụ'].includes(department);
 
     return (
-        <RoleContext.Provider value={{ role, email, department, roleInfo, permissions, isKinhDoanh, isXuong, isXuongNhanVien, canViewDashboard }}>
+        <RoleContext.Provider value={{ role, email, department, roleInfo, permissions, isKinhDoanh, isXuong, isXuongNhanVien, isViewer, canViewDashboard }}>
             {children}
         </RoleContext.Provider>
     );
