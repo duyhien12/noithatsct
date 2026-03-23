@@ -39,7 +39,7 @@ function buildPrintHTML(project, items, summary) {
         const g1Var = g1Budget - g1Actual;
 
         rowsHTML += `<tr class="g1-header">
-          <td colspan="9">
+          <td colspan="10">
             <span class="g1-bar"></span>
             ${g1}
             <span style="margin-left:16px;font-size:10px;opacity:.85">DT: ${fmt(g1Budget)}</span>
@@ -58,7 +58,7 @@ function buildPrintHTML(project, items, summary) {
             const sVar = sBudget - sActual;
 
             if (sections.length > 1 || label !== g1) {
-                rowsHTML += `<tr class="g2-header"><td colspan="9">${ALPHA[si2]}. &nbsp;${label}</td></tr>`;
+                rowsHTML += `<tr class="g2-header"><td colspan="10">${ALPHA[si2]}. &nbsp;${label}</td></tr>`;
             }
 
             si.forEach((item, rowIdx) => {
@@ -75,6 +75,7 @@ function buildPrintHTML(project, items, summary) {
                     <td class="right">${item.budgetQty || 0}</td>
                     <td class="right">${p > 0 ? fmt(p) : '—'}</td>
                     <td class="right blue bold">${fmt(item.budgetTotal || 0)}</td>
+                    <td class="right">${item.actualQty > 0 ? item.actualQty : '—'}</td>
                     <td class="right ${ap > p * 1.05 ? 'red' : ap > 0 ? 'orange' : 'muted'}">${ap > 0 ? fmt(ap) : '—'}</td>
                     <td class="right ${item.actualTotal > item.budgetTotal * 1.05 ? 'red bold' : item.actualTotal > 0 ? 'orange bold' : 'muted'}">${item.actualTotal > 0 ? fmt(item.actualTotal) : '—'}</td>
                     <td class="right ${variance >= 0 ? 'green bold' : 'red bold'}">${item.actualTotal > 0 ? (variance >= 0 ? '+' : '') + fmt(variance) : '—'}</td>
@@ -84,6 +85,7 @@ function buildPrintHTML(project, items, summary) {
             rowsHTML += `<tr class="subtotal">
                 <td colspan="5" class="right italic">Cộng ${label}:</td>
                 <td class="right blue bold">${fmt(sBudget)}</td>
+                <td></td>
                 <td></td>
                 <td class="right ${sActual > sBudget ? 'red bold' : 'bold'}">${sActual > 0 ? fmt(sActual) : '—'}</td>
                 <td class="right ${sVar >= 0 ? 'green bold' : 'red bold'}">${sActual > 0 ? (sVar >= 0 ? '+' : '') + fmt(sVar) : '—'}</td>
@@ -317,6 +319,7 @@ function buildPrintHTML(project, items, summary) {
         <th style="width:50px">SL</th>
         <th style="width:92px">ĐG DT</th>
         <th style="width:105px">TỔNG DT</th>
+        <th style="width:50px">SLTT</th>
         <th style="width:92px">ĐG TT</th>
         <th style="width:105px">TỔNG TT</th>
         <th style="width:105px">CHÊNH LỆCH</th>
@@ -325,6 +328,7 @@ function buildPrintHTML(project, items, summary) {
         <tr class="total-row">
           <td colspan="5" class="right" style="letter-spacing:.5px;padding-right:12px">TỔNG CỘNG</td>
           <td class="right">${fmt(summary?.totalBudget||0)}</td>
+          <td></td>
           <td></td>
           <td class="right">${(summary?.totalActual||0)>0?fmt(summary.totalActual):'—'}</td>
           <td class="right">${(summary?.totalActual||0)>0?(totalVar>=0?'+':'')+fmt(totalVar):'—'}</td>
@@ -453,6 +457,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
             case 'qty': return item.budgetQty ?? 0;
             case 'price': return item.budgetUnitPrice ?? 0;
             case 'ap': return item.avgActualPrice ?? 0;
+            case 'aqty': return item.actualQty > 0 ? item.actualQty : (item.budgetQty ?? 0);
             case 'name': return item.productName || item.category || '';
             case 'unit': return item.unit || '';
         }
@@ -472,7 +477,8 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
         const qty = Number(e.qty ?? item.budgetQty) || 0;
         const price = Number(e.price ?? item.budgetUnitPrice) || 0;
         const ap = Number(e.ap ?? item.avgActualPrice) || 0;
-        const body = { quantity: qty, budgetUnitPrice: price, actualCost: ap * qty };
+        const aqty = Number(e.aqty ?? (item.actualQty > 0 ? item.actualQty : item.budgetQty)) || 0;
+        const body = { quantity: qty, budgetUnitPrice: price, actualCost: ap * aqty, actualQty: aqty };
         if (e.name !== undefined && !item.productCode) body.category = e.name;
         if (e.unit !== undefined) body.unit = e.unit;
         return body;
@@ -517,13 +523,15 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                 const qty = Number(e.qty ?? i.budgetQty) || 0;
                 const price = Number(e.price ?? i.budgetUnitPrice) || 0;
                 const ap = Number(e.ap ?? i.avgActualPrice) || 0;
+                const aqty = Number(e.aqty ?? (i.actualQty > 0 ? i.actualQty : i.budgetQty)) || 0;
                 return {
                     ...i,
                     budgetQty: qty,
                     budgetUnitPrice: price,
                     budgetTotal: qty * price,
                     avgActualPrice: ap,
-                    actualTotal: ap * qty,
+                    actualQty: aqty,
+                    actualTotal: ap * aqty,
                     ...(e.name !== undefined && !i.productCode ? { productName: e.name } : {}),
                     ...(e.unit !== undefined ? { unit: e.unit } : {}),
                 };
@@ -686,8 +694,9 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
         const q = Number(getVal(item, 'qty')) || 0;
         const p = Number(getVal(item, 'price')) || 0;
         const ap = Number(getVal(item, 'ap')) || 0;
+        const aqty = Number(getVal(item, 'aqty')) || q;
         acc.budget += q * p;
-        acc.actual += ap * q;
+        acc.actual += ap * aqty;
         return acc;
     }, { budget: 0, actual: 0 });
 
@@ -695,9 +704,10 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
         const q = Number(getVal(item, 'qty')) || 0;
         const p = Number(getVal(item, 'price')) || 0;
         const ap = Number(getVal(item, 'ap')) || 0;
+        const aqty = Number(getVal(item, 'aqty')) || q;
         const name = getVal(item, 'name');
         const budgetTotal = q * p;
-        const actualTotal = ap * q;
+        const actualTotal = ap * aqty;
         const variance = budgetTotal - actualTotal;
         const isCustom = !item.productCode;
         const hasEdit = !!edits[item.id];
@@ -754,6 +764,15 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                 {/* TỔNG DT */}
                 <td style={{ ...cellStyle, textAlign: 'right', fontWeight: 600, color: '#2563eb', width: 105 }}>
                     {fmt(budgetTotal)}
+                </td>
+
+                {/* SLTT */}
+                <td style={{ ...cellStyle, padding: '3px 4px', width: 72 }}>
+                    <input style={{ ...inpStyle, textAlign: 'right' }} type="number"
+                        value={getVal(item, 'aqty')}
+                        onChange={e => updateEdit(item.id, 'aqty', e.target.value)}
+                        onBlur={() => saveItem(item.id)}
+                        onFocus={e => e.target.select()} />
                 </td>
 
                 {/* ĐG TT */}
@@ -841,6 +860,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                                     <th style={{ ...thStyle, width: 62 }}>SL</th>
                                     <th style={{ ...thStyle, width: 105 }}>ĐG DT</th>
                                     <th style={{ ...thStyle, width: 105 }}>TỔNG DT</th>
+                                    <th style={{ ...thStyle, width: 62 }}>SLTT</th>
                                     <th style={{ ...thStyle, width: 105 }}>ĐG TT</th>
                                     <th style={{ ...thStyle, width: 105 }}>TỔNG TT</th>
                                     <th style={{ ...thStyle, width: 105 }}>CHÊNH LỆCH</th>

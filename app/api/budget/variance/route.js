@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 export const GET = withAuth(async (request) => {
     // Ensure unit column exists (idempotent, first-time migration)
     await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN IF NOT EXISTS "unit" TEXT NOT NULL DEFAULT ''`.catch(() => {});
+    await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN IF NOT EXISTS "actualQty" FLOAT NOT NULL DEFAULT 0`.catch(() => {});
 
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');
@@ -43,11 +44,12 @@ export const GET = withAuth(async (request) => {
         const totalPOValue = Number(plan.totalPOValue) || 0;
         const actualReceivedQty = Number(plan.actualReceivedQty) || 0;
 
+        const manualActualQty = Number(plan.actualQty) || 0;
         const hasPO = totalPOQty > 0;
         const avgActualPrice = hasPO
             ? totalPOValue / totalPOQty
-            : (Number(plan.actualCost) > 0 && Number(plan.quantity) > 0
-                ? Number(plan.actualCost) / Number(plan.quantity)
+            : (Number(plan.actualCost) > 0
+                ? Number(plan.actualCost) / (manualActualQty > 0 ? manualActualQty : Number(plan.quantity) || 1)
                 : 0);
         const effectiveActualTotal = hasPO
             ? avgActualPrice * (actualReceivedQty || Number(plan.orderedQty))
@@ -77,6 +79,7 @@ export const GET = withAuth(async (request) => {
             drawingUrl: plan.drawingUrl || '',
             supplierTag: plan.supplierTag || '',
             budgetQty: qty,
+            actualQty: manualActualQty,
             budgetUnitPrice,
             budgetTotal: qty * budgetUnitPrice,
             wastePercent,

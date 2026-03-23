@@ -6,8 +6,9 @@ export const PUT = withAuth(async (request, { params }) => {
     const { id } = await params;
     const body = await request.json();
 
-    // Ensure unit column exists (idempotent migration)
+    // Ensure columns exist (idempotent migration)
     await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN IF NOT EXISTS "unit" TEXT NOT NULL DEFAULT ''`.catch(() => {});
+    await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN IF NOT EXISTS "actualQty" FLOAT NOT NULL DEFAULT 0`.catch(() => {});
 
     const sets = [];
     const vals = [];
@@ -33,6 +34,7 @@ export const PUT = withAuth(async (request, { params }) => {
     if (body.supplierTag !== undefined)    add('supplierTag', body.supplierTag);
     if (body.category !== undefined)       add('category', body.category);
     if (body.unit !== undefined)           add('unit', body.unit);
+    if (body.actualQty !== undefined)      add('actualQty', Number(body.actualQty));
 
     // Recompute totalAmount if quantity or price changed
     if (body.quantity !== undefined || body.unitPrice !== undefined || body.budgetUnitPrice !== undefined) {
