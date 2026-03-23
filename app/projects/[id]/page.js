@@ -99,7 +99,7 @@ export default function ProjectDetailPage() {
     const [logForm, setLogForm] = useState({ type: 'Điện thoại', content: '', createdBy: '' });
     const [cpForm, setCpForm] = useState({ contractorId: '', contractorName: '', contractAmount: '', paidAmount: '0', description: '', dueDate: '', status: 'Chưa TT' });
     const [contractorList, setContractorList] = useState([]);
-    const [editCp, setEditCp] = useState(null); // { id, paidAmount, status }
+    const [editCp, setEditCp] = useState(null); // full edit modal state
     const [ntModal, setNtModal] = useState(null); // cp object being viewed for nghiem thu
     const [ntForm, setNtForm] = useState({ description: '', unit: 'm²', quantity: '', unitPrice: '', notes: '' });
     const [savingNt, setSavingNt] = useState(false);
@@ -202,9 +202,31 @@ export default function ProjectDetailPage() {
         if (!res.ok) return alert('Lỗi tạo thầu phụ');
         setModal(null); fetchData();
     };
+    const openEditCp = (cp) => {
+        setEditCp({
+            id: cp.id,
+            contractorName: cp.contractor?.name || '',
+            contractAmount: cp.contractAmount,
+            paidAmount: cp.paidAmount,
+            description: cp.description || '',
+            dueDate: cp.dueDate ? cp.dueDate.split('T')[0] : '',
+            status: cp.status,
+        });
+    };
     const updateCpPaid = async () => {
         if (!editCp) return;
-        await fetch(`/api/contractor-payments/${editCp.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paidAmount: Number(editCp.paidAmount), status: editCp.status }) });
+        const res = await fetch(`/api/contractor-payments/${editCp.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contractAmount: Number(editCp.contractAmount),
+                paidAmount: Number(editCp.paidAmount),
+                description: editCp.description,
+                dueDate: editCp.dueDate || null,
+                status: editCp.status,
+            }),
+        });
+        if (!res.ok) return alert('Lỗi cập nhật thầu phụ');
         setEditCp(null); fetchData();
     };
     const deleteCp = async (cpId) => {
@@ -1345,14 +1367,11 @@ export default function ProjectDetailPage() {
                     <div className="table-container"><table className="data-table">
                         <thead><tr><th>Thầu phụ</th><th>Loại</th><th>Mô tả</th><th>HĐ thầu / NT</th><th>Đã TT</th><th>Còn nợ</th><th>TT</th><th style={{ width: 110 }}></th></tr></thead>
                         <tbody>{p.contractorPays.map(cp => {
-                            const ec = editCp?.id === cp.id ? editCp : null;
-                            const iS = { padding: '3px 6px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg-primary)', color: 'var(--text-primary)' };
                             const itemCount = cp.items?.length || 0;
-                            const ntTotal = cp.items?.reduce((s, it) => s + it.amount, 0) || 0;
                             return (
-                                <tr key={cp.id} style={{ background: ec ? 'rgba(59,130,246,0.05)' : '' }}>
-                                    <td className="primary">{cp.contractor.name}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{cp.contractor.phone}</div></td>
-                                    <td><span className="badge muted">{cp.contractor.type}</span></td>
+                                <tr key={cp.id}>
+                                    <td className="primary">{cp.contractor?.name}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{cp.contractor?.phone}</div></td>
+                                    <td><span className="badge muted">{cp.contractor?.type}</span></td>
                                     <td style={{ fontSize: 12 }}>{cp.description}</td>
                                     <td>
                                         <div style={{ fontSize: 13 }}>{fmt(cp.contractAmount)}</div>
@@ -1360,27 +1379,13 @@ export default function ProjectDetailPage() {
                                             📋 {itemCount > 0 ? `${itemCount} hạng mục NT` : 'Thêm nghiệm thu'}
                                         </button>
                                     </td>
-                                    <td style={{ color: 'var(--status-success)', fontWeight: 600 }}>
-                                        {ec ? <input style={{ ...iS, width: 110 }} type="number" min="0" value={ec.paidAmount} onChange={e => setEditCp({ ...ec, paidAmount: e.target.value })} /> : fmt(cp.paidAmount)}
-                                    </td>
+                                    <td style={{ color: 'var(--status-success)', fontWeight: 600 }}>{fmt(cp.paidAmount)}</td>
                                     <td style={{ fontWeight: 700, color: cp.contractAmount - cp.paidAmount > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>{fmt(cp.contractAmount - cp.paidAmount)}</td>
-                                    <td>
-                                        {ec
-                                            ? <select style={iS} value={ec.status} onChange={e => setEditCp({ ...ec, status: e.target.value })}>
-                                                {['Chưa TT', 'Tạm ứng', 'Đang TT', 'Hoàn thành'].map(s => <option key={s}>{s}</option>)}
-                                            </select>
-                                            : <span className={`badge ${cp.status === 'Hoàn thành' ? 'success' : cp.status === 'Tạm ứng' ? 'info' : 'warning'}`}>{cp.status}</span>
-                                        }
-                                    </td>
+                                    <td><span className={`badge ${cp.status === 'Hoàn thành' ? 'success' : cp.status === 'Tạm ứng' ? 'info' : 'warning'}`}>{cp.status}</span></td>
                                     <td>
                                         <div style={{ display: 'flex', gap: 3 }}>
-                                            {ec ? (<>
-                                                <button className="btn btn-primary btn-sm" onClick={updateCpPaid}>✅</button>
-                                                <button className="btn btn-ghost btn-sm" onClick={() => setEditCp(null)}>✕</button>
-                                            </>) : (<>
-                                                <button className="btn btn-ghost btn-sm" title="Cập nhật thanh toán" onClick={() => setEditCp({ id: cp.id, paidAmount: cp.paidAmount, status: cp.status })}>✏️</button>
-                                                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--status-danger)' }} onClick={() => deleteCp(cp.id)}>🗑️</button>
-                                            </>)}
+                                            <button className="btn btn-ghost btn-sm" title="Chỉnh sửa" onClick={() => openEditCp(cp)}>✏️</button>
+                                            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--status-danger)' }} onClick={() => deleteCp(cp.id)}>🗑️</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -1460,6 +1465,54 @@ export default function ProjectDetailPage() {
                                 <div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Đã thanh toán</div><div style={{ fontWeight: 700, fontSize: 15, color: 'var(--status-success)' }}>{fmt(ntModal.paidAmount)}</div></div>
                                 <div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Còn nợ</div><div style={{ fontWeight: 700, fontSize: 15, color: ntModal.contractAmount - ntModal.paidAmount > 0 ? 'var(--status-danger)' : 'var(--text-muted)' }}>{fmt(ntModal.contractAmount - ntModal.paidAmount)}</div></div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Chỉnh sửa thầu phụ */}
+            {editCp && (
+                <div className="modal-overlay" onClick={() => setEditCp(null)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+                        <div className="modal-header">
+                            <h3>✏️ Chỉnh sửa thầu phụ</h3>
+                            <button className="modal-close" onClick={() => setEditCp(null)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="form-group">
+                                <label className="form-label">Thầu phụ</label>
+                                <input className="form-input" value={editCp.contractorName} disabled style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Mô tả hợp đồng</label>
+                                <input className="form-input" value={editCp.description} onChange={e => setEditCp({ ...editCp, description: e.target.value })} placeholder="VD: Thầu xây thô, Thầu điện nước..." />
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Giá trị hợp đồng *</label>
+                                    <input className="form-input" type="number" min="0" value={editCp.contractAmount} onChange={e => setEditCp({ ...editCp, contractAmount: e.target.value })} placeholder="VNĐ" />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Đã thanh toán</label>
+                                    <input className="form-input" type="number" min="0" value={editCp.paidAmount} onChange={e => setEditCp({ ...editCp, paidAmount: e.target.value })} />
+                                </div>
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Hạn thanh toán</label>
+                                    <input className="form-input" type="date" value={editCp.dueDate} onChange={e => setEditCp({ ...editCp, dueDate: e.target.value })} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Trạng thái</label>
+                                    <select className="form-select" value={editCp.status} onChange={e => setEditCp({ ...editCp, status: e.target.value })}>
+                                        {['Chưa TT', 'Tạm ứng', 'Đang TT', 'Hoàn thành'].map(s => <option key={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setEditCp(null)}>Hủy</button>
+                            <button className="btn btn-primary" onClick={updateCpPaid}>Lưu thay đổi</button>
                         </div>
                     </div>
                 </div>
