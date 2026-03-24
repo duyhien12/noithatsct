@@ -498,7 +498,7 @@ export default function ProductsPage() {
             <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
 
             {/* Tabs */}
-            <div style={{ display: 'flex', borderBottom: '2px solid var(--border-color)', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', borderBottom: '2px solid var(--border-color)', marginBottom: 20 }}>
                 {[['products', `📦 Sản phẩm (${products.length})`], ['library', `🔧 Hạng mục thi công (${library.length})`]].map(([key, label]) => (
                     <button key={key} onClick={() => setTab(key)} style={{ padding: '9px 22px', border: 'none', borderBottom: tab === key ? '2px solid var(--primary)' : '2px solid transparent', background: 'none', marginBottom: -2, fontSize: 13, fontWeight: tab === key ? 700 : 400, color: tab === key ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>{label}</button>
                 ))}

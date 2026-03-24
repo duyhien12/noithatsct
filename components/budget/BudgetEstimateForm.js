@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import * as XLSX from 'xlsx';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -390,6 +391,60 @@ function exportBudgetPDF({ cats, projectId }) {
     w.document.close();
 }
 
+function downloadExcelTemplate() {
+    const wb = XLSX.utils.book_new();
+    const header = [['Hạng mục chính', 'Hạng mục con', 'Tên hạng mục / sản phẩm', 'ĐVT', 'Số lượng', 'Đơn giá', 'Ghi chú']];
+    const sample = [
+        ['Phần thô', 'Móng & Nền', 'Đào đất hố móng', 'm3', 10, 350000, ''],
+        ['Phần thô', 'Móng & Nền', 'Đổ bê tông móng', 'm3', 5, 1200000, ''],
+        ['Phần thô', 'Tường & Cột', 'Xây tường gạch', 'm2', 80, 180000, ''],
+        ['Phần hoàn thiện', 'Sơn', 'Sơn tường 2 lớp Dulux', 'm2', 200, 85000, 'Sơn nội thất'],
+        ['Nội thất gỗ', 'Tủ bếp', 'Tủ bếp trên MDF phủ Acrylic', 'm dài', 3, 4500000, ''],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet([...header, ...sample]);
+    ws['!cols'] = [{ wch: 22 }, { wch: 22 }, { wch: 36 }, { wch: 8 }, { wch: 10 }, { wch: 14 }, { wch: 24 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'Dự toán');
+    XLSX.writeFile(wb, 'mau_du_toan_SCT.xlsx');
+}
+
+function parseExcelToCats(file, onDone) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const wb = XLSX.read(e.target.result, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+            // skip header row
+            const dataRows = rows.slice(1).filter(r => r[2] && String(r[2]).trim());
+            const catMap = new Map();
+            dataRows.forEach(r => {
+                const catName = String(r[0] || 'Hạng mục').trim();
+                const subName = String(r[1] || 'Mục 1').trim();
+                const itemName = String(r[2] || '').trim();
+                const unit = String(r[3] || '').trim();
+                const qty = Number(r[4]) || 1;
+                const unitPrice = Number(r[5]) || 0;
+                const note = String(r[6] || '').trim();
+                if (!catMap.has(catName)) catMap.set(catName, new Map());
+                const subMap = catMap.get(catName);
+                if (!subMap.has(subName)) subMap.set(subName, []);
+                subMap.get(subName).push({ _k: uid(), name: itemName, unit, qty, unitPrice, amount: qty * unitPrice, note });
+            });
+            const newCats = Array.from(catMap.entries()).map(([catName, subMap]) => ({
+                _k: uid(), name: catName,
+                subcats: Array.from(subMap.entries()).map(([subName, items]) => ({
+                    _k: uid(), name: subName, items, collapsed: false,
+                })),
+                subtotal: 0,
+            }));
+            onDone(newCats);
+        } catch (err) {
+            alert('Lỗi đọc file Excel: ' + err.message);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
 export default function BudgetEstimateForm({ projectId }) {
     const [cats, setCats] = useState(null);
     const [activeIdx, setActiveIdx] = useState(0);
@@ -403,6 +458,10 @@ export default function BudgetEstimateForm({ projectId }) {
     const [autoSaveStatus, setAutoSaveStatus] = useState(''); // '', 'saving', 'saved'
     const [editingCatName, setEditingCatName] = useState(null);
     const [editingSubName, setEditingSubName] = useState(null);
+    const xlsxInputRef = useRef(null);
+    const [importMode, setImportMode] = useState('replace'); // 'replace' | 'append'
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [pendingImportFile, setPendingImportFile] = useState(null);
 
     // Keep catsRef in sync + trigger debounced auto-save on every cats change
     useEffect(() => {
@@ -677,6 +736,18 @@ export default function BudgetEstimateForm({ projectId }) {
                             background: '#f97316', color: 'white', display: 'flex', alignItems: 'center', gap: 6 }}>
                         📄 Xuất PDF
                     </button>
+                    <button onClick={downloadExcelTemplate}
+                        style={{ padding: '7px 14px', fontSize: 12, fontWeight: 600, borderRadius: 8, border: '1px solid #16a34a', cursor: 'pointer',
+                            background: '#f0fdf4', color: '#15803d', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        📥 Tải mẫu
+                    </button>
+                    <button onClick={() => xlsxInputRef.current?.click()}
+                        style={{ padding: '7px 14px', fontSize: 12, fontWeight: 600, borderRadius: 8, border: '1px solid #2563eb', cursor: 'pointer',
+                            background: '#eff6ff', color: '#1d4ed8', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        📊 Nhập Excel
+                    </button>
+                    <input ref={xlsxInputRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }}
+                        onChange={e => { const f = e.target.files[0]; if (f) { setPendingImportFile(f); setShowImportModal(true); } e.target.value = ''; }} />
                 </div>
             </div>
 
@@ -807,6 +878,58 @@ export default function BudgetEstimateForm({ projectId }) {
                     <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '0.5px' }}>{fmt(grandTotal)} <span style={{ fontSize: 13, fontWeight: 400, opacity: 0.8 }}>đ</span></div>
                 </div>
             </div>
+
+            {/* Import Excel modal */}
+            {showImportModal && (
+                <div className="modal-overlay" onClick={() => { setShowImportModal(false); setPendingImportFile(null); }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+                        <div className="modal-header">
+                            <h3 style={{ margin: 0 }}>📊 Nhập từ Excel</h3>
+                            <button className="modal-close" onClick={() => { setShowImportModal(false); setPendingImportFile(null); }}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <p style={{ fontSize: 13, marginBottom: 12 }}>
+                                File: <strong>{pendingImportFile?.name}</strong>
+                            </p>
+                            <div style={{ fontSize: 12, color: '#6b7280', background: '#f9fafb', borderRadius: 8, padding: '10px 14px', marginBottom: 16, lineHeight: 1.7 }}>
+                                <strong>Cấu trúc file Excel:</strong><br />
+                                Cột A: Hạng mục chính (VD: Phần thô)<br />
+                                Cột B: Hạng mục con (VD: Móng &amp; Nền)<br />
+                                Cột C: Tên hạng mục / sản phẩm<br />
+                                Cột D: ĐVT &nbsp;|&nbsp; Cột E: Số lượng &nbsp;|&nbsp; Cột F: Đơn giá<br />
+                                Cột G: Ghi chú
+                            </div>
+                            <div style={{ marginBottom: 8 }}>
+                                <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>Chế độ nhập:</label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', marginBottom: 6 }}>
+                                    <input type="radio" value="replace" checked={importMode === 'replace'} onChange={() => setImportMode('replace')} />
+                                    <span>Thay thế toàn bộ dữ liệu hiện tại</span>
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                                    <input type="radio" value="append" checked={importMode === 'append'} onChange={() => setImportMode('append')} />
+                                    <span>Thêm vào dữ liệu hiện có</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => { setShowImportModal(false); setPendingImportFile(null); }}>Hủy</button>
+                            <button className="btn btn-primary" onClick={() => {
+                                parseExcelToCats(pendingImportFile, (newCats) => {
+                                    if (importMode === 'replace') {
+                                        setCats(newCats);
+                                        setActiveIdx(0);
+                                    } else {
+                                        setCats(prev => [...(prev || []), ...newCats]);
+                                    }
+                                    mark();
+                                    setShowImportModal(false);
+                                    setPendingImportFile(null);
+                                });
+                            }}>Nhập dữ liệu</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

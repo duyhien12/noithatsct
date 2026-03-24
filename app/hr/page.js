@@ -100,6 +100,24 @@ export default function HRPage() {
     const onLeaveCount = allEmployees.filter(e => e.status === 'Nghỉ phép').length;
     const totalPayroll = allEmployees.filter(e => e.status === 'Đang làm').reduce((s, e) => s + (e.salary || 0), 0);
 
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentDay = today.getDate();
+
+    const birthdaysThisMonth = allEmployees.filter(e => {
+        if (!e.birthDate) return false;
+        const d = new Date(e.birthDate);
+        return d.getMonth() === currentMonth;
+    }).sort((a, b) => new Date(a.birthDate).getDate() - new Date(b.birthDate).getDate());
+
+    const anniversariesThisMonth = allEmployees.filter(e => {
+        if (!e.joinDate) return false;
+        const d = new Date(e.joinDate);
+        if (d.getMonth() !== currentMonth) return false;
+        const years = today.getFullYear() - d.getFullYear();
+        return years >= 1;
+    }).sort((a, b) => new Date(a.joinDate).getDate() - new Date(b.joinDate).getDate());
+
     return (
         <div>
             {/* KPI cards */}
@@ -156,6 +174,73 @@ export default function HRPage() {
                     </div>
                 ))}
             </div>
+
+            {/* Events this month */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 24 }}>
+                    <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #f97316' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                            <span style={{ fontSize: 20 }}>🎂</span>
+                            <span style={{ fontWeight: 700, fontSize: 15 }}>Sinh nhật tháng {currentMonth + 1}</span>
+                            <span style={{ marginLeft: 'auto', background: '#f97316', color: '#fff', borderRadius: 12, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>{birthdaysThisMonth.length}</span>
+                        </div>
+                        {birthdaysThisMonth.length === 0 ? (
+                            <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 0' }}>Không có sinh nhật trong tháng này</div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {birthdaysThisMonth.map(e => {
+                                    const d = new Date(e.birthDate);
+                                    const day = d.getDate();
+                                    const isToday = day === currentDay;
+                                    const isPast = day < currentDay;
+                                    return (
+                                        <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: 8, background: isToday ? '#fff7ed' : 'transparent', opacity: isPast ? 0.5 : 1 }}>
+                                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: isToday ? '#f97316' : 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, color: isToday ? '#fff' : 'var(--text-secondary)', flexShrink: 0 }}>
+                                                {String(day).padStart(2, '0')}
+                                            </div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</div>
+                                                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{e.department?.name} · {e.position}</div>
+                                            </div>
+                                            {isToday && <span style={{ fontSize: 18 }}>🎉</span>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                    <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #6366f1' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                            <span style={{ fontSize: 20 }}>🏆</span>
+                            <span style={{ fontWeight: 700, fontSize: 15 }}>Kỷ niệm ngày vào tháng {currentMonth + 1}</span>
+                            <span style={{ marginLeft: 'auto', background: '#6366f1', color: '#fff', borderRadius: 12, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>{anniversariesThisMonth.length}</span>
+                        </div>
+                        {anniversariesThisMonth.length === 0 ? (
+                            <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 0' }}>Không có kỷ niệm ngày vào trong tháng này</div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {anniversariesThisMonth.map(e => {
+                                    const d = new Date(e.joinDate);
+                                    const day = d.getDate();
+                                    const years = today.getFullYear() - d.getFullYear();
+                                    const isToday = day === currentDay;
+                                    const isPast = day < currentDay;
+                                    return (
+                                        <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: 8, background: isToday ? '#eef2ff' : 'transparent', opacity: isPast ? 0.5 : 1 }}>
+                                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: isToday ? '#6366f1' : 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, color: isToday ? '#fff' : 'var(--text-secondary)', flexShrink: 0 }}>
+                                                {String(day).padStart(2, '0')}
+                                            </div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</div>
+                                                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{e.department?.name} · {years} năm</div>
+                                            </div>
+                                            {isToday && <span style={{ fontSize: 18 }}>✨</span>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
 
             {/* Employee table */}
             <div className="card">

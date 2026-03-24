@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import * as XLSX from 'xlsx';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0));
 const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -388,6 +389,10 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     const [newSubName, setNewSubName] = useState('');
     const [addingG1, setAddingG1] = useState(false);
     const [newG1Name, setNewG1Name] = useState('');
+    const xlsxRef = useRef(null);
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [pendingFile, setPendingFile] = useState(null);
+    const [importing, setImporting] = useState(false);
     const [renamingSection, setRenamingSection] = useState(null); // { key, g1, g2, value }
     const [renamingTab, setRenamingTab] = useState(null); // { g1, value }
     const [newTabName, setNewTabName] = useState('');
@@ -686,6 +691,56 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
         }
     });
 
+    const downloadTemplate = () => {
+        const wb = XLSX.utils.book_new();
+        const header = [['Nhóm (group1)', 'Nhóm con (group2)', 'Tên hạng mục', 'ĐVT', 'SL dự toán', 'Đơn giá DT', 'Loại chi phí']];
+        const sample = [
+            ['Vật tư', 'Gỗ', 'Gỗ MDF 18mm', 'm2', 50, 320000, 'Vật tư'],
+            ['Vật tư', 'Sơn', 'Sơn tường Dulux', 'lít', 20, 185000, 'Vật tư'],
+            ['Nhân công', '', 'Nhân công lắp đặt tủ bếp', 'ngày', 5, 450000, 'Nhân công'],
+            ['Thầu phụ', '', 'Thầu điện nước', 'gói', 1, 12000000, 'Thầu phụ'],
+        ];
+        const ws = XLSX.utils.aoa_to_sheet([...header, ...sample]);
+        ws['!cols'] = [{ wch: 20 }, { wch: 18 }, { wch: 32 }, { wch: 10 }, { wch: 12 }, { wch: 14 }, { wch: 16 }];
+        XLSX.utils.book_append_sheet(wb, ws, 'Vật tư');
+        XLSX.writeFile(wb, 'mau_chenh_lech_vat_tu_SCT.xlsx');
+    };
+
+    const handleImportExcel = async (file) => {
+        setImporting(true);
+        try {
+            const buf = await file.arrayBuffer();
+            const wb = XLSX.read(buf, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+            const dataRows = rows.slice(1).filter(r => r[2] && String(r[2]).trim());
+            if (!dataRows.length) { alert('Không có dữ liệu hợp lệ trong file'); setImporting(false); return; }
+            const itemsPayload = dataRows.map(r => ({
+                customName: String(r[2] || '').trim(),
+                unit: String(r[3] || '').trim(),
+                quantity: Number(r[4]) || 0,
+                unitPrice: Number(r[5]) || 0,
+                actualCost: 0,
+                costType: String(r[6] || 'Vật tư').trim() || 'Vật tư',
+                group1: String(r[0] || '').trim(),
+                group2: String(r[1] || '').trim(),
+                planType: 'tracking',
+            }));
+            const res = await fetch('/api/material-plans', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: itemsPayload, projectId }),
+            });
+            if (!res.ok) { const err = await res.json(); alert(err.error || 'Lỗi nhập dữ liệu'); setImporting(false); return; }
+            setShowImportModal(false);
+            setPendingFile(null);
+            await reload();
+        } catch (err) {
+            alert('Lỗi đọc file: ' + err.message);
+        }
+        setImporting(false);
+    };
+
     const safeTab = Math.min(activeTab, g1Order.length - 1);
     const activeG1 = g1Order[safeTab];
     const activeData = hierarchy[activeG1] || { subgroups: {}, g2Order: [], direct: [] };
@@ -983,6 +1038,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     );
 
     return (
+        <>
         <div>
             {/* Summary */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
@@ -1017,6 +1073,18 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                             background: '#f97316', color: 'white', display: 'flex', alignItems: 'center', gap: 6 }}>
                         📄 Xuất PDF
                     </button>
+                    <button onClick={downloadTemplate}
+                        style={{ padding: '7px 14px', fontSize: 12, fontWeight: 600, borderRadius: 8, border: '1px solid #16a34a', cursor: 'pointer',
+                            background: '#f0fdf4', color: '#15803d', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        📥 Tải mẫu
+                    </button>
+                    <button onClick={() => xlsxRef.current?.click()}
+                        style={{ padding: '7px 14px', fontSize: 12, fontWeight: 600, borderRadius: 8, border: '1px solid #2563eb', cursor: 'pointer',
+                            background: '#eff6ff', color: '#1d4ed8', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        📊 Nhập Excel
+                    </button>
+                    <input ref={xlsxRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }}
+                        onChange={e => { const f = e.target.files[0]; if (f) { setPendingFile(f); setShowImportModal(true); } e.target.value = ''; }} />
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                     {COST_TYPES.map(ct => (
                         <button key={ct} onClick={() => setCostFilter(ct)}
@@ -1238,5 +1306,35 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                 </div>
             </div>
         </div>
+
+        {/* Import Excel modal */}
+        {showImportModal && (
+            <div className="modal-overlay" onClick={() => { setShowImportModal(false); setPendingFile(null); }}>
+                <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+                    <div className="modal-header">
+                        <h3 style={{ margin: 0 }}>📊 Nhập vật tư từ Excel</h3>
+                        <button className="modal-close" onClick={() => { setShowImportModal(false); setPendingFile(null); }}>×</button>
+                    </div>
+                    <div className="modal-body">
+                        <p style={{ fontSize: 13, marginBottom: 12 }}>File: <strong>{pendingFile?.name}</strong></p>
+                        <div style={{ fontSize: 12, color: '#6b7280', background: '#f9fafb', borderRadius: 8, padding: '10px 14px', lineHeight: 1.8 }}>
+                            <strong>Cấu trúc file Excel:</strong><br />
+                            Cột A: Nhóm (group1) — VD: Vật tư, Nhân công<br />
+                            Cột B: Nhóm con (group2) — VD: Gỗ, Sơn<br />
+                            Cột C: Tên hạng mục<br />
+                            Cột D: ĐVT &nbsp;|&nbsp; Cột E: SL dự toán &nbsp;|&nbsp; Cột F: Đơn giá DT<br />
+                            Cột G: Loại CP (Vật tư / Nhân công / Thầu phụ / Khác)
+                        </div>
+                    </div>
+                    <div className="modal-footer">
+                        <button className="btn btn-ghost" onClick={() => { setShowImportModal(false); setPendingFile(null); }}>Hủy</button>
+                        <button className="btn btn-primary" disabled={importing} onClick={() => handleImportExcel(pendingFile)}>
+                            {importing ? 'Đang nhập...' : 'Nhập dữ liệu'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     );
 }
