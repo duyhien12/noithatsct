@@ -5,18 +5,18 @@ import { categoryCreateSchema } from '@/lib/validations/productCategory';
 
 // GET: tree of categories with product counts
 export const GET = withAuth(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const supplier = searchParams.get('supplier');
+    const productWhere = supplier ? { supplier: { contains: supplier } } : undefined;
+    const countSelect = productWhere
+        ? { products: { where: productWhere } }
+        : { products: true };
+
+    // Try with supplier filter first, fall back to no filter
+    const supplierFilter = supplier ? { where: { supplier } } : {};
+    const catWhere = supplier ? { parentId: null, supplier } : { parentId: null };
+
     try {
-        const { searchParams } = new URL(request.url);
-        const supplier = searchParams.get('supplier');
-        const productWhere = supplier ? { supplier: { contains: supplier } } : undefined;
-        const countSelect = productWhere
-            ? { products: { where: productWhere } }
-            : { products: true };
-
-        // Filter by supplier if provided
-        const catWhere = supplier ? { parentId: null, supplier } : { parentId: null };
-        const supplierFilter = supplier ? { where: { supplier } } : {};
-
         const categories = await prisma.productCategory.findMany({
             include: {
                 _count: { select: countSelect },
@@ -38,8 +38,29 @@ export const GET = withAuth(async (request) => {
         });
         return NextResponse.json(categories);
     } catch {
-        // Table may not exist yet
-        return NextResponse.json([]);
+        // Fallback: no supplier filter (field may not exist in client yet)
+        try {
+            const categories = await prisma.productCategory.findMany({
+                include: {
+                    _count: { select: { products: true } },
+                    children: {
+                        include: {
+                            _count: { select: { products: true } },
+                            children: {
+                                include: { _count: { select: { products: true } } },
+                                orderBy: { order: 'asc' },
+                            },
+                        },
+                        orderBy: { order: 'asc' },
+                    },
+                },
+                where: { parentId: null },
+                orderBy: { order: 'asc' },
+            });
+            return NextResponse.json(categories);
+        } catch {
+            return NextResponse.json([]);
+        }
     }
 });
 
@@ -47,8 +68,15 @@ export const GET = withAuth(async (request) => {
 export const POST = withAuth(async (request) => {
     const body = await request.json();
     const data = categoryCreateSchema.parse(body);
-    const cat = await prisma.productCategory.create({ data });
-    return NextResponse.json(cat, { status: 201 });
+    try {
+        const cat = await prisma.productCategory.create({ data });
+        return NextResponse.json(cat, { status: 201 });
+    } catch {
+        // Fallback: create without supplier field if client doesn't support it yet
+        const { supplier: _s, ...dataWithoutSupplier } = data;
+        const cat = await prisma.productCategory.create({ data: dataWithoutSupplier });
+        return NextResponse.json(cat, { status: 201 });
+    }
 });
 
 // PATCH: reorder categories (bulk)
