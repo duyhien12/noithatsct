@@ -4,16 +4,23 @@ import { NextResponse } from 'next/server';
 import { categoryCreateSchema } from '@/lib/validations/productCategory';
 
 // GET: tree of categories with product counts
-export const GET = withAuth(async () => {
+export const GET = withAuth(async (request) => {
     try {
+        const { searchParams } = new URL(request.url);
+        const supplier = searchParams.get('supplier');
+        const productWhere = supplier ? { supplier: { contains: supplier } } : undefined;
+        const countSelect = productWhere
+            ? { products: { where: productWhere } }
+            : { products: true };
+
         const categories = await prisma.productCategory.findMany({
             include: {
-                _count: { select: { products: true } },
+                _count: { select: countSelect },
                 children: {
                     include: {
-                        _count: { select: { products: true } },
+                        _count: { select: countSelect },
                         children: {
-                            include: { _count: { select: { products: true } } },
+                            include: { _count: { select: countSelect } },
                             orderBy: { order: 'asc' },
                         },
                     },

@@ -28,6 +28,61 @@ function EditCell({ value, onChange, type = 'text', style = {}, options }) {
     return <input type={type} value={value ?? ''} onChange={e => onChange(type === 'number' ? Number(e.target.value) : e.target.value)} style={{ width: '100%', padding: '2px 4px', border: '1px solid var(--primary)', borderRadius: 4, fontSize: 12, background: 'var(--bg-input)', ...style }} />;
 }
 
+function InlineBrandCell({ value, onSave }) {
+    const [editing, setEditing] = useState(false);
+    const [val, setVal] = useState(value || '');
+    if (editing) return (
+        <input
+            autoFocus
+            value={val}
+            onChange={e => setVal(e.target.value)}
+            onBlur={() => { setEditing(false); if (val !== (value || '')) onSave(val); }}
+            onKeyDown={e => {
+                if (e.key === 'Enter') { setEditing(false); if (val !== (value || '')) onSave(val); }
+                if (e.key === 'Escape') { setEditing(false); setVal(value || ''); }
+            }}
+            style={{ width: 80, fontSize: 11, padding: '2px 4px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }}
+            placeholder="Nhập..."
+        />
+    );
+    return (
+        <span
+            onClick={() => { setVal(value || ''); setEditing(true); }}
+            style={{ cursor: 'pointer', fontSize: 11, color: value ? 'inherit' : undefined, opacity: value ? 1 : 0.25, display: 'inline-block', minWidth: 30 }}
+            title="Click để sửa"
+        >{value || '—'}</span>
+    );
+}
+
+function InlineCodeCell({ value, onSave, onCopy }) {
+    const [editing, setEditing] = useState(false);
+    const [val, setVal] = useState(value || '');
+    if (editing) return (
+        <input
+            autoFocus
+            value={val}
+            onChange={e => setVal(e.target.value)}
+            onBlur={() => { setEditing(false); if (val !== (value || '')) onSave(val); }}
+            onKeyDown={e => {
+                if (e.key === 'Enter') { setEditing(false); if (val !== (value || '')) onSave(val); }
+                if (e.key === 'Escape') { setEditing(false); setVal(value || ''); }
+            }}
+            style={{ width: 70, fontFamily: 'monospace', fontSize: 10.5, padding: '2px 4px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }}
+            placeholder="Nhập mã..."
+        />
+    );
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <span
+                onClick={() => { setVal(value || ''); setEditing(true); }}
+                style={{ fontFamily: 'monospace', fontSize: 10.5, opacity: value ? 0.7 : 0.3, cursor: 'pointer' }}
+                title="Click để sửa mã"
+            >{value || '—'}</span>
+            {value && <button onClick={onCopy} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 10, opacity: 0.3, padding: 0 }} title="Copy mã">📋</button>}
+        </div>
+    );
+}
+
 function StockCell({ value, status, onSave }) {
     const [editing, setEditing] = useState(false);
     const [val, setVal] = useState(value);
@@ -50,12 +105,17 @@ const PAGE_SIZE = 50;
 
 export default function ProductsPage() {
     const router = useRouter();
-    const [tab, setTab] = useState('products');
+    const [tab, setTab] = useState('s1');
     const [products, setProducts] = useState([]);
     const [loadingP, setLoadingP] = useState(true);
     const [searchP, setSearchP] = useState('');
     const [filterSupplyType, setFilterSupplyType] = useState('');
     const [filterStockStatus, setFilterStockStatus] = useState('');
+    const [filterSupplier, setFilterSupplier] = useState('');
+    const [supplierStats, setSupplierStats] = useState({ s1: 0, s2: 0, total: 0 });
+    const [supplierLabel1, setSupplierLabel1] = useState('SP Thái');
+    const [supplierLabel2, setSupplierLabel2] = useState('SP An Cường');
+    const [editingLabel, setEditingLabel] = useState(null);
     const [isMobile, setIsMobile] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
@@ -108,7 +168,9 @@ export default function ProductsPage() {
     }, []);
 
     const fetchCategories = useCallback(() => {
-        fetch('/api/product-categories').then(r => r.json()).then(async cats => {
+        const supplierParam = tab === 's1' ? 'Thái' : tab === 's2' ? 'An Cường' : '';
+        const url = supplierParam ? `/api/product-categories?supplier=${encodeURIComponent(supplierParam)}` : '/api/product-categories';
+        fetch(url).then(r => r.json()).then(async cats => {
             if (cats && cats.length > 0) {
                 setCategories(cats);
             } else {
@@ -124,16 +186,18 @@ export default function ProductsPage() {
                 setCategories(fakeCats);
             }
         }).catch(() => { });
-    }, []);
+    }, [tab]);
 
     const fetchProducts = useCallback((reset = true) => {
         if (reset) { setLoadingP(true); setProducts([]); setCursor(null); setHasMore(true); }
         const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
-        // Use categoryId for real categories, category string for fallback
         if (activeCatId && !activeCatId.startsWith('__str__')) params.set('categoryId', activeCatId);
         else if (activeCatName) params.set('category', activeCatName);
         if (searchP) params.set('search', searchP);
         if (filterSupplyType) params.set('supplyType', filterSupplyType);
+        // Filter by supplier based on active tab
+        if (tab === 's1') params.set('supplier', 'Thái');
+        if (tab === 's2') params.set('supplier', 'An Cường');
         fetch(`/api/products?${params}`).then(r => r.json()).then(d => {
             const items = d.data || [];
             setProducts(items);
@@ -141,7 +205,7 @@ export default function ProductsPage() {
             setHasMore(items.length === PAGE_SIZE);
             setLoadingP(false);
         });
-    }, [activeCatId, activeCatName, searchP, filterSupplyType]);
+    }, [activeCatId, activeCatName, searchP, filterSupplyType, tab]);
 
     const loadMore = useCallback(() => {
         if (!cursor || !hasMore || loadingMore.current) return;
@@ -161,8 +225,20 @@ export default function ProductsPage() {
 
     const fetchLibrary = () => { setLoadingL(true); fetch('/api/work-item-library?limit=1000').then(r => r.json()).then(d => { setLibrary(d.data || []); setLoadingL(false); }); };
 
-    useEffect(() => { fetchCategories(); fetchLibrary(); }, []);
+    useEffect(() => {
+        fetchCategories();
+        fetchLibrary();
+        fetch('/api/products?limit=2000').then(r => r.json()).then(d => {
+            const all = d.data || [];
+            setSupplierStats({
+                s1: all.filter(p => (p.supplier || '').toLowerCase().includes('thái') || (p.category || '').toLowerCase().includes('thái')).length,
+                s2: all.filter(p => (p.supplier || '').toLowerCase().includes('an cường') || (p.category || '').toLowerCase().includes('an cường')).length,
+                total: all.length,
+            });
+        }).catch(() => {});
+    }, []);
     useEffect(() => { fetchProducts(); }, [fetchProducts]);
+    useEffect(() => { fetchProducts(); fetchCategories(); }, [tab]); // refetch when tab changes
 
     useEffect(() => {
         if (!sentinelRef.current) return;
@@ -193,12 +269,28 @@ export default function ProductsPage() {
     }, []);
 
     // --- Products handlers ---
+    // For supplier tabs, hide categories with 0 products
+    const getNodeCount = (cat) => (cat._count?.products || 0) + (cat.children || []).reduce((s, c) => s + (c._count?.products || 0) + (c.children || []).reduce((s2, c2) => s2 + (c2._count?.products || 0), 0), 0);
+    const visibleCategories = (tab === 's1' || tab === 's2')
+        ? categories.filter(cat => getNodeCount(cat) > 0)
+        : categories;
+
     const flatCats = [];
     const walkCats = (cats, depth = 0) => { for (const c of cats) { flatCats.push({ ...c, depth }); if (c.children) walkCats(c.children, depth + 1); } };
     walkCats(categories);
     const leafCats = flatCats.filter(c => !c.children || c.children.length === 0);
     const allCats = [...new Set([...PRODUCT_CATS, ...leafCats.map(c => c.name)])].sort();
-    const filteredP = products.filter(p => (!filterStockStatus || stockStatus(p) === filterStockStatus));
+    const matchSupplier = (p, label) => {
+        const kw = label.toLowerCase().replace(/^sp\s*/i, '').trim();
+        if (!kw) return true;
+        return (p.supplier || '').toLowerCase().includes(kw) || (p.category || '').toLowerCase().includes(kw) || (p.name || '').toLowerCase().includes(kw);
+    };
+    const filteredP = products.filter(p => {
+        if (filterStockStatus && stockStatus(p) !== filterStockStatus) return false;
+        return true;
+    });
+    const countS1 = products.filter(p => matchSupplier(p, supplierLabel1)).length;
+    const countS2 = products.filter(p => matchSupplier(p, supplierLabel2)).length;
 
     const startEditP = (p) => {
         const { id, code, createdAt, updatedAt, deletedAt, inventoryTx, quotationItems, materialPlans, purchaseItems, bomComponents, bomUsedIn, categoryRef, ...clean } = p;
@@ -260,6 +352,14 @@ export default function ProductsPage() {
         await fetch(`/api/products/${productId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stock: Number(newStock) }) });
         fetchProducts();
     };
+    const quickUpdateBrand = async (productId, brand) => {
+        await fetch(`/api/products/${productId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ brand }) });
+        fetchProducts();
+    };
+    const quickUpdateCode = async (productId, code) => {
+        await fetch(`/api/products/${productId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+        fetchProducts();
+    };
     const addNewProduct = () => {
         const activeCat = flatCats.find(c => c.id === activeCatId);
         // Only set categoryId if it's a leaf (no children)
@@ -271,7 +371,8 @@ export default function ProductsPage() {
             catId = firstLeaf?.id || null;
             catName = firstLeaf?.name || catName;
         }
-        setAddForm({ name: '', category: catName, unit: 'cái', salePrice: 0, importPrice: 0, brand: '', supplyType: 'Mua ngoài', stock: 0, minStock: 0, supplier: '', coreBoard: '', surfaceCode: '', image: '', categoryId: catId });
+        const autoSupplier = tab === 's1' ? 'Thái' : tab === 's2' ? 'An Cường' : '';
+        setAddForm({ name: '', category: catName, unit: 'cái', salePrice: 0, importPrice: 0, brand: '', supplyType: 'Mua ngoài', stock: 0, minStock: 0, supplier: autoSupplier, coreBoard: '', surfaceCode: '', image: '', categoryId: catId });
         setShowAddModal(true);
     };
     const handleImgUpload = async (e) => {
@@ -499,13 +600,41 @@ export default function ProductsPage() {
 
             {/* Tabs */}
             <div style={{ display: 'flex', alignItems: 'flex-end', borderBottom: '2px solid var(--border-color)', marginBottom: 20 }}>
-                {[['products', `📦 Sản phẩm (${products.length})`], ['library', `🔧 Hạng mục thi công (${library.length})`]].map(([key, label]) => (
-                    <button key={key} onClick={() => setTab(key)} style={{ padding: '9px 22px', border: 'none', borderBottom: tab === key ? '2px solid var(--primary)' : '2px solid transparent', background: 'none', marginBottom: -2, fontSize: 13, fontWeight: tab === key ? 700 : 400, color: tab === key ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>{label}</button>
-                ))}
+                {/* SP Thái tab */}
+                <div style={{ display: 'flex', alignItems: 'center', borderBottom: tab === 's1' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: -2 }}>
+                    <button onClick={() => setTab('s1')} style={{ padding: '9px 8px 9px 16px', border: 'none', background: 'none', fontSize: 13, fontWeight: tab === 's1' ? 700 : 400, color: tab === 's1' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>
+                        📦{' '}
+                        {editingLabel === 's1'
+                            ? <input autoFocus value={supplierLabel1} onChange={e => setSupplierLabel1(e.target.value)}
+                                onBlur={() => setEditingLabel(null)}
+                                onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingLabel(null); }}
+                                onClick={ev => ev.stopPropagation()}
+                                style={{ width: 80, fontSize: 13, fontWeight: 700, padding: '1px 4px', border: '1px solid var(--primary)', borderRadius: 4, background: 'white', color: 'var(--primary)' }} />
+                            : <span onDoubleClick={ev => { ev.stopPropagation(); setEditingLabel('s1'); }}>{supplierLabel1}</span>
+                        }{' '}({countS1})
+                    </button>
+                </div>
+                {/* SP An Cường tab */}
+                <div style={{ display: 'flex', alignItems: 'center', borderBottom: tab === 's2' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: -2 }}>
+                    <button onClick={() => setTab('s2')} style={{ padding: '9px 8px 9px 16px', border: 'none', background: 'none', fontSize: 13, fontWeight: tab === 's2' ? 700 : 400, color: tab === 's2' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>
+                        📦{' '}
+                        {editingLabel === 's2'
+                            ? <input autoFocus value={supplierLabel2} onChange={e => setSupplierLabel2(e.target.value)}
+                                onBlur={() => setEditingLabel(null)}
+                                onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingLabel(null); }}
+                                onClick={ev => ev.stopPropagation()}
+                                style={{ width: 80, fontSize: 13, fontWeight: 700, padding: '1px 4px', border: '1px solid var(--primary)', borderRadius: 4, background: 'white', color: 'var(--primary)' }} />
+                            : <span onDoubleClick={ev => { ev.stopPropagation(); setEditingLabel('s2'); }}>{supplierLabel2}</span>
+                        }{' '}({countS2})
+                    </button>
+                </div>
+                <button onClick={() => setTab('library')} style={{ padding: '9px 22px', border: 'none', borderBottom: tab === 'library' ? '2px solid var(--primary)' : '2px solid transparent', background: 'none', marginBottom: -2, fontSize: 13, fontWeight: tab === 'library' ? 700 : 400, color: tab === 'library' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>
+                    🔧 Hạng mục thi công ({library.length})
+                </button>
             </div>
 
             {/* ===== PRODUCTS ===== */}
-            {tab === 'products' && (
+            {(tab === 's1' || tab === 's2') && (
                 <div style={{ display: 'flex', minHeight: isMobile ? 'auto' : 'calc(100vh - 200px)', border: '1px solid var(--border-color)', borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
 
                     {/* Mobile sidebar overlay backdrop */}
@@ -519,7 +648,7 @@ export default function ProductsPage() {
                         zIndex: 50, transition: 'left 0.25s ease', boxShadow: sidebarOpen ? '4px 0 20px rgba(0,0,0,0.2)' : 'none',
                         overflowY: 'auto', background: 'var(--bg-card)'
                     } : {}}>
-                        <CategorySidebar categories={categories} activeCatId={activeCatId}
+                        <CategorySidebar categories={visibleCategories} activeCatId={activeCatId}
                             onSelect={id => {
                                 setActiveCatId(id);
                                 if (id?.startsWith('__str__')) {
@@ -602,7 +731,26 @@ export default function ProductsPage() {
                                 ))}
                             </div>
                             <div style={{ marginLeft: 'auto', display: 'flex', gap: 4, alignItems: 'center' }}>
-                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>📦 <strong>{filteredP.length}</strong></span>
+                                {/* Supplier filter tags */}
+                                {[
+                                    { key: 's1', label: supplierLabel1, setLabel: setSupplierLabel1, count: countS1, color: '#b45309', bg: '#fffbeb' },
+                                    { key: 's2', label: supplierLabel2, setLabel: setSupplierLabel2, count: countS2, color: '#7c3aed', bg: '#f5f3ff' },
+                                ].map(s => (
+                                    <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 0, border: `1.5px solid ${filterSupplier === s.key ? s.color : 'var(--border-color)'}`, borderRadius: 7, overflow: 'hidden', background: filterSupplier === s.key ? s.bg : 'var(--surface-alt)' }}>
+                                        <button onClick={() => setFilterSupplier(filterSupplier === s.key ? '' : s.key)}
+                                            style={{ padding: '3px 8px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: filterSupplier === s.key ? s.color : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                                            {s.count} {editingLabel === s.key
+                                                ? <input autoFocus value={s.label} onChange={e => s.setLabel(e.target.value)}
+                                                    onBlur={() => setEditingLabel(null)}
+                                                    onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingLabel(null); }}
+                                                    onClick={ev => ev.stopPropagation()}
+                                                    style={{ width: 80, fontSize: 11, padding: '0 2px', border: '1px solid ' + s.color, borderRadius: 3, fontWeight: 600, background: 'white' }} />
+                                                : <span onDoubleClick={ev => { ev.stopPropagation(); setEditingLabel(s.key); }}>{s.label}</span>
+                                            }
+                                        </button>
+                                    </div>
+                                ))}
+                                <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 2 }}>📦 <strong>{filteredP.length}</strong></span>
                                 {lowStock > 0 && <span style={{ fontSize: 10, color: '#eab308' }}>⚠️{lowStock}</span>}
                                 {outStock > 0 && <span style={{ fontSize: 10, color: '#ef4444' }}>🔴{outStock}</span>}
                                 {selectedIds.size > 0 && <button className="btn btn-sm" style={{ fontSize: 11, background: '#ea580c', color: '#fff', border: 'none' }} onClick={() => { const bad = [...selectedIds].filter(id => normalizeSupply(products.find(p => p.id === id)?.supplyType) !== 'Mua ngoài'); if (bad.length) return alert('Chỉ chọn SP "Mua ngoài"'); router.push('/purchasing?createPO=1&products=' + [...selectedIds].join(',')); }}>🛒 PO ({selectedIds.size})</button>}
@@ -630,7 +778,7 @@ export default function ProductsPage() {
                                     <table className="data-table" style={{ fontSize: 12 }}>
                                         <thead><tr>
                                             <th style={{ width: 30, padding: '4px' }}><input type="checkbox" checked={filteredP.length > 0 && filteredP.every(p => selectedIds.has(p.id))} onChange={e => setSelectedIds(e.target.checked ? new Set(filteredP.map(p => p.id)) : new Set())} /></th>
-                                            <th style={{ width: 38 }}>Ảnh</th><th style={{ minWidth: 160 }}>Tên SP</th><th style={{ width: 70 }}>Mã SP</th><th style={{ width: 45 }}>ĐVT</th>
+                                            <th style={{ width: 38 }}>Ảnh</th><th style={{ minWidth: 160 }}>Tên SP</th><th style={{ width: 70 }}>Mã mẫu</th><th style={{ width: 45 }}>ĐVT</th>
                                             <th style={{ width: 100 }}>Giá bán</th><th style={{ width: 70 }}>Tồn kho</th><th style={{ width: 100 }}>Nguồn</th><th style={{ width: 85 }}>TH</th><th style={{ width: 75 }}></th>
                                         </tr></thead>
                                         <tbody>{filteredP.map(p => {
@@ -653,7 +801,9 @@ export default function ProductsPage() {
                                                 <td style={{ padding: '4px 6px' }}>{isQE
                                                     ? <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}><input value={qe.name} onChange={e => updateQuickField(p.id, 'name', e.target.value)} style={{ width: '100%', fontSize: 12, padding: '2px 4px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)', fontWeight: 600 }} /><select value={qe.category} onChange={e => updateQuickField(p.id, 'category', e.target.value)} style={{ fontSize: 10, padding: '1px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }}>{allCats.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                                                     : <><div style={{ fontWeight: 600, fontSize: 12.5, color: '#234093', cursor: 'pointer' }} onClick={() => startEditP(p)}>{p.name}</div>{p.category && <span style={{ fontSize: 10, opacity: 0.45, background: 'var(--surface-alt)', borderRadius: 3, padding: '0 4px' }}>{p.category}</span>}</>}</td>
-                                                <td style={{ padding: '4px 4px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 2 }}><span style={{ fontFamily: 'monospace', fontSize: 10.5, opacity: 0.55 }}>{p.code}</span><button onClick={() => copyCode(p.code)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 10, opacity: 0.3, padding: 0 }} title="Copy mã SP">📋</button></div></td>
+                                                <td style={{ padding: '4px 4px' }}>
+                                                    <InlineCodeCell value={p.code} onSave={v => quickUpdateCode(p.id, v)} onCopy={() => copyCode(p.code)} />
+                                                </td>
                                                 <td style={{ padding: '4px 4px', fontSize: 11 }}>{isQE
                                                     ? <input value={qe.unit} onChange={e => updateQuickField(p.id, 'unit', e.target.value)} style={{ width: 40, fontSize: 11, padding: '2px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }} />
                                                     : p.unit}</td>
@@ -666,9 +816,9 @@ export default function ProductsPage() {
                                                 <td style={{ padding: '4px 4px' }}>{isQE
                                                     ? <select value={qe.supplyType} onChange={e => updateQuickField(p.id, 'supplyType', e.target.value)} style={{ fontSize: 10, padding: '2px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }}>{SUPPLY_TYPES.map(t => <option key={t}>{t}</option>)}</select>
                                                     : <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: sc.bg, color: sc.color, fontWeight: 600, whiteSpace: 'nowrap' }}>{normalizeSupply(p.supplyType)}</span>}</td>
-                                                <td style={{ fontSize: 11, padding: '4px 4px' }}>{isQE
-                                                    ? <><input list={`brand-qe-${p.id}`} value={qe.brand} onChange={e => updateQuickField(p.id, 'brand', e.target.value)} style={{ fontSize: 10, padding: '2px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)', maxWidth: 80 }} placeholder="-" /><datalist id={`brand-qe-${p.id}`}>{BRANDS.filter(b => b.n).map(b => <option key={b.n} value={b.n} />)}</datalist></>
-                                                    : (p.brand || <span style={{ opacity: 0.2 }}>-</span>)}</td>
+                                                <td style={{ fontSize: 11, padding: '4px 4px' }}>
+                                                    <InlineBrandCell value={p.brand} onSave={v => quickUpdateBrand(p.id, v)} />
+                                                </td>
                                                 <td style={{ padding: '4px 4px' }}>{isQE
                                                     ? <div style={{ display: 'flex', gap: 2 }}><button className="btn btn-sm" onClick={() => saveQuickP(p.id)} style={{ fontSize: 11, padding: '2px 6px', background: '#234093', color: '#fff', border: 'none', borderRadius: 4 }}>✓</button><button className="btn btn-ghost btn-sm" onClick={() => cancelQuickEditP(p.id)} style={{ fontSize: 11, padding: '2px 4px' }}>✕</button></div>
                                                     : <div style={{ display: 'flex', gap: 1 }}><button className="btn btn-ghost btn-sm" onClick={() => startQuickEditP(p)} style={{ fontSize: 11, padding: '1px 3px' }} title="Sửa nhanh">✏️</button><button className="btn btn-ghost btn-sm" onClick={() => duplicateP(p)} style={{ fontSize: 11, padding: '1px 3px' }}>📋</button><button className="btn btn-ghost btn-sm" onClick={() => deleteP(p.id)} style={{ fontSize: 11, padding: '1px 3px' }}>🗑️</button></div>}</td>

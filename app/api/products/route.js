@@ -16,6 +16,7 @@ export const GET = withAuth(async (request) => {
     const status = searchParams.get('status');
     const supplyType = searchParams.get('supplyType');
     const stockFilter = searchParams.get('stockFilter'); // low, out
+    const supplier = searchParams.get('supplier');
 
     const where = {};
     if (category) where.category = category;
@@ -38,6 +39,7 @@ export const GET = withAuth(async (request) => {
     if (brand) where.brand = brand;
     if (status) where.status = status;
     if (supplyType) where.supplyType = supplyType;
+    if (supplier) where.supplier = { contains: supplier };
     if (stockFilter === 'out') where.stock = 0;
 
     // Cursor-based pagination for infinite scroll
@@ -194,6 +196,15 @@ export const PATCH = withAuth(async (request) => {
             where: { id: { in: ids } },
             data,
         });
+        return NextResponse.json({ updated: result.count });
+    }
+
+    // Bulk supplier update
+    if (action === 'bulkSupplier') {
+        const { ids, supplier } = body;
+        if (!supplier) return NextResponse.json({ error: 'supplier required' }, { status: 400 });
+        const where = ids?.length ? { id: { in: ids } } : {};
+        const result = await prisma.product.updateMany({ where, data: { supplier } });
         return NextResponse.json({ updated: result.count });
     }
 
