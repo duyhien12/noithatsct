@@ -81,7 +81,7 @@ function FinanceContent() {
         fetchAll();
     };
 
-    // === In phiếu thu 2 liên — Một Nhà Design&Build ===
+    // === In phiếu thu 2 liên — Kiến Trúc Đô Thị SCT ===
     const printReceipt = (payment) => {
         const c = payment.contract;
         const today = new Date().toLocaleDateString('vi-VN');
@@ -89,50 +89,57 @@ function FinanceContent() {
         const pct = cv > 0 ? Math.round((payment.amount || 0) / cv * 100) : 0;
         const amountText = fmt(payment.paidAmount || payment.amount);
 
-        const w = window.open('', '_blank', 'width=800,height=900');
+        const w = window.open('', '_blank', 'width=820,height=900');
         w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Phiếu thu - ${c?.code || ''}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Times New Roman',serif;font-size:14px;color:#000;background:#fff}
-.page{width:100%;padding:20px 30px;page-break-after:always}
-/* === Header Một Nhà === */
-.mn-header{display:flex;align-items:center;border-bottom:3px solid #1a3a5c;padding-bottom:14px;margin-bottom:10px;gap:16px}
-.mn-logo{display:flex;flex-direction:column;align-items:center;min-width:120px}
-.mn-logo-icon{font-size:28px;font-weight:900;color:#1a3a5c;line-height:1;letter-spacing:-1px}
-.mn-logo-sub{font-size:7px;text-transform:uppercase;color:#c8a555;letter-spacing:3px;font-weight:600;margin-top:2px}
-.mn-brand{flex:1}
-.mn-brand-name{font-size:11px;font-weight:800;color:#1a3a5c;text-transform:uppercase;letter-spacing:1px}
-.mn-brand-web{font-size:9px;color:#666;margin-top:1px}
-.mn-info{text-align:right;font-size:9px;line-height:1.6;color:#555}
-.mn-info b{color:#1a3a5c}
+body{font-family:'Times New Roman',serif;font-size:14px;color:#222;background:#fff}
+.page{width:100%;max-width:780px;margin:0 auto;padding:24px 32px;page-break-after:always}
+/* === Header SCT === */
+.sct-header{display:flex;align-items:stretch;border-bottom:4px solid #ea580c;padding-bottom:14px;margin-bottom:12px;gap:0}
+.sct-logo-block{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:110px;padding-right:16px;border-right:2px solid #ea580c}
+.sct-logo-circle{width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg,#1C3A6B,#2A5298);display:flex;flex-direction:column;align-items:center;justify-content:center;border:3px solid #ea580c}
+.sct-logo-text{font-size:20px;font-weight:900;color:#fff;line-height:1;letter-spacing:1px}
+.sct-logo-sub{font-size:6px;color:#ea580c;font-weight:700;letter-spacing:2px;margin-top:1px;text-transform:uppercase}
+.sct-brand{flex:1;padding:0 16px;display:flex;flex-direction:column;justify-content:center}
+.sct-brand-name{font-size:13px;font-weight:900;color:#1C3A6B;text-transform:uppercase;letter-spacing:1px;line-height:1.3}
+.sct-brand-tag{font-size:9px;color:#ea580c;font-style:italic;margin-top:3px;font-weight:600}
+.sct-brand-web{font-size:9px;color:#666;margin-top:4px}
+.sct-info{text-align:right;font-size:8.5px;line-height:1.8;color:#555;min-width:200px;display:flex;flex-direction:column;justify-content:center}
+.sct-info b{color:#1C3A6B}
+/* === Copy label === */
+.copy-label{text-align:center;font-style:italic;color:#ea580c;margin-bottom:10px;font-size:11px;font-weight:700;letter-spacing:1px;padding:4px 0;border-bottom:1px dashed #f0c090}
 /* === Title === */
-.receipt-title{text-align:center;margin:14px 0 10px}
-.receipt-title h1{font-size:22px;font-weight:bold;text-transform:uppercase;letter-spacing:3px;color:#1a3a5c}
-.receipt-title .date{font-size:12px;color:#888;margin-top:4px}
-.copy-label{text-align:center;font-style:italic;color:#c8a555;margin-bottom:10px;font-size:11px;font-weight:600;letter-spacing:1px}
+.receipt-title{text-align:center;margin:14px 0 12px}
+.receipt-title h1{font-size:24px;font-weight:900;text-transform:uppercase;letter-spacing:4px;color:#1C3A6B;position:relative;display:inline-block}
+.receipt-title h1::after{content:'';display:block;height:3px;background:linear-gradient(90deg,#ea580c,#1C3A6B);border-radius:2px;margin-top:4px}
+.receipt-title .date{font-size:12px;color:#888;margin-top:6px}
 /* === Info rows === */
-.info{margin:14px 0}
-.info .row{display:flex;padding:5px 0;border-bottom:1px dotted #ddd;font-size:13px}
-.info .row .label{width:150px;color:#555;flex-shrink:0}
-.info .row .value{flex:1;font-weight:600}
+.info{margin:14px 0;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden}
+.info .row{display:flex;padding:6px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;align-items:baseline}
+.info .row:last-child{border-bottom:none}
+.info .row:nth-child(even){background:#fafafa}
+.info .row .label{width:160px;color:#666;flex-shrink:0;font-size:12px}
+.info .row .value{flex:1;font-weight:700;color:#1C3A6B}
 /* === Amount box === */
-.amount-box{margin:18px 0;padding:16px;border:2px solid #1a3a5c;text-align:center;background:linear-gradient(135deg,#f8f6f0,#fff);border-radius:4px}
-.amount-box .label{font-size:12px;color:#555;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px}
-.amount-box .value{font-size:24px;font-weight:bold;color:#1a3a5c;letter-spacing:1px}
+.amount-box{margin:18px 0;padding:20px;border:2px solid #ea580c;text-align:center;background:linear-gradient(135deg,#fff7ed,#fff);border-radius:8px;box-shadow:0 2px 8px rgba(234,88,12,0.1)}
+.amount-box .label{font-size:11px;color:#ea580c;text-transform:uppercase;letter-spacing:3px;margin-bottom:6px;font-weight:700}
+.amount-box .value{font-size:28px;font-weight:900;color:#1C3A6B;letter-spacing:1px}
 /* === Sign === */
 .sign-area{display:flex;justify-content:space-between;margin-top:40px;text-align:center}
-.sign-area div{width:40%}
-.sign-area .role{font-weight:bold;font-size:13px;margin-bottom:60px;color:#1a3a5c}
+.sign-area .sign-box{width:42%;padding:10px;border:1px dashed #ddd;border-radius:6px}
+.sign-area .role{font-weight:700;font-size:13px;margin-bottom:55px;color:#1C3A6B}
 .sign-area .hint{font-size:10px;font-style:italic;color:#999}
-.separator{border:none;border-top:1px dashed #c8a555;margin:20px 0}
-.edit-field{border:none;border-bottom:1px solid #333;font-family:inherit;font-size:inherit;font-weight:inherit;background:transparent;width:100%;padding:2px 0}
-.edit-field:focus{outline:none;border-bottom:2px solid #1a3a5c}
-.no-print{position:fixed;top:10px;right:10px;z-index:9999}
-.no-print button{padding:10px 24px;font-size:14px;cursor:pointer;background:#1a3a5c;color:#fff;border:none;border-radius:6px;margin-left:8px;font-weight:600}
-.no-print button:hover{background:#2c4f7c}
-.proof-img{max-width:180px;max-height:100px;margin-top:8px;border:1px solid #ddd;border-radius:4px}
-.footer-note{text-align:center;font-size:9px;color:#aaa;margin-top:16px;font-style:italic}
-@media print{.no-print{display:none!important}.edit-field{border-bottom:none}}
+/* === Footer === */
+.footer-bar{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:16px;padding-top:10px;border-top:2px solid #ea580c}
+.footer-bar .dot{color:#ea580c;font-size:10px}
+.footer-bar span{font-size:9px;color:#888;font-style:italic}
+.footer-bar .brand{font-size:9px;font-weight:700;color:#1C3A6B}
+.proof-img{max-width:200px;max-height:120px;margin-top:8px;border:1px solid #ddd;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.1)}
+.no-print{position:fixed;top:12px;right:12px;z-index:9999}
+.no-print button{padding:10px 24px;font-size:14px;cursor:pointer;background:#ea580c;color:#fff;border:none;border-radius:8px;margin-left:8px;font-weight:700;box-shadow:0 2px 6px rgba(234,88,12,0.4)}
+.no-print button:hover{background:#c2410c}
+@media print{.no-print{display:none!important}}
 </style></head><body>
 <div class="no-print">
     <button onclick="window.print()">🖨️ In phiếu thu</button>
@@ -140,25 +147,26 @@ body{font-family:'Times New Roman',serif;font-size:14px;color:#000;background:#f
 ${[1, 2].map(copy => `
 <div class="page">
     <div class="copy-label">Liên ${copy}: ${copy === 1 ? 'LƯU SỔ KẾ TOÁN' : 'GIAO KHÁCH HÀNG'}</div>
-    <div class="mn-header">
-        <div class="mn-logo">
-            <div class="mn-logo-icon">MỘT NHÀ</div>
-            <div class="mn-logo-sub">Design & Build</div>
+    <div class="sct-header">
+        <div class="sct-logo-block">
+            <div class="sct-logo-circle">
+                <div class="sct-logo-text">SCT</div>
+                <div class="sct-logo-sub">kiến trúc</div>
+            </div>
         </div>
-        <div class="mn-brand">
-            <div class="mn-brand-name">CÔNG TY TNHH THIẾT KẾ & XÂY DỰNG MỘT NHÀ</div>
-            <div class="mn-brand-web">🌐 motnha.vn &nbsp;|&nbsp; 📞 0944 886 989</div>
+        <div class="sct-brand">
+            <div class="sct-brand-name">Công ty TNHH Kiến Trúc Đô Thị SCT</div>
+            <div class="sct-brand-tag">Cùng bạn xây dựng ước mơ</div>
+            <div class="sct-brand-web">🌐 kientrucsct.com &nbsp;|&nbsp; 📧 admin@kientrucsct.com</div>
         </div>
-        <div class="mn-info">
-            <div><b>Trụ sở:</b> R6 Royal City, Thanh Xuân, HN</div>
-            <div><b>Showroom HN:</b> 10 Chương Dương Độ, Hoàn Kiếm</div>
-            <div><b>Showroom SL:</b> 105C Tô Hiệu, Sơn La</div>
-            <div><b>Nhà máy SX:</b> KĐT Picenza, Chiềng An, Sơn La</div>
+        <div class="sct-info">
+            <div><b>Địa chỉ:</b> Hà Nội, Việt Nam</div>
+            <div><b>Website:</b> kientrucsct.com</div>
         </div>
     </div>
     <div class="receipt-title">
         <h1>Phiếu Thu Tiền</h1>
-        <div class="date">Ngày ${today} — Mã HĐ: ${c?.code || '...'}</div>
+        <div class="date">Ngày ${today} &nbsp;—&nbsp; Mã HĐ: <b>${c?.code || '...'}</b></div>
     </div>
     <div class="info">
         <div class="row"><span class="label">Người nộp tiền:</span><span class="value" contenteditable="true">${c?.customer?.name || '...'}</span></div>
@@ -171,15 +179,21 @@ ${[1, 2].map(copy => `
         <div class="row"><span class="label">Lý do thu:</span><span class="value" contenteditable="true">Thanh toán đợt "${payment.phase}" theo hợp đồng ${c?.code || ''}</span></div>
     </div>
     <div class="amount-box">
-        <div class="label">SỐ TIỀN THU</div>
+        <div class="label">Số tiền thu</div>
         <div class="value">${amountText}</div>
     </div>
     ${payment.proofUrl ? `<div style="text-align:center;margin:10px 0"><div style="font-size:10px;color:#888;margin-bottom:4px">Ảnh xác nhận chuyển khoản:</div><img class="proof-img" src="${payment.proofUrl}" /></div>` : ''}
     <div class="sign-area">
-        <div><div class="role">Người nộp tiền</div><div class="hint">(Ký, ghi rõ họ tên)</div></div>
-        <div><div class="role">Người thu tiền</div><div class="hint">(Ký, ghi rõ họ tên)</div></div>
+        <div class="sign-box"><div class="role">Người nộp tiền</div><div class="hint">(Ký, ghi rõ họ tên)</div></div>
+        <div class="sign-box"><div class="role">Người thu tiền</div><div class="hint">(Ký, ghi rõ họ tên)</div></div>
     </div>
-    <div class="footer-note">MỘT NHÀ DESIGN & BUILD — motnha.vn — 0944 886 989</div>
+    <div class="footer-bar">
+        <span class="brand">KIẾN TRÚC ĐÔ THỊ SCT</span>
+        <span class="dot">●</span>
+        <span>kientrucsct.com</span>
+        <span class="dot">●</span>
+        <span>Cùng bạn xây dựng ước mơ</span>
+    </div>
 </div>`).join('')}
 </body></html>`);
         w.document.close();
