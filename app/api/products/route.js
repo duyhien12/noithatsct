@@ -208,6 +208,20 @@ export const PATCH = withAuth(async (request) => {
         return NextResponse.json({ updated: result.count });
     }
 
+    // Assign supplier to products that have no supplier yet
+    if (action === 'fixUnassigned') {
+        const { supplier } = body;
+        if (!supplier) return NextResponse.json({ error: 'supplier required' }, { status: 400 });
+        const [total, result] = await Promise.all([
+            prisma.product.count({ where: { OR: [{ supplier: '' }, { supplier: null }] } }),
+            prisma.product.updateMany({
+                where: { OR: [{ supplier: '' }, { supplier: null }] },
+                data: { supplier },
+            }),
+        ]);
+        return NextResponse.json({ updated: result.count, total });
+    }
+
     return NextResponse.json({ error: 'Action not recognized' }, { status: 400 });
 });
 

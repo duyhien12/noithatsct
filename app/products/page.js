@@ -782,6 +782,14 @@ export default function ProductsPage() {
                                 {outStock > 0 && <span style={{ fontSize: 10, color: '#ef4444' }}>🔴{outStock}</span>}
                                 {selectedIds.size > 0 && <button className="btn btn-sm" style={{ fontSize: 11, background: '#ea580c', color: '#fff', border: 'none' }} onClick={() => { const bad = [...selectedIds].filter(id => normalizeSupply(products.find(p => p.id === id)?.supplyType) !== 'Mua ngoài'); if (bad.length) return alert('Chỉ chọn SP "Mua ngoài"'); router.push('/purchasing?createPO=1&products=' + [...selectedIds].join(',')); }}>🛒 PO ({selectedIds.size})</button>}
                                 <button className="btn btn-sm" onClick={addNewProduct} style={{ fontSize: 11, background: '#DBB35E', color: '#fff', border: 'none', fontWeight: 700, borderRadius: 6, padding: '5px 14px' }}>+ THÊM SẢN PHẨM</button>
+                                {tab === 's1' && (
+                                    <button className="btn btn-ghost btn-sm" title="Gán tất cả SP chưa có nhà cung cấp vào SP Thái" onClick={async () => {
+                                        const r = await fetch('/api/products', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'fixUnassigned', supplier: 'Thái' }) });
+                                        const d = await r.json();
+                                        alert(`Đã gán ${d.updated} sản phẩm chưa phân loại vào SP Thái`);
+                                        fetchProducts(); fetchCategories();
+                                    }} style={{ fontSize: 11, color: '#b45309' }}>🔧 Gán SP chưa phân loại</button>
+                                )}
                                 <button className="btn btn-ghost btn-sm" onClick={() => excelInputRef.current?.click()} title="Import sản phẩm từ Excel">📥 Import</button>
                                 <button className="btn btn-ghost btn-sm" onClick={downloadTemplate} title="Tải file Excel mẫu">📄 Mẫu</button>
                                 <input ref={excelInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleExcelFile} />
