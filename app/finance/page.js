@@ -157,10 +157,11 @@ ${[1, 2].map(copy => `
         <div class="sct-brand">
             <div class="sct-brand-name">Công ty TNHH Kiến Trúc Đô Thị SCT</div>
             <div class="sct-brand-tag">Cùng bạn xây dựng ước mơ</div>
-            <div class="sct-brand-web">🌐 kientrucsct.com &nbsp;|&nbsp; 📧 admin@kientrucsct.com</div>
+            <div class="sct-brand-web">🌐 kientrucsct.com &nbsp;|&nbsp; 📞 0914 998 822</div>
         </div>
         <div class="sct-info">
-            <div><b>Địa chỉ:</b> Hà Nội, Việt Nam</div>
+            <div><b>Địa chỉ:</b> 149 Nguyễn Tất Thành, P. Văn Phú, Lào Cai</div>
+            <div><b>Hotline:</b> 0914 998 822</div>
             <div><b>Website:</b> kientrucsct.com</div>
         </div>
     </div>
@@ -192,7 +193,9 @@ ${[1, 2].map(copy => `
         <span class="dot">●</span>
         <span>kientrucsct.com</span>
         <span class="dot">●</span>
-        <span>Cùng bạn xây dựng ước mơ</span>
+        <span>0914 998 822</span>
+        <span class="dot">●</span>
+        <span>149 Nguyễn Tất Thành, P. Văn Phú, Lào Cai</span>
     </div>
 </div>`).join('')}
 </body></html>`);
