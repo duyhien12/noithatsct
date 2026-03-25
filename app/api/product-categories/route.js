@@ -13,20 +13,19 @@ export const GET = withAuth(async (request) => {
             ? { products: { where: productWhere } }
             : { products: true };
 
-        // Filter by supplier if provided (empty string = no filter = show all)
-        const catWhere = { parentId: null };
-        if (supplier) catWhere.supplier = supplier;
+        // Filter by supplier if provided
+        const catWhere = supplier ? { parentId: null, supplier } : { parentId: null };
+        const supplierFilter = supplier ? { where: { supplier } } : {};
 
-        const childWhere = supplier ? { supplier } : undefined;
         const categories = await prisma.productCategory.findMany({
             include: {
                 _count: { select: countSelect },
                 children: {
-                    where: childWhere,
+                    ...supplierFilter,
                     include: {
                         _count: { select: countSelect },
                         children: {
-                            where: childWhere,
+                            ...supplierFilter,
                             include: { _count: { select: countSelect } },
                             orderBy: { order: 'asc' },
                         },
