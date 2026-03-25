@@ -12,20 +12,15 @@ export const GET = withAuth(async (request) => {
         ? { products: { where: productWhere } }
         : { products: true };
 
-    // Try with supplier filter first, fall back to no filter
-    const supplierFilter = supplier ? { where: { supplier } } : {};
-    const catWhere = supplier ? { parentId: null, supplier } : { parentId: null };
-
     try {
+        // Fetch ALL root categories with supplier-filtered product counts
         const categories = await prisma.productCategory.findMany({
             include: {
                 _count: { select: countSelect },
                 children: {
-                    ...supplierFilter,
                     include: {
                         _count: { select: countSelect },
                         children: {
-                            ...supplierFilter,
                             include: { _count: { select: countSelect } },
                             orderBy: { order: 'asc' },
                         },
@@ -33,34 +28,34 @@ export const GET = withAuth(async (request) => {
                     orderBy: { order: 'asc' },
                 },
             },
-            where: catWhere,
+            where: { parentId: null },
             orderBy: { order: 'asc' },
         });
-        return NextResponse.json(categories);
-    } catch {
-        // Fallback: no supplier filter (field may not exist in client yet)
+
+        // Try to attach supplier field (may not exist in Prisma client cache yet)
         try {
-            const categories = await prisma.productCategory.findMany({
-                include: {
-                    _count: { select: { products: true } },
-                    children: {
-                        include: {
-                            _count: { select: { products: true } },
-                            children: {
-                                include: { _count: { select: { products: true } } },
-                                orderBy: { order: 'asc' },
-                            },
-                        },
-                        orderBy: { order: 'asc' },
-                    },
-                },
-                where: { parentId: null },
-                orderBy: { order: 'asc' },
+            const suppData = await prisma.productCategory.findMany({
+                select: { id: true, supplier: true },
             });
-            return NextResponse.json(categories);
+            const suppMap = Object.fromEntries(suppData.map(c => [c.id, c.supplier ?? '']));
+            const withSupplier = categories.map(c => ({
+                ...c,
+                supplier: suppMap[c.id] ?? '',
+                children: (c.children || []).map(ch => ({
+                    ...ch,
+                    supplier: suppMap[ch.id] ?? '',
+                    children: (ch.children || []).map(gc => ({
+                        ...gc,
+                        supplier: suppMap[gc.id] ?? '',
+                    })),
+                })),
+            }));
+            return NextResponse.json(withSupplier);
         } catch {
-            return NextResponse.json([]);
+            return NextResponse.json(categories);
         }
+    } catch {
+        return NextResponse.json([]);
     }
 });
 
@@ -82,7 +77,7 @@ export const POST = withAuth(async (request) => {
 // PATCH: reorder categories (bulk)
 export const PATCH = withAuth(async (request) => {
     const body = await request.json();
-    const { updates } = body; // [{id, order, parentId?}]
+    const { updates } = body;
     if (!Array.isArray(updates)) {
         return NextResponse.json({ error: 'updates array required' }, { status: 400 });
     }

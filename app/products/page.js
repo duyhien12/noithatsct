@@ -198,9 +198,19 @@ export default function ProductsPage() {
         const url = supplierParam ? `/api/product-categories?supplier=${encodeURIComponent(supplierParam)}` : '/api/product-categories';
         fetch(url).then(r => r.json()).then(async cats => {
             if (cats && cats.length > 0) {
-                setCategories(cats);
+                // Filter by supplier field if available, otherwise show all
+                if (supplierParam) {
+                    const getCount = c => (c._count?.products || 0) + (c.children || []).reduce((s, ch) => s + (ch._count?.products || 0), 0);
+                    const filtered = cats.filter(c =>
+                        c.supplier === supplierParam ||   // explicit supplier match
+                        getCount(c) > 0                  // has products for this supplier tab
+                    );
+                    setCategories(filtered.length > 0 ? filtered : cats);
+                } else {
+                    setCategories(cats);
+                }
             } else {
-                // Fallback: fetch ALL products to build categories (independent of current filter)
+                // Fallback: fetch ALL products to build categories
                 const res = await fetch('/api/products?limit=9999');
                 const d = await res.json();
                 const allP = d.data || [];
