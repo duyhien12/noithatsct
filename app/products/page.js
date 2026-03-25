@@ -83,6 +83,32 @@ function InlineCodeCell({ value, onSave, onCopy }) {
     );
 }
 
+function InlineDimensionsCell({ value, onSave }) {
+    const [editing, setEditing] = useState(false);
+    const [val, setVal] = useState(value || '');
+    if (editing) return (
+        <input
+            autoFocus
+            value={val}
+            onChange={e => setVal(e.target.value)}
+            onBlur={() => { setEditing(false); if (val !== (value || '')) onSave(val); }}
+            onKeyDown={e => {
+                if (e.key === 'Enter') { setEditing(false); if (val !== (value || '')) onSave(val); }
+                if (e.key === 'Escape') { setEditing(false); setVal(value || ''); }
+            }}
+            style={{ width: 110, fontSize: 11, padding: '2px 4px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }}
+            placeholder="VD: 600x800x20"
+        />
+    );
+    return (
+        <span
+            onClick={() => { setVal(value || ''); setEditing(true); }}
+            style={{ cursor: 'pointer', fontSize: 11, opacity: value ? 1 : 0.25, display: 'inline-block', minWidth: 30 }}
+            title="Click để sửa kích thước"
+        >{value || '—'}</span>
+    );
+}
+
 function StockCell({ value, status, onSave }) {
     const [editing, setEditing] = useState(false);
     const [val, setVal] = useState(value);
@@ -269,11 +295,7 @@ export default function ProductsPage() {
     }, []);
 
     // --- Products handlers ---
-    // For supplier tabs, hide categories with 0 products
-    const getNodeCount = (cat) => (cat._count?.products || 0) + (cat.children || []).reduce((s, c) => s + (c._count?.products || 0) + (c.children || []).reduce((s2, c2) => s2 + (c2._count?.products || 0), 0), 0);
-    const visibleCategories = (tab === 's1' || tab === 's2')
-        ? categories.filter(cat => getNodeCount(cat) > 0)
-        : categories;
+    const visibleCategories = categories;
 
     const flatCats = [];
     const walkCats = (cats, depth = 0) => { for (const c of cats) { flatCats.push({ ...c, depth }); if (c.children) walkCats(c.children, depth + 1); } };
@@ -358,6 +380,10 @@ export default function ProductsPage() {
     };
     const quickUpdateCode = async (productId, code) => {
         await fetch(`/api/products/${productId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+        fetchProducts();
+    };
+    const quickUpdateDimensions = async (productId, dimensions) => {
+        await fetch(`/api/products/${productId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dimensions }) });
         fetchProducts();
     };
     const addNewProduct = () => {
@@ -649,6 +675,7 @@ export default function ProductsPage() {
                         overflowY: 'auto', background: 'var(--bg-card)'
                     } : {}}>
                         <CategorySidebar categories={visibleCategories} activeCatId={activeCatId}
+                            supplier={tab === 's1' ? 'Thái' : tab === 's2' ? 'An Cường' : ''}
                             onSelect={id => {
                                 setActiveCatId(id);
                                 if (id?.startsWith('__str__')) {
@@ -778,7 +805,7 @@ export default function ProductsPage() {
                                     <table className="data-table" style={{ fontSize: 12 }}>
                                         <thead><tr>
                                             <th style={{ width: 30, padding: '4px' }}><input type="checkbox" checked={filteredP.length > 0 && filteredP.every(p => selectedIds.has(p.id))} onChange={e => setSelectedIds(e.target.checked ? new Set(filteredP.map(p => p.id)) : new Set())} /></th>
-                                            <th style={{ width: 38 }}>Ảnh</th><th style={{ minWidth: 160 }}>Tên SP</th><th style={{ width: 70 }}>Mã mẫu</th><th style={{ width: 45 }}>ĐVT</th>
+                                            <th style={{ width: 38 }}>Ảnh</th><th style={{ minWidth: 160 }}>Tên SP</th><th style={{ width: 120 }}>Kích thước</th><th style={{ width: 45 }}>ĐVT</th>
                                             <th style={{ width: 100 }}>Giá bán</th><th style={{ width: 70 }}>Tồn kho</th><th style={{ width: 100 }}>Nguồn</th><th style={{ width: 85 }}>TH</th><th style={{ width: 75 }}></th>
                                         </tr></thead>
                                         <tbody>{filteredP.map(p => {
@@ -802,7 +829,7 @@ export default function ProductsPage() {
                                                     ? <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}><input value={qe.name} onChange={e => updateQuickField(p.id, 'name', e.target.value)} style={{ width: '100%', fontSize: 12, padding: '2px 4px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)', fontWeight: 600 }} /><select value={qe.category} onChange={e => updateQuickField(p.id, 'category', e.target.value)} style={{ fontSize: 10, padding: '1px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }}>{allCats.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                                                     : <><div style={{ fontWeight: 600, fontSize: 12.5, color: '#234093', cursor: 'pointer' }} onClick={() => startEditP(p)}>{p.name}</div>{p.category && <span style={{ fontSize: 10, opacity: 0.45, background: 'var(--surface-alt)', borderRadius: 3, padding: '0 4px' }}>{p.category}</span>}</>}</td>
                                                 <td style={{ padding: '4px 4px' }}>
-                                                    <InlineCodeCell value={p.code} onSave={v => quickUpdateCode(p.id, v)} onCopy={() => copyCode(p.code)} />
+                                                    <InlineDimensionsCell value={p.dimensions} onSave={v => quickUpdateDimensions(p.id, v)} />
                                                 </td>
                                                 <td style={{ padding: '4px 4px', fontSize: 11 }}>{isQE
                                                     ? <input value={qe.unit} onChange={e => updateQuickField(p.id, 'unit', e.target.value)} style={{ width: 40, fontSize: 11, padding: '2px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }} />
@@ -1227,6 +1254,10 @@ export default function ProductsPage() {
                                     </div>
                                 </div>
                             )}
+                            <div className="form-group">
+                                <label className="form-label">Kích thước</label>
+                                <input className="form-input" value={addForm.dimensions || ''} onChange={e => setAddForm(f => ({ ...f, dimensions: e.target.value }))} placeholder="VD: 600x800x20, D600 x R400 x C200..." />
+                            </div>
                             {addForm.supplyType === 'Sản xuất nội bộ' && (
                                 <>
                                     <div className="form-row">

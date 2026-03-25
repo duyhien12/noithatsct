@@ -184,7 +184,7 @@ function TreeNode({ cat, activeCatId, onSelect, onRename, onDelete, onAdd, onMov
     );
 }
 
-export default function CategorySidebar({ categories, activeCatId, onSelect, totalCount, onRefresh, onProductDrop, dragState, setDragState: setDragStateProp }) {
+export default function CategorySidebar({ categories, activeCatId, onSelect, totalCount, onRefresh, onProductDrop, dragState, setDragState: setDragStateProp, supplier }) {
     const [adding, setAdding] = useState(false);
     const [newName, setNewName] = useState('');
     const [localDragState, setLocalDragState] = useState(null);
@@ -203,7 +203,7 @@ export default function CategorySidebar({ categories, activeCatId, onSelect, tot
         if (!catName) return;
         await fetch('/api/product-categories', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: catName, parentId }),
+            body: JSON.stringify({ name: catName, parentId, supplier: supplier || '' }),
         });
         setNewName(''); setAdding(false);
         onRefresh();

@@ -119,6 +119,7 @@ model ProductCategory {
   name      String
   slug      String            @default("")
   order     Int               @default(0)
+  supplier  String            @default("")
   parentId  String?
   parent    ProductCategory?  @relation("CategoryTree", fields: [parentId], references: [id])
   children  ProductCategory[] @relation("CategoryTree")
