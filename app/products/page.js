@@ -381,19 +381,23 @@ export default function ProductsPage() {
         fetchProducts(); fetchCategories();
     };
     const quickUpdateStock = async (productId, newStock) => {
-        await fetch(`/api/products/${productId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stock: Number(newStock) }) });
+        const res = await fetch(`/api/products/${productId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stock: Number(newStock) }) });
+        if (!res.ok) { const e = await res.json(); return alert(e.error || 'Lỗi cập nhật'); }
         fetchProducts();
     };
     const quickUpdateBrand = async (productId, brand) => {
-        await fetch(`/api/products/${productId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ brand }) });
+        const res = await fetch(`/api/products/${productId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ brand }) });
+        if (!res.ok) { const e = await res.json(); return alert(e.error || 'Lỗi cập nhật'); }
         fetchProducts();
     };
     const quickUpdateCode = async (productId, code) => {
-        await fetch(`/api/products/${productId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+        const res = await fetch(`/api/products/${productId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+        if (!res.ok) { const e = await res.json(); return alert(e.error || 'Lỗi cập nhật'); }
         fetchProducts();
     };
     const quickUpdateDimensions = async (productId, dimensions) => {
-        await fetch(`/api/products/${productId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dimensions }) });
+        const res = await fetch(`/api/products/${productId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dimensions }) });
+        if (!res.ok) { const e = await res.json(); return alert(e.error || 'Lỗi cập nhật'); }
         fetchProducts();
     };
     const addNewProduct = () => {
