@@ -200,23 +200,24 @@ export default function ProductsPage() {
         const url = supplierParam ? `/api/product-categories?supplier=${encodeURIComponent(supplierParam)}` : '/api/product-categories';
         fetch(url).then(r => r.json()).then(async cats => {
             if (cats && cats.length > 0) {
-                // Filter by supplier field if available, otherwise show all
                 if (supplierParam) {
                     const getCount = c => (c._count?.products || 0) + (c.children || []).reduce((s, ch) => s + (ch._count?.products || 0), 0);
                     const filtered = cats.filter(c =>
-                        c.supplier === supplierParam ||   // explicit supplier match
-                        getCount(c) > 0                  // has products for this supplier tab
+                        c.supplier === supplierParam ||
+                        getCount(c) > 0
                     );
-                    setCategories(filtered.length > 0 ? filtered : cats);
+                    // Never fall back to all-cats when a supplier tab is active — show only matching or empty
+                    setCategories(filtered);
                 } else {
                     setCategories(cats);
                 }
             } else {
-                // Fallback: fetch ALL products to build categories
-                const res = await fetch('/api/products?limit=9999');
+                // Fallback: build from products, filtered by supplier if applicable
+                const supplierFilter = supplierParam ? `&supplier=${encodeURIComponent(supplierParam)}` : '';
+                const res = await fetch(`/api/products?limit=9999${supplierFilter}`);
                 const d = await res.json();
                 const allP = d.data || [];
-                const names = [...new Set([...PRODUCT_CATS, ...allP.map(p => p.category).filter(Boolean)])].sort();
+                const names = [...new Set([...(supplierParam ? [] : PRODUCT_CATS), ...allP.map(p => p.category).filter(Boolean)])].sort();
                 const fakeCats = names.map(name => ({
                     id: `__str__${name}`, name, _count: { products: allP.filter(p => p.category === name).length },
                     children: [],
