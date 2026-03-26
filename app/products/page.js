@@ -140,7 +140,7 @@ export default function ProductsPage() {
     const [filterSupplyType, setFilterSupplyType] = useState('');
     const [filterStockStatus, setFilterStockStatus] = useState('');
     const [filterSupplier, setFilterSupplier] = useState('');
-    const [supplierStats, setSupplierStats] = useState({ s1: 0, s2: 0, total: 0 });
+    const [supplierStats, setSupplierStats] = useState({ s1: 0, s2: 0, s3: 0, total: 0 });
     const [supplierLabel1, setSupplierLabel1] = useState('SP Thái');
     const [supplierLabel2, setSupplierLabel2] = useState('SP An Cường');
     const [editingLabel, setEditingLabel] = useState(null);
@@ -196,7 +196,7 @@ export default function ProductsPage() {
     }, []);
 
     const fetchCategories = useCallback(() => {
-        const supplierParam = tab === 's1' ? 'Thái' : tab === 's2' ? 'An Cường' : '';
+        const supplierParam = tab === 's1' ? 'Thái' : tab === 's2' ? 'An Cường' : tab === 's3' ? 'Kho nội thất' : '';
         const url = supplierParam ? `/api/product-categories?supplier=${encodeURIComponent(supplierParam)}` : '/api/product-categories';
         fetch(url).then(r => r.json()).then(async cats => {
             if (cats && cats.length > 0) {
@@ -236,6 +236,7 @@ export default function ProductsPage() {
         // Filter by supplier based on active tab
         if (tab === 's1') params.set('supplier', 'Thái');
         if (tab === 's2') params.set('supplier', 'An Cường');
+        if (tab === 's3') params.set('supplier', 'Kho nội thất');
         fetch(`/api/products?${params}`).then(r => r.json()).then(d => {
             const items = d.data || [];
             setProducts(items);
@@ -271,6 +272,7 @@ export default function ProductsPage() {
             setSupplierStats({
                 s1: all.filter(p => (p.supplier || '').toLowerCase().includes('thái') || (p.category || '').toLowerCase().includes('thái')).length,
                 s2: all.filter(p => (p.supplier || '').toLowerCase().includes('an cường') || (p.category || '').toLowerCase().includes('an cường')).length,
+                s3: all.filter(p => (p.supplier || '').toLowerCase().includes('kho nội thất')).length,
                 total: all.length,
             });
         }).catch(() => {});
@@ -415,7 +417,7 @@ export default function ProductsPage() {
             catId = firstLeaf?.id || null;
             catName = firstLeaf?.name || catName;
         }
-        const autoSupplier = tab === 's1' ? 'Thái' : tab === 's2' ? 'An Cường' : '';
+        const autoSupplier = tab === 's1' ? 'Thái' : tab === 's2' ? 'An Cường' : tab === 's3' ? 'Kho nội thất' : '';
         setAddForm({ name: '', category: catName, unit: 'cái', salePrice: 0, importPrice: 0, brand: '', supplyType: 'Mua ngoài', stock: 0, minStock: 0, supplier: autoSupplier, coreBoard: '', surfaceCode: '', image: '', categoryId: catId });
         setShowAddModal(true);
     };
@@ -672,13 +674,19 @@ export default function ProductsPage() {
                         }{' '}({countS2})
                     </button>
                 </div>
+                {/* Kho nội thất tab */}
+                <div style={{ display: 'flex', alignItems: 'center', borderBottom: tab === 's3' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: -2 }}>
+                    <button onClick={() => setTab('s3')} style={{ padding: '9px 8px 9px 16px', border: 'none', background: 'none', fontSize: 13, fontWeight: tab === 's3' ? 700 : 400, color: tab === 's3' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>
+                        🏠 Kho nội thất ({supplierStats.s3})
+                    </button>
+                </div>
                 <button onClick={() => setTab('library')} style={{ padding: '9px 22px', border: 'none', borderBottom: tab === 'library' ? '2px solid var(--primary)' : '2px solid transparent', background: 'none', marginBottom: -2, fontSize: 13, fontWeight: tab === 'library' ? 700 : 400, color: tab === 'library' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>
                     🔧 Hạng mục thi công ({library.length})
                 </button>
             </div>
 
             {/* ===== PRODUCTS ===== */}
-            {(tab === 's1' || tab === 's2') && (
+            {(tab === 's1' || tab === 's2' || tab === 's3') && (
                 <div style={{ display: 'flex', minHeight: isMobile ? 'auto' : 'calc(100vh - 200px)', border: '1px solid var(--border-color)', borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
 
                     {/* Mobile sidebar overlay backdrop */}
@@ -693,7 +701,7 @@ export default function ProductsPage() {
                         overflowY: 'auto', background: 'var(--bg-card)'
                     } : {}}>
                         <CategorySidebar categories={visibleCategories} activeCatId={activeCatId}
-                            supplier={tab === 's1' ? 'Thái' : tab === 's2' ? 'An Cường' : ''}
+                            supplier={tab === 's1' ? 'Thái' : tab === 's2' ? 'An Cường' : tab === 's3' ? 'Kho nội thất' : ''}
                             onSelect={id => {
                                 setActiveCatId(id);
                                 if (id?.startsWith('__str__')) {
