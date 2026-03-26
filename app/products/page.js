@@ -47,6 +47,7 @@ function InlineBrandCell({ value, onSave }) {
     );
     return (
         <span
+            data-no-drag="true"
             onClick={() => { setVal(value || ''); setEditing(true); }}
             style={{ cursor: 'pointer', fontSize: 11, color: value ? 'inherit' : undefined, opacity: value ? 1 : 0.25, display: 'inline-block', minWidth: 30 }}
             title="Click để sửa"
@@ -72,7 +73,7 @@ function InlineCodeCell({ value, onSave, onCopy }) {
         />
     );
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <div data-no-drag="true" style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <span
                 onClick={() => { setVal(value || ''); setEditing(true); }}
                 style={{ fontFamily: 'monospace', fontSize: 10.5, opacity: value ? 0.7 : 0.3, cursor: 'pointer' }}
@@ -102,6 +103,7 @@ function InlineDimensionsCell({ value, onSave }) {
     );
     return (
         <span
+            data-no-drag="true"
             onClick={() => { setVal(value || ''); setEditing(true); }}
             style={{ cursor: 'pointer', fontSize: 11, opacity: value ? 1 : 0.25, display: 'inline-block', minWidth: 30 }}
             title="Click để sửa kích thước"
@@ -119,7 +121,7 @@ function StockCell({ value, status, onSave }) {
             style={{ width: 55, fontSize: 12, padding: '2px 4px', border: '1px solid var(--primary)', borderRadius: 4, background: 'var(--bg-input)' }} />
     );
     return (
-        <div onClick={() => { setVal(value); setEditing(true); }} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 1 }} title="Click để sửa tồn kho">
+        <div data-no-drag="true" onClick={() => { setVal(value); setEditing(true); }} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 1 }} title="Click để sửa tồn kho">
             <span style={{ color: status === 'out' ? 'var(--status-danger)' : status === 'low' ? '#ea580c' : '', fontWeight: status !== 'ok' ? 600 : 400 }}>{value}</span>
             {status === 'out' && <span style={{ fontSize: 9, background: '#dc2626', color: '#fff', borderRadius: 3, padding: '0px 3px', width: 'fit-content' }}>Hết</span>}
             {status === 'low' && <span style={{ fontSize: 9, background: '#ea580c', color: '#fff', borderRadius: 3, padding: '0px 3px', width: 'fit-content' }}>Sắp hết</span>}
@@ -338,7 +340,9 @@ export default function ProductsPage() {
         setQuickEditP(prev => {
             const m = new Map(prev);
             if (m.has(p.id)) { m.delete(p.id); } else {
-                m.set(p.id, { name: p.name || '', unit: p.unit || 'cái', category: p.category || '', salePrice: p.salePrice || 0, importPrice: p.importPrice || 0, stock: p.stock ?? 0, minStock: p.minStock ?? 0, supplyType: normalizeSupply(p.supplyType), brand: p.brand || '', supplier: p.supplier || '' });
+                const defaultCat = p.category || allCats[0] || PRODUCT_CATS[0];
+                const defaultName = p.name || '(Chưa đặt tên)';
+                m.set(p.id, { name: defaultName, unit: p.unit || 'cái', category: defaultCat, salePrice: p.salePrice || 0, importPrice: p.importPrice || 0, stock: p.stock ?? 0, minStock: p.minStock ?? 0, supplyType: normalizeSupply(p.supplyType), brand: p.brand || '', supplier: p.supplier || '' });
             }
             return m;
         });
@@ -838,6 +842,7 @@ export default function ProductsPage() {
                                             const sd = STOCK_DOT[ss] || STOCK_DOT.ok;
                                             return (<tr key={p.id} draggable={!isQE}
                                                 onDragStart={(e) => {
+                                                    if (e.target.closest('button, input, select, a, [data-no-drag]')) { e.preventDefault(); return; }
                                                     const ids = selectedIds.has(p.id) && selectedIds.size > 1 ? [...selectedIds] : [p.id];
                                                     e.dataTransfer.setData('application/product-ids', JSON.stringify(ids));
                                                     e.dataTransfer.effectAllowed = 'move';
@@ -846,11 +851,11 @@ export default function ProductsPage() {
                                                 onDragEnd={() => setProductDragState(null)}
                                                 style={{ background: isQE ? 'rgba(99,102,241,0.06)' : '', cursor: isQE ? 'default' : 'grab' }}>
                                                 <td style={{ padding: 4, textAlign: 'center' }}><input type="checkbox" checked={selectedIds.has(p.id)} onChange={e => { const n = new Set(selectedIds); e.target.checked ? n.add(p.id) : n.delete(p.id); setSelectedIds(n); }} /></td>
-                                                <td style={{ padding: 3, cursor: 'pointer' }} onClick={() => { imgUpTarget.current = p.id; imgUpRef.current?.click(); }}><div style={{ width: 34, height: 34, borderRadius: 5, overflow: 'hidden', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9f9f9' }}>{p.image ? <img src={p.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <span style={{ fontSize: 14, opacity: 0.15 }}>📷</span>}</div></td>
+                                                <td data-no-drag="true" style={{ padding: 3, cursor: 'pointer' }} onClick={() => { imgUpTarget.current = p.id; imgUpRef.current?.click(); }}><div style={{ width: 34, height: 34, borderRadius: 5, overflow: 'hidden', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9f9f9' }}>{p.image ? <img src={p.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <span style={{ fontSize: 14, opacity: 0.15 }}>📷</span>}</div></td>
                                                 <td style={{ padding: '4px 6px' }}>{isQE
                                                     ? <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}><input value={qe.name} onChange={e => updateQuickField(p.id, 'name', e.target.value)} style={{ width: '100%', fontSize: 12, padding: '2px 4px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)', fontWeight: 600 }} /><select value={qe.category} onChange={e => updateQuickField(p.id, 'category', e.target.value)} style={{ fontSize: 10, padding: '1px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }}>{allCats.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                                                     : <><div style={{ fontWeight: 600, fontSize: 12.5, color: '#234093', cursor: 'pointer' }} onClick={() => startEditP(p)}>{p.name}</div>{p.category && <span style={{ fontSize: 10, opacity: 0.45, background: 'var(--surface-alt)', borderRadius: 3, padding: '0 4px' }}>{p.category}</span>}</>}</td>
-                                                <td style={{ padding: '4px 4px' }}>
+                                                <td data-no-drag="true" style={{ padding: '4px 4px' }}>
                                                     <InlineDimensionsCell value={p.dimensions} onSave={v => quickUpdateDimensions(p.id, v)} />
                                                 </td>
                                                 <td style={{ padding: '4px 4px', fontSize: 11 }}>{isQE
@@ -865,10 +870,10 @@ export default function ProductsPage() {
                                                 <td style={{ padding: '4px 4px' }}>{isQE
                                                     ? <select value={qe.supplyType} onChange={e => updateQuickField(p.id, 'supplyType', e.target.value)} style={{ fontSize: 10, padding: '2px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }}>{SUPPLY_TYPES.map(t => <option key={t}>{t}</option>)}</select>
                                                     : <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: sc.bg, color: sc.color, fontWeight: 600, whiteSpace: 'nowrap' }}>{normalizeSupply(p.supplyType)}</span>}</td>
-                                                <td style={{ fontSize: 11, padding: '4px 4px' }}>
+                                                <td data-no-drag="true" style={{ fontSize: 11, padding: '4px 4px' }}>
                                                     <InlineBrandCell value={p.brand} onSave={v => quickUpdateBrand(p.id, v)} />
                                                 </td>
-                                                <td style={{ padding: '4px 4px' }}>{isQE
+                                                <td data-no-drag="true" style={{ padding: '4px 4px' }}>{isQE
                                                     ? <div style={{ display: 'flex', gap: 2 }}><button className="btn btn-sm" onClick={() => saveQuickP(p.id)} style={{ fontSize: 11, padding: '2px 6px', background: '#234093', color: '#fff', border: 'none', borderRadius: 4 }}>✓</button><button className="btn btn-ghost btn-sm" onClick={() => cancelQuickEditP(p.id)} style={{ fontSize: 11, padding: '2px 4px' }}>✕</button></div>
                                                     : <div style={{ display: 'flex', gap: 1 }}><button className="btn btn-ghost btn-sm" onClick={() => startQuickEditP(p)} style={{ fontSize: 11, padding: '1px 3px' }} title="Sửa nhanh">✏️</button><button className="btn btn-ghost btn-sm" onClick={() => duplicateP(p)} style={{ fontSize: 11, padding: '1px 3px' }}>📋</button><button className="btn btn-ghost btn-sm" onClick={() => deleteP(p.id)} style={{ fontSize: 11, padding: '1px 3px' }}>🗑️</button></div>}</td>
                                             </tr>);
