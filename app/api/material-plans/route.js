@@ -55,6 +55,16 @@ export const GET = withAuth(async (request) => {
     });
 });
 
+export const DELETE = withAuth(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const projectId = searchParams.get('projectId');
+    if (!projectId) return NextResponse.json({ error: 'projectId bắt buộc' }, { status: 400 });
+    const result = await prisma.$queryRaw`SELECT COUNT(*) as count FROM "MaterialPlan" WHERE "projectId" = ${projectId}`;
+    const count = Number(result[0]?.count || 0);
+    await prisma.$executeRaw`DELETE FROM "MaterialPlan" WHERE "projectId" = ${projectId}`;
+    return NextResponse.json({ ok: true, deleted: count });
+});
+
 export const POST = withAuth(async (request) => {
     // Ensure unit column exists (idempotent)
     await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN IF NOT EXISTS "unit" TEXT NOT NULL DEFAULT ''`.catch(() => {});

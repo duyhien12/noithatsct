@@ -103,6 +103,9 @@ export default function ProjectDetailPage() {
     const [ntModal, setNtModal] = useState(null); // cp object being viewed for nghiem thu
     const [ntForm, setNtForm] = useState({ description: '', unit: 'm²', quantity: '', unitPrice: '', notes: '' });
     const [savingNt, setSavingNt] = useState(false);
+    const [matSearch, setMatSearch] = useState('');
+    const [matStatusFilter, setMatStatusFilter] = useState('');
+    const [matPoFilter, setMatPoFilter] = useState('');
     const fetchData = () => { fetch(`/api/projects/${id}`).then(r => r.json()).then(d => { setData(d); setLoading(false); }); };
     useEffect(fetchData, [id]);
     useEffect(() => {
@@ -557,6 +560,11 @@ export default function ProjectDetailPage() {
     const deleteMaterialPlan = async (planId) => {
         if (!confirm('Xóa kế hoạch vật tư này?')) return;
         await fetch(`/api/material-plans/${planId}`, { method: 'DELETE' });
+        fetchData();
+    };
+    const deleteAllMaterialPlans = async () => {
+        if (!confirm(`Xóa toàn bộ ${p.materialPlans.length} kế hoạch vật tư của dự án này? Hành động không thể hoàn tác.`)) return;
+        await fetch(`/api/material-plans?projectId=${id}`, { method: 'DELETE' });
         fetchData();
     };
 
@@ -1197,92 +1205,129 @@ export default function ProjectDetailPage() {
             )}
 
             {/* TAB: Vật tư */}
-            {tab === 'materials' && (
+            {tab === 'materials' && (() => {
+                // Flatten all PO items with PO info
+                const allPoItems = p.purchaseOrders.flatMap(po =>
+                    (po.items || []).map(item => ({ ...item, po }))
+                );
+                const uniquePoStatuses = [...new Set(p.purchaseOrders.map(po => po.status))];
+                const uniqueSuppliers = [...new Set(p.purchaseOrders.map(po => po.supplier).filter(Boolean))];
+                const filteredItems = allPoItems.filter(item => {
+                    const q = matSearch.toLowerCase();
+                    const matchSearch = !q || item.productName?.toLowerCase().includes(q) || item.po?.supplier?.toLowerCase().includes(q);
+                    const matchStatus = !matStatusFilter || item.po?.status === matStatusFilter;
+                    const matchSupplier = !matPoFilter || item.po?.supplier === matPoFilter;
+                    return matchSearch && matchStatus && matchSupplier;
+                });
+                const totalAmount = filteredItems.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+                const totalOrdered = filteredItems.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
+                const totalReceived = filteredItems.reduce((s, i) => s + (Number(i.receivedQty) || 0), 0);
+                return (
                 <div>
-                    <div className="stats-grid" style={{ marginBottom: 24 }}>
-                        <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700 }}>{p.materialPlans.length}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loại vật tư</div></div>
-                        <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-info)' }}>{fmt(p.materialPlans.reduce((s, m) => s + m.totalAmount, 0))}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Tổng dự toán</div></div>
-                        <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-warning)' }}>{p.materialPlans.filter(m => m.status === 'Chưa đặt' || m.status === 'Đặt một phần').length}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Cần đặt thêm</div></div>
-                        <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-danger)' }}>{p.materialPlans.filter(m => m.receivedQty > m.quantity).length}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>⚠ Vượt dự toán</div></div>
+                    {/* Stats */}
+                    <div className="stats-grid" style={{ marginBottom: 16 }}>
+                        <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700 }}>{allPoItems.length}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Loại vật tư</div></div>
+                        <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-info)' }}>{fmt(p.purchaseOrders.reduce((s, po) => s + (Number(po.totalAmount) || 0), 0))}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Tổng đã đặt</div></div>
+                        <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-success)' }}>{fmt(p.purchaseOrders.reduce((s, po) => s + (Number(po.paidAmount) || 0), 0))}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Đã thanh toán</div></div>
+                        <div className="stat-card"><div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-danger)' }}>{fmt(p.purchaseOrders.reduce((s, po) => s + (Number(po.totalAmount) - Number(po.paidAmount) || 0), 0))}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Còn nợ NCC</div></div>
                     </div>
+
+                    {/* Bảng Kế hoạch vật tư — dữ liệu từ Mua hàng */}
                     <div className="card">
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px 0', gap: 8, flexWrap: 'wrap' }}>
-                            {p.quotations?.length > 0 && <button className="btn btn-ghost btn-sm" onClick={importMPFromQuotation}>📋 Tạo từ Báo giá</button>}
-                            <button className="btn btn-ghost btn-sm" onClick={openMPModal}>+ Thêm vật tư</button>
-                            {p.materialPlans.filter(m => m.status === 'Chưa đặt' || m.status === 'Đặt một phần').length > 0 && (
-                                <button className="btn btn-primary btn-sm" onClick={openPOModal}>🛒 Tạo PO ({p.materialPlans.filter(m => m.status === 'Chưa đặt' || m.status === 'Đặt một phần').length} vật tư)</button>
-                            )}
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                                <span style={{ fontWeight: 700, fontSize: 14 }}>📦 Kế hoạch vật tư</span>
+                                <button className="btn btn-primary btn-sm" onClick={openPOModal}>+ Tạo PO mới</button>
+                            </div>
+                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                                <div style={{ flex: '2 1 200px' }}>
+                                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tên sản phẩm</div>
+                                    <div style={{ position: 'relative' }}>
+                                        <span style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--text-muted)', pointerEvents: 'none' }}>🔍</span>
+                                        <input
+                                            className="form-input"
+                                            style={{ paddingLeft: 28, fontSize: 13 }}
+                                            placeholder="Nhập tên sản phẩm..."
+                                            value={matSearch}
+                                            onChange={e => setMatSearch(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <div style={{ flex: '1 1 150px' }}>
+                                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Trạng thái PO</div>
+                                    <select className="form-select" style={{ fontSize: 13 }} value={matStatusFilter} onChange={e => setMatStatusFilter(e.target.value)}>
+                                        <option value="">Tất cả</option>
+                                        {uniquePoStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                                <div style={{ flex: '1 1 150px' }}>
+                                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Nhà cung cấp</div>
+                                    <select className="form-select" style={{ fontSize: 13 }} value={matPoFilter} onChange={e => setMatPoFilter(e.target.value)}>
+                                        <option value="">Tất cả</option>
+                                        {uniqueSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                                {(matSearch || matStatusFilter || matPoFilter) && (
+                                    <div style={{ flex: '0 0 auto' }}>
+                                        <div style={{ fontSize: 11, marginBottom: 4, opacity: 0 }}>x</div>
+                                        <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={() => { setMatSearch(''); setMatStatusFilter(''); setMatPoFilter(''); }}>✕ Xóa lọc</button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                        {isMobile ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                                {p.materialPlans.map(m => {
-                                    const missing = m.quantity - m.receivedQty;
-                                    const overReceived = m.receivedQty > m.quantity;
-                                    const stBadge = m.status === 'Đã đặt đủ' || m.status === 'Đã nhận đủ' ? 'success' : m.status === 'Đặt một phần' || m.status === 'Nhận một phần' ? 'warning' : 'danger';
+                        <div className="table-container"><table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th style={{ width: 40, textAlign: 'center' }}>STT</th>
+                                    <th>Sản phẩm</th>
+                                    <th>ĐVT</th>
+                                    <th>SL Đặt</th>
+                                    <th>Đơn giá</th>
+                                    <th>Thành tiền</th>
+                                    <th>NCC / PO</th>
+                                    <th>TT</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredItems.map((item, idx) => {
+                                    const statusColor = item.po?.status === 'Hoàn thành' ? 'success' : item.po?.status === 'Đang giao' ? 'info' : item.po?.status === 'Nhận một phần' ? 'warning' : 'muted';
                                     return (
-                                        <div key={m.id} style={{ padding: '12px 14px', borderBottom: '1px solid var(--border-light)', background: overReceived ? 'rgba(239,68,68,0.05)' : '' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>{m.product?.name}</div>
-                                                    <span style={{ fontFamily: 'monospace', fontSize: 10, opacity: 0.5 }}>{m.product?.code}</span>
-                                                    {overReceived && <div style={{ fontSize: 11, color: 'var(--status-danger)', fontWeight: 600, marginTop: 2 }}>⚠ Nhận vượt {m.receivedQty - m.quantity} {m.product?.unit}</div>}
-                                                </div>
-                                                <span className={`badge ${stBadge}`} style={{ fontSize: 10, flexShrink: 0, marginLeft: 8 }}>{m.status}</span>
-                                            </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, fontSize: 12, textAlign: 'center', background: 'var(--surface-alt)', borderRadius: 8, padding: '8px 4px', marginBottom: 8 }}>
-                                                <div><div style={{ fontWeight: 700 }}>{m.quantity}</div><div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Cần</div></div>
-                                                <div><div style={{ fontWeight: 700, color: 'var(--status-info)' }}>{m.orderedQty}</div><div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Đã đặt</div></div>
-                                                <div><div style={{ fontWeight: 700, color: overReceived ? 'var(--status-danger)' : 'var(--status-success)' }}>{m.receivedQty}</div><div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Đã nhận</div></div>
-                                                <div><div style={{ fontWeight: 700, color: missing > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>{missing > 0 ? missing : '✓'}</div><div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Còn thiếu</div></div>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{m.product?.unit} · {fmt(m.unitPrice)}</span>
-                                                <div style={{ display: 'flex', gap: 6 }}>
-                                                    <button className="btn btn-ghost btn-sm" onClick={() => openReqModal(m)} style={{ fontSize: 12, padding: '5px 10px' }}>📋 Yêu cầu</button>
-                                                    {m.orderedQty === 0 && <button className="btn btn-ghost btn-sm" onClick={() => deleteMaterialPlan(m.id)} style={{ fontSize: 12, padding: '5px 8px', color: 'var(--status-danger)' }}>🗑</button>}
-                                                </div>
-                                            </div>
-                                        </div>
+                                        <tr key={`${item.id}-${idx}`}>
+                                            <td style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>{idx + 1}</td>
+                                            <td style={{ fontWeight: 600, fontSize: 13 }}>{item.productName}</td>
+                                            <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{item.unit}</td>
+                                            <td style={{ fontWeight: 600 }}>{item.quantity}</td>
+                                            <td style={{ fontSize: 12 }}>{fmt(item.unitPrice)}</td>
+                                            <td className="amount" style={{ fontWeight: 700 }}>{fmt(item.amount)}</td>
+                                            <td>
+                                                <div style={{ fontSize: 12, fontWeight: 600 }}>{item.po?.supplier}</div>
+                                                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{item.po?.code}</div>
+                                            </td>
+                                            <td><span className={`badge ${statusColor}`} style={{ fontSize: 11 }}>{item.po?.status}</span></td>
+                                        </tr>
                                     );
                                 })}
-                                {p.materialPlans.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có kế hoạch vật tư</div>}
-                            </div>
-                        ) : (
-                        <>
-                        <div className="table-container"><table className="data-table">
-                            <thead><tr><th>Mã</th><th>Vật tư</th><th>SL cần</th><th>Đã đặt</th><th>Đã nhận</th><th>Còn thiếu</th><th title="Số lượng còn được yêu cầu = SL Cần - Đã Đặt">Được gọi</th><th>Đơn giá</th><th>TT</th><th></th></tr></thead>
-                            <tbody>{p.materialPlans.map(m => {
-                                const missing = m.quantity - m.receivedQty;
-                                const canRequest = m.quantity - m.orderedQty;
-                                const overReceived = m.receivedQty > m.quantity;
-                                return (
-                                    <tr key={m.id} style={{ background: overReceived ? 'rgba(239,68,68,0.08)' : '' }}>
-                                        <td className="accent" style={{ fontSize: 11 }}>{m.product?.code}</td>
-                                        <td>
-                                            <div style={{ fontWeight: 600, fontSize: 13 }}>{m.product?.name}</div>
-                                            {overReceived && <div style={{ fontSize: 11, color: 'var(--status-danger)', fontWeight: 600 }}>⚠ Nhận vượt {m.receivedQty - m.quantity} {m.product?.unit}</div>}
-                                        </td>
-                                        <td style={{ fontWeight: 600 }}>{m.quantity} <span style={{ fontSize: 11, opacity: 0.6 }}>{m.product?.unit}</span></td>
-                                        <td style={{ color: 'var(--status-info)' }}>{m.orderedQty}</td>
-                                        <td style={{ color: overReceived ? 'var(--status-danger)' : 'var(--status-success)', fontWeight: 600 }}>{m.receivedQty}</td>
-                                        <td style={{ color: missing > 0 ? 'var(--status-danger)' : 'var(--status-success)', fontWeight: 700 }}>{missing > 0 ? missing : '✓'}</td>
-                                        <td style={{ color: canRequest > 0 ? 'var(--text-secondary)' : 'var(--status-success)', fontSize: 12 }}>{canRequest > 0 ? canRequest : '—'}</td>
-                                        <td style={{ fontSize: 12 }}>{fmt(m.unitPrice)}</td>
-                                        <td><span className={`badge ${m.status === 'Đã đặt đủ' || m.status === 'Đã nhận đủ' ? 'success' : m.status === 'Đặt một phần' || m.status === 'Nhận một phần' ? 'warning' : 'danger'}`} style={{ fontSize: 11 }}>{m.status}</span></td>
-                                        <td style={{ display: 'flex', gap: 4 }}>
-                                            <button className="btn btn-ghost btn-sm" title="Lập phiếu yêu cầu vật tư" style={{ fontSize: 11 }} onClick={() => openReqModal(m)}>📋 YC</button>
-                                            {m.orderedQty === 0 && <button className="btn btn-ghost btn-sm" title="Xóa" style={{ fontSize: 11, color: 'var(--status-danger)' }} onClick={() => deleteMaterialPlan(m.id)}>🗑</button>}
-                                        </td>
+                                {filteredItems.length > 0 && (
+                                    <tr style={{ background: 'var(--surface-alt)', fontWeight: 700 }}>
+                                        <td></td>
+                                        <td colSpan={2} style={{ textAlign: 'right', fontSize: 12 }}>Tổng cộng:</td>
+                                        <td>{totalOrdered}</td>
+                                        <td></td>
+                                        <td className="amount" style={{ color: 'var(--accent-primary)' }}>{fmt(totalAmount)}</td>
+                                        <td colSpan={2}></td>
                                     </tr>
-                                );
-                            })}</tbody>
+                                )}
+                            </tbody>
                         </table></div>
-                        {p.materialPlans.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có kế hoạch vật tư — bấm "+ Thêm vật tư" để bắt đầu</div>}
-                        </>
+                        {filteredItems.length === 0 && (
+                            <div style={{ color: 'var(--text-muted)', padding: 32, textAlign: 'center' }}>
+                                {allPoItems.length === 0 ? 'Chưa có đơn mua hàng — bấm "+ Tạo PO mới" hoặc tạo PO từ Tab Mua hàng' : 'Không tìm thấy vật tư khớp bộ lọc'}
+                            </div>
                         )}
                     </div>
                 </div>
-            )}
+                );
+            })()}
 
             {/* TAB: Mua hàng */}
             {tab === 'purchase' && (
