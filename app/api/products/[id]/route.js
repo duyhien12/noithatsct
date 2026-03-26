@@ -13,7 +13,11 @@ export const GET = withAuth(async (request, { params }) => {
 export const PUT = withAuth(async (request, { params }) => {
     const { id } = await params;
     const body = await request.json();
-    const data = productUpdateSchema.parse(body);
+    const parsed = productUpdateSchema.parse(body);
+
+    // Only update fields explicitly sent in the request body (avoid Zod defaults wiping other fields)
+    const sentKeys = Object.keys(body);
+    const data = Object.fromEntries(sentKeys.filter(k => k in parsed).map(k => [k, parsed[k]]));
 
     // Validate: categoryId must be a leaf category (no children)
     if (data.categoryId) {
