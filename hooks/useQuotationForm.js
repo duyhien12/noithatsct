@@ -106,6 +106,20 @@ export default function useQuotationForm() {
             (cat.children || []).forEach(c => { prods = prods.concat(collectProducts(c)); });
             return prods;
         };
+        // Collect all known category IDs from the hierarchy
+        const knownCatIds = new Set();
+        const registerIds = (cat) => {
+            knownCatIds.add(cat.id);
+            (cat.children || []).forEach(ch => {
+                knownCatIds.add(ch.id);
+                (ch.children || []).forEach(gc => knownCatIds.add(gc.id));
+            });
+        };
+        prodCategories.forEach(registerIds);
+        // Products whose categoryId doesn't match any known category → treat as uncategorized
+        Object.entries(prodByCatId).forEach(([cid, prods]) => {
+            if (!knownCatIds.has(cid)) prodNoCat.push(...prods);
+        });
         const tree = prodCategories.map(parent => ({
             id: parent.id,
             name: parent.name,
@@ -124,6 +138,17 @@ export default function useQuotationForm() {
         })).filter(c => c.totalProducts > 0 || c.children.some(ch => (prodByCatId[ch.id] || []).length > 0));
         if (prodNoCat.length > 0) {
             tree.push({ id: '__nocat', name: 'Chưa phân loại', products: prodNoCat, children: [], totalProducts: prodNoCat.length });
+        }
+        // Fallback: if tree is still empty but products exist, show all in flat mode
+        if (tree.length === 0 && filteredProducts.length > 0) {
+            const flat = {};
+            filteredProducts.forEach(item => {
+                const cat = item.category || 'Khác';
+                if (!flat[cat]) flat[cat] = { name: cat, children: [], products: [], totalProducts: 0 };
+                flat[cat].products.push(item);
+                flat[cat].totalProducts++;
+            });
+            return Object.values(flat);
         }
         return tree;
     }, [filteredProducts, prodCategories]);
@@ -366,15 +391,44 @@ export default function useQuotationForm() {
         length: 0, width: 0, height: 0,
     });
 
-    const prodToQuotationItem = (prod) => ({
-        _key: Date.now() + Math.random(),
-        name: prod.name, unit: prod.unit || 'cái', quantity: 0,
-        mainMaterial: prod.salePrice || 0, auxMaterial: 0, labor: 0,
-        unitPrice: prod.salePrice || 0, amount: 0,
-        description: `${prod.brand ? prod.brand + ' - ' : ''}${prod.description || ''}`.trim(),
-        image: prod.image || '', length: 0, width: 0, height: 0,
-        productId: prod.id || null,
-    });
+    const prodToQuotationItem = (prod) => {
+        // Build description from all available product detail fields
+        const descParts = [];
+        if (prod.code)        descParts.push(prod.code);
+        if (prod.brand)       descParts.push(prod.brand);
+        if (prod.material)    descParts.push(prod.material);
+        if (prod.color)       descParts.push(prod.color);
+        if (prod.coreBoard)   descParts.push(`Lõi: ${prod.coreBoard}`);
+        if (prod.surfaceCode) descParts.push(`Mặt: ${prod.surfaceCode}`);
+        if (prod.origin)      descParts.push(prod.origin);
+        if (prod.description) descParts.push(prod.description);
+        const description = descParts.join(' · ').trim();
+
+        // Parse dimensions string (e.g. "1200x600x18") → length/width/height
+        let length = 0, width = 0, height = 0;
+        if (prod.dimensions) {
+            const parts = prod.dimensions.toLowerCase().replace(/[xX×]/g, ' ').split(/\s+/).map(Number).filter(n => !isNaN(n) && n > 0);
+            if (parts[0]) length = parts[0];
+            if (parts[1]) width = parts[1];
+            if (parts[2]) height = parts[2];
+        }
+
+        return {
+            _key: Date.now() + Math.random(),
+            name: prod.name,
+            unit: prod.unit || 'cái',
+            quantity: 1,
+            mainMaterial: prod.salePrice || 0,
+            auxMaterial: 0,
+            labor: 0,
+            unitPrice: prod.salePrice || 0,
+            amount: prod.salePrice || 0,
+            description,
+            image: prod.image || '',
+            length, width, height,
+            productId: prod.id || null,
+        };
+    };
 
     // ========================================
     // Tree add handlers (single)

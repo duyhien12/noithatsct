@@ -36,14 +36,23 @@ export default function CreateQuotationPage() {
         apiFetch('/api/quotation-templates?limit=1000').then(d => setTemplates(d.data || []));
     }, []);
 
-    // Auto-save draft
+    // Auto-save draft — hỏi người dùng khi có bản nháp cũ
     useAutoSaveDraft({
         key: 'quotation_draft_create',
         data: { form, mainCategories },
         onRestore: (draft) => {
-            if (draft.form) setForm(draft.form);
-            if (draft.mainCategories) setMainCategories(draft.mainCategories);
-            toast.info('Đã khôi phục bản nháp chưa lưu');
+            const hasData = draft.mainCategories?.some(mc =>
+                mc.subcategories?.some(sub => sub.items?.some(i => i.name || i.productName))
+            );
+            if (!hasData) return; // bản nháp rỗng, bỏ qua
+            const restore = window.confirm('Có bản nháp báo giá chưa lưu. Bạn có muốn tiếp tục chỉnh sửa không?\n\nBấm OK để tiếp tục, Cancel để bắt đầu mới.');
+            if (restore) {
+                if (draft.form) setForm(draft.form);
+                if (draft.mainCategories) setMainCategories(draft.mainCategories);
+                toast.info('Đã khôi phục bản nháp');
+            } else {
+                try { localStorage.removeItem('quotation_draft_create'); } catch {}
+            }
         },
     });
 
