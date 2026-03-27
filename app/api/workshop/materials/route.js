@@ -7,10 +7,12 @@ export const GET = withAuth(async (req) => {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search');
     const lowStock = searchParams.get('lowStock') === 'true';
+    const supplier = searchParams.get('supplier');
 
     const where = { deletedAt: null };
     if (search) where.name = { contains: search, mode: 'insensitive' };
     if (lowStock) where.stock = { lte: 5 };
+    if (supplier) where.supplier = { contains: supplier, mode: 'insensitive' };
 
     const [products, usageStats] = await Promise.all([
         prisma.product.findMany({

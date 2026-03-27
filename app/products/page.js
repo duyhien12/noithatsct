@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import CategorySidebar from '@/components/products/CategorySidebar';
 import BulkActionsBar from '@/components/products/BulkActionsBar';
+import { useRole } from '@/contexts/RoleContext';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n);
 const fmtCur = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
@@ -133,7 +134,9 @@ const PAGE_SIZE = 50;
 
 export default function ProductsPage() {
     const router = useRouter();
-    const [tab, setTab] = useState('s1');
+    const { isXuong } = useRole();
+    const [_tab, setTab] = useState('s1');
+    const tab = isXuong ? 's3' : _tab;
     const [products, setProducts] = useState([]);
     const [loadingP, setLoadingP] = useState(true);
     const [searchP, setSearchP] = useState('');
@@ -266,7 +269,6 @@ export default function ProductsPage() {
     const fetchLibrary = () => { setLoadingL(true); fetch('/api/work-item-library?limit=1000').then(r => r.json()).then(d => { setLibrary(d.data || []); setLoadingL(false); }); };
 
     useEffect(() => {
-        fetchCategories();
         fetchLibrary();
         fetch('/api/products?limit=2000').then(r => r.json()).then(d => {
             const all = d.data || [];
@@ -464,7 +466,9 @@ export default function ProductsPage() {
     // --- Save new product ---
     const saveNewProduct = async () => {
         if (!addForm.name?.trim()) return alert('Nhập tên sản phẩm');
-        const res = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(addForm) });
+        const tabSupplier = tab === 's1' ? 'Thái' : tab === 's2' ? 'An Cường' : tab === 's3' ? 'Kho nội thất' : '';
+        const dataToSend = tabSupplier ? { ...addForm, supplier: tabSupplier } : addForm;
+        const res = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dataToSend) });
         if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi tạo'); }
         setShowAddModal(false); fetchProducts(); fetchCategories();
     };
@@ -648,7 +652,7 @@ export default function ProductsPage() {
             {/* Tabs */}
             <div style={{ display: 'flex', alignItems: 'flex-end', borderBottom: '2px solid var(--border-color)', marginBottom: 20 }}>
                 {/* SP Thái tab */}
-                <div style={{ display: 'flex', alignItems: 'center', borderBottom: tab === 's1' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: -2 }}>
+                {!isXuong && <div style={{ display: 'flex', alignItems: 'center', borderBottom: tab === 's1' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: -2 }}>
                     <button onClick={() => setTab('s1')} style={{ padding: '9px 8px 9px 16px', border: 'none', background: 'none', fontSize: 13, fontWeight: tab === 's1' ? 700 : 400, color: tab === 's1' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>
                         📦{' '}
                         {editingLabel === 's1'
@@ -660,9 +664,9 @@ export default function ProductsPage() {
                             : <span onDoubleClick={ev => { ev.stopPropagation(); setEditingLabel('s1'); }}>{supplierLabel1}</span>
                         }{' '}({countS1})
                     </button>
-                </div>
+                </div>}
                 {/* SP An Cường tab */}
-                <div style={{ display: 'flex', alignItems: 'center', borderBottom: tab === 's2' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: -2 }}>
+                {!isXuong && <div style={{ display: 'flex', alignItems: 'center', borderBottom: tab === 's2' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: -2 }}>
                     <button onClick={() => setTab('s2')} style={{ padding: '9px 8px 9px 16px', border: 'none', background: 'none', fontSize: 13, fontWeight: tab === 's2' ? 700 : 400, color: tab === 's2' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>
                         📦{' '}
                         {editingLabel === 's2'
@@ -674,16 +678,16 @@ export default function ProductsPage() {
                             : <span onDoubleClick={ev => { ev.stopPropagation(); setEditingLabel('s2'); }}>{supplierLabel2}</span>
                         }{' '}({countS2})
                     </button>
-                </div>
+                </div>}
                 {/* Kho nội thất tab */}
                 <div style={{ display: 'flex', alignItems: 'center', borderBottom: tab === 's3' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: -2 }}>
                     <button onClick={() => setTab('s3')} style={{ padding: '9px 8px 9px 16px', border: 'none', background: 'none', fontSize: 13, fontWeight: tab === 's3' ? 700 : 400, color: tab === 's3' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>
                         🏠 Kho nội thất ({supplierStats.s3})
                     </button>
                 </div>
-                <button onClick={() => setTab('library')} style={{ padding: '9px 22px', border: 'none', borderBottom: tab === 'library' ? '2px solid var(--primary)' : '2px solid transparent', background: 'none', marginBottom: -2, fontSize: 13, fontWeight: tab === 'library' ? 700 : 400, color: tab === 'library' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>
+                {!isXuong && <button onClick={() => setTab('library')} style={{ padding: '9px 22px', border: 'none', borderBottom: tab === 'library' ? '2px solid var(--primary)' : '2px solid transparent', background: 'none', marginBottom: -2, fontSize: 13, fontWeight: tab === 'library' ? 700 : 400, color: tab === 'library' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>
                     🔧 Hạng mục thi công ({library.length})
-                </button>
+                </button>}
             </div>
 
             {/* ===== PRODUCTS ===== */}
@@ -1284,10 +1288,12 @@ export default function ProductsPage() {
                                         <label className="form-label">Tồn tối thiểu</label>
                                         <input className="form-input" type="number" value={addForm.minStock} onChange={e => setAddForm(f => ({ ...f, minStock: Number(e.target.value) }))} placeholder="Cảnh báo sắp hết" />
                                     </div>
-                                    <div className="form-group" style={{ flex: 2 }}>
-                                        <label className="form-label">Nhà cung cấp</label>
-                                        <input className="form-input" value={addForm.supplier} onChange={e => setAddForm(f => ({ ...f, supplier: e.target.value }))} placeholder="VD: Hafele Vietnam, Blum..." />
-                                    </div>
+                                    {tab !== 's3' && (
+                                        <div className="form-group" style={{ flex: 2 }}>
+                                            <label className="form-label">Nhà cung cấp</label>
+                                            <input className="form-input" value={addForm.supplier} onChange={e => setAddForm(f => ({ ...f, supplier: e.target.value }))} placeholder="VD: Hafele Vietnam, Blum..." />
+                                        </div>
+                                    )}
                                 </div>
                             )}
                             <div className="form-group">

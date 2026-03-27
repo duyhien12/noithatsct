@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRole } from '@/contexts/RoleContext';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const fmtShort = (n) => {
@@ -10,6 +11,7 @@ const fmtShort = (n) => {
 };
 
 export default function MaterialsPage() {
+    const { isXuong } = useRole();
     const [materials, setMaterials] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -23,13 +25,14 @@ export default function MaterialsPage() {
         const params = new URLSearchParams();
         if (search) params.set('search', search);
         if (filterLow) params.set('lowStock', 'true');
+        if (isXuong) params.set('supplier', 'Kho nội thất');
         const res = await fetch(`/api/workshop/materials?${params}`);
         const data = await res.json();
         setMaterials(Array.isArray(data) ? data : []);
         setLoading(false);
     };
 
-    useEffect(() => { fetchMaterials(); }, [filterLow]);
+    useEffect(() => { fetchMaterials(); }, [filterLow, isXuong]);
 
     const handleSearch = (e) => {
         if (e.key === 'Enter') fetchMaterials();
