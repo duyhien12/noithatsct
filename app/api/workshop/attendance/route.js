@@ -5,11 +5,15 @@ import { NextResponse } from 'next/server';
 export const GET = withAuth(async (req) => {
     const { searchParams } = new URL(req.url);
     const workerId = searchParams.get('workerId');
-    const date = searchParams.get('date'); // YYYY-MM-DD
+    const date = searchParams.get('date');   // YYYY-MM-DD
+    const month = searchParams.get('month'); // YYYY-MM
 
     const where = {};
     if (workerId) where.workerId = workerId;
-    if (date) {
+    if (month) {
+        const [y, m] = month.split('-').map(Number);
+        where.date = { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) };
+    } else if (date) {
         const d = new Date(date);
         const nextDay = new Date(d);
         nextDay.setDate(nextDay.getDate() + 1);
@@ -19,8 +23,8 @@ export const GET = withAuth(async (req) => {
     const records = await prisma.workshopAttendance.findMany({
         where,
         include: { worker: { select: { id: true, name: true, skill: true, hourlyRate: true } } },
-        orderBy: { date: 'desc' },
-        take: 100,
+        orderBy: { date: month ? 'asc' : 'desc' },
+        take: month ? undefined : 100,
     });
     return NextResponse.json(records);
 });

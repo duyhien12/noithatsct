@@ -37,6 +37,12 @@ export default function WorkersPage() {
     const [nameSuggest, setNameSuggest] = useState([]);
     const [showSuggest, setShowSuggest] = useState(false);
 
+    // ── Tổng hợp tháng ───────────────────────────────────────────────────────
+    const [showSummary, setShowSummary] = useState(false);
+    const [summaryMonth, setSummaryMonth] = useState(() => new Date().toISOString().slice(0, 7));
+    const [summaryAttendance, setSummaryAttendance] = useState([]);
+    const [loadingSummary, setLoadingSummary] = useState(false);
+
     useEffect(() => {
         fetch('/api/users').then(r => r.json()).then(d => setUserList(Array.isArray(d) ? d : []));
     }, []);
@@ -65,6 +71,18 @@ export default function WorkersPage() {
         const data = await res.json();
         setAttendance(Array.isArray(data) ? data : []);
     };
+
+    const fetchMonthlySummary = async (month) => {
+        setLoadingSummary(true);
+        const res = await fetch(`/api/workshop/attendance?month=${month}`);
+        const data = await res.json();
+        setSummaryAttendance(Array.isArray(data) ? data : []);
+        setLoadingSummary(false);
+    };
+
+    useEffect(() => {
+        if (showSummary) fetchMonthlySummary(summaryMonth);
+    }, [summaryMonth, showSummary]);
 
     const fetchAll = async () => {
         setLoading(true);
@@ -373,6 +391,230 @@ export default function WorkersPage() {
                     </>
                 )}
             </div>
+
+            {/* Nút toggle bảng tổng hợp */}
+            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <button
+                    className={`btn btn-sm ${showSummary ? 'btn-primary' : 'btn-ghost'}`}
+                    style={{ fontWeight: 600 }}
+                    onClick={() => setShowSummary(v => !v)}
+                >
+                    📊 {showSummary ? 'Ẩn' : 'Xem'} bảng tổng hợp tháng
+                </button>
+            </div>
+
+            {/* Bảng tổng hợp tháng */}
+            {showSummary && (() => {
+                const [y, m] = summaryMonth.split('-').map(Number);
+                const daysInMonth = new Date(y, m, 0).getDate();
+                const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+                // attendance lookup: {workerId: {day: hoursWorked}}
+                const byWorkerDay = {};
+                summaryAttendance.forEach(a => {
+                    if (!byWorkerDay[a.workerId]) byWorkerDay[a.workerId] = {};
+                    const day = new Date(a.date).getUTCDate();
+                    byWorkerDay[a.workerId][day] = a.hoursWorked;
+                });
+
+                // Only show workers who have any attendance OR are active
+                const summaryWorkers = workers.filter(w =>
+                    w.status !== 'Nghỉ việc' || byWorkerDay[w.id]
+                );
+
+                const cong = (h) => h / 8;
+                const fmtCong = (h) => {
+                    if (!h) return '';
+                    const c = cong(h);
+                    return c === Math.floor(c) ? String(c) : c.toFixed(1);
+                };
+                const cellBg = (h) => {
+                    if (!h) return 'transparent';
+                    const c = cong(h);
+                    if (c >= 1) return '#dcfce7';
+                    if (c >= 0.5) return '#fef9c3';
+                    return '#fee2e2';
+                };
+                const cellColor = (h) => {
+                    if (!h) return 'transparent';
+                    const c = cong(h);
+                    if (c >= 1) return '#15803d';
+                    if (c >= 0.5) return '#92400e';
+                    return '#dc2626';
+                };
+
+                // total per worker
+                const workerTotal = (w) => {
+                    const dayMap = byWorkerDay[w.id] || {};
+                    const totalH = Object.values(dayMap).reduce((s, h) => s + h, 0);
+                    const totalCong = Object.values(dayMap).reduce((s, h) => s + cong(h), 0);
+                    const cost = Object.values(dayMap).reduce((s, h) => s + (cong(h) * w.hourlyRate), 0);
+                    return { totalH, totalCong, cost };
+                };
+
+                // total per day (all workers)
+                const dayTotal = (day) => {
+                    let total = 0;
+                    summaryWorkers.forEach(w => {
+                        const h = byWorkerDay[w.id]?.[day] || 0;
+                        total += cong(h);
+                    });
+                    return total;
+                };
+
+                const grandTotal = summaryWorkers.reduce((s, w) => {
+                    const { totalCong, totalH, cost } = workerTotal(w);
+                    return { cong: s.cong + totalCong, hours: s.hours + totalH, cost: s.cost + cost };
+                }, { cong: 0, hours: 0, cost: 0 });
+
+                const prevMonth = () => {
+                    const d = new Date(y, m - 2, 1);
+                    setSummaryMonth(d.toISOString().slice(0, 7));
+                };
+                const nextMonth = () => {
+                    const d = new Date(y, m, 1);
+                    setSummaryMonth(d.toISOString().slice(0, 7));
+                };
+
+                // day of week label (for weekends)
+                const dayOfWeek = (day) => new Date(y, m - 1, day).getDay(); // 0=Sun, 6=Sat
+                const isWeekend = (day) => { const d = dayOfWeek(day); return d === 0 || d === 6; };
+
+                return (
+                    <div className="card" style={{ overflow: 'hidden' }}>
+                        <div className="card-header" style={{ flexWrap: 'wrap', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <h3 style={{ margin: 0 }}>📊 Bảng tổng hợp công tháng</h3>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <button className="btn btn-ghost btn-sm" onClick={prevMonth}>◀</button>
+                                <input type="month" value={summaryMonth} onChange={e => setSummaryMonth(e.target.value)}
+                                    style={{ padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 600 }} />
+                                <button className="btn btn-ghost btn-sm" onClick={nextMonth}>▶</button>
+                                <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 4 }}>
+                                    {daysInMonth} ngày · {summaryWorkers.length} người
+                                </span>
+                            </div>
+                        </div>
+
+                        {loadingSummary ? (
+                            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
+                        ) : (
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                    <thead>
+                                        <tr style={{ background: 'var(--bg-secondary)' }}>
+                                            <th style={{ padding: '8px 12px', textAlign: 'left', position: 'sticky', left: 0, background: 'var(--bg-secondary)', zIndex: 2, whiteSpace: 'nowrap', minWidth: 130, borderBottom: '2px solid var(--border)', borderRight: '1px solid var(--border)' }}>
+                                                Họ tên
+                                            </th>
+                                            {days.map(d => (
+                                                <th key={d} style={{
+                                                    padding: '5px 3px', textAlign: 'center', minWidth: 28,
+                                                    borderBottom: '2px solid var(--border)',
+                                                    color: isWeekend(d) ? '#dc2626' : 'var(--text-secondary)',
+                                                    background: isWeekend(d) ? '#fff5f5' : 'var(--bg-secondary)',
+                                                    fontWeight: isWeekend(d) ? 700 : 400,
+                                                }}>
+                                                    {d}
+                                                </th>
+                                            ))}
+                                            <th style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '2px solid var(--border)', borderLeft: '2px solid var(--border)', whiteSpace: 'nowrap', color: '#16a34a', background: 'var(--bg-secondary)' }}>Tổng công</th>
+                                            <th style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap', color: '#2563eb', background: 'var(--bg-secondary)' }}>Giờ làm</th>
+                                            <th style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap', color: '#8b5cf6', background: 'var(--bg-secondary)' }}>Thành tiền</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {summaryWorkers.map((w, idx) => {
+                                            const { totalH, totalCong, cost } = workerTotal(w);
+                                            return (
+                                                <tr key={w.id} style={{ background: idx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)' }}>
+                                                    <td style={{
+                                                        padding: '6px 12px', position: 'sticky', left: 0, zIndex: 1,
+                                                        background: idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-secondary)',
+                                                        borderRight: '1px solid var(--border)',
+                                                        whiteSpace: 'nowrap',
+                                                    }}>
+                                                        <div style={{ fontWeight: 600, fontSize: 12.5 }}>{w.name}</div>
+                                                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{w.skill || ''}</div>
+                                                    </td>
+                                                    {days.map(d => {
+                                                        const h = byWorkerDay[w.id]?.[d];
+                                                        return (
+                                                            <td key={d} style={{
+                                                                padding: '4px 2px', textAlign: 'center',
+                                                                background: h ? cellBg(h) : (isWeekend(d) ? '#fff5f5' : 'transparent'),
+                                                                fontWeight: h ? 700 : 400,
+                                                                color: h ? cellColor(h) : '#d1d5db',
+                                                                borderRight: '1px solid var(--border-light)',
+                                                            }}>
+                                                                {h ? fmtCong(h) : '—'}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 800, color: '#16a34a', borderLeft: '2px solid var(--border)', whiteSpace: 'nowrap' }}>
+                                                        {totalCong > 0 ? (totalCong % 1 === 0 ? totalCong : totalCong.toFixed(1)) : '—'}
+                                                    </td>
+                                                    <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 600, color: '#2563eb', whiteSpace: 'nowrap' }}>
+                                                        {totalH > 0 ? `${totalH}h` : '—'}
+                                                    </td>
+                                                    <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700, color: '#8b5cf6', whiteSpace: 'nowrap' }}>
+                                                        {cost > 0 ? `${new Intl.NumberFormat('vi-VN').format(Math.round(cost / 1000))}k` : '—'}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr style={{ background: '#f1f5f9', fontWeight: 700, borderTop: '2px solid var(--border)' }}>
+                                            <td style={{
+                                                padding: '8px 12px', position: 'sticky', left: 0,
+                                                background: '#f1f5f9', zIndex: 1, borderRight: '1px solid var(--border)',
+                                                fontWeight: 700, color: 'var(--text-secondary)',
+                                            }}>Tổng / ngày</td>
+                                            {days.map(d => {
+                                                const total = dayTotal(d);
+                                                return (
+                                                    <td key={d} style={{
+                                                        padding: '6px 2px', textAlign: 'center', fontSize: 11,
+                                                        fontWeight: total > 0 ? 700 : 400,
+                                                        color: total > 0 ? '#1d4ed8' : '#d1d5db',
+                                                        background: isWeekend(d) ? '#e9f0ff' : '#f1f5f9',
+                                                        borderRight: '1px solid var(--border-light)',
+                                                    }}>
+                                                        {total > 0 ? (total % 1 === 0 ? total : total.toFixed(1)) : '—'}
+                                                    </td>
+                                                );
+                                            })}
+                                            <td style={{ padding: '8px 10px', textAlign: 'right', color: '#16a34a', borderLeft: '2px solid var(--border)', whiteSpace: 'nowrap', fontSize: 13 }}>
+                                                {grandTotal.cong > 0 ? (grandTotal.cong % 1 === 0 ? grandTotal.cong : grandTotal.cong.toFixed(1)) : '—'}
+                                            </td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'right', color: '#2563eb', whiteSpace: 'nowrap', fontSize: 13 }}>
+                                                {grandTotal.hours > 0 ? `${grandTotal.hours}h` : '—'}
+                                            </td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'right', color: '#8b5cf6', whiteSpace: 'nowrap', fontSize: 13 }}>
+                                                {grandTotal.cost > 0 ? `${new Intl.NumberFormat('vi-VN').format(Math.round(grandTotal.cost / 1000))}k` : '—'}
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                                {summaryWorkers.length === 0 && (
+                                    <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
+                                        Không có dữ liệu chấm công trong tháng này
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Chú thích */}
+                        <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border-light)', display: 'flex', gap: 16, fontSize: 11, color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+                            <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 3, background: '#dcfce7', marginRight: 4, verticalAlign: 'middle' }}></span>1 công (8h)</span>
+                            <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 3, background: '#fef9c3', marginRight: 4, verticalAlign: 'middle' }}></span>Nửa công (4-7h)</span>
+                            <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 3, background: '#fee2e2', marginRight: 4, verticalAlign: 'middle' }}></span>Dưới nửa công</span>
+                            <span style={{ color: '#dc2626', fontWeight: 600 }}>Đỏ = Cuối tuần</span>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* Modal thêm/sửa nhân công */}
             {showModal && (
