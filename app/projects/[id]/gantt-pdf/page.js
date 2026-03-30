@@ -185,8 +185,8 @@ export default function GanttPdfPage() {
                             <g key={i}>
                                 {d.isWeekend && <rect x={LABEL_W + i * colW} y={0} width={colW} height={svgH} fill="rgba(0,0,0,0.03)" />}
                                 {d.isToday   && <rect x={LABEL_W + i * colW} y={0} width={colW} height={svgH} fill="rgba(59,130,246,0.06)" />}
-                                {(colW >= 20 || d.day === 1 || d.day === 15) && (
-                                    <text x={LABEL_W + i * colW + colW / 2} y={HEADER_H - 5} fill={d.isToday ? '#fff' : 'rgba(255,255,255,0.7)'} fontSize={8} textAnchor="middle" fontWeight={d.isToday ? 'bold' : 'normal'}>{d.day}</text>
+                                {(colW >= 20 || d.day === 1 || d.day === 5 || d.day === 10 || d.day === 15 || d.day === 20 || d.day === 25) && (
+                                    <text x={LABEL_W + i * colW + colW / 2} y={HEADER_H - 5} fill={d.isToday ? '#fff' : d.day === 1 ? '#fff' : 'rgba(255,255,255,0.85)'} fontSize={8} textAnchor="middle" fontWeight={d.isToday || d.day === 1 ? 'bold' : 'normal'}>{d.day}</text>
                                 )}
                             </g>
                         ))}
