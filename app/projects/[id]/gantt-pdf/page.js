@@ -288,23 +288,20 @@ export default function GanttPdfPage() {
                                         </>
                                     )}
 
-                                    {/* Duration + date label inside bar */}
-                                    {!isGroup && bw > 32 && (() => {
+                                    {/* Duration + date label */}
+                                    {!isGroup && (() => {
                                         const dur = diffDays(row.startDate, row.endDate) + 1;
                                         const s = new Date(row.startDate), e = new Date(row.endDate);
                                         const fmt2 = d => `${d.getDate()}/${d.getMonth() + 1}`;
-                                        const label = bw > 100
-                                            ? `${fmt2(s)} - ${fmt2(e)} (${dur}D)`
-                                            : bw > 55
-                                                ? `${dur}D`
-                                                : `${dur}D`;
-                                        return <text x={LABEL_W + sx + 5} y={bY + bh / 2 + 3} fontSize={8} fontWeight="bold" fill="#fff">{label}</text>;
+                                        const fullLabel = `${fmt2(s)} - ${fmt2(e)} (${dur}D)`;
+                                        if (bw >= 100) {
+                                            // Wide bar: show full info inside
+                                            return <text x={LABEL_W + sx + 5} y={bY + bh / 2 + 3} fontSize={8} fontWeight="bold" fill="#fff">{fullLabel}</text>;
+                                        } else {
+                                            // Narrow bar: show full info outside to the right
+                                            return <text x={LABEL_W + sx + bw + 4} y={bY + bh / 2 + 3} fontSize={7} fontWeight="bold" fill="#1e293b">{fullLabel}</text>;
+                                        }
                                     })()}
-
-                                    {/* Date labels on bar ends */}
-                                    {bw > 50 && (
-                                        <text x={LABEL_W + sx + bw + 3} y={bY + bh / 2 + 3} fontSize={7} fill="#94a3b8">{fmtShort(row.endDate)}</text>
-                                    )}
                                 </g>
                             );
                         })}
