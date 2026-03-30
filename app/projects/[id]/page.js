@@ -106,7 +106,7 @@ export default function ProjectDetailPage() {
     const [matSearch, setMatSearch] = useState('');
     const [matStatusFilter, setMatStatusFilter] = useState('');
     const [matPoFilter, setMatPoFilter] = useState('');
-    const fetchData = () => { fetch(`/api/projects/${id}`).then(r => r.json()).then(d => { setData(d); setLoading(false); }); };
+    const fetchData = () => { fetch(`/api/projects/${id}`).then(r => r.ok ? r.json() : r.json().then(e => { throw new Error(e.error || `HTTP ${r.status}`); })).then(d => { setData(d); setLoading(false); }).catch(e => { console.error('[ProjectDetail]', e); setData({ _error: e.message }); setLoading(false); }); };
     useEffect(fetchData, [id]);
     useEffect(() => {
         const check = () => setIsMobile(window.innerWidth < 768);
@@ -670,6 +670,7 @@ export default function ProjectDetailPage() {
     };
 
     if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>;
+    if (!data || data._error) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--status-danger)' }}>Lỗi tải dự án: {data?._error || 'Không xác định'}. <button className="btn btn-ghost" onClick={fetchData}>Thử lại</button></div>;
     const p = data;
     const pnl = p.pnl;
     const st = p.settlement;
@@ -862,7 +863,7 @@ export default function ProjectDetailPage() {
             {tab === 'logs' && (
                 <div className="card" style={{ padding: 24 }}>
                     <div className="card-header"><span className="card-title">📒 Nhật ký theo dõi</span><button className="btn btn-primary btn-sm" onClick={() => setModal('log')}>+ Ghi chú</button></div>
-                    {p.trackingLogs.map(log => (
+                    {(p.trackingLogs || []).map(log => (
                         <div key={log.id} style={{ display: 'flex', gap: 14, padding: '14px 0', borderBottom: '1px solid var(--border-light)' }}>
                             <div style={{ width: 42, height: 42, borderRadius: 10, background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
                                 {log.type === 'Điện thoại' ? '📞' : log.type === 'Gặp mặt' ? '🤝' : log.type === 'Email' ? '📧' : '💬'}
@@ -877,7 +878,7 @@ export default function ProjectDetailPage() {
                             </div>
                         </div>
                     ))}
-                    {p.trackingLogs.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có nhật ký theo dõi</div>}
+                    {!(p.trackingLogs?.length) && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có nhật ký theo dõi</div>}
                 </div>
             )}
 
@@ -938,17 +939,17 @@ export default function ProjectDetailPage() {
                         </div>
                         <div className="card">
                             <div className="card-header"><span className="card-title">💰 Giao dịch gần đây</span></div>
-                            {p.transactions.map(t => (
+                            {(p.transactions || []).map(t => (
                                 <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border-light)' }}>
                                     <div><span style={{ fontWeight: 600, fontSize: 13 }}>{t.description}</span><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{fmtDate(t.date)}</div></div>
                                     <span style={{ fontWeight: 700, fontSize: 13, color: t.type === 'Thu' ? 'var(--status-success)' : 'var(--status-danger)' }}>{t.type === 'Thu' ? '+' : '-'}{fmt(t.amount)}</span>
                                 </div>
                             ))}
-                            {p.transactions.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 20, textAlign: 'center', fontSize: 13 }}>Chưa có giao dịch</div>}
+                            {!(p.transactions?.length) && <div style={{ color: 'var(--text-muted)', padding: 20, textAlign: 'center', fontSize: 13 }}>Chưa có giao dịch</div>}
                         </div>
                         <div className="card" style={{ gridColumn: '1 / -1' }}>
-                            <div className="card-header"><span className="card-title">📝 Nhật ký theo dõi</span>{p.trackingLogs.length > 5 && <button className="btn btn-ghost btn-sm" onClick={() => setTab('logs')} style={{ fontSize: 12 }}>Xem tất cả ({p.trackingLogs.length}) →</button>}</div>
-                            {p.trackingLogs.slice(0, 5).map(log => (
+                            <div className="card-header"><span className="card-title">📝 Nhật ký theo dõi</span>{(p.trackingLogs?.length || 0) > 5 && <button className="btn btn-ghost btn-sm" onClick={() => setTab('logs')} style={{ fontSize: 12 }}>Xem tất cả ({p.trackingLogs.length}) →</button>}</div>
+                            {(p.trackingLogs || []).slice(0, 5).map(log => (
                                 <div key={log.id} style={{ display: 'flex', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border-light)' }}>
                                     <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
                                         {log.type === 'Điện thoại' ? '📞' : log.type === 'Gặp mặt' ? '🤝' : log.type === 'Email' ? '📧' : '💬'}
