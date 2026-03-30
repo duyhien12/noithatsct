@@ -65,47 +65,38 @@ export default function ScheduleTemplatesPage() {
         const XLSX = mod.default || mod;
         const wb = XLSX.utils.book_new();
 
-        // Sheet 1: Data
-        const header = [['Tên hạng mục *', 'WBS', 'Cấp (0=Nhóm / 1=Con)', 'Số ngày', 'Trọng lượng', 'Màu (hex)', 'Sau HM số (STT)', 'Thuộc nhóm số (STT)']];
-        const sample = [
-            ['Phần thô', '1', 0, 30, 1, '#3b82f6', '', ''],
-            ['Đào móng', '1.1', 1, 7, 0.2, '', '', 1],
-            ['Đổ bê tông móng', '1.2', 1, 10, 0.3, '', 2, 1],
-            ['Xây tường', '1.3', 1, 13, 0.5, '', 3, 1],
-            ['Phần hoàn thiện', '2', 0, 45, 1, '#22c55e', 1, ''],
-            ['Trát tường', '2.1', 1, 15, 0.3, '', 4, 5],
-            ['Sơn nước', '2.2', 1, 10, 0.2, '', 6, 5],
-            ['Lắp đặt nội thất', '2.3', 1, 20, 0.5, '', 7, 5],
-        ];
-        const notes = [
-            [],
-            ['--- HƯỚNG DẪN ---'],
-            ['Cột A', 'Tên hạng mục - BẮT BUỘC'],
-            ['Cột B', 'Mã WBS (VD: 1, 1.1, 1.2...)'],
-            ['Cột C', '0 = Nhóm (đầu mục), 1 = Con (hạng mục con)'],
-            ['Cột D', 'Số ngày thực hiện (mặc định 1)'],
-            ['Cột E', 'Trọng lượng tính % tiến độ (mặc định 1)'],
-            ['Cột F', 'Màu hex VD: #ef4444 (đỏ), #22c55e (xanh), #3b82f6 (xanh dương), để trống = không màu'],
-            ['Cột G', 'STT của hạng mục đi trước (Finish-to-Start), để trống = không phụ thuộc'],
-            ['Cột H', 'STT của nhóm cha, để trống = không có nhóm'],
-            [],
-            ['Lưu ý:', 'Dòng 1 là tiêu đề, dữ liệu bắt đầu từ dòng 2. STT tính từ 1.'],
-        ];
-        const ws = XLSX.utils.aoa_to_sheet([...header, ...sample, ...notes]);
-        ws['!cols'] = [{ wch: 30 }, { wch: 10 }, { wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 20 }];
-        XLSX.utils.book_append_sheet(wb, ws, 'Tiến độ');
-
-        // Sheet 2: Metadata
-        const metaWs = XLSX.utils.aoa_to_sheet([
+        // Metadata ở đầu sheet
+        const metaRows = [
             ['Tên mẫu *', 'Nhập tên mẫu tiến độ vào đây'],
             ['Loại', 'Nội thất'],
             ['Mô tả', ''],
             [],
-            ['Các loại hợp lệ:', 'Xây thô, Hoàn thiện, Nội thất, Thiết kế'],
-        ]);
-        metaWs['!cols'] = [{ wch: 16 }, { wch: 40 }];
-        XLSX.utils.book_append_sheet(wb, metaWs, 'Thông tin mẫu');
-
+        ];
+        const header = [['STT', 'Hạng mục *', 'Ngày BĐ', 'Ngày KT', 'Tổng số ngày']];
+        const sample = [
+            [1, 'Phần thô', '01/04/2025', '30/04/2025', 30],
+            [2, 'Đào móng', '01/04/2025', '07/04/2025', 7],
+            [3, 'Đổ bê tông móng', '08/04/2025', '17/04/2025', 10],
+            [4, 'Xây tường', '18/04/2025', '30/04/2025', 13],
+            [5, 'Phần hoàn thiện', '01/05/2025', '14/06/2025', 45],
+            [6, 'Trát tường', '01/05/2025', '15/05/2025', 15],
+            [7, 'Sơn nước', '16/05/2025', '25/05/2025', 10],
+            [8, 'Lắp đặt nội thất', '26/05/2025', '14/06/2025', 20],
+        ];
+        const notes = [
+            [],
+            ['--- HƯỚNG DẪN ---'],
+            ['Dòng 1-2', 'Tên mẫu và Loại - BẮT BUỘC điền trước khi nhập'],
+            ['Cột A (STT)', 'Số thứ tự (tự động, có thể để trống)'],
+            ['Cột B (Hạng mục)', 'Tên hạng mục - BẮT BUỘC'],
+            ['Cột C (Ngày BĐ)', 'Ngày bắt đầu định dạng DD/MM/YYYY (có thể để trống)'],
+            ['Cột D (Ngày KT)', 'Ngày kết thúc định dạng DD/MM/YYYY (có thể để trống)'],
+            ['Cột E (Tổng số ngày)', 'Số ngày thực hiện - nếu để trống sẽ tính từ Ngày BĐ và Ngày KT'],
+            ['Loại hợp lệ:', 'Xây thô, Hoàn thiện, Nội thất, Thiết kế'],
+        ];
+        const ws = XLSX.utils.aoa_to_sheet([...metaRows, ...header, ...sample, ...notes]);
+        ws['!cols'] = [{ wch: 8 }, { wch: 36 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
+        XLSX.utils.book_append_sheet(wb, ws, 'Tiến độ');
         XLSX.writeFile(wb, 'mau_tien_do_SCT.xlsx');
     };
 
@@ -113,45 +104,51 @@ export default function ScheduleTemplatesPage() {
         setImporting(true);
         try {
             const mod = await import('xlsx');
-        const XLSX = mod.default || mod;
+            const XLSX = mod.default || mod;
             const buf = await file.arrayBuffer();
-            const wb = XLSX.read(buf, { type: 'array' });
+            const wb = XLSX.read(buf, { type: 'array', cellDates: true });
 
-            // Read metadata from sheet 2
-            const metaSheet = wb.Sheets['Thông tin mẫu'];
-            const metaRows = metaSheet ? XLSX.utils.sheet_to_json(metaSheet, { header: 1, defval: '' }) : [];
-            const templateName = String(metaRows[0]?.[1] || '').trim();
-            const templateType = String(metaRows[1]?.[1] || 'Nội thất').trim();
-            const templateDesc = String(metaRows[2]?.[1] || '').trim();
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+            // Dòng 1-2: metadata (row index 0-1)
+            const templateName = String(rows[0]?.[1] || '').trim();
+            const templateType = String(rows[1]?.[1] || 'Nội thất').trim();
+            const templateDesc = String(rows[2]?.[1] || '').trim();
 
             if (!templateName || templateName === 'Nhập tên mẫu tiến độ vào đây') {
-                alert('Vui lòng điền Tên mẫu vào sheet "Thông tin mẫu" (ô B1)');
+                alert('Vui lòng điền Tên mẫu vào ô B1 của file Excel');
                 setImporting(false);
                 return;
             }
 
-            // Read items from sheet 1
-            const dataSheet = wb.Sheets[wb.SheetNames[0]];
-            const rows = XLSX.utils.sheet_to_json(dataSheet, { header: 1, defval: '' });
-            const dataRows = rows.slice(1).filter(r => r[0] && String(r[0]).trim());
-
+            // Dòng 5 trở đi là data (skip 4 dòng meta + 1 dòng header)
+            const dataRows = rows.slice(5).filter(r => r[1] && String(r[1]).trim());
             if (!dataRows.length) {
-                alert('Không có hạng mục nào trong file');
+                alert('Không có hạng mục nào trong file (bắt đầu từ dòng 6)');
                 setImporting(false);
                 return;
             }
 
-            const parsedItems = dataRows.map((r, idx) => ({
-                name: String(r[0] || '').trim(),
-                wbs: String(r[1] || '').trim(),
-                level: Number(r[2]) || 0,
-                duration: Number(r[3]) || 1,
-                weight: Number(r[4]) || 1,
-                color: String(r[5] || '').trim(),
-                predecessorIndex: r[6] !== '' && r[6] !== null ? Number(r[6]) - 1 : null,
-                parentIndex: r[7] !== '' && r[7] !== null ? Number(r[7]) - 1 : null,
-                order: idx,
-            }));
+            const parseDMY = (val) => {
+                if (!val) return null;
+                if (val instanceof Date) return val;
+                const s = String(val).trim();
+                const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+                if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+                return null;
+            };
+
+            const parsedItems = dataRows.map((r, idx) => {
+                const start = parseDMY(r[2]);
+                const end = parseDMY(r[3]);
+                let duration = Number(r[4]) || 0;
+                if (!duration && start && end) {
+                    duration = Math.max(1, Math.round((end - start) / 86400000) + 1);
+                }
+                if (!duration) duration = 1;
+                return { name: String(r[1] || '').trim(), duration, order: idx, level: 0, wbs: '', weight: 1, color: '' };
+            });
 
             const res = await fetch('/api/schedule-templates', {
                 method: 'POST',
