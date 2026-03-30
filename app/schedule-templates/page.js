@@ -61,7 +61,8 @@ export default function ScheduleTemplatesPage() {
     };
 
     const downloadTemplate = async () => {
-        const XLSX = (await import('xlsx')).default;
+        const mod = await import('xlsx');
+        const XLSX = mod.default || mod;
         const wb = XLSX.utils.book_new();
 
         // Sheet 1: Data
@@ -111,7 +112,8 @@ export default function ScheduleTemplatesPage() {
     const handleImportExcel = async (file) => {
         setImporting(true);
         try {
-            const XLSX = (await import('xlsx')).default;
+            const mod = await import('xlsx');
+        const XLSX = mod.default || mod;
             const buf = await file.arrayBuffer();
             const wb = XLSX.read(buf, { type: 'array' });
 
