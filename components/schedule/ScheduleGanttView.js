@@ -354,7 +354,7 @@ export default function ScheduleGanttView({ tasks, flat, onUpdate, projectId }) 
 
                                     {/* Background bar */}
                                     <rect x={x} y={barY} width={w} height={h} rx={isGroup ? 0 : 4}
-                                        fill={barColor} opacity={0.15}
+                                        fill={barColor} opacity={0.6}
                                         style={{ cursor: isGroup ? 'default' : 'grab' }}
                                         onMouseDown={!isGroup ? (e) => handleMouseDown(e, row.id, 'move') : undefined}
                                     />
@@ -362,16 +362,16 @@ export default function ScheduleGanttView({ tasks, flat, onUpdate, projectId }) 
                                     {/* Progress fill */}
                                     {!isGroup && (
                                         <rect x={x} y={barY} width={w * row.progress / 100} height={h} rx={4}
-                                            fill={barColor} opacity={0.7} style={{ pointerEvents: 'none' }}
+                                            fill={barColor} opacity={1} style={{ pointerEvents: 'none' }}
                                         />
                                     )}
 
                                     {/* Group diamond markers */}
                                     {isGroup && (
                                         <>
-                                            <polygon points={`${x},${barY + 4} ${x + 4},${barY} ${x + 8},${barY + 4} ${x + 4},${barY + 8}`} fill={barColor} opacity={0.8} />
-                                            <polygon points={`${x + w - 8},${barY + 4} ${x + w - 4},${barY} ${x + w},${barY + 4} ${x + w - 4},${barY + 8}`} fill={barColor} opacity={0.8} />
-                                            <line x1={x + 4} y1={barY + 4} x2={x + w - 4} y2={barY + 4} stroke={barColor} strokeWidth={2} opacity={0.6} />
+                                            <polygon points={`${x},${barY + 4} ${x + 4},${barY} ${x + 8},${barY + 4} ${x + 4},${barY + 8}`} fill={barColor} opacity={1} />
+                                            <polygon points={`${x + w - 8},${barY + 4} ${x + w - 4},${barY} ${x + w},${barY + 4} ${x + w - 4},${barY + 8}`} fill={barColor} opacity={1} />
+                                            <line x1={x + 4} y1={barY + 4} x2={x + w - 4} y2={barY + 4} stroke={barColor} strokeWidth={2} opacity={0.9} />
                                         </>
                                     )}
 

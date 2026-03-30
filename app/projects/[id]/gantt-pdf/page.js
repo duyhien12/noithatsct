@@ -272,19 +272,19 @@ export default function GanttPdfPage() {
                                     )}
 
                                     {/* Bar background */}
-                                    <rect x={LABEL_W + sx} y={bY} width={bw} height={bh} rx={isGroup ? 0 : 3} fill={barColor} opacity={0.15} />
+                                    <rect x={LABEL_W + sx} y={bY} width={bw} height={bh} rx={isGroup ? 0 : 3} fill={barColor} opacity={0.45} />
 
                                     {/* Progress fill */}
                                     {!isGroup && (
-                                        <rect x={LABEL_W + sx} y={bY} width={bw * (row.progress / 100)} height={bh} rx={3} fill={barColor} opacity={0.75} />
+                                        <rect x={LABEL_W + sx} y={bY} width={bw * (row.progress / 100)} height={bh} rx={3} fill={barColor} opacity={1} />
                                     )}
 
                                     {/* Group diamonds & line */}
                                     {isGroup && (
                                         <>
-                                            <line x1={LABEL_W + sx + 4} y1={bY + 3} x2={LABEL_W + sx + bw - 4} y2={bY + 3} stroke={barColor} strokeWidth={2} opacity={0.7} />
-                                            <polygon points={`${LABEL_W + sx},${bY + 3} ${LABEL_W + sx + 4},${bY} ${LABEL_W + sx + 8},${bY + 3} ${LABEL_W + sx + 4},${bY + 6}`} fill={barColor} opacity={0.85} />
-                                            <polygon points={`${LABEL_W + sx + bw - 8},${bY + 3} ${LABEL_W + sx + bw - 4},${bY} ${LABEL_W + sx + bw},${bY + 3} ${LABEL_W + sx + bw - 4},${bY + 6}`} fill={barColor} opacity={0.85} />
+                                            <line x1={LABEL_W + sx + 4} y1={bY + 3} x2={LABEL_W + sx + bw - 4} y2={bY + 3} stroke={barColor} strokeWidth={2} opacity={1} />
+                                            <polygon points={`${LABEL_W + sx},${bY + 3} ${LABEL_W + sx + 4},${bY} ${LABEL_W + sx + 8},${bY + 3} ${LABEL_W + sx + 4},${bY + 6}`} fill={barColor} opacity={1} />
+                                            <polygon points={`${LABEL_W + sx + bw - 8},${bY + 3} ${LABEL_W + sx + bw - 4},${bY} ${LABEL_W + sx + bw},${bY + 3} ${LABEL_W + sx + bw - 4},${bY + 6}`} fill={barColor} opacity={1} />
                                         </>
                                     )}
 
