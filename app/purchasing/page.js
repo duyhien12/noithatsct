@@ -420,8 +420,14 @@ function PurchasingContent() {
                                                             onFocus={e => e.target.select()} />
                                                     </td>
                                                     <td style={{ padding: '6px 4px' }}>
-                                                        <input className="form-input" type="number" style={{ fontSize: 12, padding: '4px 6px' }} value={it.unitPrice}
-                                                            onChange={e => updateItem(i, 'unitPrice', Number(e.target.value))} min="0" />
+                                                        <input className="form-input" type="text" inputMode="numeric" style={{ fontSize: 12, padding: '4px 6px' }}
+                                                            value={it.unitPrice === 0 ? '' : it.unitPrice}
+                                                            placeholder="0"
+                                                            onChange={e => {
+                                                                const raw = e.target.value.replace(/[^0-9.]/g, '');
+                                                                updateItem(i, 'unitPrice', raw === '' ? 0 : Number(raw));
+                                                            }}
+                                                            onFocus={e => e.target.select()} />
                                                     </td>
                                                     <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, fontSize: 12 }}>
                                                         {fmtNum(it.amount)}
