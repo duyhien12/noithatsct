@@ -288,25 +288,13 @@ export default function GanttPdfPage() {
                                         </>
                                     )}
 
-                                    {/* Duration + date label */}
+                                    {/* Duration label */}
                                     {!isGroup && (() => {
                                         const dur = diffDays(row.startDate, row.endDate) + 1;
-                                        const s = new Date(row.startDate), e = new Date(row.endDate);
-                                        const fd = d => `${d.getDate()}/${d.getMonth() + 1}`;
-                                        const fullLabel = `${fd(s)}-${fd(e)} (${dur}D)`;
-                                        const shortLabel = `${dur}D`;
-                                        if (bw >= 90) {
-                                            // Wide: full info inside bar
-                                            return <text x={LABEL_W + sx + 5} y={bY + bh / 2 + 3} fontSize={8} fontWeight="bold" fill="#fff">{fullLabel}</text>;
-                                        } else if (bw >= 30) {
-                                            // Medium: short inside + full outside right
-                                            return <g>
-                                                <text x={LABEL_W + sx + 4} y={bY + bh / 2 + 3} fontSize={8} fontWeight="bold" fill="#fff">{shortLabel}</text>
-                                                <text x={LABEL_W + sx + bw + 4} y={bY + bh / 2 + 3} fontSize={7} fill="#374151">{fullLabel}</text>
-                                            </g>;
+                                        if (bw >= 30) {
+                                            return <text x={LABEL_W + sx + 4} y={bY + bh / 2 + 3} fontSize={8} fontWeight="bold" fill="#fff">{dur}D</text>;
                                         } else {
-                                            // Very narrow: full info outside right only
-                                            return <text x={LABEL_W + sx + bw + 4} y={bY + bh / 2 + 3} fontSize={7} fill="#374151">{fullLabel}</text>;
+                                            return <text x={LABEL_W + sx + bw + 4} y={bY + bh / 2 + 3} fontSize={8} fontWeight="bold" fill="#fff">{dur}D</text>;
                                         }
                                     })()}
                                 </g>
