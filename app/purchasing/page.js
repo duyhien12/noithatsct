@@ -421,11 +421,22 @@ function PurchasingContent() {
                                                     </td>
                                                     <td style={{ padding: '6px 4px' }}>
                                                         <input className="form-input" type="text" inputMode="numeric" style={{ fontSize: 12, padding: '4px 6px' }}
-                                                            value={it.unitPrice === 0 ? '' : it.unitPrice}
+                                                            value={it._rawPrice !== undefined ? it._rawPrice : (it.unitPrice || '')}
                                                             placeholder="0"
                                                             onChange={e => {
-                                                                const raw = e.target.value.replace(/[^0-9.]/g, '');
-                                                                updateItem(i, 'unitPrice', raw === '' ? 0 : Number(raw));
+                                                                const raw = e.target.value.replace(/[^0-9]/g, '');
+                                                                setPoItems(prev => prev.map((it2, idx) => {
+                                                                    if (idx !== i) return it2;
+                                                                    const price = raw === '' ? 0 : parseInt(raw, 10);
+                                                                    return { ...it2, _rawPrice: raw, unitPrice: price, amount: (Number(it2.quantity) || 0) * price };
+                                                                }));
+                                                            }}
+                                                            onBlur={() => {
+                                                                setPoItems(prev => prev.map((it2, idx) => {
+                                                                    if (idx !== i) return it2;
+                                                                    const { _rawPrice, ...rest } = it2;
+                                                                    return rest;
+                                                                }));
                                                             }}
                                                             onFocus={e => e.target.select()} />
                                                     </td>
