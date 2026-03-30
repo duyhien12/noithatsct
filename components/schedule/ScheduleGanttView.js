@@ -375,12 +375,16 @@ export default function ScheduleGanttView({ tasks, flat, onUpdate, projectId }) 
                                         </>
                                     )}
 
-                                    {/* Progress text */}
-                                    {!isGroup && w > 40 && (
-                                        <text x={x + 6} y={barY + h / 2 + 4} fontSize={10} fontWeight={600} fill="#fff" style={{ pointerEvents: 'none' }}>
-                                            {row.progress}%
-                                        </text>
-                                    )}
+                                    {/* Progress text + duration */}
+                                    {!isGroup && w > 40 && (() => {
+                                        const totalDays = diffDays(start, end) + 1;
+                                        const label = w > 80 ? `${row.progress}% · ${totalDays}ng` : `${totalDays}ng`;
+                                        return (
+                                            <text x={x + 6} y={barY + h / 2 + 4} fontSize={10} fontWeight={600} fill="#fff" style={{ pointerEvents: 'none' }}>
+                                                {label}
+                                            </text>
+                                        );
+                                    })()}
 
                                     {/* Resize handle (right edge) */}
                                     {!isGroup && (

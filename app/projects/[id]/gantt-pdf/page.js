@@ -288,10 +288,12 @@ export default function GanttPdfPage() {
                                         </>
                                     )}
 
-                                    {/* Progress % inside bar */}
-                                    {!isGroup && bw > 32 && (
-                                        <text x={LABEL_W + sx + 5} y={bY + bh / 2 + 3} fontSize={8} fontWeight="bold" fill="#fff">{row.progress}%</text>
-                                    )}
+                                    {/* Progress % + duration inside bar */}
+                                    {!isGroup && bw > 32 && (() => {
+                                        const dur = diffDays(row.startDate, row.endDate) + 1;
+                                        const label = bw > 70 ? `${row.progress}% · ${dur}ng` : `${dur}ng`;
+                                        return <text x={LABEL_W + sx + 5} y={bY + bh / 2 + 3} fontSize={8} fontWeight="bold" fill="#fff">{label}</text>;
+                                    })()}
 
                                     {/* Date labels on bar ends */}
                                     {bw > 50 && (
