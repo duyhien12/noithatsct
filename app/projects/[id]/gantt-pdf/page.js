@@ -288,18 +288,14 @@ export default function GanttPdfPage() {
                                         </>
                                     )}
 
-                                    {/* Duration + date label */}
+                                    {/* Duration label */}
                                     {!isGroup && (() => {
                                         const dur = diffDays(row.startDate, row.endDate) + 1;
-                                        const s = new Date(row.startDate), e = new Date(row.endDate);
-                                        const fmt2 = d => `${d.getDate()}/${d.getMonth() + 1}`;
-                                        const fullLabel = `${fmt2(s)} - ${fmt2(e)} (${dur}D)`;
-                                        if (bw >= 100) {
-                                            // Wide bar: show full info inside
-                                            return <text x={LABEL_W + sx + 5} y={bY + bh / 2 + 3} fontSize={8} fontWeight="bold" fill="#fff">{fullLabel}</text>;
+                                        const label = `${dur}D`;
+                                        if (bw >= 40) {
+                                            return <text x={LABEL_W + sx + 5} y={bY + bh / 2 + 3} fontSize={8} fontWeight="bold" fill="#fff">{label}</text>;
                                         } else {
-                                            // Narrow bar: show full info outside to the right
-                                            return <text x={LABEL_W + sx + bw + 4} y={bY + bh / 2 + 3} fontSize={7} fontWeight="bold" fill="#1e293b">{fullLabel}</text>;
+                                            return <text x={LABEL_W + sx + bw + 4} y={bY + bh / 2 + 3} fontSize={7} fontWeight="bold" fill="#1e293b">{label}</text>;
                                         }
                                     })()}
                                 </g>
