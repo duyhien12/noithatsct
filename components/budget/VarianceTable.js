@@ -574,10 +574,11 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     };
 
     const deleteG1 = async (g1) => {
-        const groupItems = items.filter(i => (i.group1 || '') === g1);
+        const groupItems = items.filter(i => (i.group1 || 'Chưa phân loại') === g1);
+        if (!groupItems.length) { alert('Không tìm thấy hạng mục trong nhóm này'); return; }
         if (!confirm(`Xóa toàn bộ nhóm "${g1}" (${groupItems.length} hạng mục)?`)) return;
         await Promise.all(groupItems.map(i => fetch(`/api/material-plans/${i.id}`, { method: 'DELETE' })));
-        setItems(prev => prev.filter(i => (i.group1 || '') !== g1));
+        setItems(prev => prev.filter(i => (i.group1 || 'Chưa phân loại') !== g1));
         setActiveTab(0);
     };
 
