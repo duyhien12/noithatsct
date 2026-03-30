@@ -75,19 +75,33 @@ export default function ProjectsPage() {
                     <select className="form-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}><option value="">Tất cả TT</option><option>Khảo sát</option><option>Thiết kế</option><option>Thi công</option><option>Nghiệm thu</option><option>Bàn giao</option></select>
                 </div>
                 {loading ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (<>
-                    {/* Desktop table */}
+                    {/* Desktop / Tablet table */}
                     <div className="desktop-table-view">
-                        <div className="table-container"><table className="data-table">
-                            <thead><tr><th>Mã</th><th>Dự án</th><th>Khách hàng</th><th>Loại</th><th>Giá trị HĐ</th><th>Đã thu</th><th>Tiến độ</th><th>TT</th><th></th></tr></thead>
+                        <div className="table-container"><table className="data-table projects-table">
+                            <thead><tr>
+                                <th>Mã</th>
+                                <th>Dự án</th>
+                                <th className="col-tablet-hide">Khách hàng</th>
+                                <th className="col-laptop-hide">Loại</th>
+                                <th>Giá trị HĐ</th>
+                                <th className="col-laptop-hide">Đã thu</th>
+                                <th className="col-tablet-hide">Tiến độ</th>
+                                <th>TT</th>
+                                <th></th>
+                            </tr></thead>
                             <tbody>{visibleProjects.map(p => (
                                 <tr key={p.id} onClick={() => router.push(`/projects/${p.id}`)} style={{ cursor: 'pointer' }}>
                                     <td className="accent">{p.code}</td>
-                                    <td className="primary">{p.name}{p.phase ? <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.phase}</div> : null}</td>
-                                    <td>{p.customer?.name}</td>
-                                    <td><span className="badge badge-default">{p.type}</span></td>
+                                    <td className="primary">
+                                        {p.name}
+                                        {p.phase ? <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.phase}</div> : null}
+                                        <div className="col-tablet-show" style={{ fontSize: 11, color: 'var(--text-muted)', display: 'none' }}>{p.customer?.name}</div>
+                                    </td>
+                                    <td className="col-tablet-hide">{p.customer?.name}</td>
+                                    <td className="col-laptop-hide"><span className="badge badge-default">{p.type}</span></td>
                                     <td>{fmt(p.contractValue || p.budget)}</td>
-                                    <td style={{ color: 'var(--status-success)' }}>{fmt(p.paidAmount || 0)}</td>
-                                    <td><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div className="progress-bar" style={{ flex: 1 }}><div className="progress-fill" style={{ width: `${p.progress}%` }}></div></div><span style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{p.progress}%</span></div></td>
+                                    <td className="col-laptop-hide" style={{ color: 'var(--status-success)' }}>{fmt(p.paidAmount || 0)}</td>
+                                    <td className="col-tablet-hide"><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div className="progress-bar" style={{ flex: 1 }}><div className="progress-fill" style={{ width: `${p.progress}%` }}></div></div><span style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{p.progress}%</span></div></td>
                                     <td><span className={`badge ${stColor[p.status] || 'badge-default'}`}>{p.status}</span></td>
                                     <td><button className="btn btn-ghost" onClick={(e) => handleDelete(p.id, e)}>🗑️</button></td>
                                 </tr>
@@ -98,16 +112,20 @@ export default function ProjectsPage() {
                     <div className="mobile-card-list">
                         {visibleProjects.map(p => (
                             <div key={p.id} className="mobile-card-item" onClick={() => router.push(`/projects/${p.id}`)}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
                                         <div className="card-subtitle">{p.code} · {p.customer?.name}</div>
                                     </div>
-                                    <span className={`badge ${stColor[p.status] || 'badge-default'}`}>{p.status}</span>
+                                    <span className={`badge ${stColor[p.status] || 'badge-default'}`} style={{ marginLeft: 8, flexShrink: 0 }}>{p.status}</span>
                                 </div>
                                 <div className="card-row">
-                                    <div><span className="card-label">Giá trị</span><div className="card-value">{fmt(p.contractValue || p.budget)}</div></div>
-                                    <div style={{ textAlign: 'right' }}><span className="card-label">Tiến độ</span><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div className="progress-bar" style={{ width: 50, height: 6 }}><div className="progress-fill" style={{ width: `${p.progress}%` }}></div></div><span style={{ fontWeight: 600, fontSize: 12 }}>{p.progress}%</span></div></div>
+                                    <div><span className="card-label">Giá trị HĐ</span><div className="card-value">{fmt(p.contractValue || p.budget)}</div></div>
+                                    <div style={{ textAlign: 'right' }}><span className="card-label">Đã thu</span><div className="card-value" style={{ color: 'var(--status-success)' }}>{fmt(p.paidAmount || 0)}</div></div>
+                                </div>
+                                <div className="card-row">
+                                    <div><span className="card-label">Loại</span><div style={{ fontSize: 12 }}>{p.type}</div></div>
+                                    <div style={{ textAlign: 'right' }}><span className="card-label">Tiến độ</span><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div className="progress-bar" style={{ width: 60, height: 6 }}><div className="progress-fill" style={{ width: `${p.progress}%` }}></div></div><span style={{ fontWeight: 600, fontSize: 12 }}>{p.progress}%</span></div></div>
                                 </div>
                             </div>
                         ))}

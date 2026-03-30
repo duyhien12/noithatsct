@@ -1926,6 +1926,38 @@ body {
   .settlement-grid {
     grid-template-columns: 1fr;
   }
+
+  /* Stats: 3 cột trên tablet */
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  /* Filter bar wrap trên tablet */
+  .filter-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .filter-bar .form-select {
+    min-width: 140px;
+    flex: 1;
+  }
+
+  /* Card header stack */
+  .card-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  /* Ẩn cột phụ trong bảng projects trên tablet */
+  .projects-table th.col-tablet-hide,
+  .projects-table td.col-tablet-hide {
+    display: none;
+  }
+
+  /* Hiện tên KH inline dưới tên dự án khi cột KH bị ẩn */
+  .projects-table .col-tablet-show {
+    display: block !important;
+  }
 }
 
 /* --- Mobile & small tablet (≤768px) --- */
@@ -3312,6 +3344,14 @@ select.form-input-compact {
 /* Mobile card list - alternative to tables */
 .mobile-card-list {
   display: none;
+}
+
+/* Projects table: compact trên laptop nhỏ */
+@media (max-width: 1200px) {
+  .projects-table th.col-laptop-hide,
+  .projects-table td.col-laptop-hide {
+    display: none;
+  }
 }
 
 .customer-header-top {
