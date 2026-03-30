@@ -294,10 +294,10 @@ export default function GanttPdfPage() {
                                         const s = new Date(row.startDate), e = new Date(row.endDate);
                                         const fmt2 = d => `${d.getDate()}/${d.getMonth() + 1}`;
                                         const label = bw > 100
-                                            ? `${fmt2(s)} - ${fmt2(e)} (${dur}ng)`
+                                            ? `${fmt2(s)} - ${fmt2(e)} (${dur}D)`
                                             : bw > 55
-                                                ? `${dur}ng`
-                                                : `${dur}`;
+                                                ? `${dur}D`
+                                                : `${dur}D`;
                                         return <text x={LABEL_W + sx + 5} y={bY + bh / 2 + 3} fontSize={8} fontWeight="bold" fill="#fff">{label}</text>;
                                     })()}
 

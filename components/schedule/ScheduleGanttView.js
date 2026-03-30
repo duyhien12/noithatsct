@@ -380,10 +380,10 @@ export default function ScheduleGanttView({ tasks, flat, onUpdate, projectId }) 
                                         const totalDays = diffDays(start, end) + 1;
                                         const fmt2 = d => `${d.getDate()}/${d.getMonth() + 1}`;
                                         const label = w > 120
-                                            ? `${fmt2(start)} - ${fmt2(end)} (${totalDays}ng)`
+                                            ? `${fmt2(start)} - ${fmt2(end)} (${totalDays}D)`
                                             : w > 70
-                                                ? `${totalDays}ng`
-                                                : `${totalDays}`;
+                                                ? `${totalDays}D`
+                                                : `${totalDays}D`;
                                         return (
                                             <text x={x + 6} y={barY + h / 2 + 4} fontSize={10} fontWeight={600} fill="#fff" style={{ pointerEvents: 'none' }}>
                                                 {label}
