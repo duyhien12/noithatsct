@@ -693,16 +693,32 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
 
     const downloadTemplate = () => {
         const wb = XLSX.utils.book_new();
-        const header = [['Nhóm (group1)', 'Nhóm con (group2)', 'Tên hạng mục', 'ĐVT', 'SL dự toán', 'Đơn giá DT', 'Loại chi phí']];
+        const header = [['Nhóm (group1)', 'Nhóm con (group2)', 'Tên hạng mục', 'ĐVT', 'SL dự toán', 'Đơn giá DT', 'Loại chi phí', 'SL thực tế (SLTT)', 'Đơn giá TT (ĐG TT)']];
         const sample = [
-            ['Vật tư', 'Gỗ', 'Gỗ MDF 18mm', 'm2', 50, 320000, 'Vật tư'],
-            ['Vật tư', 'Sơn', 'Sơn tường Dulux', 'lít', 20, 185000, 'Vật tư'],
-            ['Nhân công', '', 'Nhân công lắp đặt tủ bếp', 'ngày', 5, 450000, 'Nhân công'],
-            ['Thầu phụ', '', 'Thầu điện nước', 'gói', 1, 12000000, 'Thầu phụ'],
+            ['Vật tư', 'Gỗ', 'Gỗ MDF 18mm', 'm2', 50, 320000, 'Vật tư', 48, 335000],
+            ['Vật tư', 'Sơn', 'Sơn tường Dulux', 'lít', 20, 185000, 'Vật tư', 22, 190000],
+            ['Nhân công', '', 'Nhân công lắp đặt tủ bếp', 'ngày', 5, 450000, 'Nhân công', 6, 450000],
+            ['Thầu phụ', '', 'Thầu điện nước', 'gói', 1, 12000000, 'Thầu phụ', 1, 13500000],
         ];
-        const ws = XLSX.utils.aoa_to_sheet([...header, ...sample]);
-        ws['!cols'] = [{ wch: 20 }, { wch: 18 }, { wch: 32 }, { wch: 10 }, { wch: 12 }, { wch: 14 }, { wch: 16 }];
-        XLSX.utils.book_append_sheet(wb, ws, 'Vật tư');
+        const notes = [
+            [],
+            ['--- HƯỚNG DẪN ---'],
+            ['Cột A (Nhóm)', 'Tên nhóm chính, VD: Vật tư, Nhân công, Thầu phụ, Khác'],
+            ['Cột B (Nhóm con)', 'Tên nhóm con (có thể để trống), VD: Gỗ, Sơn, Đá'],
+            ['Cột C (Tên hạng mục)', 'BẮT BUỘC - Tên vật tư / hạng mục công việc'],
+            ['Cột D (ĐVT)', 'Đơn vị tính: m2, m3, md, cái, bộ, kg, lít, gói, ngày...'],
+            ['Cột E (SL dự toán)', 'Số lượng theo dự toán ban đầu'],
+            ['Cột F (Đơn giá DT)', 'Đơn giá dự toán (VNĐ, không có dấu phẩy)'],
+            ['Cột G (Loại chi phí)', 'Vật tư / Nhân công / Thầu phụ / Khác'],
+            ['Cột H (SL thực tế)', 'Số lượng thực tế (để trống = lấy bằng SL dự toán)'],
+            ['Cột I (Đơn giá TT)', 'Đơn giá thực tế (VNĐ, để trống = 0)'],
+        ];
+        const ws = XLSX.utils.aoa_to_sheet([...header, ...sample, ...notes]);
+        ws['!cols'] = [
+            { wch: 20 }, { wch: 18 }, { wch: 36 }, { wch: 10 },
+            { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 18 },
+        ];
+        XLSX.utils.book_append_sheet(wb, ws, 'Bảng chênh lệch');
         XLSX.writeFile(wb, 'mau_chenh_lech_vat_tu_SCT.xlsx');
     };
 
@@ -715,17 +731,21 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
             const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
             const dataRows = rows.slice(1).filter(r => r[2] && String(r[2]).trim());
             if (!dataRows.length) { alert('Không có dữ liệu hợp lệ trong file'); setImporting(false); return; }
-            const itemsPayload = dataRows.map(r => ({
-                customName: String(r[2] || '').trim(),
-                unit: String(r[3] || '').trim(),
-                quantity: Number(r[4]) || 0,
-                unitPrice: Number(r[5]) || 0,
-                actualCost: 0,
-                costType: String(r[6] || 'Vật tư').trim() || 'Vật tư',
-                group1: String(r[0] || '').trim(),
-                group2: String(r[1] || '').trim(),
-                planType: 'tracking',
-            }));
+            const itemsPayload = dataRows.map(r => {
+                const sltt = Number(r[7]) || 0;
+                const dgtt = Number(r[8]) || 0;
+                return {
+                    customName: String(r[2] || '').trim(),
+                    unit: String(r[3] || '').trim(),
+                    quantity: Number(r[4]) || 0,
+                    unitPrice: Number(r[5]) || 0,
+                    actualCost: sltt * dgtt,
+                    costType: String(r[6] || 'Vật tư').trim() || 'Vật tư',
+                    group1: String(r[0] || '').trim(),
+                    group2: String(r[1] || '').trim(),
+                    planType: 'tracking',
+                };
+            });
             const res = await fetch('/api/material-plans', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
