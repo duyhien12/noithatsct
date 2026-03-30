@@ -111,19 +111,28 @@ export default function ScheduleTemplatesPage() {
             const ws = wb.Sheets[wb.SheetNames[0]];
             const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
-            // Dòng 1-2: metadata (row index 0-1)
-            const templateName = String(rows[0]?.[1] || '').trim();
-            const templateType = String(rows[1]?.[1] || 'Nội thất').trim();
-            const templateDesc = String(rows[2]?.[1] || '').trim();
+            // Đọc metadata từ dòng 1-3, dữ liệu từ dòng 6
+            // Nếu file không có metadata (nhập thẳng không theo mẫu), thử đọc từ dòng 2
+            let templateName = String(rows[0]?.[1] || '').trim();
+            let templateType = String(rows[1]?.[1] || '').trim();
+            let templateDesc = String(rows[2]?.[1] || '').trim();
+            let dataStartRow = 5;
 
-            if (!templateName || templateName === 'Nhập tên mẫu tiến độ vào đây') {
-                alert('Vui lòng điền Tên mẫu vào ô B1 của file Excel');
-                setImporting(false);
-                return;
+            const isPlaceholder = !templateName || templateName === 'Nhập tên mẫu tiến độ vào đây';
+            const knownTypes = ['Xây thô', 'Hoàn thiện', 'Nội thất', 'Thiết kế'];
+
+            // Nếu không có metadata → thử đọc như file thuần (không có phần header meta)
+            if (isPlaceholder) {
+                // Tìm dòng header thực sự (có chứa "Hạng mục" hoặc "STT")
+                const headerIdx = rows.findIndex(r => String(r[0]).includes('STT') || String(r[1]).toLowerCase().includes('hạng mục'));
+                dataStartRow = headerIdx >= 0 ? headerIdx + 1 : 1;
+                const entered = window.prompt('Nhập tên cho mẫu tiến độ này:');
+                if (!entered?.trim()) { setImporting(false); return; }
+                templateName = entered.trim();
             }
+            if (!knownTypes.includes(templateType)) templateType = 'Nội thất';
 
-            // Dòng 5 trở đi là data (skip 4 dòng meta + 1 dòng header)
-            const dataRows = rows.slice(5).filter(r => r[1] && String(r[1]).trim());
+            const dataRows = rows.slice(dataStartRow).filter(r => r[1] && String(r[1]).trim());
             if (!dataRows.length) {
                 alert('Không có hạng mục nào trong file (bắt đầu từ dòng 6)');
                 setImporting(false);
