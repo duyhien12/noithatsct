@@ -835,8 +835,8 @@ export default function ProjectDetailPage() {
                         {/* Quick Stats */}
                         <div className="project-quick-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, marginTop: 8 }}>
                             {[
-                                { v: `${p.area}m²`, l: 'Diện tích' }, { v: `${p.floors} tầng`, l: 'Số tầng' },
-                                { v: fmt(p.contractValue), l: 'Giá trị HĐ' }, { v: fmt(p.paidAmount), l: 'Đã thu' },
+                                { v: p.area ? `${p.area}m²` : '—', l: 'Diện tích' }, { v: p.floors ? `${p.floors} tầng` : '—', l: 'Số tầng' },
+                                { v: fmt(p.contractValue || 0), l: 'Giá trị HĐ' }, { v: fmt(p.paidAmount || 0), l: 'Đã thu' },
                                 { v: fmt(pnl?.debtFromCustomer), l: 'KH còn nợ', c: (pnl?.debtFromCustomer ?? 0) > 0 ? 'var(--status-danger)' : 'var(--status-success)' }
                             ].map(s => (
                                 <div key={s.l} style={{ textAlign: 'center', padding: '8px 0' }}>

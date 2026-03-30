@@ -577,7 +577,11 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
         const groupItems = items.filter(i => (i.group1 || 'Chưa phân loại') === g1);
         if (!groupItems.length) { alert('Không tìm thấy hạng mục trong nhóm này'); return; }
         if (!confirm(`Xóa toàn bộ nhóm "${g1}" (${groupItems.length} hạng mục)?`)) return;
-        await Promise.all(groupItems.map(i => fetch(`/api/material-plans/${i.id}`, { method: 'DELETE' })));
+        // Delete theo batch 5 cái để tránh 429 Too Many Requests
+        const BATCH = 5;
+        for (let i = 0; i < groupItems.length; i += BATCH) {
+            await Promise.all(groupItems.slice(i, i + BATCH).map(item => fetch(`/api/material-plans/${item.id}`, { method: 'DELETE' })));
+        }
         setItems(prev => prev.filter(i => (i.group1 || 'Chưa phân loại') !== g1));
         setActiveTab(0);
     };
