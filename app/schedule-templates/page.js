@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
@@ -12,6 +12,8 @@ export default function ScheduleTemplatesPage() {
     const [form, setForm] = useState({ name: '', type: 'Nội thất', description: '' });
     const [items, setItems] = useState([]);
     const [detail, setDetail] = useState(null);
+    const [importing, setImporting] = useState(false);
+    const importRef = useRef();
 
     const fetchTemplates = () => {
         fetch('/api/schedule-templates').then(r => r.json()).then(d => { setTemplates(d); setLoading(false); });
@@ -58,6 +60,111 @@ export default function ScheduleTemplatesPage() {
         setDetail(d);
     };
 
+    const downloadTemplate = async () => {
+        const XLSX = (await import('xlsx')).default;
+        const wb = XLSX.utils.book_new();
+
+        // Sheet 1: Data
+        const header = [['Tên hạng mục *', 'WBS', 'Cấp (0=Nhóm / 1=Con)', 'Số ngày', 'Trọng lượng', 'Màu (hex)', 'Sau HM số (STT)', 'Thuộc nhóm số (STT)']];
+        const sample = [
+            ['Phần thô', '1', 0, 30, 1, '#3b82f6', '', ''],
+            ['Đào móng', '1.1', 1, 7, 0.2, '', '', 1],
+            ['Đổ bê tông móng', '1.2', 1, 10, 0.3, '', 2, 1],
+            ['Xây tường', '1.3', 1, 13, 0.5, '', 3, 1],
+            ['Phần hoàn thiện', '2', 0, 45, 1, '#22c55e', 1, ''],
+            ['Trát tường', '2.1', 1, 15, 0.3, '', 4, 5],
+            ['Sơn nước', '2.2', 1, 10, 0.2, '', 6, 5],
+            ['Lắp đặt nội thất', '2.3', 1, 20, 0.5, '', 7, 5],
+        ];
+        const notes = [
+            [],
+            ['--- HƯỚNG DẪN ---'],
+            ['Cột A', 'Tên hạng mục - BẮT BUỘC'],
+            ['Cột B', 'Mã WBS (VD: 1, 1.1, 1.2...)'],
+            ['Cột C', '0 = Nhóm (đầu mục), 1 = Con (hạng mục con)'],
+            ['Cột D', 'Số ngày thực hiện (mặc định 1)'],
+            ['Cột E', 'Trọng lượng tính % tiến độ (mặc định 1)'],
+            ['Cột F', 'Màu hex VD: #ef4444 (đỏ), #22c55e (xanh), #3b82f6 (xanh dương), để trống = không màu'],
+            ['Cột G', 'STT của hạng mục đi trước (Finish-to-Start), để trống = không phụ thuộc'],
+            ['Cột H', 'STT của nhóm cha, để trống = không có nhóm'],
+            [],
+            ['Lưu ý:', 'Dòng 1 là tiêu đề, dữ liệu bắt đầu từ dòng 2. STT tính từ 1.'],
+        ];
+        const ws = XLSX.utils.aoa_to_sheet([...header, ...sample, ...notes]);
+        ws['!cols'] = [{ wch: 30 }, { wch: 10 }, { wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 20 }];
+        XLSX.utils.book_append_sheet(wb, ws, 'Tiến độ');
+
+        // Sheet 2: Metadata
+        const metaWs = XLSX.utils.aoa_to_sheet([
+            ['Tên mẫu *', 'Nhập tên mẫu tiến độ vào đây'],
+            ['Loại', 'Nội thất'],
+            ['Mô tả', ''],
+            [],
+            ['Các loại hợp lệ:', 'Xây thô, Hoàn thiện, Nội thất, Thiết kế'],
+        ]);
+        metaWs['!cols'] = [{ wch: 16 }, { wch: 40 }];
+        XLSX.utils.book_append_sheet(wb, metaWs, 'Thông tin mẫu');
+
+        XLSX.writeFile(wb, 'mau_tien_do_SCT.xlsx');
+    };
+
+    const handleImportExcel = async (file) => {
+        setImporting(true);
+        try {
+            const XLSX = (await import('xlsx')).default;
+            const buf = await file.arrayBuffer();
+            const wb = XLSX.read(buf, { type: 'array' });
+
+            // Read metadata from sheet 2
+            const metaSheet = wb.Sheets['Thông tin mẫu'];
+            const metaRows = metaSheet ? XLSX.utils.sheet_to_json(metaSheet, { header: 1, defval: '' }) : [];
+            const templateName = String(metaRows[0]?.[1] || '').trim();
+            const templateType = String(metaRows[1]?.[1] || 'Nội thất').trim();
+            const templateDesc = String(metaRows[2]?.[1] || '').trim();
+
+            if (!templateName || templateName === 'Nhập tên mẫu tiến độ vào đây') {
+                alert('Vui lòng điền Tên mẫu vào sheet "Thông tin mẫu" (ô B1)');
+                setImporting(false);
+                return;
+            }
+
+            // Read items from sheet 1
+            const dataSheet = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(dataSheet, { header: 1, defval: '' });
+            const dataRows = rows.slice(1).filter(r => r[0] && String(r[0]).trim());
+
+            if (!dataRows.length) {
+                alert('Không có hạng mục nào trong file');
+                setImporting(false);
+                return;
+            }
+
+            const parsedItems = dataRows.map((r, idx) => ({
+                name: String(r[0] || '').trim(),
+                wbs: String(r[1] || '').trim(),
+                level: Number(r[2]) || 0,
+                duration: Number(r[3]) || 1,
+                weight: Number(r[4]) || 1,
+                color: String(r[5] || '').trim(),
+                predecessorIndex: r[6] !== '' && r[6] !== null ? Number(r[6]) - 1 : null,
+                parentIndex: r[7] !== '' && r[7] !== null ? Number(r[7]) - 1 : null,
+                order: idx,
+            }));
+
+            const res = await fetch('/api/schedule-templates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: templateName, type: templateType, description: templateDesc, items: parsedItems }),
+            });
+            if (!res.ok) { const err = await res.json(); alert(err.error || 'Lỗi tạo mẫu'); setImporting(false); return; }
+            fetchTemplates();
+            alert(`Đã tạo mẫu "${templateName}" với ${parsedItems.length} hạng mục`);
+        } catch (err) {
+            alert('Lỗi đọc file: ' + err.message);
+        }
+        setImporting(false);
+    };
+
     if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>;
 
     const TYPES = ['Xây thô', 'Hoàn thiện', 'Nội thất', 'Thiết kế'];
@@ -70,7 +177,14 @@ export default function ScheduleTemplatesPage() {
                     <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>📋 Mẫu tiến độ</h2>
                     <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>Quản lý thư viện mẫu tiến độ dùng cho các dự án</p>
                 </div>
-                <button className="btn btn-primary" onClick={() => { setModal('create'); setItems([]); }}>+ Tạo mẫu mới</button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-ghost btn-sm" onClick={downloadTemplate} style={{ border: '1px solid #16a34a', color: '#15803d', background: '#f0fdf4' }}>📥 Tải mẫu Excel</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => importRef.current?.click()} disabled={importing} style={{ border: '1px solid #2563eb', color: '#1d4ed8', background: '#eff6ff' }}>
+                        {importing ? 'Đang nhập...' : '📊 Nhập từ Excel'}
+                    </button>
+                    <input ref={importRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) { handleImportExcel(e.target.files[0]); e.target.value = ''; } }} />
+                    <button className="btn btn-primary" onClick={() => { setModal('create'); setItems([]); }}>+ Tạo mẫu mới</button>
+                </div>
             </div>
 
             {/* Templates Grid */}
