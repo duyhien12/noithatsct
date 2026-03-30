@@ -928,13 +928,13 @@ export default function ProjectDetailPage() {
                     <div className="dashboard-grid overview-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
                         <div className="card">
                             <div className="card-header"><span className="card-title">👥 Nhân sự</span></div>
-                            {p.employees.map(e => (
+                            {(p.employees || []).map(e => (
                                 <div key={e.employeeId} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border-light)' }}>
-                                    <span style={{ fontWeight: 600, fontSize: 13 }}>{e.employee.name}</span>
-                                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{e.employee.position}</span>
+                                    <span style={{ fontWeight: 600, fontSize: 13 }}>{e.employee?.name}</span>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{e.employee?.position}</span>
                                 </div>
                             ))}
-                            {p.employees.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 20, textAlign: 'center', fontSize: 13 }}>Chưa có nhân sự</div>}
+                            {!(p.employees?.length) && <div style={{ color: 'var(--text-muted)', padding: 20, textAlign: 'center', fontSize: 13 }}>Chưa có nhân sự</div>}
                         </div>
                         <div className="card">
                             <div className="card-header"><span className="card-title">💰 Giao dịch gần đây</span></div>
