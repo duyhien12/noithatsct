@@ -573,6 +573,14 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
         setItems(prev => prev.filter(i => i.id !== id));
     };
 
+    const deleteG1 = async (g1) => {
+        const groupItems = items.filter(i => (i.group1 || '') === g1);
+        if (!confirm(`Xóa toàn bộ nhóm "${g1}" (${groupItems.length} hạng mục)?`)) return;
+        await Promise.all(groupItems.map(i => fetch(`/api/material-plans/${i.id}`, { method: 'DELETE' })));
+        setItems(prev => prev.filter(i => (i.group1 || '') !== g1));
+        setActiveTab(0);
+    };
+
     const submitAddItem = async (g1, g2) => {
         if (!addForm.name.trim()) return;
         const savedScroll = window.scrollY;
@@ -1254,6 +1262,11 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                                         title="Đổi tên"
                                         style={{ padding: '3px 6px', fontSize: 11, background: 'none', border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>
                                         ✏️
+                                    </button>
+                                    <button onClick={e => { e.stopPropagation(); deleteG1(g1); }}
+                                        title="Xóa nhóm"
+                                        style={{ padding: '3px 6px', fontSize: 11, background: 'none', border: '1px solid #fca5a5', borderRadius: 6, cursor: 'pointer', color: '#ef4444', lineHeight: 1 }}>
+                                        🗑️
                                     </button>
                                 </>
                             )}
