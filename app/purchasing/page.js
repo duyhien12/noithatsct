@@ -152,10 +152,14 @@ function PurchasingContent() {
         if (poItems.every(it => !it.productName.trim())) return alert('Vui lòng nhập ít nhất 1 sản phẩm');
         setSaving(true);
         const validItems = poItems.filter(it => it.productName.trim()).map(it => ({
-            ...it,
+            productName: it.productName,
+            unit: it.unit || '',
             quantity: parseFloat(it.quantity) || 0,
             unitPrice: parseFloat(it.unitPrice) || 0,
             amount: (parseFloat(it.quantity) || 0) * (parseFloat(it.unitPrice) || 0),
+            productId: it.productId || null,
+            materialPlanId: it.materialPlanId || null,
+            notes: it.notes || null,
         }));
         const poTotal2 = validItems.reduce((s, it) => s + it.amount, 0);
         const payload = { ...poForm, projectId: poForm.projectId || null, totalAmount: poTotal2, items: validItems };
