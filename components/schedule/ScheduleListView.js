@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ProgressReportModal from './ProgressReportModal';
 import ProgressHistoryModal from './ProgressHistoryModal';
 
@@ -25,6 +25,9 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
     const [users, setUsers] = useState([]);
     const [filterDept, setFilterDept] = useState('');
     const [now, setNow] = useState(() => new Date());
+    const [dragSrcId, setDragSrcId] = useState(null);
+    const [dragOverId, setDragOverId] = useState(null);
+    const dragSrcIdRef = useRef(null);
 
     useEffect(() => {
         fetch('/api/users').then(r => r.ok ? r.json() : []).then(data => setUsers(Array.isArray(data) ? data : [])).catch(() => {});
@@ -66,8 +69,41 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
 
     const toggleCollapse = (id) => setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
 
+    /* ── DRAG & DROP ── */
+    const handleDragStart = (e, taskId) => {
+        dragSrcIdRef.current = taskId;
+        setDragSrcId(taskId);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', taskId);
+    };
+
+    const handleDragOver = (e, taskId) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        setDragOverId(taskId);
+    };
+
+    const handleDrop = async (e, targetTask, siblings) => {
+        e.preventDefault();
+        const srcId = dragSrcIdRef.current;
+        if (!srcId || srcId === targetTask.id) { setDragSrcId(null); setDragOverId(null); return; }
+        const sorted = [...siblings].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        const srcIdx = sorted.findIndex(t => t.id === srcId);
+        const tgtIdx = sorted.findIndex(t => t.id === targetTask.id);
+        if (srcIdx === -1 || tgtIdx === -1) { setDragSrcId(null); setDragOverId(null); return; }
+        const reordered = [...sorted];
+        const [moved] = reordered.splice(srcIdx, 1);
+        reordered.splice(tgtIdx, 0, moved);
+        await Promise.all(reordered.map((t, i) => onUpdate(t.id, { order: i * 10 })));
+        setDragSrcId(null);
+        setDragOverId(null);
+        dragSrcIdRef.current = null;
+    };
+
+    const handleDragEnd = () => { setDragSrcId(null); setDragOverId(null); dragSrcIdRef.current = null; };
+
     /* ── DESKTOP TABLE ROW ── */
-    const renderTaskDesktop = (task, depth = 0) => {
+    const renderTaskDesktop = (task, depth = 0, siblings = tasks) => {
         const isGroup = task.children && task.children.length > 0;
         const isCollapsed = collapsed[task.id];
         const isOverdue = task.status !== 'Hoàn thành' && new Date(task.endDate) < now;
@@ -76,17 +112,28 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
         const delayDays = hasBaseline ? Math.ceil((new Date(task.endDate) - new Date(task.baselineEnd)) / 86400000) : 0;
         const progressColor = task.progress === 100 ? 'var(--status-success)' : task.progress > 0 ? 'var(--accent-primary)' : 'var(--border)';
 
+        const isDraggingOver = dragOverId === task.id && dragSrcId !== task.id;
+
         return (
             <div key={task.id}>
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 90px 75px 75px 50px 150px 100px 70px',
-                    alignItems: 'center',
-                    padding: '10px 16px',
-                    borderBottom: '1px solid var(--border-light)',
-                    background: isGroup ? 'var(--bg-elevated)' : 'transparent',
-                    fontSize: 13,
-                }}>
+                <div
+                    draggable
+                    onDragStart={e => handleDragStart(e, task.id)}
+                    onDragOver={e => handleDragOver(e, task.id)}
+                    onDrop={e => handleDrop(e, task, siblings)}
+                    onDragEnd={handleDragEnd}
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: '20px 1fr 90px 75px 75px 50px 150px 100px 70px',
+                        alignItems: 'center',
+                        padding: '10px 16px',
+                        borderBottom: isDraggingOver ? '2px solid var(--accent-primary)' : '1px solid var(--border-light)',
+                        background: isDraggingOver ? 'rgba(99,102,241,0.05)' : isGroup ? 'var(--bg-elevated)' : 'transparent',
+                        fontSize: 13,
+                        opacity: dragSrcId === task.id ? 0.4 : 1,
+                        cursor: 'default',
+                    }}>
+                    <span style={{ cursor: 'grab', color: 'var(--text-muted)', fontSize: 14, userSelect: 'none', textAlign: 'center' }} title="Kéo để sắp xếp">⠿</span>
                     <div style={{ paddingLeft: depth * 24, display: 'flex', alignItems: 'center', gap: 8 }}>
                         {isGroup && (
                             <span
@@ -125,7 +172,7 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
                         <button onClick={() => onDelete(task.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, padding: 2 }} title="Xóa">🗑️</button>
                     </div>
                 </div>
-                {!isCollapsed && task.children && [...task.children].sort((a, b) => a.order - b.order).map(child => renderTaskDesktop(child, depth + 1))}
+                {!isCollapsed && task.children && [...task.children].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(child => renderTaskDesktop(child, depth + 1, task.children))}
             </div>
         );
     };
@@ -214,7 +261,7 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
             <div className="schedule-desktop card" style={{ overflow: 'hidden' }}>
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: '1fr 90px 75px 75px 50px 150px 100px 70px',
+                    gridTemplateColumns: '20px 1fr 90px 75px 75px 50px 150px 100px 70px',
                     alignItems: 'center',
                     padding: '10px 16px',
                     background: 'var(--bg-elevated)',
@@ -222,6 +269,7 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
                     fontSize: 11, fontWeight: 700, color: 'var(--text-muted)',
                     textTransform: 'uppercase', letterSpacing: 0.5,
                 }}>
+                    <div></div>
                     <div>Hạng mục</div>
                     <div>Phụ trách</div>
                     <div>Bắt đầu</div>
@@ -231,7 +279,7 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
                     <div>Trạng thái</div>
                     <div></div>
                 </div>
-                {tasks.map(t => renderTaskDesktop(t, 0))}
+                {tasks.map(t => renderTaskDesktop(t, 0, tasks))}
                 {tasks.length === 0 && <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Chưa có hạng mục</div>}
             </div>
 
