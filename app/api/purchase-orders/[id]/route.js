@@ -20,9 +20,9 @@ export const PUT = withAuth(async (request, { params }) => {
     // If items are provided, replace all items and recalculate totalAmount
     if (items !== undefined) {
         const totalAmount = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
-        await prisma.$transaction([
-            prisma.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: id } }),
-            prisma.purchaseOrder.update({
+        const updated = await prisma.$transaction(async (tx) => {
+            await tx.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: id } });
+            return tx.purchaseOrder.update({
                 where: { id },
                 data: {
                     ...(supplier !== undefined && { supplier }),
@@ -41,16 +41,15 @@ export const PUT = withAuth(async (request, { params }) => {
                             quantity: Number(i.quantity) || 0,
                             unitPrice: Number(i.unitPrice) || 0,
                             amount: Number(i.amount) || 0,
-                            notes: i.notes || null,
+                            notes: i.notes || '',
                             productId: i.productId || null,
                             materialPlanId: i.materialPlanId || null,
                         })),
                     },
                 },
                 include: { items: true },
-            }),
-        ]);
-        const updated = await prisma.purchaseOrder.findUnique({ where: { id }, include: { items: true } });
+            });
+        });
         return NextResponse.json(updated);
     }
 
