@@ -38,7 +38,7 @@ export default function TreeSidebar({ hook, onClose, onConfigurableProduct }) {
                 )}
                 {!selectMode && (
                     item.image ? (
-                        <img src={item.image} alt="" className="tree-thumb" />
+                        <img src={item.image} alt="" className="tree-thumb" onError={(e) => { e.target.style.display = 'none'; }} />
                     ) : (
                         <span className="tree-icon">+</span>
                     )

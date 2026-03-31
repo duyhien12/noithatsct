@@ -90,6 +90,12 @@ const USP_MAP = {
         'Bảo hành 2–5 năm',
         'Lắp đặt turnkey trọn gói',
     ],
+    'Thi công điện nước': [
+        'Vật liệu chính hãng có CO/CQ',
+        'Đội thợ chuyên nghiệp',
+        'Không phát sinh ngoài HĐ',
+        'Bảo hành hệ thống 2 năm',
+    ],
 };
 
 const DOC_TITLE_MAP = {
@@ -100,6 +106,7 @@ const DOC_TITLE_MAP = {
     'Thi công hoàn thiện': 'BÁO GIÁ THI CÔNG HOÀN THIỆN',
     'Nội thất': 'BÁO GIÁ NỘI THẤT',
     'Thi công nội thất': 'BÁO GIÁ NỘI THẤT',
+    'Thi công điện nước': 'BÁO GIÁ THI CÔNG ĐIỆN NƯỚC',
 };
 
 /* =============================================
@@ -125,23 +132,55 @@ function SCTLogo({ size = 68 }) {
 /* =============================================
    MAIN COMPONENT
    ============================================= */
+async function toDataUrl(url) {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const blob = await res.blob();
+        return await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+        });
+    } catch {
+        return null;
+    }
+}
+
 export default function QuotationPDFPage() {
     const { id } = useParams();
     const [data, setData] = useState(null);
     const [copied, setCopied] = useState(false);
+    const [imgCache, setImgCache] = useState({});
 
     useEffect(() => {
         fetch(`/api/quotations/${id}`)
             .then(r => { if (!r.ok) throw new Error('Not found'); return r.json(); })
-            .then(d => {
+            .then(async (d) => {
                 setData(d);
                 const code = d.code || '';
                 const cust = d.customer?.name || '';
                 const type = d.type || '';
                 document.title = [code, cust, type].filter(Boolean).join('_');
+
+                // Pre-fetch all images as base64 so they embed correctly in PDF export
+                const urls = new Set();
+                (d.categories || []).forEach(cat => {
+                    if (cat.image) urls.add(cat.image);
+                    (cat.items || []).forEach(item => { if (item.image) urls.add(item.image); });
+                });
+                const entries = await Promise.all(
+                    Array.from(urls).map(async url => [url, await toDataUrl(url)])
+                );
+                const cache = {};
+                entries.forEach(([url, dataUrl]) => { if (dataUrl) cache[url] = dataUrl; });
+                setImgCache(cache);
             })
             .catch(() => setData({ error: true }));
     }, [id]);
+
+    const resolveImg = (url) => imgCache[url] || url;
 
     const copyLink = () => {
         const publicUrl = `${window.location.origin}/public/baogia/${id}`;
@@ -722,6 +761,7 @@ export default function QuotationPDFPage() {
                             return r;
                         };
                         const fmtAmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0));
+                        const isDienNuoc = q.type === 'Thi công điện nước';
 
                         if (!q.categories || q.categories.length === 0) {
                             return (
@@ -791,36 +831,77 @@ export default function QuotationPDFPage() {
                                                         {/* ── Hàng I/II/III: Phân mục ── */}
                                                         <tr style={{ background: '#f0f2f5' }}>
                                                             <td className="c" style={{ fontWeight: 700, fontSize: 11, color: BRAND.blue, fontStyle: 'italic' }}>{toRoman(ci + 1)}</td>
-                                                            <td colSpan={4} style={{ fontWeight: 700, fontSize: 11, color: BRAND.textDark, fontStyle: 'italic', padding: '7px 8px' }}>{cat.name || `Khu vực ${ci + 1}`}</td>
-                                                            <td className="r" style={{ fontWeight: 700, fontSize: 11, color: BRAND.blue, padding: '7px 8px', whiteSpace: 'nowrap' }}>{fmtAmt(cat.subtotal || 0)}</td>
+                                                            {isDienNuoc ? (
+                                                                <>
+                                                                    <td style={{ fontWeight: 700, fontSize: 11, color: BRAND.textDark, fontStyle: 'italic', padding: '7px 8px' }}>{cat.name || `Khu vực ${ci + 1}`}</td>
+                                                                    <td className="c" style={{ fontWeight: 700, fontSize: 10, color: BRAND.blue }}>{cat.sharedUnit || 'trọn gói'}</td>
+                                                                    <td className="r" style={{ fontWeight: 700, fontSize: 10, color: BRAND.blue }}>{fmtAmt(cat.sharedQuantity ?? 1)}</td>
+                                                                    <td className="r" style={{ fontWeight: 700, fontSize: 10, color: BRAND.blue }}>{fmtAmt(cat.sharedUnitPrice || (cat.subtotal / (cat.sharedQuantity || 1)))}</td>
+                                                                    <td className="r" style={{ fontWeight: 700, fontSize: 11, color: BRAND.blue, padding: '7px 8px', whiteSpace: 'nowrap' }}>{fmtAmt(cat.subtotal || 0)}</td>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <td colSpan={4} style={{ fontWeight: 700, fontSize: 11, color: BRAND.textDark, fontStyle: 'italic', padding: '7px 8px' }}>{cat.name || `Khu vực ${ci + 1}`}</td>
+                                                                    <td className="r" style={{ fontWeight: 700, fontSize: 11, color: BRAND.blue, padding: '7px 8px', whiteSpace: 'nowrap' }}>{fmtAmt(cat.subtotal || 0)}</td>
+                                                                </>
+                                                            )}
                                                         </tr>
+
+                                                        {/* ── Ảnh khu vực (subcategory image) ── */}
+                                                        {imgCache[cat.image] && (
+                                                            <tr>
+                                                                <td colSpan={6} style={{ padding: '6px 8px 8px' }}>
+                                                                    <img src={resolveImg(cat.image)} alt="" style={{ maxWidth: '100%', maxHeight: 220, objectFit: 'contain', borderRadius: 4, border: `1px solid ${BRAND.blue}20`, display: 'block' }} />
+                                                                </td>
+                                                            </tr>
+                                                        )}
 
                                                         {/* ── Hàng 1/2/3: Items ── */}
                                                         {(cat.items || []).map((item, ii) => (
                                                             <React.Fragment key={item.id || ii}>
                                                                 <tr style={{ background: ii % 2 === 1 ? '#fafbfc' : '#fff' }}>
                                                                     <td className="c" style={{ color: BRAND.textMid, fontSize: 10 }}>{ii + 1}</td>
-                                                                    <td style={{ padding: '6px 8px' }}>
-                                                                        <div style={{ fontWeight: 600, fontSize: 11, color: BRAND.textDark }}>{item.name}</div>
-                                                                        {item.description && <div style={{ fontSize: 9, color: BRAND.textMid, fontStyle: 'italic', marginTop: 2, lineHeight: 1.4 }}>{item.description}</div>}
-                                                                    </td>
-                                                                    <td className="c" style={{ fontSize: 10 }}>{item.unit}</td>
-                                                                    <td className="r" style={{ fontSize: 10 }}>{fmtAmt(item.volume || item.quantity)}</td>
-                                                                    <td className="r" style={{ fontSize: 10 }}>{fmtAmt(item.unitPrice)}</td>
-                                                                    <td className="r" style={{ fontWeight: 700, color: BRAND.blue, fontSize: 11 }}>{fmtAmt(item.amount)}</td>
+                                                                    {isDienNuoc ? (
+                                                                        <td colSpan={5} style={{ padding: '6px 8px' }}>
+                                                                            <div style={{ fontWeight: 600, fontSize: 11, color: BRAND.textDark }}>{item.name}</div>
+                                                                            {item.description && <div style={{ fontSize: 9, color: BRAND.textMid, fontStyle: 'italic', marginTop: 2, lineHeight: 1.4 }}>{item.description}</div>}
+                                                                            {imgCache[item.image] && <img src={resolveImg(item.image)} alt="" style={{ marginTop: 6, width: '100%', maxWidth: 220, height: 140, objectFit: 'cover', borderRadius: 5, border: '1px solid #e2e8f0', display: 'block' }} />}
+                                                                        </td>
+                                                                    ) : (
+                                                                        <>
+                                                                            <td style={{ padding: '6px 8px' }}>
+                                                                                <div style={{ fontWeight: 600, fontSize: 11, color: BRAND.textDark }}>{item.name}</div>
+                                                                                {item.description && <div style={{ fontSize: 9, color: BRAND.textMid, fontStyle: 'italic', marginTop: 2, lineHeight: 1.4 }}>{item.description}</div>}
+                                                                                {imgCache[item.image] && <img src={resolveImg(item.image)} alt="" style={{ marginTop: 6, width: '100%', maxWidth: 220, height: 140, objectFit: 'cover', borderRadius: 5, border: '1px solid #e2e8f0', display: 'block' }} />}
+                                                                            </td>
+                                                                            <td className="c" style={{ fontSize: 10 }}>{item.unit}</td>
+                                                                            <td className="r" style={{ fontSize: 10 }}>{fmtAmt(item.volume || item.quantity)}</td>
+                                                                            <td className="r" style={{ fontSize: 10 }}>{fmtAmt(item.unitPrice)}</td>
+                                                                            <td className="r" style={{ fontWeight: 700, color: BRAND.blue, fontSize: 11 }}>{fmtAmt(item.amount)}</td>
+                                                                        </>
+                                                                    )}
                                                                 </tr>
                                                                 {/* Sub-items (phụ kiện) */}
                                                                 {(item.subItems || []).map((si, sii) => (
                                                                     <tr key={`sub-${ii}-${sii}`} style={{ background: '#f8f9fc' }}>
                                                                         <td className="c" style={{ fontSize: 8, opacity: 0.35 }}>↳</td>
-                                                                        <td style={{ paddingLeft: 22, padding: '4px 8px 4px 22px' }}>
-                                                                            <div style={{ fontSize: 10, fontStyle: 'italic', color: BRAND.textMid }}>{si.name}</div>
-                                                                            {si.description && <div style={{ fontSize: 8, color: BRAND.textLight, marginTop: 1 }}>{si.description}</div>}
-                                                                        </td>
-                                                                        <td className="c" style={{ fontSize: 9 }}>{si.unit}</td>
-                                                                        <td className="r" style={{ fontSize: 9 }}>{fmtAmt(si.volume || si.quantity)}</td>
-                                                                        <td className="r" style={{ fontSize: 9 }}>{fmtAmt(si.unitPrice)}</td>
-                                                                        <td className="r" style={{ fontSize: 9, opacity: 0.7 }}>{fmtAmt(si.amount || 0)}</td>
+                                                                        {isDienNuoc ? (
+                                                                            <td colSpan={5} style={{ paddingLeft: 22, padding: '4px 8px 4px 22px' }}>
+                                                                                <div style={{ fontSize: 10, fontStyle: 'italic', color: BRAND.textMid }}>{si.name}</div>
+                                                                                {si.description && <div style={{ fontSize: 8, color: BRAND.textLight, marginTop: 1 }}>{si.description}</div>}
+                                                                            </td>
+                                                                        ) : (
+                                                                            <>
+                                                                                <td style={{ paddingLeft: 22, padding: '4px 8px 4px 22px' }}>
+                                                                                    <div style={{ fontSize: 10, fontStyle: 'italic', color: BRAND.textMid }}>{si.name}</div>
+                                                                                    {si.description && <div style={{ fontSize: 8, color: BRAND.textLight, marginTop: 1 }}>{si.description}</div>}
+                                                                                </td>
+                                                                                <td className="c" style={{ fontSize: 9 }}>{si.unit}</td>
+                                                                                <td className="r" style={{ fontSize: 9 }}>{fmtAmt(si.volume || si.quantity)}</td>
+                                                                                <td className="r" style={{ fontSize: 9 }}>{fmtAmt(si.unitPrice)}</td>
+                                                                                <td className="r" style={{ fontSize: 9, opacity: 0.7 }}>{fmtAmt(si.amount || 0)}</td>
+                                                                            </>
+                                                                        )}
                                                                     </tr>
                                                                 ))}
                                                             </React.Fragment>

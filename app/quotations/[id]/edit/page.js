@@ -73,6 +73,11 @@ export default function EditQuotationPage() {
                         name: cat.name || '',
                         image: cat.image || '',
                         subtotal: cat.subtotal || 0,
+                        ...(cat.sharedUnit !== undefined && cat.sharedUnit !== null ? {
+                            sharedUnit: cat.sharedUnit,
+                            sharedQuantity: cat.sharedQuantity ?? 1,
+                            sharedUnitPrice: cat.sharedUnitPrice ?? 0,
+                        } : {}),
                         items: (cat.items || []).map(item => ({
                             _key: Date.now() + Math.random(),
                             name: item.name || '',
@@ -364,7 +369,7 @@ export default function EditQuotationPage() {
                 </div>
 
                 {/* Subcategory sections (Level 2 + Level 3) */}
-                <CategoryTable mi={activeMainIdx} hook={hook} onImageClick={handleImageClick} onSubcategoryImageClick={handleSubcategoryImageClick} />
+                <CategoryTable mi={activeMainIdx} hook={hook} onImageClick={handleImageClick} onSubcategoryImageClick={handleSubcategoryImageClick} quotationType={form.type} />
 
                 {/* Upload indicator */}
                 {uploadingCell && (

@@ -80,6 +80,7 @@ export const POST = withAuth(async (request) => {
                             quotationId: quotation.id,
                         },
                     });
+                    await tx.$executeRaw`UPDATE "QuotationCategory" SET "sharedUnit" = ${cat.sharedUnit || 'trọn gói'}, "sharedQuantity" = ${Number(cat.sharedQuantity) ?? 1}, "sharedUnitPrice" = ${Number(cat.sharedUnitPrice) || 0} WHERE id = ${createdCat.id}`;
                     if (cat.items && cat.items.length > 0) {
                         for (let ii = 0; ii < cat.items.length; ii++) {
                             const item = cat.items[ii];

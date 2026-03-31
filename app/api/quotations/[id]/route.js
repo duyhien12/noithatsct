@@ -87,6 +87,7 @@ export const PUT = withAuth(async (request, { params }) => {
                         quotationId: id,
                     },
                 });
+                await tx.$executeRaw`UPDATE "QuotationCategory" SET "sharedUnit" = ${cat.sharedUnit || 'trọn gói'}, "sharedQuantity" = ${Number(cat.sharedQuantity) ?? 1}, "sharedUnitPrice" = ${Number(cat.sharedUnitPrice) || 0} WHERE id = ${created.id}`;
                 if (cat.items && cat.items.length > 0) {
                     for (let ii = 0; ii < cat.items.length; ii++) {
                         const item = cat.items[ii];
@@ -221,9 +222,11 @@ export const POST = withAuth(async (request, { params }) => {
             const newCat = await prisma.quotationCategory.create({
                 data: {
                     name: cat.name, group: cat.group, image: cat.image || '',
-                    order: cat.order, subtotal: cat.subtotal, quotationId: clone.id,
+                    order: cat.order, subtotal: cat.subtotal,
+                    quotationId: clone.id,
                 },
             });
+            await prisma.$executeRaw`UPDATE "QuotationCategory" SET "sharedUnit" = ${cat.sharedUnit || 'trọn gói'}, "sharedQuantity" = ${cat.sharedQuantity ?? 1}, "sharedUnitPrice" = ${cat.sharedUnitPrice ?? 0} WHERE id = ${newCat.id}`;
             if (cat.items.length > 0) {
                 for (const item of cat.items) {
                     const newItem = await prisma.quotationItem.create({

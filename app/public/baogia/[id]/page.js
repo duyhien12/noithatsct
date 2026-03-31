@@ -274,7 +274,7 @@ export default function PublicQuotationPage() {
                                                     {(cat.items || []).map((item, ii) => (
                                                         <tr key={item.id || ii} style={{ background: ii % 2 === 1 ? '#fafbfc' : '#fff' }}>
                                                             <td className="c" style={{ color: BRAND.textLight, fontSize: 9 }}>{ii + 1}</td>
-                                                            <td className="c">{item.image ? <img src={item.image} className="item-img" alt="" /> : <div className="no-img">—</div>}</td>
+                                                            <td className="c">{item.image ? <img src={item.image} className="item-img" alt="" onError={(e) => { e.target.style.display = 'none'; }} /> : <div className="no-img">—</div>}</td>
                                                             <td style={{ fontWeight: 600, fontSize: 11 }}>{item.name}</td>
                                                             <td><span className="mn-desc">{item.description || ''}</span></td>
                                                             <td className="c">{item.unit}</td>

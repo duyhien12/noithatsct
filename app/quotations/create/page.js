@@ -303,7 +303,7 @@ export default function CreateQuotationPage() {
                 </div>
 
                 {/* Subcategory sections (Level 2 + Level 3) */}
-                <CategoryTable mi={activeMainIdx} hook={hook} onImageClick={handleImageClick} onSubcategoryImageClick={handleSubcategoryImageClick} />
+                <CategoryTable mi={activeMainIdx} hook={hook} onImageClick={handleImageClick} onSubcategoryImageClick={handleSubcategoryImageClick} quotationType={form.type} />
 
                 {/* Summary */}
                 <QuotationSummary hook={hook} />

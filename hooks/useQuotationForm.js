@@ -179,7 +179,10 @@ export default function useQuotationForm() {
                     const unitPrice = Number(item.unitPrice) || 0;
                     return { ...item, quantity: qty, amount: qty * unitPrice };
                 });
-                const subtotal = items.reduce((s, i) => s + i.amount, 0);
+                // Thi công điện nước: subtotal = sharedQuantity × sharedUnitPrice
+                const subtotal = sub.sharedUnit !== undefined
+                    ? (Number(sub.sharedQuantity) || 0) * (Number(sub.sharedUnitPrice) || 0)
+                    : items.reduce((s, i) => s + i.amount, 0);
                 return { ...sub, items, subtotal };
             });
             const subtotal = subs.reduce((s, sub) => s + sub.subtotal, 0);
@@ -267,6 +270,16 @@ export default function useQuotationForm() {
             subcategories: mcs[mi].subcategories.map((s, i) => i === si ? { ...s, image } : s),
         };
         setMainCategories(mcs);
+    };
+
+    const updateSubcategoryShared = (mi, si, field, value) => {
+        const mcs = [...mainCategories];
+        const updated = { ...mcs[mi].subcategories[si], [field]: field === 'sharedUnit' ? value : (parseFloat(value) || 0) };
+        mcs[mi] = {
+            ...mcs[mi],
+            subcategories: mcs[mi].subcategories.map((s, i) => i === si ? updated : s),
+        };
+        setMainCategories(recalc(mcs));
     };
 
     // ========================================
@@ -660,6 +673,9 @@ export default function useQuotationForm() {
                     group: mc.name,
                     image: sub.image || '',
                     subtotal: sub.subtotal || 0,
+                    sharedUnit: sub.sharedUnit,
+                    sharedQuantity: sub.sharedQuantity,
+                    sharedUnitPrice: sub.sharedUnitPrice,
                     items: sub.items.filter(i => i.name.trim() !== '').map(item => ({
                         name: item.name,
                         unit: item.unit,
@@ -704,7 +720,7 @@ export default function useQuotationForm() {
         // Main category handlers
         addMainCategory, removeMainCategory, updateMainCategoryName, applyPresetCategory,
         // Subcategory handlers
-        addSubcategory, removeSubcategory, updateSubcategoryName, updateSubcategoryImage,
+        addSubcategory, removeSubcategory, updateSubcategoryName, updateSubcategoryImage, updateSubcategoryShared,
         // Item handlers
         addItem, removeItem, updateItem,
         // Sub-item handlers
