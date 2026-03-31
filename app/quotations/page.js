@@ -21,7 +21,7 @@ export default function QuotationsPage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const params = new URLSearchParams({ page, limit: 20 });
+            const params = new URLSearchParams({ page, limit: 1000 });
             if (filterStatus) params.set('status', filterStatus);
             if (search.trim()) params.set('search', search.trim());
             const d = await apiFetch(`/api/quotations?${params}`);
