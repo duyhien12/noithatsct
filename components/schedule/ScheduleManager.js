@@ -23,6 +23,20 @@ export default function ScheduleManager({ projectId, projectCode, projectStartDa
     const [addForm, setAddForm] = useState({ name: '', startDate: '', endDate: '', parentId: '', weight: 1, assignee: '' });
     const onProgressRef = useRef(onProgressUpdate);
     onProgressRef.current = onProgressUpdate;
+    const lastAlertFetchRef = useRef(0); // throttle alerts
+
+    const fetchAlerts = useCallback(async () => {
+        const now = Date.now();
+        if (now - lastAlertFetchRef.current < 60000) return; // tối đa 1 lần/60s
+        lastAlertFetchRef.current = now;
+        try {
+            const alertRes = await fetch(`/api/schedule-tasks/alerts?projectId=${projectId}`);
+            if (alertRes.ok) {
+                const alertData = await alertRes.json();
+                setAlerts(Array.isArray(alertData) ? alertData : []);
+            }
+        } catch { /* ignore */ }
+    }, [projectId]);
 
     const fetchTasks = useCallback(async () => {
         try {
@@ -38,15 +52,8 @@ export default function ScheduleManager({ projectId, projectCode, projectStartDa
         } finally {
             setLoading(false);
         }
-        // Alerts (non-blocking)
-        try {
-            const alertRes = await fetch(`/api/schedule-tasks/alerts?projectId=${projectId}`);
-            if (alertRes.ok) {
-                const alertData = await alertRes.json();
-                setAlerts(Array.isArray(alertData) ? alertData : []);
-            }
-        } catch { /* ignore alerts errors */ }
-    }, [projectId]);
+        fetchAlerts();
+    }, [projectId, fetchAlerts]);
 
     useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
