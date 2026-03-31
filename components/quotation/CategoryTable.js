@@ -216,9 +216,9 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                             {!isXayDung && <th style={{ width: 60 }}>DÀI</th>}
                             {!isXayDung && <th style={{ width: 60 }}>RỘNG</th>}
                             {!isXayDung && <th style={{ width: 60 }}>CAO</th>}
+                            <th style={{ width: 55 }}>ĐVT</th>
                             <th style={{ width: 55 }}>SL</th>
                             {!isXayDung && <th style={{ width: 60 }}>KL</th>}
-                            <th style={{ width: 55 }}>ĐVT</th>
                             <th style={{ width: 90 }}>ĐƠN GIÁ</th>
                             <th style={{ width: 100 }}>THÀNH TIỀN</th>
                             <th style={{ width: 30 }}></th>
@@ -254,6 +254,19 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                         {!isXayDung && <td><input className="form-input form-input-compact" type="number" value={item.length || ''} onChange={e => updateItem(mi, si, ii, 'length', e.target.value)} placeholder="0" /></td>}
                                         {!isXayDung && <td><input className="form-input form-input-compact" type="number" value={item.width || ''} onChange={e => updateItem(mi, si, ii, 'width', e.target.value)} placeholder="0" /></td>}
                                         {!isXayDung && <td><input className="form-input form-input-compact" type="number" value={item.height || ''} onChange={e => updateItem(mi, si, ii, 'height', e.target.value)} placeholder="0" /></td>}
+                                        <td>
+                                            {isXayDung
+                                                ? <input className="form-input form-input-compact" value={item.unit || ''} onChange={e => updateItem(mi, si, ii, 'unit', e.target.value)} placeholder="ĐVT" />
+                                                : (() => {
+                                                    const opts = UNIT_OPTIONS.includes(item.unit) ? UNIT_OPTIONS : [item.unit, ...UNIT_OPTIONS];
+                                                    return (
+                                                        <select className="form-select form-input-compact" value={item.unit} onChange={e => updateItem(mi, si, ii, 'unit', e.target.value)}>
+                                                            {opts.map(u => <option key={u} value={u}>{u}</option>)}
+                                                        </select>
+                                                    );
+                                                })()
+                                            }
+                                        </td>
                                         <td><input className="form-input form-input-compact" type="number" value={item.quantity || ''} onChange={e => updateItem(mi, si, ii, 'quantity', e.target.value)} placeholder="0" /></td>
                                         {!isXayDung && <td style={{ textAlign: 'right', fontSize: 12, fontWeight: 500 }}>
                                             {(() => {
@@ -276,19 +289,6 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                                 return <span style={{ opacity: vol > 0 ? 1 : 0.3, fontSize: 11 }}>{fmt(vol)}</span>;
                                             })()}
                                         </td>}
-                                        <td>
-                                            {isXayDung
-                                                ? <input className="form-input form-input-compact" value={item.unit || ''} onChange={e => updateItem(mi, si, ii, 'unit', e.target.value)} placeholder="ĐVT" />
-                                                : (() => {
-                                                    const opts = UNIT_OPTIONS.includes(item.unit) ? UNIT_OPTIONS : [item.unit, ...UNIT_OPTIONS];
-                                                    return (
-                                                        <select className="form-select form-input-compact" value={item.unit} onChange={e => updateItem(mi, si, ii, 'unit', e.target.value)}>
-                                                            {opts.map(u => <option key={u} value={u}>{u}</option>)}
-                                                        </select>
-                                                    );
-                                                })()
-                                            }
-                                        </td>
                                         <td><input className="form-input form-input-compact" type="number" value={item.unitPrice || ''} onChange={e => updateItem(mi, si, ii, 'unitPrice', e.target.value)} /></td>
                                         <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-primary)', fontSize: 12 }}>{fmt(item.amount)}</td>
                                         <td>
@@ -321,8 +321,6 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                             {!isXayDung && <td><input className="form-input form-input-compact" type="number" value={si_item.length || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'length', e.target.value)} placeholder="0" /></td>}
                                             {!isXayDung && <td><input className="form-input form-input-compact" type="number" value={si_item.width || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'width', e.target.value)} placeholder="0" /></td>}
                                             {!isXayDung && <td><input className="form-input form-input-compact" type="number" value={si_item.height || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'height', e.target.value)} placeholder="0" /></td>}
-                                            <td><input className="form-input form-input-compact" type="number" value={si_item.quantity || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'quantity', e.target.value)} placeholder="0" /></td>
-                                            {!isXayDung && <td style={{ textAlign: 'right', fontSize: 11, opacity: 0.6 }}>{fmt(si_item.volume || 0)}</td>}
                                             <td>
                                                 {isXayDung
                                                     ? <input className="form-input form-input-compact" value={si_item.unit || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'unit', e.target.value)} placeholder="ĐVT" />
@@ -331,6 +329,8 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                                     </select>
                                                 }
                                             </td>
+                                            <td><input className="form-input form-input-compact" type="number" value={si_item.quantity || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'quantity', e.target.value)} placeholder="0" /></td>
+                                            {!isXayDung && <td style={{ textAlign: 'right', fontSize: 11, opacity: 0.6 }}>{fmt(si_item.volume || 0)}</td>}
                                             <td><input className="form-input form-input-compact" type="number" value={si_item.unitPrice || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'unitPrice', e.target.value)} /></td>
                                             <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 11, opacity: 0.7 }}>{fmt(si_item.amount || 0)}</td>
                                             <td><button className="btn btn-ghost" onClick={() => removeSubItem(mi, si, ii, sii)} style={{ padding: '2px 4px', fontSize: 10 }}>✕</button></td>
