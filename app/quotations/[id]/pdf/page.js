@@ -889,6 +889,67 @@ export default function QuotationPDFPage() {
                     </div>
                 </div>
 
+                {/* ====== GHI CHÚ + LỊCH THANH TOÁN ====== */}
+                <div style={{ padding: '14px 28px 10px', borderTop: '2px solid #e2e8f0' }}>
+                    {/* Gift promo banner */}
+                    <div style={{ background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)', color: '#fff', borderRadius: 6, padding: '7px 14px', marginBottom: 12, textAlign: 'center', fontSize: 10, fontWeight: 700, letterSpacing: 0.5 }}>
+                        🎁 TẶNG GÓI CHỐNG MỐI TOÀN SÀN TẦNG 1 TRỊ GIÁ 20.000.000Đ
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
+                        {/* Ghi chú */}
+                        <div>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: BRAND.blue, borderBottom: `1.5px solid ${BRAND.gold}`, paddingBottom: 3, marginBottom: 6 }}>GHI CHÚ</div>
+                            {q.notes ? (
+                                <div style={{ fontSize: 8.5, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{q.notes}</div>
+                            ) : (
+                                <div style={{ fontSize: 8.5, color: '#374151', lineHeight: 1.65 }}>
+                                    • Báo giá chỉ bao gồm các hạng mục nêu trong bảng, không bao gồm phần xây dựng thô.<br />
+                                    • Màu sắc, chủng loại vật liệu theo thỏa thuận hợp đồng.<br />
+                                    • SCT cam kết thi công đúng tiến độ, đúng chất lượng, bảo hành theo quy định.<br />
+                                    • Mọi thay đổi phát sinh sẽ được thông báo và xác nhận trước khi thực hiện.
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Lịch thanh toán */}
+                        <div>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: BRAND.blue, borderBottom: `1.5px solid ${BRAND.gold}`, paddingBottom: 3, marginBottom: 6 }}>LỊCH THANH TOÁN</div>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 8.5 }}>
+                                <thead>
+                                    <tr style={{ background: BRAND.blue, color: '#fff' }}>
+                                        <th style={{ padding: '4px 6px', textAlign: 'left', fontWeight: 600 }}>Nội dung</th>
+                                        <th style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 600, width: 40 }}>Tỷ lệ</th>
+                                        <th style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 600, width: 90 }}>Thành tiền</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(q.paymentSchedule && Array.isArray(q.paymentSchedule) && q.paymentSchedule.length > 0
+                                        ? q.paymentSchedule
+                                        : [
+                                            { desc: 'Tạm ứng khi ký hợp đồng', pct: 50 },
+                                            { desc: 'Khi hoàn thành tường ngăn phòng', pct: 20 },
+                                            { desc: 'Khi trát hoàn thiện xong', pct: 20 },
+                                            { desc: 'Nghiệm thu & bàn giao', pct: 10 },
+                                        ]
+                                    ).map((row, i) => (
+                                        <tr key={i} style={{ background: i % 2 === 0 ? '#f8fafc' : '#fff' }}>
+                                            <td style={{ padding: '4px 6px', color: '#374151' }}>{row.desc}</td>
+                                            <td style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 600, color: BRAND.gold }}>{row.pct}%</td>
+                                            <td style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 600 }}>{fmt(q.grandTotal * row.pct / 100)}</td>
+                                        </tr>
+                                    ))}
+                                    <tr style={{ background: BRAND.blue, color: '#fff' }}>
+                                        <td style={{ padding: '4px 6px', fontWeight: 700 }}>TỔNG CỘNG</td>
+                                        <td style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 700 }}>100%</td>
+                                        <td style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 700 }}>{fmt(q.grandTotal)}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
                 {/* ====== BRAND FOOTER STRIP ====== */}
                 <div style={{ background: `linear-gradient(135deg, ${BRAND.blue} 0%, #0f2335 100%)`, padding: '10px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

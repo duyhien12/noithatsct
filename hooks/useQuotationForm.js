@@ -36,6 +36,15 @@ export default function useQuotationForm() {
     // Deductions / Promotions
     const [deductions, setDeductions] = useState([]);
 
+    // Payment Schedule
+    const DEFAULT_PAYMENT_SCHEDULE = [
+        { desc: 'Tạm ứng khi ký hợp đồng', pct: 50 },
+        { desc: 'Khi hoàn thành tường ngăn phòng', pct: 20 },
+        { desc: 'Khi trát hoàn thiện xong', pct: 20 },
+        { desc: 'Nghiệm thu & bàn giao', pct: 10 },
+    ];
+    const [paymentSchedule, setPaymentSchedule] = useState(DEFAULT_PAYMENT_SCHEDULE);
+
     // Load reference data
     useEffect(() => {
         apiFetch('/api/customers?limit=1000').then(d => setCustomers(d.data || [])).catch(() => { });
@@ -675,6 +684,7 @@ export default function useQuotationForm() {
             ...form,
             categories,
             deductions: deductions.map(d => ({ type: d.type, name: d.name, amount: d.amount || 0, productId: d.productId || null })),
+            paymentSchedule,
             directCost, managementFee, adjustmentAmount, total,
             discount: form.discount, vat: form.vat,
             grandTotal,
@@ -726,6 +736,8 @@ export default function useQuotationForm() {
         totalDeductions,
         // Deductions
         deductions, setDeductions, addDeduction, removeDeduction, updateDeduction,
+        // Payment Schedule
+        paymentSchedule, setPaymentSchedule,
         // Build
         buildPayload,
     };

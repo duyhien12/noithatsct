@@ -13,6 +13,7 @@ export default function QuotationSummary({ hook }) {
         directCost, adjustmentAmount, total,
         discountAmount, afterDiscount, vatAmount, totalDeductions, grandTotal,
         deductions, addDeduction, removeDeduction, updateDeduction,
+        paymentSchedule, setPaymentSchedule,
         products,
     } = hook;
 
@@ -149,6 +150,75 @@ export default function QuotationSummary({ hook }) {
                     <div className="quotation-summary-row quotation-summary-grand">
                         <span>TỔNG GIÁ TRỊ BÁO GIÁ</span><span className="quotation-summary-value">{fmt(grandTotal)} đ</span>
                     </div>
+                </div>
+
+                {/* ====== LỊCH THANH TOÁN ====== */}
+                <div style={{ marginTop: 20, borderTop: '2px solid var(--border-color)', paddingTop: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>LỊCH THANH TOÁN</div>
+                        <button type="button" className="btn btn-ghost btn-sm" style={{ fontSize: 11 }}
+                            onClick={() => setPaymentSchedule([...paymentSchedule, { desc: 'Đợt thanh toán mới', pct: 0 }])}>
+                            + Thêm đợt
+                        </button>
+                    </div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead>
+                            <tr style={{ background: 'var(--primary)', color: '#fff' }}>
+                                <th style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 600 }}>Nội dung</th>
+                                <th style={{ padding: '7px 10px', textAlign: 'center', fontWeight: 600, width: 80 }}>Tỷ lệ</th>
+                                <th style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 600, width: 130 }}>Thành tiền</th>
+                                <th style={{ width: 30 }}></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {paymentSchedule.map((row, i) => {
+                                const amount = grandTotal * row.pct / 100;
+                                return (
+                                    <tr key={i} style={{ background: i % 2 === 0 ? 'var(--bg-alt, #f8fafc)' : '' }}>
+                                        <td style={{ padding: '5px 8px' }}>
+                                            <input className="form-input form-input-compact" value={row.desc}
+                                                onChange={e => {
+                                                    const updated = [...paymentSchedule];
+                                                    updated[i] = { ...updated[i], desc: e.target.value };
+                                                    setPaymentSchedule(updated);
+                                                }}
+                                                style={{ width: '100%', fontSize: 12 }} />
+                                        </td>
+                                        <td style={{ padding: '5px 8px', textAlign: 'center' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+                                                <input className="form-input form-input-compact" type="number" min="0" max="100"
+                                                    value={row.pct}
+                                                    onChange={e => {
+                                                        const updated = [...paymentSchedule];
+                                                        updated[i] = { ...updated[i], pct: parseFloat(e.target.value) || 0 };
+                                                        setPaymentSchedule(updated);
+                                                    }}
+                                                    style={{ width: 55, textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'var(--primary)' }} />
+                                                <span style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 700 }}>%</span>
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 600, fontSize: 13 }}>
+                                            {fmt(amount)} đ
+                                        </td>
+                                        <td style={{ padding: '5px 4px', textAlign: 'center' }}>
+                                            <button type="button" className="btn btn-ghost" style={{ padding: '1px 5px', fontSize: 11 }}
+                                                onClick={() => setPaymentSchedule(paymentSchedule.filter((_, j) => j !== i))}>
+                                                ✕
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            <tr style={{ background: 'var(--primary)', color: '#fff', fontWeight: 700 }}>
+                                <td style={{ padding: '7px 10px' }}>TỔNG CỘNG</td>
+                                <td style={{ padding: '7px 10px', textAlign: 'center' }}>
+                                    {paymentSchedule.reduce((s, r) => s + r.pct, 0)}%
+                                </td>
+                                <td style={{ padding: '7px 10px', textAlign: 'right' }}>{fmt(grandTotal)} đ</td>
+                                <td></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

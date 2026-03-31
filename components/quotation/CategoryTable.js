@@ -118,9 +118,48 @@ function InlineVariants({ productId, basePrice, onPriceChange, onDescChange }) {
 }
 
 function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImageClick }) {
-    const { updateSubcategoryName, removeSubcategory, updateItem, removeItem, addItem, addFromLibrary, addFromProduct, allSearchItems, mainCategories, addSubItem, removeSubItem, updateSubItem, products } = hook;
+    const { updateSubcategoryName, removeSubcategory, updateItem, removeItem, addItem, addFromLibrary, addFromProduct, allSearchItems, mainCategories, setMainCategories, recalc, addSubItem, removeSubItem, updateSubItem, products } = hook;
     const { role } = useRole();
     const isXayDung = role === 'xay_dung';
+
+    // Drag-and-drop state
+    const dragIdxRef = useRef(null);
+    const [dragOverIdx, setDragOverIdx] = useState(null);
+
+    const handleDragStart = (e, idx) => {
+        dragIdxRef.current = idx;
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleDragOver = (e, idx) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        setDragOverIdx(idx);
+    };
+
+    const handleDrop = (e, toIdx) => {
+        e.preventDefault();
+        const fromIdx = dragIdxRef.current;
+        if (fromIdx === null || fromIdx === toIdx) { setDragOverIdx(null); return; }
+        const newItems = [...sub.items];
+        const [moved] = newItems.splice(fromIdx, 1);
+        newItems.splice(toIdx, 0, moved);
+        const updated = mainCategories.map((mc, mci) =>
+            mci === mi ? {
+                ...mc, subcategories: mc.subcategories.map((sc, sci) =>
+                    sci === si ? { ...sc, items: newItems } : sc
+                )
+            } : mc
+        );
+        setMainCategories(recalc(updated));
+        dragIdxRef.current = null;
+        setDragOverIdx(null);
+    };
+
+    const handleDragEnd = () => {
+        dragIdxRef.current = null;
+        setDragOverIdx(null);
+    };
 
     // Quick-add autocomplete state
     const [quickSearch, setQuickSearch] = useState('');
@@ -210,7 +249,8 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                 <table className="data-table quotation-detail-table">
                     <thead>
                         <tr>
-                            <th style={{ width: 30 }}>#</th>
+                            <th style={{ width: 24 }}></th>
+                            <th style={{ width: 26 }}>#</th>
                             <th style={{ width: 36 }}></th>
                             <th style={{ minWidth: 180 }}>HẠNG MỤC / SẢN PHẨM</th>
                             {!isXayDung && <th style={{ width: 60 }}>DÀI</th>}
@@ -226,9 +266,19 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                     </thead>
                     <tbody>
                         {sub.items.map((item, ii) => {
+                            const isDragOver = dragOverIdx === ii;
                             return (
                                 <React.Fragment key={item._key}>
-                                    <tr>
+                                    <tr
+                                        draggable
+                                        onDragStart={e => handleDragStart(e, ii)}
+                                        onDragOver={e => handleDragOver(e, ii)}
+                                        onDrop={e => handleDrop(e, ii)}
+                                        onDragEnd={handleDragEnd}
+                                        style={isDragOver ? { outline: '2px solid var(--primary)', outlineOffset: -1, background: 'rgba(35,64,147,0.05)' } : {}}
+                                    >
+                                        <td style={{ textAlign: 'center', cursor: 'grab', padding: '0 4px', opacity: 0.35, fontSize: 16, userSelect: 'none' }}
+                                            title="Kéo để sắp xếp">⠿</td>
                                         <td style={{ textAlign: 'center', opacity: 0.4, fontSize: 11 }}>{ii + 1}</td>
                                         <td style={{ textAlign: 'center', padding: 2, cursor: onImageClick ? 'pointer' : 'default' }}
                                             onClick={() => onImageClick && onImageClick(mi, si, ii)}>
@@ -301,6 +351,7 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                     {/* Sub-items (phụ kiện) */}
                                     {(item.subItems || []).map((si_item, sii) => (
                                         <tr key={`sub-${item._key}-${sii}`} style={{ background: 'rgba(35,64,147,0.03)' }}>
+                                            <td></td>
                                             <td></td>
                                             <td style={{ textAlign: 'center', opacity: 0.3, fontSize: 9 }}>↳</td>
                                             <td style={{ paddingLeft: 24 }}>
