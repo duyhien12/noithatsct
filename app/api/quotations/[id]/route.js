@@ -42,11 +42,12 @@ export const PUT = withAuth(async (request, { params }) => {
     const ALLOWED = ['customerId', 'projectId', 'type', 'notes', 'status', 'validUntil',
         'vat', 'discount', 'managementFeeRate', 'managementFee', 'designFee', 'otherFee',
         'adjustment', 'adjustmentType', 'adjustmentAmount',
-        'directCost', 'total', 'grandTotal', 'deductions', 'paymentSchedule'];
+        'directCost', 'total', 'grandTotal', 'deductions'];
     const data = {};
     for (const key of ALLOWED) {
         if (key in validated) data[key] = validated[key];
     }
+    const paymentScheduleData = validated.paymentSchedule ?? null;
     // projectId: "" -> null to avoid FK error
     if (!data.projectId) data.projectId = null;
 
@@ -66,6 +67,11 @@ export const PUT = withAuth(async (request, { params }) => {
 
         // Update quotation fields
         await tx.quotation.update({ where: { id }, data });
+
+        // Update paymentSchedule via raw SQL (avoids Prisma client cache issue)
+        if (paymentScheduleData !== null) {
+            await tx.$executeRaw`UPDATE "Quotation" SET "paymentSchedule" = ${JSON.stringify(paymentScheduleData)}::jsonb WHERE id = ${id}`;
+        }
 
         // Recreate categories + items
         if (categories) {
