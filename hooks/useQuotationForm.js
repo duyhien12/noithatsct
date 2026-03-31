@@ -691,6 +691,9 @@ export default function useQuotationForm() {
                         height: Number(item.height) || 0,
                         image: item.image || '',
                         productId: item.productId || null,
+                        brand: item.brand || '',
+                        productCode: item.productCode || '',
+                        listPrice: Number(item.listPrice) || 0,
                     })),
                 });
             });
