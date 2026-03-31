@@ -94,10 +94,18 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
         const reordered = [...sorted];
         const [moved] = reordered.splice(srcIdx, 1);
         reordered.splice(tgtIdx, 0, moved);
-        await Promise.all(reordered.map((t, i) => onUpdate(t.id, { order: i * 10 })));
+        // Gọi API trực tiếp cho từng task, KHÔNG gọi onUpdate (tránh fetchTasks() x N lần)
+        await Promise.all(reordered.map((t, i) =>
+            fetch(`/api/schedule-tasks/${t.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order: i * 10 }),
+            })
+        ));
         setDragSrcId(null);
         setDragOverId(null);
         dragSrcIdRef.current = null;
+        if (onRefresh) onRefresh(); // refresh 1 lần duy nhất
     };
 
     const handleDragEnd = () => { setDragSrcId(null); setDragOverId(null); dragSrcIdRef.current = null; };
