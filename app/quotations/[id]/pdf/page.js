@@ -923,7 +923,7 @@ export default function QuotationPDFPage() {
                     <div className="mn-summary-wrap">
                         <div className="mn-sum-words">
                             <span className="mn-sum-words-label">Tổng giá trị bằng chữ</span>
-                            <span className="mn-sum-words-text">{numberToWords(Math.round(q.grandTotal))}</span>
+                            <span className="mn-sum-words-text">{numberToWords(q.grandTotal >= 999999 ? Math.floor(q.grandTotal / 1000000) * 1000000 : Math.round(q.grandTotal))}</span>
                         </div>
                         <div className="mn-sum-box">
                             {q.otherFee > 0 && <div className="mn-sum-row"><span>Vận chuyển, lắp đặt</span><span>{fmt(q.otherFee)}</span></div>}
@@ -938,6 +938,12 @@ export default function QuotationPDFPage() {
                             ))}
                             <div style={{ fontSize: 8, color: '#888', fontStyle: 'italic', textAlign: 'right', padding: '3px 0' }}>* Đơn giá đã bao gồm VAT</div>
                             <div className="mn-sum-row total"><span>TỔNG GIÁ TRỊ</span><span>{fmt(q.grandTotal)}</span></div>
+                            {q.grandTotal >= 999999 && (
+                                <div className="mn-sum-row total" style={{ marginTop: 3, opacity: 0.9 }}>
+                                    <span>TỔNG GIÁ TRỊ LÀM TRÒN</span>
+                                    <span>{fmt(Math.floor(q.grandTotal / 1000000) * 1000000)}</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -1013,17 +1019,20 @@ export default function QuotationPDFPage() {
                                             { desc: 'Khi trát hoàn thiện xong', pct: 20 },
                                             { desc: 'Nghiệm thu & bàn giao', pct: 10 },
                                         ]
-                                    ).map((row, i) => (
+                                    ).map((row, i) => {
+                                        const baseTotal = q.grandTotal >= 999999 ? Math.floor(q.grandTotal / 1000000) * 1000000 : q.grandTotal;
+                                        return (
                                         <tr key={i} style={{ background: i % 2 === 0 ? '#f8fafc' : '#fff' }}>
                                             <td style={{ padding: '4px 6px', color: '#374151' }}>{row.desc}</td>
                                             <td style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 600, color: BRAND.gold }}>{row.pct}%</td>
-                                            <td style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 600 }}>{fmt(q.grandTotal * row.pct / 100)}</td>
+                                            <td style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 600 }}>{fmt(baseTotal * row.pct / 100)}</td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                     <tr style={{ background: BRAND.blue, color: '#fff' }}>
                                         <td style={{ padding: '4px 6px', fontWeight: 700 }}>TỔNG CỘNG</td>
                                         <td style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 700 }}>100%</td>
-                                        <td style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 700 }}>{fmt(q.grandTotal)}</td>
+                                        <td style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 700 }}>{fmt(q.grandTotal >= 999999 ? Math.floor(q.grandTotal / 1000000) * 1000000 : q.grandTotal)}</td>
                                     </tr>
                                 </tbody>
                             </table>
