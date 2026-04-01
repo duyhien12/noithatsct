@@ -159,7 +159,7 @@ export default function QuotationSummary({ hook }) {
                 </div>
 
                 {/* ====== LỊCH THANH TOÁN ====== */}
-                <div style={{ marginTop: 20, borderTop: '2px solid var(--border-color)', paddingTop: 16 }}>
+                {form.type === 'Tổng hợp chi phí hoàn thiện' ? null : <div style={{ marginTop: 20, borderTop: '2px solid var(--border-color)', paddingTop: 16 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>LỊCH THANH TOÁN</div>
                         <button type="button" className="btn btn-ghost btn-sm" style={{ fontSize: 11 }}
@@ -226,13 +226,13 @@ export default function QuotationSummary({ hook }) {
                             </tr>
                         </tbody>
                     </table>
-                </div>
+                </div>}
 
                 {/* ====== BANNER TẶNG GÓI + ĐIỀU KHOẢN + GHI CHÚ ====== */}
                 <div style={{ marginTop: 20, borderTop: '2px solid var(--border-color)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
                     {/* Banner tặng gói */}
                     <div>
-                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Banner tặng gói (để trống nếu không muốn hiện)</label>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Banner tặng gói <span style={{ fontWeight: 400, opacity: 0.6 }}>(để trống → không hiện trên PDF)</span></label>
                         <input className="form-input" value={form.promoText || ''}
                             onChange={e => setForm(f => ({ ...f, promoText: e.target.value }))}
                             placeholder="🎁 TẶNG GÓI CHỐNG MỐI TOÀN SÀN TẦNG 1 TRỊ GIÁ 20.000.000Đ"

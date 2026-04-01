@@ -123,6 +123,7 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
     const isXayDung = role === 'xay_dung';
     const isDienNuoc = quotationType === 'Thi công điện nước';
     const isBaoGiaThietBiDien = quotationType === 'Báo giá thiết bị điện';
+    const isTongHop = quotationType === 'Tổng hợp chi phí hoàn thiện';
 
     // Auto-initialize shared fields when type switches to Thi công điện nước
     useEffect(() => {
@@ -293,9 +294,9 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                             <th style={{ minWidth: 180 }}>HẠNG MỤC / SẢN PHẨM</th>
                             {isBaoGiaThietBiDien && <th style={{ width: 90 }}>HÃNG SX</th>}
                             {isBaoGiaThietBiDien && <th style={{ width: 90 }}>MÃ SP</th>}
-                            {!isDienNuoc && <th style={{ width: 55 }}>ĐVT</th>}
-                            {!isDienNuoc && <th style={{ width: 55 }}>SL</th>}
-                            {!isDienNuoc && (isBaoGiaThietBiDien
+                            {!isDienNuoc && !isTongHop && <th style={{ width: 55 }}>ĐVT</th>}
+                            {!isDienNuoc && !isTongHop && <th style={{ width: 55 }}>SL</th>}
+                            {!isDienNuoc && !isTongHop && (isBaoGiaThietBiDien
                                 ? <React.Fragment><th style={{ width: 100 }}>GIÁ NIÊM YẾT</th><th style={{ width: 90 }}>ĐG CK</th></React.Fragment>
                                 : <th style={{ width: 90 }}>ĐƠN GIÁ</th>
                             )}
@@ -321,11 +322,22 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                         <td style={{ textAlign: 'center', opacity: 0.4, fontSize: 11 }}>{ii + 1}</td>
                                         <td style={{ textAlign: 'center', padding: 2, cursor: onImageClick ? 'pointer' : 'default' }}
                                             onClick={() => onImageClick && onImageClick(mi, si, ii)}>
-                                            {item.image ? (
-                                                <img src={item.image} alt="" style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--border-color)' }}
-                                                    onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
-                                            ) : null}
-                                            <div style={{ width: 28, height: 28, borderRadius: 4, border: '2px dashed var(--border-color)', display: item.image ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, opacity: 0.25 }}>
+                                            {(() => {
+                                                const productImage = item.productId ? products.find(p => p.id === item.productId)?.image : null;
+                                                const imgSrc = item.image || productImage;
+                                                return imgSrc ? (
+                                                    <img src={imgSrc} alt="" style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--border-color)' }}
+                                                        onError={(e) => {
+                                                            if (productImage && e.target.src !== productImage) {
+                                                                e.target.src = productImage;
+                                                            } else {
+                                                                e.target.style.display = 'none';
+                                                                e.target.nextSibling.style.display = 'flex';
+                                                            }
+                                                        }} />
+                                                ) : null;
+                                            })()}
+                                            <div style={{ width: 28, height: 28, borderRadius: 4, border: '2px dashed var(--border-color)', display: (item.image || (item.productId && products.find(p => p.id === item.productId)?.image)) ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, opacity: 0.25 }}>
                                                 {onImageClick ? '📷' : '🖼️'}
                                             </div>
                                         </td>
@@ -342,7 +354,7 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                         </td>
                                         {isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" value={item.brand || ''} onChange={e => updateItem(mi, si, ii, 'brand', e.target.value)} placeholder="Hãng SX" /></td>}
                                         {isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" value={item.productCode || ''} onChange={e => updateItem(mi, si, ii, 'productCode', e.target.value)} placeholder="Mã SP" /></td>}
-                                        {!isDienNuoc && <td>
+                                        {!isDienNuoc && !isTongHop && <td>
                                             {isXayDung || isBaoGiaThietBiDien
                                                 ? <input className="form-input form-input-compact" value={item.unit || ''} onChange={e => updateItem(mi, si, ii, 'unit', e.target.value)} placeholder="ĐVT" />
                                                 : (() => {
@@ -355,10 +367,13 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                                 })()
                                             }
                                         </td>}
-                                        {!isDienNuoc && <td><input className="form-input form-input-compact" type="number" value={item.quantity || ''} onChange={e => updateItem(mi, si, ii, 'quantity', e.target.value)} placeholder="0" /></td>}
+                                        {!isDienNuoc && !isTongHop && <td><input className="form-input form-input-compact" type="number" value={item.quantity || ''} onChange={e => updateItem(mi, si, ii, 'quantity', e.target.value)} placeholder="0" /></td>}
                                         {!isDienNuoc && isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" type="number" value={item.listPrice || ''} onChange={e => updateItem(mi, si, ii, 'listPrice', e.target.value)} placeholder="0" /></td>}
-                                        {!isDienNuoc && <td><input className="form-input form-input-compact" type="number" value={item.unitPrice || ''} onChange={e => updateItem(mi, si, ii, 'unitPrice', e.target.value)} /></td>}
-                                        {!isDienNuoc && <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-primary)', fontSize: 12 }}>{fmt(item.amount)}</td>}
+                                        {!isDienNuoc && !isTongHop && <td><input className="form-input form-input-compact" type="number" value={item.unitPrice || ''} onChange={e => updateItem(mi, si, ii, 'unitPrice', e.target.value)} /></td>}
+                                        {!isDienNuoc && (isTongHop
+                                            ? <td><input className="form-input form-input-compact" type="number" value={item.amount || ''} onChange={e => updateItem(mi, si, ii, 'amount', e.target.value)} placeholder="0" style={{ fontWeight: 700, color: 'var(--accent-primary)' }} /></td>
+                                            : <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-primary)', fontSize: 12 }}>{fmt(item.amount)}</td>
+                                        )}
                                         <td>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                 <button className="btn btn-ghost" onClick={() => removeItem(mi, si, ii)} style={{ padding: '2px 4px', fontSize: 11 }}>✕</button>
@@ -389,7 +404,7 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                             </td>
                                             {isBaoGiaThietBiDien && <td></td>}
                                             {isBaoGiaThietBiDien && <td></td>}
-                                            {!isDienNuoc && <td>
+                                            {!isDienNuoc && !isTongHop && <td>
                                                 {isXayDung || isBaoGiaThietBiDien
                                                     ? <input className="form-input form-input-compact" value={si_item.unit || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'unit', e.target.value)} placeholder="ĐVT" />
                                                     : <select className="form-select form-input-compact" value={si_item.unit || 'cái'} onChange={e => updateSubItem(mi, si, ii, sii, 'unit', e.target.value)}>
@@ -397,10 +412,13 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                                     </select>
                                                 }
                                             </td>}
-                                            {!isDienNuoc && <td><input className="form-input form-input-compact" type="number" value={si_item.quantity || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'quantity', e.target.value)} placeholder="0" /></td>}
+                                            {!isDienNuoc && !isTongHop && <td><input className="form-input form-input-compact" type="number" value={si_item.quantity || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'quantity', e.target.value)} placeholder="0" /></td>}
                                             {!isDienNuoc && isBaoGiaThietBiDien && <td></td>}
-                                            {!isDienNuoc && <td><input className="form-input form-input-compact" type="number" value={si_item.unitPrice || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'unitPrice', e.target.value)} /></td>}
-                                            {!isDienNuoc && <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 11, opacity: 0.7 }}>{fmt(si_item.amount || 0)}</td>}
+                                            {!isDienNuoc && !isTongHop && <td><input className="form-input form-input-compact" type="number" value={si_item.unitPrice || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'unitPrice', e.target.value)} /></td>}
+                                            {!isDienNuoc && (isTongHop
+                                                ? <td><input className="form-input form-input-compact" type="number" value={si_item.amount || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'amount', e.target.value)} placeholder="0" /></td>
+                                                : <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 11, opacity: 0.7 }}>{fmt(si_item.amount || 0)}</td>
+                                            )}
                                             <td><button className="btn btn-ghost" onClick={() => removeSubItem(mi, si, ii, sii)} style={{ padding: '2px 4px', fontSize: 10 }}>✕</button></td>
                                         </tr>
                                     ))}

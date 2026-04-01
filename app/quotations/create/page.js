@@ -189,16 +189,18 @@ export default function CreateQuotationPage() {
                 </div>
 
                 {/* Templates */}
-                {templates.length > 0 && (
-                    <div className="card" style={{ marginBottom: 12, padding: 12 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span style={{ fontWeight: 600, fontSize: 12, opacity: 0.5 }}>Mẫu:</span>
-                            {templates.map(t => (
-                                <button key={t.id} className="btn btn-secondary btn-sm" onClick={() => loadTemplate(t)} style={{ fontSize: 12 }}>{t.name}</button>
-                            ))}
-                        </div>
+                <div className="card" style={{ marginBottom: 12, padding: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 600, fontSize: 12, opacity: 0.5 }}>Mẫu:</span>
+                        {templates.map(t => (
+                            <button key={t.id} className="btn btn-secondary btn-sm" onClick={() => loadTemplate(t)} style={{ fontSize: 12 }}>{t.name}</button>
+                        ))}
+                        <button className="btn btn-ghost btn-sm" style={{ fontSize: 12, marginLeft: 'auto' }}
+                            onClick={() => router.push('/quotations/templates')}>
+                            ⚙️ Quản lý mẫu
+                        </button>
                     </div>
-                )}
+                </div>
 
                 {/* Form */}
                 <div className="card" style={{ marginBottom: 16 }}>

@@ -170,10 +170,13 @@ export default function useQuotationForm() {
     // typeOverride: pass q.type explicitly during initial load (before form.type is set)
     // ========================================
     const recalc = useCallback((mcs, typeOverride) => {
-        const isDienNuoc = (typeOverride ?? form.type) === 'Thi công điện nước';
+        const currentType = typeOverride ?? form.type;
+        const isDienNuoc = currentType === 'Thi công điện nước';
+        const isTongHop = currentType === 'Tổng hợp chi phí hoàn thiện';
         return mcs.map(mc => {
             const subs = mc.subcategories.map(sub => {
                 const items = sub.items.map(item => {
+                    if (isTongHop) return { ...item, amount: Number(item.amount) || 0 };
                     const l = Number(item.length) || 0;
                     const w = Number(item.width) || 0;
                     const h = Number(item.height) || 0;
@@ -388,9 +391,11 @@ export default function useQuotationForm() {
         } else {
             si_item[field] = value;
         }
-        // Recalc sub-item amount
-        const qty = si_item.quantity || 0;
-        si_item.amount = qty * (si_item.unitPrice || 0);
+        // Recalc sub-item amount (skip for Tổng hợp — amount is entered directly)
+        if (form.type !== 'Tổng hợp chi phí hoàn thiện') {
+            const qty = si_item.quantity || 0;
+            si_item.amount = qty * (si_item.unitPrice || 0);
+        }
         subItems[sii] = si_item;
         item.subItems = subItems;
         const newItems = [...sub.items];
@@ -692,7 +697,7 @@ export default function useQuotationForm() {
                         length: Number(item.length) || 0,
                         width: Number(item.width) || 0,
                         height: Number(item.height) || 0,
-                        image: item.image || '',
+                        image: item.image || (item.productId ? (products.find(p => p.id === item.productId)?.image || '') : ''),
                         productId: item.productId || null,
                         brand: item.brand || '',
                         productCode: item.productCode || '',

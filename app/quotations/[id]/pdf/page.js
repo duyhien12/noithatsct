@@ -982,10 +982,10 @@ export default function QuotationPDFPage() {
 
                 {/* ====== GHI CHÚ + LỊCH THANH TOÁN ====== */}
                 <div style={{ padding: '14px 28px 10px', borderTop: '2px solid #e2e8f0' }}>
-                    {/* Gift promo banner */}
-                    {(q.promoText || '🎁 TẶNG GÓI CHỐNG MỐI TOÀN SÀN TẦNG 1 TRỊ GIÁ 20.000.000Đ') && (
+                    {/* Gift promo banner — only show if explicitly filled */}
+                    {q.promoText?.trim() && (
                         <div style={{ background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)', color: '#fff', borderRadius: 6, padding: '7px 14px', marginBottom: 12, textAlign: 'center', fontSize: 10, fontWeight: 700, letterSpacing: 0.5 }}>
-                            {q.promoText || '🎁 TẶNG GÓI CHỐNG MỐI TOÀN SÀN TẦNG 1 TRỊ GIÁ 20.000.000Đ'}
+                            {q.promoText.trim()}
                         </div>
                     )}
 

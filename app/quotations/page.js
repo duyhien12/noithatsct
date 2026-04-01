@@ -83,7 +83,10 @@ export default function QuotationsPage() {
             <div className="card" style={{ marginTop: 24 }}>
                 <div className="card-header">
                     <h3>Danh sách báo giá</h3>
-                    <button className="btn btn-primary" onClick={() => router.push('/quotations/create')}>+ Tạo báo giá mới</button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <button className="btn btn-secondary" onClick={() => router.push('/quotations/templates')}>📋 Mẫu báo giá</button>
+                        <button className="btn btn-primary" onClick={() => router.push('/quotations/create')}>+ Tạo báo giá mới</button>
+                    </div>
                 </div>
                 <div className="filter-bar">
                     <input type="text" className="form-input" placeholder="🔍 Tìm mã BG, khách hàng..." value={search}
