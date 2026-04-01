@@ -150,6 +150,12 @@ export default function QuotationSummary({ hook }) {
                     <div className="quotation-summary-row quotation-summary-grand">
                         <span>TỔNG GIÁ TRỊ BÁO GIÁ</span><span className="quotation-summary-value">{fmt(grandTotal)} đ</span>
                     </div>
+                    {grandTotal >= 999999 && (
+                        <div className="quotation-summary-row quotation-summary-grand" style={{ marginTop: 4, opacity: 0.85 }}>
+                            <span>TỔNG GIÁ TRỊ BÁO GIÁ LÀM TRÒN</span>
+                            <span className="quotation-summary-value">{fmt(Math.floor(grandTotal / 1000000) * 1000000)} đ</span>
+                        </div>
+                    )}
                 </div>
 
                 {/* ====== LỊCH THANH TOÁN ====== */}
