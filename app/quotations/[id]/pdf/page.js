@@ -702,7 +702,7 @@ export default function QuotationPDFPage() {
                     <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 18, fontWeight: 900, color: BRAND.gold, letterSpacing: 1.5, textTransform: 'uppercase', lineHeight: 1.2 }}>Công ty TNHH Kiến Trúc Đô Thị SCT</div>
                         <div style={{ fontSize: 10, color: '#7f8c8d', marginTop: 5, lineHeight: 2 }}>
-                            <span style={{ marginRight: 12 }}>📍 149 Đ. Nguyễn Tất Thành - P. Yên Thịnh - TP. Yên Bái - T. Yên Bái</span><br />
+                            <span style={{ marginRight: 12 }}>📍 149 Nguyễn Tất Thành, P. Văn Phú, T. Lào Cai</span><br />
                             <span style={{ marginRight: 16 }}>☎ Hotline: <strong style={{ color: BRAND.gold, fontSize: 11 }}>0914 99 88 22</strong></span>
                             <span style={{ marginRight: 16 }}>🌐 www.kientrucsct.com</span>
                             <span>Zalo OA: Kiến trúc đô thị SCT</span>
@@ -1069,7 +1069,7 @@ export default function QuotationPDFPage() {
                         <SCTLogo size={28} />
                         <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.85)', lineHeight: 1.7 }}>
                             <div><strong style={{ color: BRAND.gold, fontSize: 10 }}>CÔNG TY TNHH KIẾN TRÚC ĐÔ THỊ SCT</strong> — Cùng bạn xây dựng ước mơ</div>
-                            <div>Hotline: <strong style={{ color: BRAND.gold }}>0914 99 88 22</strong> &nbsp;·&nbsp; www.kientrucsct.com &nbsp;·&nbsp; 149 Đ. Nguyễn Tất Thành, P. Yên Thịnh, TP. Yên Bái</div>
+                            <div>Hotline: <strong style={{ color: BRAND.gold }}>0914 99 88 22</strong> &nbsp;·&nbsp; www.kientrucsct.com &nbsp;·&nbsp; 149 Nguyễn Tất Thành, P. Văn Phú, T. Lào Cai</div>
                         </div>
                     </div>
                     <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', textAlign: 'right' }}>
