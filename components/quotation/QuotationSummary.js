@@ -178,7 +178,8 @@ export default function QuotationSummary({ hook }) {
                         </thead>
                         <tbody>
                             {paymentSchedule.map((row, i) => {
-                                const amount = grandTotal * row.pct / 100;
+                                const baseTotal = grandTotal >= 999999 ? Math.floor(grandTotal / 1000000) * 1000000 : grandTotal;
+                                const amount = baseTotal * row.pct / 100;
                                 return (
                                     <tr key={i} style={{ background: i % 2 === 0 ? 'var(--bg-alt, #f8fafc)' : '' }}>
                                         <td style={{ padding: '5px 8px' }}>
@@ -220,7 +221,7 @@ export default function QuotationSummary({ hook }) {
                                 <td style={{ padding: '7px 10px', textAlign: 'center' }}>
                                     {paymentSchedule.reduce((s, r) => s + r.pct, 0)}%
                                 </td>
-                                <td style={{ padding: '7px 10px', textAlign: 'right' }}>{fmt(grandTotal)} đ</td>
+                                <td style={{ padding: '7px 10px', textAlign: 'right' }}>{fmt(grandTotal >= 999999 ? Math.floor(grandTotal / 1000000) * 1000000 : grandTotal)} đ</td>
                                 <td></td>
                             </tr>
                         </tbody>
