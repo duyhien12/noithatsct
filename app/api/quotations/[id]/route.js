@@ -23,20 +23,32 @@ export const GET = withAuth(async (request, { params }) => {
     });
     if (!quotation) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    // Merge sharedUnit/sharedQuantity/sharedUnitPrice (added via raw SQL, not in Prisma client)
-    // Only for Thi công điện nước — other types use per-item pricing
-    if (quotation.categories?.length && quotation.type === 'Thi công điện nước') {
-        const sharedFields = await prisma.$queryRaw`
-            SELECT id, "sharedUnit", "sharedQuantity", "sharedUnitPrice"
-            FROM "QuotationCategory" WHERE "quotationId" = ${id}
-        `;
-        const sharedMap = Object.fromEntries(sharedFields.map(r => [r.id, r]));
-        quotation.categories = quotation.categories.map(cat => ({
-            ...cat,
-            sharedUnit: sharedMap[cat.id]?.sharedUnit ?? 'trọn gói',
-            sharedQuantity: Number(sharedMap[cat.id]?.sharedQuantity ?? 1),
-            sharedUnitPrice: Number(sharedMap[cat.id]?.sharedUnitPrice ?? 0),
-        }));
+    // Merge sharedUnit/sharedQuantity/sharedUnitPrice for Thi công điện nước only.
+    // For other types, explicitly strip these fields so recalc uses per-item pricing.
+    // (Prisma now returns sharedUnit='trọn gói' for all categories due to DB default,
+    //  which would cause recalc to produce subtotal=0 for non-điện nước types.)
+    if (quotation.categories?.length) {
+        if (quotation.type === 'Thi công điện nước') {
+            const sharedFields = await prisma.$queryRaw`
+                SELECT id, "sharedUnit", "sharedQuantity", "sharedUnitPrice"
+                FROM "QuotationCategory" WHERE "quotationId" = ${id}
+            `;
+            const sharedMap = Object.fromEntries(sharedFields.map(r => [r.id, r]));
+            quotation.categories = quotation.categories.map(cat => ({
+                ...cat,
+                sharedUnit: sharedMap[cat.id]?.sharedUnit ?? 'trọn gói',
+                sharedQuantity: Number(sharedMap[cat.id]?.sharedQuantity ?? 1),
+                sharedUnitPrice: Number(sharedMap[cat.id]?.sharedUnitPrice ?? 0),
+            }));
+        } else {
+            // Strip sharedUnit fields — prevent per-item pricing from being ignored
+            quotation.categories = quotation.categories.map(cat => ({
+                ...cat,
+                sharedUnit: null,
+                sharedQuantity: null,
+                sharedUnitPrice: null,
+            }));
+        }
     }
 
     // Merge terms/promoText (added via raw SQL, not in Prisma client)

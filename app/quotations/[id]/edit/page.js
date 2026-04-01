@@ -32,6 +32,7 @@ export default function EditQuotationPage() {
     // Load quotation data → convert flat categories (with group) into 3-level mainCategories
     useEffect(() => {
         apiFetch(`/api/quotations/${params.id}`).then(q => {
+            const isDienNuoc = q.type === 'Thi công điện nước';
             setForm({
                 customerId: q.customerId || '',
                 projectId: q.projectId || '',
@@ -75,7 +76,7 @@ export default function EditQuotationPage() {
                         name: cat.name || '',
                         image: cat.image || '',
                         subtotal: cat.subtotal || 0,
-                        ...(cat.sharedUnit !== undefined && cat.sharedUnit !== null ? {
+                        ...(isDienNuoc && cat.sharedUnit != null ? {
                             sharedUnit: cat.sharedUnit,
                             sharedQuantity: cat.sharedQuantity ?? 1,
                             sharedUnitPrice: cat.sharedUnitPrice ?? 0,
