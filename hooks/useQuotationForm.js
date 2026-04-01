@@ -26,6 +26,7 @@ export default function useQuotationForm() {
         customerId: '', projectId: '', type: 'Thi công thô', notes: '',
         managementFeeRate: 5, designFee: 0, otherFee: 0, vat: 10, discount: 0,
         adjustment: 0, adjustmentType: 'amount',
+        terms: '', promoText: '',
     });
 
     // 3-level hierarchy state

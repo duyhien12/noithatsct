@@ -191,6 +191,8 @@ model Quotation {
   adjustmentAmount  Float           @default(0)
   deductions        Json?           @default("[]")
   paymentSchedule   Json?           @default("[]")
+  terms             String          @default("") @db.Text
+  promoText         String          @default("") @db.Text
   revision          Int             @default(1)
   parentId          String?
   parent            Quotation?      @relation("QuotationRevisions", fields: [parentId], references: [id])

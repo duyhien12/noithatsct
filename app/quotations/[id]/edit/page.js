@@ -45,6 +45,8 @@ export default function EditQuotationPage() {
                 adjustment: q.adjustment ?? 0,
                 adjustmentType: q.adjustmentType || 'amount',
                 status: q.status || 'Nháp',
+                terms: q.terms || '',
+                promoText: q.promoText || '',
             });
             setQMeta({
                 status: q.status || 'Nháp', revision: q.revision || 1, code: q.code || '',

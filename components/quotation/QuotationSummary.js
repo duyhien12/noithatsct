@@ -227,6 +227,34 @@ export default function QuotationSummary({ hook }) {
                         </tbody>
                     </table>
                 </div>
+
+                {/* ====== BANNER TẶNG GÓI + ĐIỀU KHOẢN + GHI CHÚ ====== */}
+                <div style={{ marginTop: 20, borderTop: '2px solid var(--border-color)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {/* Banner tặng gói */}
+                    <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Banner tặng gói (để trống nếu không muốn hiện)</label>
+                        <input className="form-input" value={form.promoText || ''}
+                            onChange={e => setForm(f => ({ ...f, promoText: e.target.value }))}
+                            placeholder="🎁 TẶNG GÓI CHỐNG MỐI TOÀN SÀN TẦNG 1 TRỊ GIÁ 20.000.000Đ"
+                            style={{ width: '100%', fontSize: 13 }} />
+                    </div>
+                    {/* Điều khoản & Cam kết */}
+                    <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Điều khoản & Cam kết (để trống dùng nội dung mặc định)</label>
+                        <textarea className="form-input" value={form.terms || ''}
+                            onChange={e => setForm(f => ({ ...f, terms: e.target.value }))}
+                            placeholder={'• Báo giá có hiệu lực 30 ngày kể từ ngày lập.\n• Thanh toán theo tiến độ giai đoạn được thỏa thuận trong hợp đồng.\n• Giá trên đã bao gồm nhân công, vật tư theo bảng chi tiết.\n• SCT cam kết thi công đúng tiến độ, đúng chất lượng.\n• Mọi thay đổi phát sinh sẽ được thông báo và xác nhận trước khi thực hiện.'}
+                            rows={5} style={{ width: '100%', fontSize: 12, resize: 'vertical' }} />
+                    </div>
+                    {/* Ghi chú */}
+                    <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Ghi chú (để trống dùng nội dung mặc định)</label>
+                        <textarea className="form-input" value={form.notes || ''}
+                            onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                            placeholder={'• Báo giá chỉ bao gồm các hạng mục nêu trong bảng, không bao gồm phần xây dựng thô.\n• Màu sắc, chủng loại vật liệu theo thỏa thuận hợp đồng.\n• SCT cam kết thi công đúng tiến độ, đúng chất lượng, bảo hành theo quy định.\n• Mọi thay đổi phát sinh sẽ được thông báo và xác nhận trước khi thực hiện.'}
+                            rows={4} style={{ width: '100%', fontSize: 12, resize: 'vertical' }} />
+                    </div>
+                </div>
             </div>
         </div>
     );

@@ -952,11 +952,15 @@ export default function QuotationPDFPage() {
                         <div className="mn-footer-grid">
                             <div className="mn-validity">
                                 <strong>Điều khoản & Cam kết:</strong><br />
-                                • Báo giá có hiệu lực {validStr ? `đến ${validStr}` : '30 ngày'} kể từ ngày lập.<br />
-                                • Thanh toán theo tiến độ giai đoạn được thỏa thuận trong hợp đồng.<br />
-                                • Giá trên đã bao gồm nhân công, vật tư theo bảng chi tiết.<br />
-                                • SCT cam kết thi công đúng tiến độ, đúng chất lượng.<br />
-                                • Mọi thay đổi phát sinh sẽ được thông báo và xác nhận trước khi thực hiện.
+                                {q.terms ? (
+                                    <span style={{ whiteSpace: 'pre-wrap' }}>{q.terms}</span>
+                                ) : (<>
+                                    • Báo giá có hiệu lực {validStr ? `đến ${validStr}` : '30 ngày'} kể từ ngày lập.<br />
+                                    • Thanh toán theo tiến độ giai đoạn được thỏa thuận trong hợp đồng.<br />
+                                    • Giá trên đã bao gồm nhân công, vật tư theo bảng chi tiết.<br />
+                                    • SCT cam kết thi công đúng tiến độ, đúng chất lượng.<br />
+                                    • Mọi thay đổi phát sinh sẽ được thông báo và xác nhận trước khi thực hiện.
+                                </>)}
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                                 <div className="mn-sign-area">
@@ -979,24 +983,19 @@ export default function QuotationPDFPage() {
                 {/* ====== GHI CHÚ + LỊCH THANH TOÁN ====== */}
                 <div style={{ padding: '14px 28px 10px', borderTop: '2px solid #e2e8f0' }}>
                     {/* Gift promo banner */}
-                    <div style={{ background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)', color: '#fff', borderRadius: 6, padding: '7px 14px', marginBottom: 12, textAlign: 'center', fontSize: 10, fontWeight: 700, letterSpacing: 0.5 }}>
-                        🎁 TẶNG GÓI CHỐNG MỐI TOÀN SÀN TẦNG 1 TRỊ GIÁ 20.000.000Đ
-                    </div>
+                    {(q.promoText || '🎁 TẶNG GÓI CHỐNG MỐI TOÀN SÀN TẦNG 1 TRỊ GIÁ 20.000.000Đ') && (
+                        <div style={{ background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)', color: '#fff', borderRadius: 6, padding: '7px 14px', marginBottom: 12, textAlign: 'center', fontSize: 10, fontWeight: 700, letterSpacing: 0.5 }}>
+                            {q.promoText || '🎁 TẶNG GÓI CHỐNG MỐI TOÀN SÀN TẦNG 1 TRỊ GIÁ 20.000.000Đ'}
+                        </div>
+                    )}
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
                         {/* Ghi chú */}
                         <div>
                             <div style={{ fontSize: 9, fontWeight: 700, color: BRAND.blue, borderBottom: `1.5px solid ${BRAND.gold}`, paddingBottom: 3, marginBottom: 6 }}>GHI CHÚ</div>
-                            {q.notes ? (
-                                <div style={{ fontSize: 8.5, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{q.notes}</div>
-                            ) : (
-                                <div style={{ fontSize: 8.5, color: '#374151', lineHeight: 1.65 }}>
-                                    • Báo giá chỉ bao gồm các hạng mục nêu trong bảng, không bao gồm phần xây dựng thô.<br />
-                                    • Màu sắc, chủng loại vật liệu theo thỏa thuận hợp đồng.<br />
-                                    • SCT cam kết thi công đúng tiến độ, đúng chất lượng, bảo hành theo quy định.<br />
-                                    • Mọi thay đổi phát sinh sẽ được thông báo và xác nhận trước khi thực hiện.
-                                </div>
-                            )}
+                            <div style={{ fontSize: 8.5, color: '#374151', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
+                                {q.notes || '• Báo giá chỉ bao gồm các hạng mục nêu trong bảng, không bao gồm phần xây dựng thô.\n• Màu sắc, chủng loại vật liệu theo thỏa thuận hợp đồng.\n• SCT cam kết thi công đúng tiến độ, đúng chất lượng, bảo hành theo quy định.\n• Mọi thay đổi phát sinh sẽ được thông báo và xác nhận trước khi thực hiện.'}
+                            </div>
                         </div>
 
                         {/* Lịch thanh toán */}

@@ -39,6 +39,13 @@ export const GET = withAuth(async (request, { params }) => {
         }));
     }
 
+    // Merge terms/promoText (added via raw SQL, not in Prisma client)
+    const extraFields = await prisma.$queryRaw`SELECT "terms", "promoText" FROM "Quotation" WHERE id = ${id}`;
+    if (extraFields[0]) {
+        quotation.terms = extraFields[0].terms ?? '';
+        quotation.promoText = extraFields[0].promoText ?? '';
+    }
+
     return NextResponse.json(quotation);
 });
 
@@ -85,9 +92,15 @@ export const PUT = withAuth(async (request, { params }) => {
         // Update quotation fields
         await tx.quotation.update({ where: { id }, data });
 
-        // Update paymentSchedule via raw SQL (avoids Prisma client cache issue)
+        // Update paymentSchedule/terms/promoText via raw SQL (avoids Prisma client cache issue)
         if (paymentScheduleData !== null) {
             await tx.$executeRaw`UPDATE "Quotation" SET "paymentSchedule" = ${JSON.stringify(paymentScheduleData)}::jsonb WHERE id = ${id}`;
+        }
+        if (validated.terms !== undefined) {
+            await tx.$executeRaw`UPDATE "Quotation" SET "terms" = ${validated.terms} WHERE id = ${id}`;
+        }
+        if (validated.promoText !== undefined) {
+            await tx.$executeRaw`UPDATE "Quotation" SET "promoText" = ${validated.promoText} WHERE id = ${id}`;
         }
 
         // Recreate categories + items
