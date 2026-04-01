@@ -167,8 +167,10 @@ export default function useQuotationForm() {
 
     // ========================================
     // RECALC: Calculate all totals
+    // typeOverride: pass q.type explicitly during initial load (before form.type is set)
     // ========================================
-    const recalc = useCallback((mcs) => {
+    const recalc = useCallback((mcs, typeOverride) => {
+        const isDienNuoc = (typeOverride ?? form.type) === 'Thi công điện nước';
         return mcs.map(mc => {
             const subs = mc.subcategories.map(sub => {
                 const items = sub.items.map(item => {
@@ -181,7 +183,7 @@ export default function useQuotationForm() {
                     return { ...item, quantity: qty, amount: qty * unitPrice };
                 });
                 // Thi công điện nước: subtotal = sharedQuantity × sharedUnitPrice
-                const subtotal = sub.sharedUnit !== undefined
+                const subtotal = isDienNuoc
                     ? (Number(sub.sharedQuantity) || 0) * (Number(sub.sharedUnitPrice) || 0)
                     : items.reduce((s, i) => s + i.amount, 0);
                 return { ...sub, items, subtotal };
@@ -189,7 +191,7 @@ export default function useQuotationForm() {
             const subtotal = subs.reduce((s, sub) => s + sub.subtotal, 0);
             return { ...mc, subcategories: subs, subtotal };
         });
-    }, []);
+    }, [form.type]);
 
     // ========================================
     // MAIN CATEGORY (Tab) handlers

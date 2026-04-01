@@ -110,7 +110,7 @@ export default function EditQuotationPage() {
                         })),
                     })),
                 }));
-                setMainCategories(recalc(mcs));
+                setMainCategories(recalc(mcs, q.type));
                 if (q.deductions) hook.setDeductions((q.deductions || []).map(d => ({ ...d, _key: Date.now() + Math.random() })));
                 if (q.paymentSchedule && Array.isArray(q.paymentSchedule) && q.paymentSchedule.length > 0) {
                     hook.setPaymentSchedule(q.paymentSchedule);
