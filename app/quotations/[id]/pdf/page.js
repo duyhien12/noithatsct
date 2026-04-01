@@ -762,6 +762,7 @@ export default function QuotationPDFPage() {
                         };
                         const fmtAmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0));
                         const isDienNuoc = q.type === 'Thi công điện nước';
+                        const isTongHop = q.type === 'Tổng hợp chi phí hoàn thiện';
 
                         if (!q.categories || q.categories.length === 0) {
                             return (
@@ -806,9 +807,9 @@ export default function QuotationPDFPage() {
                                     <tr>
                                         <th className="c" style={{ width: 36 }}>STT</th>
                                         <th style={{ textAlign: 'left' }}>TÊN HẠNG MỤC</th>
-                                        <th className="c" style={{ width: 44 }}>ĐVT</th>
-                                        <th className="r" style={{ width: 44 }}>SL</th>
-                                        <th className="r" style={{ width: 90 }}>ĐƠN GIÁ</th>
+                                        {!isTongHop && <th className="c" style={{ width: 44 }}>ĐVT</th>}
+                                        {!isTongHop && <th className="r" style={{ width: 44 }}>SL</th>}
+                                        {!isTongHop && <th className="r" style={{ width: 90 }}>ĐƠN GIÁ</th>}
                                         <th className="r" style={{ width: 110 }}>THÀNH TIỀN</th>
                                     </tr>
                                 </thead>
@@ -822,7 +823,7 @@ export default function QuotationPDFPage() {
                                                 {/* ── Hàng A/B/C: Hạng mục chính ── */}
                                                 <tr style={{ background: BRAND.blue }}>
                                                     <td className="c" style={{ fontWeight: 900, fontSize: 13, color: '#fff', padding: '9px 6px' }}>{catLetter}</td>
-                                                    <td colSpan={4} style={{ fontWeight: 800, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: '#fff', padding: '9px 8px' }}>{groupName}</td>
+                                                    <td colSpan={isTongHop ? 1 : 4} style={{ fontWeight: 800, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: '#fff', padding: '9px 8px' }}>{groupName}</td>
                                                     <td className="r" style={{ fontWeight: 900, fontSize: 12, color: BRAND.gold, padding: '9px 8px', whiteSpace: 'nowrap' }}>{fmtAmt(groupTotal)}</td>
                                                 </tr>
 
@@ -837,6 +838,11 @@ export default function QuotationPDFPage() {
                                                                     <td className="c" style={{ fontWeight: 700, fontSize: 10, color: BRAND.blue }}>{cat.sharedUnit || 'trọn gói'}</td>
                                                                     <td className="r" style={{ fontWeight: 700, fontSize: 10, color: BRAND.blue }}>{fmtAmt(cat.sharedQuantity ?? 1)}</td>
                                                                     <td className="r" style={{ fontWeight: 700, fontSize: 10, color: BRAND.blue }}>{fmtAmt(cat.sharedUnitPrice || (cat.subtotal / (cat.sharedQuantity || 1)))}</td>
+                                                                    <td className="r" style={{ fontWeight: 700, fontSize: 11, color: BRAND.blue, padding: '7px 8px', whiteSpace: 'nowrap' }}>{fmtAmt(cat.subtotal || 0)}</td>
+                                                                </>
+                                                            ) : isTongHop ? (
+                                                                <>
+                                                                    <td style={{ fontWeight: 700, fontSize: 11, color: BRAND.textDark, fontStyle: 'italic', padding: '7px 8px' }}>{cat.name || `Khu vực ${ci + 1}`}</td>
                                                                     <td className="r" style={{ fontWeight: 700, fontSize: 11, color: BRAND.blue, padding: '7px 8px', whiteSpace: 'nowrap' }}>{fmtAmt(cat.subtotal || 0)}</td>
                                                                 </>
                                                             ) : (
@@ -867,6 +873,14 @@ export default function QuotationPDFPage() {
                                                                             {item.description && <div style={{ fontSize: 9, color: BRAND.textMid, fontStyle: 'italic', marginTop: 2, lineHeight: 1.4 }}>{item.description}</div>}
                                                                             {imgCache[item.image] && <img src={resolveImg(item.image)} alt="" style={{ marginTop: 6, width: '100%', maxWidth: 220, height: 140, objectFit: 'cover', borderRadius: 5, border: '1px solid #e2e8f0', display: 'block' }} />}
                                                                         </td>
+                                                                    ) : isTongHop ? (
+                                                                        <>
+                                                                            <td style={{ padding: '6px 8px' }}>
+                                                                                <div style={{ fontWeight: 600, fontSize: 11, color: BRAND.textDark }}>{item.name}</div>
+                                                                                {item.description && <div style={{ fontSize: 9, color: BRAND.textMid, fontStyle: 'italic', marginTop: 2, lineHeight: 1.4 }}>{item.description}</div>}
+                                                                            </td>
+                                                                            <td className="r" style={{ fontWeight: 700, color: BRAND.blue, fontSize: 11 }}>{fmtAmt(item.amount)}</td>
+                                                                        </>
                                                                     ) : (
                                                                         <>
                                                                             <td style={{ padding: '6px 8px' }}>
@@ -890,6 +904,14 @@ export default function QuotationPDFPage() {
                                                                                 <div style={{ fontSize: 10, fontStyle: 'italic', color: BRAND.textMid }}>{si.name}</div>
                                                                                 {si.description && <div style={{ fontSize: 8, color: BRAND.textLight, marginTop: 1 }}>{si.description}</div>}
                                                                             </td>
+                                                                        ) : isTongHop ? (
+                                                                            <>
+                                                                                <td style={{ paddingLeft: 22, padding: '4px 8px 4px 22px' }}>
+                                                                                    <div style={{ fontSize: 10, fontStyle: 'italic', color: BRAND.textMid }}>{si.name}</div>
+                                                                                    {si.description && <div style={{ fontSize: 8, color: BRAND.textLight, marginTop: 1 }}>{si.description}</div>}
+                                                                                </td>
+                                                                                <td className="r" style={{ fontSize: 9, opacity: 0.7 }}>{fmtAmt(si.amount || 0)}</td>
+                                                                            </>
                                                                         ) : (
                                                                             <>
                                                                                 <td style={{ paddingLeft: 22, padding: '4px 8px 4px 22px' }}>
