@@ -24,7 +24,8 @@ export const GET = withAuth(async (request, { params }) => {
     if (!quotation) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     // Merge sharedUnit/sharedQuantity/sharedUnitPrice (added via raw SQL, not in Prisma client)
-    if (quotation.categories?.length) {
+    // Only for Thi công điện nước — other types use per-item pricing
+    if (quotation.categories?.length && quotation.type === 'Thi công điện nước') {
         const sharedFields = await prisma.$queryRaw`
             SELECT id, "sharedUnit", "sharedQuantity", "sharedUnitPrice"
             FROM "QuotationCategory" WHERE "quotationId" = ${id}
