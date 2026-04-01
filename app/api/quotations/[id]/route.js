@@ -22,6 +22,22 @@ export const GET = withAuth(async (request, { params }) => {
         },
     });
     if (!quotation) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+    // Merge sharedUnit/sharedQuantity/sharedUnitPrice (added via raw SQL, not in Prisma client)
+    if (quotation.categories?.length) {
+        const sharedFields = await prisma.$queryRaw`
+            SELECT id, "sharedUnit", "sharedQuantity", "sharedUnitPrice"
+            FROM "QuotationCategory" WHERE "quotationId" = ${id}
+        `;
+        const sharedMap = Object.fromEntries(sharedFields.map(r => [r.id, r]));
+        quotation.categories = quotation.categories.map(cat => ({
+            ...cat,
+            sharedUnit: sharedMap[cat.id]?.sharedUnit ?? 'trọn gói',
+            sharedQuantity: Number(sharedMap[cat.id]?.sharedQuantity ?? 1),
+            sharedUnitPrice: Number(sharedMap[cat.id]?.sharedUnitPrice ?? 0),
+        }));
+    }
+
     return NextResponse.json(quotation);
 });
 

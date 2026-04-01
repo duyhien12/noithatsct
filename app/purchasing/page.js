@@ -159,7 +159,7 @@ function PurchasingContent() {
             amount: (parseFloat(it.quantity) || 0) * (parseFloat(it.unitPrice) || 0),
             productId: it.productId || null,
             materialPlanId: it.materialPlanId || null,
-            notes: it.notes || null,
+            notes: it.notes || '',
         }));
         const poTotal2 = validItems.reduce((s, it) => s + it.amount, 0);
         const payload = { ...poForm, projectId: poForm.projectId || null, totalAmount: poTotal2, items: validItems };
