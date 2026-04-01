@@ -90,17 +90,25 @@ export const PUT = withAuth(async (request, { params }) => {
         }
 
         // Update quotation fields
-        await tx.quotation.update({ where: { id }, data });
+        try {
+            await tx.quotation.update({ where: { id }, data });
+        } catch (e) { throw new Error('STEP_UPDATE_QUOTATION: ' + e.message); }
 
         // Update paymentSchedule/terms/promoText via raw SQL (avoids Prisma client cache issue)
         if (paymentScheduleData !== null) {
-            await tx.$executeRaw`UPDATE "Quotation" SET "paymentSchedule" = ${JSON.stringify(paymentScheduleData)}::jsonb WHERE id = ${id}`;
+            try {
+                await tx.$executeRaw`UPDATE "Quotation" SET "paymentSchedule" = ${JSON.stringify(paymentScheduleData)}::jsonb WHERE id = ${id}`;
+            } catch (e) { throw new Error('STEP_PAYMENT_SCHEDULE: ' + e.message); }
         }
         if (validated.terms !== undefined) {
-            await tx.$executeRaw`UPDATE "Quotation" SET "terms" = ${validated.terms} WHERE id = ${id}`;
+            try {
+                await tx.$executeRaw`UPDATE "Quotation" SET "terms" = ${validated.terms} WHERE id = ${id}`;
+            } catch (e) { throw new Error('STEP_TERMS: ' + e.message); }
         }
         if (validated.promoText !== undefined) {
-            await tx.$executeRaw`UPDATE "Quotation" SET "promoText" = ${validated.promoText} WHERE id = ${id}`;
+            try {
+                await tx.$executeRaw`UPDATE "Quotation" SET "promoText" = ${validated.promoText} WHERE id = ${id}`;
+            } catch (e) { throw new Error('STEP_PROMO_TEXT: ' + e.message); }
         }
 
         // Recreate categories + items
