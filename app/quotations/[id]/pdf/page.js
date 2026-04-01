@@ -1011,7 +1011,7 @@ export default function QuotationPDFPage() {
                         </div>
                     )}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: q.type === 'Tổng hợp chi phí hoàn thiện' ? '1fr' : '1fr 1fr', gap: 16, alignItems: 'start' }}>
                         {/* Ghi chú */}
                         <div>
                             <div style={{ fontSize: 9, fontWeight: 700, color: BRAND.blue, borderBottom: `1.5px solid ${BRAND.gold}`, paddingBottom: 3, marginBottom: 6 }}>GHI CHÚ</div>
@@ -1020,8 +1020,8 @@ export default function QuotationPDFPage() {
                             </div>
                         </div>
 
-                        {/* Lịch thanh toán */}
-                        <div>
+                        {/* Lịch thanh toán — ẩn với Tổng hợp chi phí hoàn thiện */}
+                        {q.type !== 'Tổng hợp chi phí hoàn thiện' && <div>
                             <div style={{ fontSize: 9, fontWeight: 700, color: BRAND.blue, borderBottom: `1.5px solid ${BRAND.gold}`, paddingBottom: 3, marginBottom: 6 }}>LỊCH THANH TOÁN</div>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 8.5 }}>
                                 <thead>
@@ -1057,7 +1057,7 @@ export default function QuotationPDFPage() {
                                     </tr>
                                 </tbody>
                             </table>
-                        </div>
+                        </div>}
                     </div>
                 </div>
 
