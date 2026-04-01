@@ -300,10 +300,6 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                 : <th style={{ width: 90 }}>ĐƠN GIÁ</th>
                             )}
                             {!isDienNuoc && <th style={{ width: 100 }}>THÀNH TIỀN</th>}
-                            {!isXayDung && !isBaoGiaThietBiDien && <th style={{ width: 60 }}>DÀI</th>}
-                            {!isXayDung && !isBaoGiaThietBiDien && <th style={{ width: 60 }}>RỘNG</th>}
-                            {!isXayDung && !isBaoGiaThietBiDien && <th style={{ width: 60 }}>CAO</th>}
-                            {!isXayDung && !isBaoGiaThietBiDien && <th style={{ width: 60 }}>KL</th>}
                             <th style={{ width: 30 }}></th>
                         </tr>
                     </thead>
@@ -363,30 +359,6 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                         {!isDienNuoc && isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" type="number" value={item.listPrice || ''} onChange={e => updateItem(mi, si, ii, 'listPrice', e.target.value)} placeholder="0" /></td>}
                                         {!isDienNuoc && <td><input className="form-input form-input-compact" type="number" value={item.unitPrice || ''} onChange={e => updateItem(mi, si, ii, 'unitPrice', e.target.value)} /></td>}
                                         {!isDienNuoc && <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-primary)', fontSize: 12 }}>{fmt(item.amount)}</td>}
-                                        {!isXayDung && !isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" type="number" value={item.length || ''} onChange={e => updateItem(mi, si, ii, 'length', e.target.value)} placeholder="0" /></td>}
-                                        {!isXayDung && !isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" type="number" value={item.width || ''} onChange={e => updateItem(mi, si, ii, 'width', e.target.value)} placeholder="0" /></td>}
-                                        {!isXayDung && !isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" type="number" value={item.height || ''} onChange={e => updateItem(mi, si, ii, 'height', e.target.value)} placeholder="0" /></td>}
-                                        {!isXayDung && !isBaoGiaThietBiDien && <td style={{ textAlign: 'right', fontSize: 12, fontWeight: 500 }}>
-                                            {(() => {
-                                                const u = (item.unit || '').toLowerCase().trim();
-                                                const isDimUnit = ['md', 'mét dài', 'm', 'm²', 'm2', 'm³', 'm3'].includes(u);
-                                                const vol = item.volume || 0;
-                                                if (isDimUnit && vol !== (Number(item.quantity) || 0)) {
-                                                    const formula = u === 'md' || u === 'mét dài' || u === 'm'
-                                                        ? `${item.length || 0} × ${item.quantity || 0}`
-                                                        : u === 'm²' || u === 'm2'
-                                                            ? `${item.length || 0} × ${item.width || 0} × ${item.quantity || 0}`
-                                                            : `${item.length || 0} × ${item.width || 0} × ${item.height || 0} × ${item.quantity || 0}`;
-                                                    return (
-                                                        <span title={formula} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3 }}>
-                                                            {fmt(vol)}
-                                                            <span style={{ fontSize: 8, background: 'var(--accent-primary)', color: '#fff', padding: '1px 3px', borderRadius: 3, lineHeight: 1 }}>auto</span>
-                                                        </span>
-                                                    );
-                                                }
-                                                return <span style={{ opacity: vol > 0 ? 1 : 0.3, fontSize: 11 }}>{fmt(vol)}</span>;
-                                            })()}
-                                        </td>}
                                         <td>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                 <button className="btn btn-ghost" onClick={() => removeItem(mi, si, ii)} style={{ padding: '2px 4px', fontSize: 11 }}>✕</button>
@@ -429,10 +401,6 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                             {!isDienNuoc && isBaoGiaThietBiDien && <td></td>}
                                             {!isDienNuoc && <td><input className="form-input form-input-compact" type="number" value={si_item.unitPrice || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'unitPrice', e.target.value)} /></td>}
                                             {!isDienNuoc && <td style={{ textAlign: 'right', fontWeight: 600, fontSize: 11, opacity: 0.7 }}>{fmt(si_item.amount || 0)}</td>}
-                                            {!isXayDung && !isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" type="number" value={si_item.length || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'length', e.target.value)} placeholder="0" /></td>}
-                                            {!isXayDung && !isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" type="number" value={si_item.width || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'width', e.target.value)} placeholder="0" /></td>}
-                                            {!isXayDung && !isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" type="number" value={si_item.height || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'height', e.target.value)} placeholder="0" /></td>}
-                                            {!isXayDung && !isBaoGiaThietBiDien && <td style={{ textAlign: 'right', fontSize: 11, opacity: 0.6 }}>{fmt(si_item.volume || 0)}</td>}
                                             <td><button className="btn btn-ghost" onClick={() => removeSubItem(mi, si, ii, sii)} style={{ padding: '2px 4px', fontSize: 10 }}>✕</button></td>
                                         </tr>
                                     ))}
