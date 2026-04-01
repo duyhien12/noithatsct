@@ -222,6 +222,8 @@ export default function QuotationPDFPage() {
 
                 @media print {
                     .no-print { display: none !important; }
+                    .header { display: none !important; }
+                    .sidebar { display: none !important; }
                     body { background: white !important; }
                     .pdf-page {
                         box-shadow: none !important;
