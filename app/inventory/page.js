@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const fmtDate = (d) => new Date(d).toLocaleDateString('vi-VN');
@@ -10,15 +11,18 @@ const EMPTY_FORM = {
 };
 
 export default function InventoryPage() {
+    const { data: session } = useSession();
+    const isXayDung = session?.user?.role === 'xay_dung';
     const [activeTab, setActiveTab] = useState('stock');
     const [txData, setTxData] = useState({ transactions: [], warehouses: [] });
     const [stockData, setStockData] = useState({ products: [], lowStock: 0 });
+    const [workItems, setWorkItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterType, setFilterType] = useState('');
     const [filterWarehouse, setFilterWarehouse] = useState('');
     const [stockSearch, setStockSearch] = useState('');
     const [showModal, setShowModal] = useState(false);
-    const [form, setForm] = useState(EMPTY_FORM);
+    const [form, setForm] = useState({ ...EMPTY_FORM, _workItemId: '' });
     const [projects, setProjects] = useState([]);
     const [saving, setSaving] = useState(false);
 
@@ -52,23 +56,50 @@ export default function InventoryPage() {
         fetch('/api/projects?limit=500').then(r => r.json()).then(d => setProjects(d.data || []));
     }, []);
 
+    useEffect(() => {
+        if (!isXayDung) return;
+        fetch('/api/work-item-library?limit=500').then(r => r.json()).then(d => setWorkItems(d.data || d.items || []));
+    }, [isXayDung]);
+
     const openModal = () => {
-        setForm({ ...EMPTY_FORM, warehouseId: txData.warehouses[0]?.id || '' });
+        setForm({ ...EMPTY_FORM, _workItemId: '', warehouseId: txData.warehouses[0]?.id || '' });
         setShowModal(true);
     };
 
-    const handleProductSelect = (productId) => {
-        const p = stockData.products.find(p => p.id === productId);
-        setForm(f => ({ ...f, productId, unit: p?.unit || '' }));
+    const handleProductSelect = (val) => {
+        if (val.startsWith('wi__')) {
+            const wiId = val.slice(4);
+            const wi = workItems.find(w => w.id === wiId);
+            setForm(f => ({ ...f, productId: '', _workItemId: wiId, unit: wi?.unit || '' }));
+        } else {
+            const p = stockData.products.find(p => p.id === val);
+            setForm(f => ({ ...f, productId: val, _workItemId: '', unit: p?.unit || '' }));
+        }
     };
 
     const handleSubmit = async () => {
-        if (!form.productId || !form.warehouseId || !form.quantity) return;
+        if ((!form.productId && !form._workItemId) || !form.warehouseId || !form.quantity) return;
         setSaving(true);
+
+        let productId = form.productId;
+
+        // Auto-create Product from WorkItemLibrary if needed
+        if (form._workItemId) {
+            const wi = workItems.find(w => w.id === form._workItemId);
+            const code = `HMTC_${form._workItemId.slice(0, 8)}`;
+            const res = await fetch('/api/products/ensure', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code, name: wi?.name || '', unit: wi?.unit || '', supplier: 'Hạng mục thi công' }),
+            });
+            const d = await res.json();
+            productId = d.id;
+        }
+
         await fetch('/api/inventory', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...form, quantity: Number(form.quantity) }),
+            body: JSON.stringify({ ...form, productId, quantity: Number(form.quantity) }),
         });
         setSaving(false);
         setShowModal(false);
@@ -271,11 +302,22 @@ export default function InventoryPage() {
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Sản phẩm *</label>
-                                <select className="form-select" value={form.productId} onChange={e => handleProductSelect(e.target.value)}>
+                                <select className="form-select" value={form._workItemId ? `wi__${form._workItemId}` : form.productId} onChange={e => handleProductSelect(e.target.value)}>
                                     <option value="">— Chọn sản phẩm —</option>
-                                    {stockData.products.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name} ({p.code}) — tồn: {p.stock} {p.unit}</option>
-                                    ))}
+                                    {stockData.products.length > 0 && (
+                                        <optgroup label="Sản phẩm">
+                                            {stockData.products.map(p => (
+                                                <option key={p.id} value={p.id}>{p.name} ({p.code}) — tồn: {p.stock} {p.unit}</option>
+                                            ))}
+                                        </optgroup>
+                                    )}
+                                    {workItems.length > 0 && (
+                                        <optgroup label="Hạng mục thi công">
+                                            {workItems.map(w => (
+                                                <option key={w.id} value={`wi__${w.id}`}>{w.name} ({w.unit})</option>
+                                            ))}
+                                        </optgroup>
+                                    )}
                                 </select>
                             </div>
                             <div className="form-row">
