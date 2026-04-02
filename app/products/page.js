@@ -134,9 +134,10 @@ const PAGE_SIZE = 50;
 
 export default function ProductsPage() {
     const router = useRouter();
-    const { isXuong } = useRole();
+    const { isXuong, role } = useRole();
+    const isXayDung = role === 'xay_dung';
     const [_tab, setTab] = useState('s1');
-    const tab = isXuong ? 's3' : _tab;
+    const tab = isXuong ? 's3' : isXayDung ? 'library' : _tab;
     const [products, setProducts] = useState([]);
     const [loadingP, setLoadingP] = useState(true);
     const [searchP, setSearchP] = useState('');
@@ -652,7 +653,7 @@ export default function ProductsPage() {
             {/* Tabs */}
             <div style={{ display: 'flex', alignItems: 'flex-end', borderBottom: '2px solid var(--border-color)', marginBottom: 20 }}>
                 {/* SP Thái tab */}
-                {!isXuong && <div style={{ display: 'flex', alignItems: 'center', borderBottom: tab === 's1' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: -2 }}>
+                {!isXuong && !isXayDung && <div style={{ display: 'flex', alignItems: 'center', borderBottom: tab === 's1' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: -2 }}>
                     <button onClick={() => setTab('s1')} style={{ padding: '9px 8px 9px 16px', border: 'none', background: 'none', fontSize: 13, fontWeight: tab === 's1' ? 700 : 400, color: tab === 's1' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>
                         📦{' '}
                         {editingLabel === 's1'
@@ -666,7 +667,7 @@ export default function ProductsPage() {
                     </button>
                 </div>}
                 {/* SP An Cường tab */}
-                {!isXuong && <div style={{ display: 'flex', alignItems: 'center', borderBottom: tab === 's2' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: -2 }}>
+                {!isXuong && !isXayDung && <div style={{ display: 'flex', alignItems: 'center', borderBottom: tab === 's2' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: -2 }}>
                     <button onClick={() => setTab('s2')} style={{ padding: '9px 8px 9px 16px', border: 'none', background: 'none', fontSize: 13, fontWeight: tab === 's2' ? 700 : 400, color: tab === 's2' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>
                         📦{' '}
                         {editingLabel === 's2'
@@ -680,11 +681,11 @@ export default function ProductsPage() {
                     </button>
                 </div>}
                 {/* Kho nội thất tab */}
-                <div style={{ display: 'flex', alignItems: 'center', borderBottom: tab === 's3' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: -2 }}>
+                {!isXayDung && <div style={{ display: 'flex', alignItems: 'center', borderBottom: tab === 's3' ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: -2 }}>
                     <button onClick={() => setTab('s3')} style={{ padding: '9px 8px 9px 16px', border: 'none', background: 'none', fontSize: 13, fontWeight: tab === 's3' ? 700 : 400, color: tab === 's3' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>
                         🏠 Kho nội thất ({supplierStats.s3})
                     </button>
-                </div>
+                </div>}
                 {!isXuong && <button onClick={() => setTab('library')} style={{ padding: '9px 22px', border: 'none', borderBottom: tab === 'library' ? '2px solid var(--primary)' : '2px solid transparent', background: 'none', marginBottom: -2, fontSize: 13, fontWeight: tab === 'library' ? 700 : 400, color: tab === 'library' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>
                     🔧 Hạng mục thi công ({library.length})
                 </button>}
