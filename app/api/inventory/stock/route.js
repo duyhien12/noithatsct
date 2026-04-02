@@ -4,19 +4,25 @@ import { NextResponse } from 'next/server';
 
 export const GET = withAuth(async (request, _ctx, session) => {
     const role = session?.user?.role || '';
-    const where = role === 'xay_dung'
-        ? { NOT: { supplier: { in: ['Thái', 'An Cường', 'Kho nội thất'] } } }
-        : {};
+    const EXCLUDED_SUPPLIERS = ['Thái', 'An Cường', 'Kho nội thất'];
 
-    const products = await prisma.product.findMany({
-        where,
+    const allProducts = await prisma.product.findMany({
         select: {
             id: true, code: true, name: true, category: true,
             unit: true, stock: true, minStock: true,
             importPrice: true, salePrice: true,
+            supplier: true,
+            categoryRef: { select: { supplier: true } },
         },
         orderBy: { name: 'asc' },
     });
+
+    const products = role === 'xay_dung'
+        ? allProducts.filter(p =>
+            !EXCLUDED_SUPPLIERS.includes(p.supplier) &&
+            !EXCLUDED_SUPPLIERS.includes(p.categoryRef?.supplier || '')
+          )
+        : allProducts;
 
     const lowStock = products.filter(p => p.stock <= p.minStock && p.minStock > 0);
 
