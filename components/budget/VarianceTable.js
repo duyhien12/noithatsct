@@ -384,7 +384,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     const [allSaving, setAllSaving] = useState(false);
     const savingItems = useRef(new Set()); // guard against concurrent save-on-blur retry
     const [addingTo, setAddingTo] = useState(null); // { g1, g2 }
-    const [addForm, setAddForm] = useState({ name: '', unit: '', qty: 1, budgetUnitPrice: 0, actualUnitPrice: 0 });
+    const [addForm, setAddForm] = useState({ name: '', unit: '', qty: 0, budgetUnitPrice: 0, actualQty: 0, actualUnitPrice: 0 });
     const [addingSubTo, setAddingSubTo] = useState(null);
     const [newSubName, setNewSubName] = useState('');
     const [addingG1, setAddingG1] = useState(false);
@@ -590,7 +590,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
         if (!addForm.name.trim()) return;
         const savedScroll = window.scrollY;
         const qty = Number(addForm.qty) || 0;
-        const ap = Number(addForm.actualUnitPrice) || 0;
+        const actualCost = (Number(addForm.actualQty) || 0) * (Number(addForm.actualUnitPrice) || 0);
         const res = await fetch('/api/material-plans', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -600,7 +600,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                     unit: addForm.unit || '',
                     quantity: qty,
                     unitPrice: Number(addForm.budgetUnitPrice) || 0,
-                    actualCost: ap * qty,
+                    actualCost,
                     costType: 'Vật tư', group1: g1 || '', group2: g2 || '', planType: 'tracking',
                 }],
                 projectId,
@@ -608,7 +608,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
         });
         if (res.ok) {
             setAddingTo(null);
-            setAddForm({ name: '', unit: '', qty: 1, budgetUnitPrice: 0, actualUnitPrice: 0 });
+            setAddForm({ name: '', unit: '', qty: 0, budgetUnitPrice: 0, actualQty: 0, actualUnitPrice: 0 });
             reload();
             // Ensure scroll is restored after the reload re-render
             requestAnimationFrame(() =>
@@ -987,15 +987,25 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                                         <td style={{ ...cellStyle, textAlign: 'right', color: '#2563eb', fontWeight: 600 }}>
                                             {fmt((Number(addForm.qty) || 0) * (Number(addForm.budgetUnitPrice) || 0))}
                                         </td>
+                                        {/* SLTT */}
+                                        <td style={{ ...cellStyle, padding: '3px 4px' }}>
+                                            <input style={{ ...inpStyle, textAlign: 'right', color: '#16a34a' }} type="number"
+                                                placeholder="SLTT" value={addForm.actualQty || ''}
+                                                onChange={e => setAddForm(f => ({ ...f, actualQty: e.target.value }))} />
+                                        </td>
+                                        {/* ĐG TT */}
                                         <td style={{ ...cellStyle, padding: '3px 4px' }}>
                                             <input style={{ ...inpStyle, textAlign: 'right', color: '#16a34a' }} type="number"
                                                 placeholder="Đơn giá TT" value={addForm.actualUnitPrice || ''}
-                                                onChange={e => setAddForm(f => ({ ...f, actualUnitPrice: e.target.value }))} />
+                                                onChange={e => setAddForm(f => ({ ...f, actualUnitPrice: e.target.value }))}
+                                                onKeyDown={e => { if (e.key === 'Enter') submitAddItem(g1, g2); if (e.key === 'Escape') setAddingTo(null); }} />
                                         </td>
+                                        {/* TỔNG TT calculated */}
                                         <td style={{ ...cellStyle, textAlign: 'right', color: '#16a34a', fontWeight: 600 }}>
-                                            {fmt((Number(addForm.qty) || 0) * (Number(addForm.actualUnitPrice) || 0))}
+                                            {fmt((Number(addForm.actualQty) || 0) * (Number(addForm.actualUnitPrice) || 0))}
                                         </td>
-                                        <td style={{ ...cellStyle, textAlign: 'right', fontWeight: 700, color: '#9ca3af' }}>—</td>
+                                        {/* CHÊNH LỆCH — */}
+                                        <td style={{ ...cellStyle, textAlign: 'right', color: '#9ca3af' }}>—</td>
                                         <td style={{ ...cellStyle, padding: '3px 4px' }}>
                                             <div style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
                                                 <button onClick={() => submitAddItem(g1, g2)}
@@ -1022,7 +1032,13 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                             </tbody>
                         </table>
                         <div style={{ padding: '8px 12px' }}>
-                            <button onClick={() => { setAddingTo({ g1, g2 }); setAddForm({ name: '', qty: 1, budgetUnitPrice: 0 }); }}
+                            <button onClick={async () => {
+                                    if (addingTo && addForm.name.trim()) {
+                                        await submitAddItem(addingTo.g1, addingTo.g2);
+                                    }
+                                    setAddingTo({ g1, g2 });
+                                    setAddForm({ name: '', unit: '', qty: 0, budgetUnitPrice: 0, actualQty: 0, actualUnitPrice: 0 });
+                                }}
                                 style={{ fontSize: 12, color: '#2563eb', background: 'none', border: '1px dashed #93c5fd', borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>
                                 + Thêm dòng
                             </button>

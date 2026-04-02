@@ -45,6 +45,7 @@ const menuItems = [
             { href: '/products', icon: Package, label: 'Sản phẩm & Vật tư', roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER, 'xay_dung', 'thiet_ke'] },
             { href: '/work-orders', icon: Wrench, label: 'Phiếu công việc' },
             { href: '/schedule-templates', icon: CalendarDays, label: 'Mẫu tiến độ' },
+            { href: '/tasks', icon: Wrench, label: 'Tác vụ' },
         ]
     },
     {
