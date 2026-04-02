@@ -70,7 +70,7 @@ const menuItems = [
             },
             {
                 href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho',
-                roles: [...BAN_GD, ...KE_TOAN, ...VIEWER],
+                roles: [...BAN_GD, ...KE_TOAN, ...VIEWER, ...KY_THUAT],
             },
             {
                 href: '/finance', icon: Wallet, label: 'Tài chính',
