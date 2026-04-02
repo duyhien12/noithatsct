@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
@@ -23,8 +23,10 @@ export default function InventoryPage() {
     const [stockSearch, setStockSearch] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [form, setForm] = useState({ ...EMPTY_FORM, _workItemId: '' });
+    const formRef = useRef(form);
     const [projects, setProjects] = useState([]);
     const [saving, setSaving] = useState(false);
+    const [submitError, setSubmitError] = useState('');
     const [productSearch, setProductSearch] = useState('');
     const [showProductDrop, setShowProductDrop] = useState(false);
 
@@ -63,8 +65,20 @@ export default function InventoryPage() {
         fetch('/api/work-item-library?limit=500').then(r => r.json()).then(d => setWorkItems(d.data || d.items || []));
     }, [isXayDung]);
 
+    // Keep ref in sync so handleSubmit always reads latest form (avoids stale closure)
+    const setFormSynced = (updater) => {
+        setForm(prev => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            formRef.current = next;
+            return next;
+        });
+    };
+
     const openModal = () => {
-        setForm({ ...EMPTY_FORM, _workItemId: '', warehouseId: txData.warehouses[0]?.id || '' });
+        const initial = { ...EMPTY_FORM, _workItemId: '', warehouseId: txData.warehouses[0]?.id || '' };
+        formRef.current = initial;
+        setForm(initial);
+        setSubmitError('');
         setProductSearch('');
         setShowProductDrop(false);
         setShowModal(true);
@@ -74,41 +88,51 @@ export default function InventoryPage() {
         if (val.startsWith('wi__')) {
             const wiId = val.slice(4);
             const wi = workItems.find(w => w.id === wiId);
-            setForm(f => ({ ...f, productId: '', _workItemId: wiId, unit: wi?.unit || '' }));
+            setFormSynced(f => ({ ...f, productId: '', _workItemId: wiId, unit: wi?.unit || '' }));
         } else {
             const p = stockData.products.find(p => p.id === val);
-            setForm(f => ({ ...f, productId: val, _workItemId: '', unit: p?.unit || '' }));
+            setFormSynced(f => ({ ...f, productId: val, _workItemId: '', unit: p?.unit || '' }));
         }
     };
 
     const handleSubmit = async () => {
-        if ((!form.productId && !form._workItemId) || !form.warehouseId || !form.quantity) return;
+        const f = formRef.current;
+        setSubmitError('');
+        if (!f.productId && !f._workItemId) { setSubmitError('Vui lòng chọn sản phẩm'); return; }
+        if (!f.warehouseId) { setSubmitError('Vui lòng chọn kho'); return; }
+        if (!f.quantity) { setSubmitError('Vui lòng nhập số lượng'); return; }
         setSaving(true);
 
-        let productId = form.productId;
+        try {
+            let productId = f.productId;
 
-        // Auto-create Product from WorkItemLibrary if needed
-        if (form._workItemId) {
-            const wi = workItems.find(w => w.id === form._workItemId);
-            const code = `HMTC_${form._workItemId.slice(0, 8)}`;
-            const res = await fetch('/api/products/ensure', {
+            if (f._workItemId) {
+                const wi = workItems.find(w => w.id === f._workItemId);
+                const code = `HMTC_${f._workItemId.slice(0, 8)}`;
+                const res = await fetch('/api/products/ensure', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, name: wi?.name || '', unit: wi?.unit || '', supplier: 'Hạng mục thi công' }),
+                });
+                const d = await res.json();
+                if (!d.id) throw new Error('Không thể tạo sản phẩm: ' + (d.error || ''));
+                productId = d.id;
+            }
+
+            const res = await fetch('/api/inventory', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code, name: wi?.name || '', unit: wi?.unit || '', supplier: 'Hạng mục thi công' }),
+                body: JSON.stringify({ ...f, productId, quantity: Number(f.quantity) }),
             });
-            const d = await res.json();
-            productId = d.id;
+            if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Lỗi tạo phiếu'); }
+            setSaving(false);
+            setShowModal(false);
+            fetchStock();
+            if (activeTab === 'history') fetchTx();
+        } catch (err) {
+            setSaving(false);
+            setSubmitError(err.message || 'Lỗi không xác định');
         }
-
-        await fetch('/api/inventory', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...form, productId, quantity: Number(form.quantity) }),
-        });
-        setSaving(false);
-        setShowModal(false);
-        fetchStock();
-        if (activeTab === 'history') fetchTx();
     };
 
     const stockFiltered = stockData.products.filter(p =>
@@ -294,14 +318,14 @@ export default function InventoryPage() {
                             <div className="form-row">
                                 <div className="form-group">
                                     <label className="form-label">Loại *</label>
-                                    <select className="form-select" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+                                    <select className="form-select" value={form.type} onChange={e => setFormSynced(f => ({ ...f, type: e.target.value }))}>
                                         <option value="Nhập">Nhập kho</option>
                                         <option value="Xuất">Xuất kho</option>
                                     </select>
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Ngày</label>
-                                    <input className="form-input" type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+                                    <input className="form-input" type="date" value={form.date} onChange={e => setFormSynced(f => ({ ...f, date: e.target.value }))} />
                                 </div>
                             </div>
                             <div className="form-group" style={{ position: 'relative' }}>
@@ -362,24 +386,24 @@ export default function InventoryPage() {
                             <div className="form-row">
                                 <div className="form-group">
                                     <label className="form-label">Số lượng *</label>
-                                    <input className="form-input" type="number" min="0.01" step="0.01" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} />
+                                    <input className="form-input" type="number" min="0.01" step="0.01" value={form.quantity} onChange={e => setFormSynced(f => ({ ...f, quantity: e.target.value }))} />
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Đơn vị</label>
-                                    <input className="form-input" value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} />
+                                    <input className="form-input" value={form.unit} onChange={e => setFormSynced(f => ({ ...f, unit: e.target.value }))} />
                                 </div>
                             </div>
                             <div className="form-row">
                                 <div className="form-group">
                                     <label className="form-label">Kho *</label>
-                                    <select className="form-select" value={form.warehouseId} onChange={e => setForm(f => ({ ...f, warehouseId: e.target.value }))}>
+                                    <select className="form-select" value={form.warehouseId} onChange={e => setFormSynced(f => ({ ...f, warehouseId: e.target.value }))}>
                                         <option value="">— Chọn kho —</option>
                                         {txData.warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                                     </select>
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Dự án (tuỳ chọn)</label>
-                                    <select className="form-select" value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))}>
+                                    <select className="form-select" value={form.projectId} onChange={e => setFormSynced(f => ({ ...f, projectId: e.target.value }))}>
                                         <option value="">— Không gắn DA —</option>
                                         {projects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
                                     </select>
@@ -387,15 +411,16 @@ export default function InventoryPage() {
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Ghi chú</label>
-                                <input className="form-input" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
+                                <input className="form-input" value={form.note} onChange={e => setFormSynced(f => ({ ...f, note: e.target.value }))} />
                             </div>
                         </div>
+                        {submitError && <div style={{ padding: '6px 20px', color: '#dc2626', fontSize: 13 }}>{submitError}</div>}
                         <div className="modal-footer">
                             <button className="btn btn-ghost" onClick={() => setShowModal(false)}>Hủy</button>
                             <button
                                 className="btn btn-primary"
                                 onClick={handleSubmit}
-                                disabled={saving || !form.productId || !form.warehouseId || !form.quantity}
+                                disabled={saving || (!form.productId && !form._workItemId) || !form.warehouseId || !form.quantity}
                             >
                                 {saving ? 'Đang lưu...' : `Tạo phiếu ${form.type}`}
                             </button>
