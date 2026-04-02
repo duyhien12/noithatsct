@@ -213,6 +213,7 @@ export default function InventoryPage() {
                                             <th style={{ textAlign: 'right' }}>Đơn giá nhập</th>
                                             <th style={{ textAlign: 'right' }}>Giá trị tồn</th>
                                             <th>TT</th>
+                                            <th style={{ width: 40 }}></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -235,6 +236,16 @@ export default function InventoryPage() {
                                                     <td>
                                                         {isOut && <span className="badge" style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--status-danger)', fontSize: 10 }}>Hết hàng</span>}
                                                         {isLow && !isOut && <span className="badge" style={{ background: 'rgba(245,158,11,0.15)', color: 'var(--status-warning)', fontSize: 10 }}>Sắp hết</span>}
+                                                    </td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (!confirm(`Xóa "${p.name}" khỏi kho?`)) return;
+                                                                await fetch(`/api/products/${p.id}`, { method: 'DELETE' });
+                                                                fetchStock();
+                                                            }}
+                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 15, padding: '2px 6px', borderRadius: 4 }}
+                                                            title="Xóa">🗑</button>
                                                     </td>
                                                 </tr>
                                             );
