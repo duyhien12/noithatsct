@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 export const GET = withAuth(async (request, _ctx, session) => {
     const role = session?.user?.role || '';
     const where = role === 'xay_dung'
-        ? { NOT: { supplier: { in: ['Thái', 'An Cường'] } } }
+        ? { NOT: { supplier: { in: ['Thái', 'An Cường', 'Kho nội thất'] } } }
         : {};
 
     const products = await prisma.product.findMany({
