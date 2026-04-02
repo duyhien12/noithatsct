@@ -294,14 +294,14 @@ export default function InventoryPage() {
                             <div className="form-row">
                                 <div className="form-group">
                                     <label className="form-label">Loại *</label>
-                                    <select className="form-select" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
+                                    <select className="form-select" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
                                         <option value="Nhập">Nhập kho</option>
                                         <option value="Xuất">Xuất kho</option>
                                     </select>
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Ngày</label>
-                                    <input className="form-input" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+                                    <input className="form-input" type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
                                 </div>
                             </div>
                             <div className="form-group" style={{ position: 'relative' }}>
@@ -362,24 +362,24 @@ export default function InventoryPage() {
                             <div className="form-row">
                                 <div className="form-group">
                                     <label className="form-label">Số lượng *</label>
-                                    <input className="form-input" type="number" min="0.01" step="0.01" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} />
+                                    <input className="form-input" type="number" min="0.01" step="0.01" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} />
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Đơn vị</label>
-                                    <input className="form-input" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} />
+                                    <input className="form-input" value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} />
                                 </div>
                             </div>
                             <div className="form-row">
                                 <div className="form-group">
                                     <label className="form-label">Kho *</label>
-                                    <select className="form-select" value={form.warehouseId} onChange={e => setForm({ ...form, warehouseId: e.target.value })}>
+                                    <select className="form-select" value={form.warehouseId} onChange={e => setForm(f => ({ ...f, warehouseId: e.target.value }))}>
                                         <option value="">— Chọn kho —</option>
                                         {txData.warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                                     </select>
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Dự án (tuỳ chọn)</label>
-                                    <select className="form-select" value={form.projectId} onChange={e => setForm({ ...form, projectId: e.target.value })}>
+                                    <select className="form-select" value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))}>
                                         <option value="">— Không gắn DA —</option>
                                         {projects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
                                     </select>
@@ -387,7 +387,7 @@ export default function InventoryPage() {
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Ghi chú</label>
-                                <input className="form-input" value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} />
+                                <input className="form-input" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
                             </div>
                         </div>
                         <div className="modal-footer">
