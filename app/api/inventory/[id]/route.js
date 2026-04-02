@@ -24,7 +24,7 @@ export const PUT = withAuth(async (request, { params }) => {
                 quantity: newQty,
                 unit: data.unit ?? old.unit,
                 note: data.note ?? old.note,
-                date: data.date ? new Date(data.date) : old.date,
+                date: data.date ? new Date(data.date + 'T00:00:00') : old.date,
                 warehouseId: data.warehouseId || old.warehouseId,
                 projectId: data.projectId !== undefined ? (data.projectId || null) : old.projectId,
             },

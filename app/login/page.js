@@ -198,7 +198,7 @@ function LoginForm() {
             });
             const data = await res.json();
             if (!res.ok) { setError(data.error || 'Đăng ký thất bại'); return; }
-            setSuccess('Đăng ký thành công! Chuyển sang tab Đăng nhập để vào hệ thống.');
+            setSuccess(data.message || 'Đăng ký thành công! Tài khoản cần được Admin kích hoạt trước khi đăng nhập.');
             setRegName(''); setRegEmail(''); setRegPass(''); setRegPassConfirm(''); setRegDept('');
         } catch {
             setError('Lỗi kết nối. Vui lòng thử lại.');

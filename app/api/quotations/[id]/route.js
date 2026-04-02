@@ -108,8 +108,11 @@ export const PUT = withAuth(async (request, { params }) => {
 
         // Update paymentSchedule/terms/promoText via raw SQL (avoids Prisma client cache issue)
         if (paymentScheduleData !== null) {
+            let psJson;
+            try { psJson = JSON.stringify(paymentScheduleData); }
+            catch (e) { throw new Error('STEP_PAYMENT_SCHEDULE: dữ liệu không hợp lệ — ' + e.message); }
             try {
-                await tx.$executeRaw`UPDATE "Quotation" SET "paymentSchedule" = ${JSON.stringify(paymentScheduleData)}::jsonb WHERE id = ${id}`;
+                await tx.$executeRaw`UPDATE "Quotation" SET "paymentSchedule" = ${psJson}::jsonb WHERE id = ${id}`;
             } catch (e) { throw new Error('STEP_PAYMENT_SCHEDULE: ' + e.message); }
         }
         if (validated.terms !== undefined) {

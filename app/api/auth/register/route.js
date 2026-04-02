@@ -38,10 +38,10 @@ export async function POST(request) {
         const id = randomBytes(12).toString('hex');
         await prisma.$executeRaw`
             INSERT INTO "User" (id, email, name, password, role, active, "createdAt", "updatedAt")
-            VALUES (${id}, ${cleanEmail}, ${cleanName}, ${hashed}, ${role}, true, ${now}, ${now})
+            VALUES (${id}, ${cleanEmail}, ${cleanName}, ${hashed}, ${role}, false, ${now}, ${now})
         `;
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true, message: 'Đăng ký thành công! Tài khoản cần được Admin kích hoạt trước khi đăng nhập.' });
     } catch (err) {
         console.error('Register error:', err);
         return NextResponse.json({ error: err?.message || String(err) }, { status: 500 });

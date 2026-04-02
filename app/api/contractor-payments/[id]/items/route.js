@@ -8,6 +8,9 @@ export const POST = withAuth(async (request, { params }) => {
     const { description, unit, quantity, unitPrice, notes, acceptedAt } = body;
     if (!description?.trim()) return NextResponse.json({ error: 'Tên hạng mục bắt buộc' }, { status: 400 });
 
+    const payment = await prisma.contractorPayment.findUnique({ where: { id }, select: { id: true } });
+    if (!payment) return NextResponse.json({ error: 'Không tìm thấy phiếu thanh toán' }, { status: 404 });
+
     const qty = Number(quantity) || 0;
     const price = Number(unitPrice) || 0;
     const amount = qty * price;

@@ -24,8 +24,8 @@ export const GET = withAuth(async (request) => {
         try {
             const descendants = await getDescendantIds(categoryId);
             where.categoryId = { in: [categoryId, ...descendants] };
-        } catch {
-            // ProductCategory table may not exist yet
+        } catch (e) {
+            console.error('[products] getDescendantIds failed, falling back to exact match:', e.message);
             where.categoryId = categoryId;
         }
     }

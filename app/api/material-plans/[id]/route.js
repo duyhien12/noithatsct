@@ -7,8 +7,10 @@ export const PUT = withAuth(async (request, { params }) => {
     const body = await request.json();
 
     // Ensure columns exist (idempotent migration)
-    await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN "unit" TEXT NOT NULL DEFAULT ''`.catch(() => {});
-    await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN "actualQty" FLOAT NOT NULL DEFAULT 0`.catch(() => {});
+    await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN "unit" TEXT NOT NULL DEFAULT ''`
+        .catch(e => { if (!e.message?.includes('duplicate') && !e.message?.includes('already exists')) console.error('[migration] unit column:', e.message); });
+    await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN "actualQty" FLOAT NOT NULL DEFAULT 0`
+        .catch(e => { if (!e.message?.includes('duplicate') && !e.message?.includes('already exists')) console.error('[migration] actualQty column:', e.message); });
 
     const sets = [];
     const vals = [];

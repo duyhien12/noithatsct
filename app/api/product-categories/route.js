@@ -51,10 +51,12 @@ export const GET = withAuth(async (request) => {
                 })),
             }));
             return NextResponse.json(withSupplier);
-        } catch {
+        } catch (e) {
+            console.error('[product-categories] supplier field fetch failed:', e.message);
             return NextResponse.json(categories);
         }
-    } catch {
+    } catch (e) {
+        console.error('[product-categories] GET failed:', e.message);
         return NextResponse.json([]);
     }
 });

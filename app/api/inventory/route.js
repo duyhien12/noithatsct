@@ -60,7 +60,7 @@ export const POST = withAuth(async (request) => {
             quantity: qty,
             unit: data.unit || '',
             note: data.note || '',
-            date: data.date ? new Date(data.date) : new Date(),
+            date: data.date ? new Date(data.date + 'T00:00:00') : new Date(),
             productId: data.productId,
             warehouseId: data.warehouseId,
             projectId: data.projectId || null,

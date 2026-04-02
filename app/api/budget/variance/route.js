@@ -3,9 +3,11 @@ import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 
 export const GET = withAuth(async (request) => {
-    // Ensure unit column exists (idempotent, first-time migration)
-    await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN "unit" TEXT NOT NULL DEFAULT ''`.catch(() => {});
-    await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN "actualQty" FLOAT NOT NULL DEFAULT 0`.catch(() => {});
+    // Ensure columns exist (idempotent — error = column already exists, safe to ignore)
+    await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN "unit" TEXT NOT NULL DEFAULT ''`
+        .catch(e => { if (!e.message?.includes('duplicate') && !e.message?.includes('already exists')) console.error('[migration] unit column:', e.message); });
+    await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN "actualQty" FLOAT NOT NULL DEFAULT 0`
+        .catch(e => { if (!e.message?.includes('duplicate') && !e.message?.includes('already exists')) console.error('[migration] actualQty column:', e.message); });
 
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');

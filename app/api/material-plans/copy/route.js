@@ -17,8 +17,8 @@ export const POST = withAuth(async (request) => {
 
     let copied = 0;
     for (const item of items) {
-        const qty = Number(item.quantity) || 0;
-        const price = Number(item.unitPrice) || 0;
+        const qty = Math.max(0, Number(item.quantity) || 0);
+        const price = Math.max(0, Number(item.unitPrice) || 0);
         const unit = item.unit || '';
         const customName = item.category || '';
         const costType = item.costType || 'Vật tư';
