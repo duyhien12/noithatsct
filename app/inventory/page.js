@@ -25,6 +25,8 @@ export default function InventoryPage() {
     const [form, setForm] = useState({ ...EMPTY_FORM, _workItemId: '' });
     const [projects, setProjects] = useState([]);
     const [saving, setSaving] = useState(false);
+    const [productSearch, setProductSearch] = useState('');
+    const [showProductDrop, setShowProductDrop] = useState(false);
 
     const fetchTx = async () => {
         setLoading(true);
@@ -63,6 +65,8 @@ export default function InventoryPage() {
 
     const openModal = () => {
         setForm({ ...EMPTY_FORM, _workItemId: '', warehouseId: txData.warehouses[0]?.id || '' });
+        setProductSearch('');
+        setShowProductDrop(false);
         setShowModal(true);
     };
 
@@ -300,25 +304,60 @@ export default function InventoryPage() {
                                     <input className="form-input" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
                                 </div>
                             </div>
-                            <div className="form-group">
+                            <div className="form-group" style={{ position: 'relative' }}>
                                 <label className="form-label">Sản phẩm *</label>
-                                <select className="form-select" value={form._workItemId ? `wi__${form._workItemId}` : form.productId} onChange={e => handleProductSelect(e.target.value)}>
-                                    <option value="">— Chọn sản phẩm —</option>
-                                    {stockData.products.length > 0 && (
-                                        <optgroup label="Sản phẩm">
-                                            {stockData.products.map(p => (
-                                                <option key={p.id} value={p.id}>{p.name} ({p.code}) — tồn: {p.stock} {p.unit}</option>
-                                            ))}
-                                        </optgroup>
-                                    )}
-                                    {workItems.length > 0 && (
-                                        <optgroup label="Hạng mục thi công">
-                                            {workItems.map(w => (
-                                                <option key={w.id} value={`wi__${w.id}`}>{w.name} ({w.unit})</option>
-                                            ))}
-                                        </optgroup>
-                                    )}
-                                </select>
+                                <input
+                                    className="form-input"
+                                    placeholder="🔍 Gõ để tìm sản phẩm..."
+                                    value={productSearch}
+                                    onChange={e => { setProductSearch(e.target.value); setShowProductDrop(true); }}
+                                    onFocus={() => setShowProductDrop(true)}
+                                    onBlur={() => setTimeout(() => setShowProductDrop(false), 180)}
+                                    autoComplete="off"
+                                />
+                                {(form.productId || form._workItemId) && !showProductDrop && (
+                                    <div style={{ fontSize: 12, color: '#16a34a', marginTop: 3, fontWeight: 600 }}>
+                                        ✓ {form._workItemId
+                                            ? workItems.find(w => w.id === form._workItemId)?.name
+                                            : stockData.products.find(p => p.id === form.productId)?.name}
+                                    </div>
+                                )}
+                                {showProductDrop && (() => {
+                                    const q = productSearch.toLowerCase();
+                                    const filteredProducts = stockData.products.filter(p =>
+                                        !q || p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q)
+                                    );
+                                    const filteredWork = workItems.filter(w =>
+                                        !q || w.name.toLowerCase().includes(q)
+                                    );
+                                    if (!filteredProducts.length && !filteredWork.length) return null;
+                                    return (
+                                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--border-color)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.13)', zIndex: 200, maxHeight: 260, overflowY: 'auto' }}>
+                                            {filteredProducts.length > 0 && <>
+                                                <div style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, color: '#6b7280', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>SẢN PHẨM</div>
+                                                {filteredProducts.map(p => (
+                                                    <div key={p.id} onMouseDown={() => { handleProductSelect(p.id); setProductSearch(p.name); setShowProductDrop(false); }}
+                                                        style={{ padding: '8px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f3f4f6' }}
+                                                        onMouseEnter={e => e.currentTarget.style.background = '#f0fdf4'}
+                                                        onMouseLeave={e => e.currentTarget.style.background = ''}>
+                                                        {p.name} <span style={{ color: '#9ca3af', fontSize: 11 }}>({p.code}) — tồn: {p.stock} {p.unit}</span>
+                                                    </div>
+                                                ))}
+                                            </>}
+                                            {filteredWork.length > 0 && <>
+                                                <div style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, color: '#6b7280', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>HẠNG MỤC THI CÔNG</div>
+                                                {filteredWork.map(w => (
+                                                    <div key={w.id} onMouseDown={() => { handleProductSelect(`wi__${w.id}`); setProductSearch(w.name); setShowProductDrop(false); }}
+                                                        style={{ padding: '8px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f3f4f6' }}
+                                                        onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
+                                                        onMouseLeave={e => e.currentTarget.style.background = ''}>
+                                                        {w.name} <span style={{ color: '#9ca3af', fontSize: 11 }}>({w.unit})</span>
+                                                    </div>
+                                                ))}
+                                            </>}
+                                        </div>
+                                    );
+                                })()}
                             </div>
                             <div className="form-row">
                                 <div className="form-group">
