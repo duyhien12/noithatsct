@@ -36,6 +36,7 @@ export const DELETE = withAuth(async (request, { params }) => {
     await prisma.$transaction([
         prisma.inventoryTransaction.deleteMany({ where: { productId: id } }),
         prisma.materialPlan.deleteMany({ where: { productId: id } }),
+        prisma.workshopTaskMaterial.deleteMany({ where: { productId: id } }),
         prisma.quotationItem.updateMany({ where: { productId: id }, data: { productId: null } }),
         prisma.product.delete({ where: { id } }),
     ]);

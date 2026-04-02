@@ -28,8 +28,8 @@ export const GET = withAuth(async (request) => {
             where,
             include: {
                 product: { select: { name: true, unit: true } },
-                warehouse: { select: { name: true } },
-                project: { select: { name: true } },
+                warehouse: { select: { id: true, name: true } },
+                project: { select: { id: true, name: true } },
             },
             orderBy: { date: 'desc' },
             skip,
@@ -67,9 +67,12 @@ export const POST = withAuth(async (request) => {
         },
     });
 
-    // Update product stock
+    // Update product stock (and importPrice if provided on Nhập)
     const delta = data.type === 'Nhập' ? qty : -qty;
-    await prisma.product.update({ where: { id: data.productId }, data: { stock: { increment: delta } } });
+    const productUpdate = { stock: { increment: delta } };
+    const importPrice = Number(data.importPrice);
+    if (data.type === 'Nhập' && importPrice > 0) productUpdate.importPrice = importPrice;
+    await prisma.product.update({ where: { id: data.productId }, data: productUpdate });
 
     return NextResponse.json(tx, { status: 201 });
 });

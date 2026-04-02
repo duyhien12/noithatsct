@@ -8,18 +8,11 @@ export const POST = withAuth(async (request) => {
     if (!code) return NextResponse.json({ error: 'code bắt buộc' }, { status: 400 });
 
     const price = Number(importPrice) || 0;
-    const existing = await prisma.product.findUnique({ where: { code } });
-    if (existing) {
-        // Update importPrice if provided
-        if (price > 0 && existing.importPrice !== price) {
-            await prisma.product.update({ where: { code }, data: { importPrice: price } });
-            return NextResponse.json({ ...existing, importPrice: price });
-        }
-        return NextResponse.json(existing);
-    }
 
-    const product = await prisma.product.create({
-        data: {
+    // upsert avoids race conditions between findUnique + create
+    const product = await prisma.product.upsert({
+        where: { code },
+        create: {
             code,
             name: name || code,
             unit: unit || '',
@@ -28,7 +21,8 @@ export const POST = withAuth(async (request) => {
             importPrice: price,
             salePrice: 0,
         },
+        update: price > 0 ? { importPrice: price } : {},
     });
 
-    return NextResponse.json(product, { status: 201 });
+    return NextResponse.json(product);
 });

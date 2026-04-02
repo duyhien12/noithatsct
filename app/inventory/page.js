@@ -30,6 +30,9 @@ export default function InventoryPage() {
     const [submitError, setSubmitError] = useState('');
     const [productSearch, setProductSearch] = useState('');
     const [showProductDrop, setShowProductDrop] = useState(false);
+    const [editTx, setEditTx] = useState(null); // transaction being edited
+    const [editForm, setEditForm] = useState({});
+    const [editSaving, setEditSaving] = useState(false);
 
     const fetchTx = async () => {
         setLoading(true);
@@ -44,7 +47,7 @@ export default function InventoryPage() {
 
     const fetchStock = async () => {
         setLoading(true);
-        const res = await fetch('/api/inventory/stock');
+        const res = await fetch(`/api/inventory/stock?t=${Date.now()}`);
         const d = await res.json();
         setStockData(d);
         setLoading(false);
@@ -89,10 +92,16 @@ export default function InventoryPage() {
         if (val.startsWith('wi__')) {
             const wiId = val.slice(4);
             const wi = workItems.find(w => w.id === wiId);
-            setFormSynced(f => ({ ...f, productId: '', _workItemId: wiId, unit: wi?.unit || '' }));
+            const hmtcCode = `HMTC_${wiId.slice(0, 8)}`;
+            const existingProduct = stockData.products.find(p => p.code === hmtcCode);
+            setFormSynced(f => ({
+                ...f, productId: '', _workItemId: wiId,
+                unit: wi?.unit || '',
+                importPrice: existingProduct?.importPrice || '',
+            }));
         } else {
             const p = stockData.products.find(p => p.id === val);
-            setFormSynced(f => ({ ...f, productId: val, _workItemId: '', unit: p?.unit || '' }));
+            setFormSynced(f => ({ ...f, productId: val, _workItemId: '', unit: p?.unit || '', importPrice: p?.importPrice || '' }));
         }
     };
 
@@ -129,7 +138,8 @@ export default function InventoryPage() {
             setSaving(false);
             setShowModal(false);
             fetchStock();
-            if (activeTab === 'history') fetchTx();
+            fetchTx();
+            setActiveTab('history');
         } catch (err) {
             setSaving(false);
             setSubmitError(err.message || 'Lỗi không xác định');
@@ -290,7 +300,7 @@ export default function InventoryPage() {
                             <div className="table-container">
                                 <table className="data-table">
                                     <thead>
-                                        <tr><th>Mã PK</th><th>Loại</th><th>Sản phẩm</th><th>SL</th><th>Kho</th><th>Dự án</th><th>Ghi chú</th><th>Ngày</th></tr>
+                                        <tr><th>Mã PK</th><th>Loại</th><th>Sản phẩm</th><th>SL</th><th>Kho</th><th>Dự án</th><th>Ghi chú</th><th>Ngày</th><th style={{ width: 40 }}></th></tr>
                                     </thead>
                                     <tbody>
                                         {txData.transactions.map(t => (
@@ -305,6 +315,32 @@ export default function InventoryPage() {
                                                 <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.project?.name || '—'}</td>
                                                 <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.note}</td>
                                                 <td style={{ fontSize: 12 }}>{fmtDate(t.date)}</td>
+                                                <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditTx(t);
+                                                            setEditForm({
+                                                                type: t.type,
+                                                                quantity: t.quantity,
+                                                                unit: t.unit,
+                                                                note: t.note || '',
+                                                                date: new Date(t.date).toISOString().split('T')[0],
+                                                                warehouseId: t.warehouse?.id || '',
+                                                                projectId: t.project?.id || '',
+                                                            });
+                                                        }}
+                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', fontSize: 15, padding: '2px 6px', borderRadius: 4 }}
+                                                        title="Chỉnh sửa">✏️</button>
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (!confirm(`Xóa phiếu ${t.code}? Tồn kho sẽ được hoàn tác.`)) return;
+                                                            await fetch(`/api/inventory/${t.id}`, { method: 'DELETE' });
+                                                            fetchTx();
+                                                            fetchStock();
+                                                        }}
+                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 15, padding: '2px 6px', borderRadius: 4 }}
+                                                        title="Xóa phiếu">🗑</button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -317,6 +353,92 @@ export default function InventoryPage() {
                     </>
                 )}
             </div>
+
+            {/* Modal chỉnh sửa phiếu */}
+            {editTx && (
+                <div className="modal-overlay" onClick={() => setEditTx(null)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+                        <div className="modal-header">
+                            <h3>Sửa phiếu {editTx.code}</h3>
+                            <button className="modal-close" onClick={() => setEditTx(null)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="form-group">
+                                <label className="form-label">Sản phẩm</label>
+                                <input className="form-input" value={editTx.product?.name || ''} disabled style={{ background: '#f9fafb', color: '#6b7280' }} />
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Loại *</label>
+                                    <select className="form-select" value={editForm.type} onChange={e => setEditForm(f => ({ ...f, type: e.target.value }))}>
+                                        <option value="Nhập">Nhập kho</option>
+                                        <option value="Xuất">Xuất kho</option>
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Ngày</label>
+                                    <input className="form-input" type="date" value={editForm.date} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} />
+                                </div>
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Số lượng *</label>
+                                    <input className="form-input" type="number" min="0.01" step="0.01" value={editForm.quantity} onChange={e => setEditForm(f => ({ ...f, quantity: e.target.value }))} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Đơn vị</label>
+                                    <input className="form-input" value={editForm.unit} onChange={e => setEditForm(f => ({ ...f, unit: e.target.value }))} />
+                                </div>
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Kho *</label>
+                                    <select className="form-select" value={editForm.warehouseId} onChange={e => setEditForm(f => ({ ...f, warehouseId: e.target.value }))}>
+                                        <option value="">— Chọn kho —</option>
+                                        {txData.warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Dự án</label>
+                                    <select className="form-select" value={editForm.projectId} onChange={e => setEditForm(f => ({ ...f, projectId: e.target.value }))}>
+                                        <option value="">— Không gắn DA —</option>
+                                        {projects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Ghi chú</label>
+                                <input className="form-input" value={editForm.note} onChange={e => setEditForm(f => ({ ...f, note: e.target.value }))} />
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setEditTx(null)}>Hủy</button>
+                            <button
+                                className="btn btn-primary"
+                                disabled={editSaving || !editForm.quantity || !editForm.warehouseId}
+                                onClick={async () => {
+                                    setEditSaving(true);
+                                    try {
+                                        const res = await fetch(`/api/inventory/${editTx.id}`, {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ ...editForm, quantity: Number(editForm.quantity) }),
+                                        });
+                                        if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Lỗi cập nhật'); }
+                                        setEditTx(null);
+                                        fetchTx();
+                                        fetchStock();
+                                    } catch (err) {
+                                        alert(err.message);
+                                    } finally {
+                                        setEditSaving(false);
+                                    }
+                                }}
+                            >{editSaving ? 'Đang lưu...' : 'Lưu thay đổi'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Modal nhập/xuất kho */}
             {showModal && (
