@@ -12,6 +12,40 @@ const inpStyle = { width: '100%', padding: '3px 5px', fontSize: 11, border: '1px
 
 const fmtDate = () => new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
+const UNIT_LIST = ['m2', 'm3', 'Cái', 'TG', 'Tầng', 'md', 'Bộ'];
+
+function UnitInput({ value, onChange, onBlur, style, placeholder }) {
+    const [open, setOpen] = useState(false);
+    const suggestions = value
+        ? UNIT_LIST.filter(u => u.toLowerCase().includes(value.toLowerCase()))
+        : UNIT_LIST;
+    return (
+        <div style={{ position: 'relative' }}>
+            <input
+                style={style}
+                value={value}
+                placeholder={placeholder || 'm², cái...'}
+                onChange={e => { onChange(e.target.value); setOpen(true); }}
+                onFocus={() => setOpen(true)}
+                onBlur={() => { setTimeout(() => setOpen(false), 150); if (onBlur) onBlur(); }}
+            />
+            {open && suggestions.length > 0 && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: 80, background: '#fff', border: '1px solid #93c5fd', borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 300 }}>
+                    {suggestions.map(u => (
+                        <div key={u}
+                            onMouseDown={() => { onChange(u); setOpen(false); }}
+                            style={{ padding: '5px 10px', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
+                            onMouseLeave={e => e.currentTarget.style.background = ''}>
+                            {u}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function buildPrintHTML(project, items, summary) {
     const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const fmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0));
@@ -828,11 +862,12 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
 
                 {/* ĐVT */}
                 <td style={{ ...cellStyle, padding: '3px 4px', width: 70 }}>
-                    <input style={{ ...inpStyle, textAlign: 'center' }}
+                    <UnitInput
+                        style={{ ...inpStyle, textAlign: 'center' }}
                         value={getVal(item, 'unit')}
-                        onChange={e => updateEdit(item.id, 'unit', e.target.value)}
+                        onChange={v => updateEdit(item.id, 'unit', v)}
                         onBlur={() => saveItem(item.id)}
-                        placeholder="m², cái..." />
+                    />
                 </td>
 
                 {/* SL */}
@@ -974,9 +1009,12 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                                             />
                                         </td>
                                         <td style={{ ...cellStyle, padding: '3px 4px' }}>
-                                            <input style={{ ...inpStyle, textAlign: 'center' }}
-                                                placeholder="ĐVT" value={addForm.unit || ''}
-                                                onChange={e => setAddForm(f => ({ ...f, unit: e.target.value }))} />
+                                            <UnitInput
+                                                style={{ ...inpStyle, textAlign: 'center' }}
+                                                placeholder="ĐVT"
+                                                value={addForm.unit || ''}
+                                                onChange={v => setAddForm(f => ({ ...f, unit: v }))}
+                                            />
                                         </td>
                                         <td style={{ ...cellStyle, padding: '3px 4px' }}>
                                             <input style={{ ...inpStyle, textAlign: 'right' }} type="number"
