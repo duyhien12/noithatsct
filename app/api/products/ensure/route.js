@@ -4,11 +4,19 @@ import { NextResponse } from 'next/server';
 
 // Finds or creates a Product by code — used for linking WorkItemLibrary to inventory
 export const POST = withAuth(async (request) => {
-    const { code, name, unit, supplier } = await request.json();
+    const { code, name, unit, supplier, importPrice } = await request.json();
     if (!code) return NextResponse.json({ error: 'code bắt buộc' }, { status: 400 });
 
+    const price = Number(importPrice) || 0;
     const existing = await prisma.product.findUnique({ where: { code } });
-    if (existing) return NextResponse.json(existing);
+    if (existing) {
+        // Update importPrice if provided
+        if (price > 0 && existing.importPrice !== price) {
+            await prisma.product.update({ where: { code }, data: { importPrice: price } });
+            return NextResponse.json({ ...existing, importPrice: price });
+        }
+        return NextResponse.json(existing);
+    }
 
     const product = await prisma.product.create({
         data: {
@@ -17,7 +25,7 @@ export const POST = withAuth(async (request) => {
             unit: unit || '',
             supplier: supplier || 'Hạng mục thi công',
             category: 'Hạng mục thi công',
-            importPrice: 0,
+            importPrice: price,
             salePrice: 0,
         },
     });

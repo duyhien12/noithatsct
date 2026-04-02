@@ -8,6 +8,7 @@ const fmtDate = (d) => new Date(d).toLocaleDateString('vi-VN');
 const EMPTY_FORM = {
     type: 'Nhập', productId: '', warehouseId: '', quantity: '',
     unit: '', note: '', projectId: '', date: new Date().toISOString().split('T')[0],
+    importPrice: '',
 };
 
 export default function InventoryPage() {
@@ -112,7 +113,7 @@ export default function InventoryPage() {
                 const res = await fetch('/api/products/ensure', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code, name: wi?.name || '', unit: wi?.unit || '', supplier: 'Hạng mục thi công' }),
+                    body: JSON.stringify({ code, name: wi?.name || '', unit: wi?.unit || '', supplier: 'Hạng mục thi công', importPrice: Number(f.importPrice) || 0 }),
                 });
                 const d = await res.json();
                 if (!d.id) throw new Error('Không thể tạo sản phẩm: ' + (d.error || ''));
@@ -392,6 +393,13 @@ export default function InventoryPage() {
                                     <label className="form-label">Đơn vị</label>
                                     <input className="form-input" value={form.unit} onChange={e => setFormSynced(f => ({ ...f, unit: e.target.value }))} />
                                 </div>
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Giá nhập (đ)</label>
+                                    <input className="form-input" type="number" min="0" step="1000" placeholder="0" value={form.importPrice} onChange={e => setFormSynced(f => ({ ...f, importPrice: e.target.value }))} />
+                                </div>
+                                <div className="form-group" />
                             </div>
                             <div className="form-row">
                                 <div className="form-group">
