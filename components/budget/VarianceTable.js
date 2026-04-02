@@ -399,6 +399,10 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     const [showCostPanel, setShowCostPanel] = useState(false);
     const [mgmtRate, setMgmtRate] = useState(5);       // % chi phí quản lý / Tổng DT
     const [otherCosts, setOtherCosts] = useState(0);   // Chi phí khác (VNĐ cố định)
+    const [showCopyModal, setShowCopyModal] = useState(false);
+    const [copyProjects, setCopyProjects] = useState([]);
+    const [copyTarget, setCopyTarget] = useState('');
+    const [copying, setCopying] = useState(false);
 
     // Load/save chi phí vận hành từ localStorage
     useEffect(() => {
@@ -1132,6 +1136,17 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                             background: '#eff6ff', color: '#1d4ed8', display: 'flex', alignItems: 'center', gap: 5 }}>
                         📊 Nhập Excel
                     </button>
+                    <button onClick={async () => {
+                            const res = await fetch('/api/projects?limit=200');
+                            const d = await res.json();
+                            setCopyProjects((d.data || []).filter(p => p.id !== projectId));
+                            setCopyTarget('');
+                            setShowCopyModal(true);
+                        }}
+                        style={{ padding: '7px 14px', fontSize: 12, fontWeight: 600, borderRadius: 8, border: '1px solid #7c3aed', cursor: 'pointer',
+                            background: '#f5f3ff', color: '#6d28d9', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        📋 Sao chép
+                    </button>
                     <input ref={xlsxRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }}
                         onChange={e => { const f = e.target.files[0]; if (f) { setPendingFile(f); setShowImportModal(true); } e.target.value = ''; }} />
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -1384,6 +1399,54 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                         <button className="btn btn-ghost" onClick={() => { setShowImportModal(false); setPendingFile(null); }}>Hủy</button>
                         <button className="btn btn-primary" disabled={importing} onClick={() => handleImportExcel(pendingFile)}>
                             {importing ? 'Đang nhập...' : 'Nhập dữ liệu'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        {showCopyModal && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+                onClick={() => setShowCopyModal(false)}>
+                <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 460, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', overflow: 'hidden' }}
+                    onClick={e => e.stopPropagation()}>
+                    <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 700, fontSize: 16 }}>📋 Sao chép bảng theo dõi</span>
+                        <button onClick={() => setShowCopyModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9ca3af' }}>×</button>
+                    </div>
+                    <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>
+                            Chọn dự án đích để sao chép toàn bộ hạng mục dự toán sang. Dữ liệu thực tế (SLTT, ĐG TT) sẽ được đặt về 0.
+                        </p>
+                        <div>
+                            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Dự án đích *</label>
+                            <select className="form-select" value={copyTarget} onChange={e => setCopyTarget(e.target.value)} style={{ width: '100%' }}>
+                                <option value="">-- Chọn dự án --</option>
+                                {copyProjects.map(p => (
+                                    <option key={p.id} value={p.id}>{p.code ? `[${p.code}] ` : ''}{p.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                    <div style={{ padding: '12px 20px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                        <button onClick={() => setShowCopyModal(false)} style={{ padding: '7px 16px', fontSize: 13, borderRadius: 8, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer' }}>Hủy</button>
+                        <button
+                            disabled={!copyTarget || copying}
+                            onClick={async () => {
+                                setCopying(true);
+                                const res = await fetch('/api/material-plans/copy', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ fromProjectId: projectId, toProjectId: copyTarget }),
+                                });
+                                const d = await res.json();
+                                setCopying(false);
+                                setShowCopyModal(false);
+                                if (res.ok) alert(`Đã sao chép ${d.copied} hạng mục sang dự án đích.`);
+                                else alert(d.error || 'Lỗi sao chép');
+                            }}
+                            style={{ padding: '7px 18px', fontSize: 13, fontWeight: 700, borderRadius: 8, border: 'none', cursor: copyTarget && !copying ? 'pointer' : 'not-allowed',
+                                background: copyTarget && !copying ? '#6d28d9' : '#d1d5db', color: '#fff' }}>
+                            {copying ? 'Đang sao chép...' : 'Sao chép'}
                         </button>
                     </div>
                 </div>
