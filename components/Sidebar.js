@@ -46,6 +46,7 @@ const menuItems = [
             { href: '/work-orders', icon: Wrench, label: 'Phiếu công việc' },
             { href: '/schedule-templates', icon: CalendarDays, label: 'Mẫu tiến độ' },
             { href: '/tasks', icon: Wrench, label: 'Tác vụ' },
+            { href: '/proposals', icon: FileText, label: 'Đề xuất - Kiến nghị' },
         ]
     },
     {

@@ -32,6 +32,8 @@ const FULL_MENU = [
             { href: '/workshop/workers', icon: Users, label: 'Nhân công' },
             { href: '/workshop/timeline', icon: BarChart2, label: 'Tiến độ (Gantt)' },
             { href: '/work-orders', icon: Clock, label: 'Phiếu công việc' },
+            { href: '/tasks', icon: Wrench, label: 'Tác vụ' },
+            { href: '/proposals', icon: FileText, label: 'Đề xuất - Kiến nghị' },
         ],
     },
     {

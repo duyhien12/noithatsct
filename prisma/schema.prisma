@@ -1037,3 +1037,19 @@ model Task {
   @@index([status])
   @@index([assignee])
 }
+
+model Proposal {
+  id          String    @id @default(cuid())
+  type        String    @default("Đề xuất")   // "Đề xuất" | "Kiến nghị"
+  title       String
+  content     String    @default("") @db.Text
+  status      String    @default("Mới")        // "Mới" | "Đang xem xét" | "Đã duyệt" | "Từ chối"
+  response    String    @default("") @db.Text  // Phản hồi từ quản lý
+  submittedBy String    @default("")           // email người gửi
+  submittedName String  @default("")           // tên người gửi
+  respondedBy String    @default("")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  @@index([status])
+  @@index([submittedBy])
+}
