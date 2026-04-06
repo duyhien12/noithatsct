@@ -163,7 +163,7 @@ export default function ContractorDetailPage() {
                         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{contractor.name}</h1>
                         <span className="badge muted">{contractor.code}</span>
                         <span className="badge warning">{contractor.type}</span>
-                        {contractor.isBlacklisted && <span style={{ background: '#1f2937', color: '#fff', fontSize: 12, padding: '2px 8px', borderRadius: 12, fontWeight: 600 }}>🚫 Blacklist</span>}
+                        {contractor.isBlacklisted && <span style={{ background: '#1f2937', color: '#fff', fontSize: 12, padding: '2px 8px', borderRadius: 12, fontWeight: 600 }}>🚫 Danh sách đen</span>}
                         <span>{'⭐'.repeat(contractor.rating)}</span>
                     </div>
                 </div>
@@ -252,11 +252,11 @@ export default function ContractorDetailPage() {
                                 {editing ? (
                                     <button style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', background: form.isBlacklisted ? '#1f2937' : 'var(--bg-secondary)', color: form.isBlacklisted ? '#fff' : 'var(--text-primary)', fontWeight: 600, fontSize: 13 }}
                                         onClick={() => setForm({ ...form, isBlacklisted: !form.isBlacklisted })}>
-                                        {form.isBlacklisted ? '🚫 Đang blacklist — nhấn để bỏ' : '✅ Hoạt động — nhấn để blacklist'}
+                                        {form.isBlacklisted ? '🚫 Đang trong danh sách đen — nhấn để bỏ' : '✅ Hoạt động — nhấn để thêm vào danh sách đen'}
                                     </button>
                                 ) : (
                                     <span style={{ background: form.isBlacklisted ? '#1f2937' : 'rgba(16,185,129,0.1)', color: form.isBlacklisted ? '#fff' : 'var(--status-success)', padding: '3px 10px', borderRadius: 12, fontSize: 13, fontWeight: 600 }}>
-                                        {form.isBlacklisted ? '🚫 Blacklist' : '✅ Hoạt động'}
+                                        {form.isBlacklisted ? '🚫 Danh sách đen' : '✅ Hoạt động'}
                                     </span>
                                 )}
                             </div>

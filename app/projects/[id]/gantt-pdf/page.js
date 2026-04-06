@@ -327,7 +327,7 @@ export default function GanttPdfPage() {
                     <LegendItem color="#ef4444" label="Quá hạn" />
                     <LegendItem color={ORANGE} label="Nhóm hạng mục" />
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ width: 20, height: 3, background: '#94a3b8', display: 'inline-block', opacity: 0.4 }}></span>Baseline
+                        <span style={{ width: 20, height: 3, background: '#94a3b8', display: 'inline-block', opacity: 0.4 }}></span>Kế hoạch gốc
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <span style={{ width: 0, borderLeft: '2px dashed #2563eb', height: 12, display: 'inline-block', opacity: 0.7 }}></span>Hôm nay

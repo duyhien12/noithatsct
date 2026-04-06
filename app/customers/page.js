@@ -183,7 +183,7 @@ export default function CustomersPage() {
                     {view === 'table' && (
                     <div className="desktop-table-view">
                         <div className="table-container"><table className="data-table">
-                            <thead><tr><th>Mã</th><th>Tên KH</th><th>SĐT</th><th>Pipeline</th><th>Nguồn</th><th>Giá trị deal</th><th>Doanh thu</th><th>DA</th><th></th></tr></thead>
+                            <thead><tr><th>Mã</th><th>Tên KH</th><th>SĐT</th><th>Giai đoạn KD</th><th>Nguồn</th><th>Giá trị deal</th><th>Doanh thu</th><th>DA</th><th></th></tr></thead>
                             <tbody>{filtered.map(c => {
                                 const stage = PIPELINE.find(p => p.key === (c.pipelineStage || 'Khách nội thất')) || PIPELINE[0];
                                 return (
@@ -291,7 +291,7 @@ export default function CustomersPage() {
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Pipeline</label>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Giai đoạn KD</label>
                                         <select className="form-select" value={form.pipelineStage} onChange={e => setForm({ ...form, pipelineStage: e.target.value })}>
                                             {PIPELINE.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
                                         </select>

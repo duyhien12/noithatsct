@@ -410,7 +410,7 @@ export default function ScheduleGanttView({ tasks, flat, onUpdate, projectId }) 
                 <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#3b82f6', marginRight: 4, verticalAlign: 'middle' }}></span>Đang thi công</span>
                 <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#22c55e', marginRight: 4, verticalAlign: 'middle' }}></span>Hoàn thành</span>
                 <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#ef4444', marginRight: 4, verticalAlign: 'middle' }}></span>Quá hạn</span>
-                <span><span style={{ display: 'inline-block', width: 10, height: 3, background: 'var(--text-muted)', marginRight: 4, verticalAlign: 'middle', opacity: 0.3 }}></span>Baseline</span>
+                <span><span style={{ display: 'inline-block', width: 10, height: 3, background: 'var(--text-muted)', marginRight: 4, verticalAlign: 'middle', opacity: 0.3 }}></span>Kế hoạch gốc</span>
                 <span style={{ borderLeft: '2px dashed #3b82f6', paddingLeft: 6 }}>Hôm nay</span>
                 <span>→ Liên kết FS</span>
             </div>

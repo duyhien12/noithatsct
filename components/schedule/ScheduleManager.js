@@ -96,7 +96,7 @@ export default function ScheduleManager({ projectId, projectCode, projectStartDa
     };
 
     const saveBaseline = async () => {
-        if (!confirm('Chốt tiến độ hiện tại làm Baseline? Dữ liệu cũ sẽ bị ghi đè.')) return;
+        if (!confirm('Chốt tiến độ hiện tại làm Kế hoạch gốc? Dữ liệu cũ sẽ bị ghi đè.')) return;
         await fetch('/api/schedule-tasks/baseline', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

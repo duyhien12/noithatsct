@@ -221,7 +221,7 @@ export default function WorkshopTasksPage() {
                                     <th>Dự án</th>
                                     <th>Nhân công</th>
                                     <th>Bắt đầu</th>
-                                    <th>Deadline</th>
+                                    <th>Hạn hoàn thành</th>
                                     <th style={{ minWidth: 120 }}>Tiến độ</th>
                                     <th>Ưu tiên</th>
                                     <th>Trạng thái</th>
@@ -378,7 +378,7 @@ export default function WorkshopTasksPage() {
                                     <input className="form-input" type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} />
                                 </div>
                                 <div className="form-group">
-                                    <label className="form-label">Deadline</label>
+                                    <label className="form-label">Hạn hoàn thành</label>
                                     <input className="form-input" type="date" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} />
                                 </div>
                             </div>

@@ -654,8 +654,8 @@ export default function DocumentManager({ projectId, onRefresh }) {
                             {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.icon} {k}</option>)}
                         </select>
                         <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-                            <button onClick={() => setViewMode('grid')} style={{ padding: '5px 10px', background: viewMode === 'grid' ? 'var(--accent-primary)' : 'transparent', color: viewMode === 'grid' ? '#fff' : 'var(--text-muted)', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1 }} title="Grid View">▦</button>
-                            <button onClick={() => setViewMode('list')} style={{ padding: '5px 10px', background: viewMode === 'list' ? 'var(--accent-primary)' : 'transparent', color: viewMode === 'list' ? '#fff' : 'var(--text-muted)', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1 }} title="List View">☰</button>
+                            <button onClick={() => setViewMode('grid')} style={{ padding: '5px 10px', background: viewMode === 'grid' ? 'var(--accent-primary)' : 'transparent', color: viewMode === 'grid' ? '#fff' : 'var(--text-muted)', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1 }} title="Xem dạng lưới">▦</button>
+                            <button onClick={() => setViewMode('list')} style={{ padding: '5px 10px', background: viewMode === 'list' ? 'var(--accent-primary)' : 'transparent', color: viewMode === 'list' ? '#fff' : 'var(--text-muted)', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1 }} title="Xem danh sách">☰</button>
                         </div>
                         <button className="btn btn-primary btn-sm" onClick={() => setModal('upload')}>+ Upload</button>
                     </div>

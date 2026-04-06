@@ -246,7 +246,7 @@ export default function FieldUpdateTask() {
                                         inp.click();
                                     }} style={{ aspectRatio: '1', borderRadius: 10, border: '2px dashed rgba(59,130,246,0.4)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(59,130,246,0.05)', gap: 4 }}>
                                         <span style={{ fontSize: 24 }}>📷</span>
-                                        <span style={{ fontSize: 10, color: '#3b82f6' }}>Camera</span>
+                                        <span style={{ fontSize: 10, color: '#3b82f6' }}>Chụp ảnh</span>
                                     </div>
 
                                     {/* Gallery pick */}

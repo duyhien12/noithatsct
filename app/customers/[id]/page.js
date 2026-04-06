@@ -125,7 +125,7 @@ export default function CustomerDetailPage() {
                             </svg>
                             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, color: scoreColor }}>{score}</div>
                         </div>
-                        <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 1 }}>Score</div>
+                        <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 1 }}>Điểm CRM</div>
                     </div>
                 </div>
 
@@ -468,7 +468,7 @@ export default function CustomerDetailPage() {
                             </div>
                             <div className="form-group"><label className="form-label">Địa chỉ</label><input className="form-input" value={editForm.address || ''} onChange={e => setEditForm({ ...editForm, address: e.target.value })} /></div>
                             <div className="form-row">
-                                <div className="form-group"><label className="form-label">Pipeline</label>
+                                <div className="form-group"><label className="form-label">Giai đoạn KD</label>
                                     <select className="form-select" value={editForm.pipelineStage || 'Khách nội thất'} onChange={e => setEditForm({ ...editForm, pipelineStage: e.target.value })}>
                                         {PIPELINE.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
                                     </select>
