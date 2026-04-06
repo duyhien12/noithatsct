@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useToast } from '@/components/ui/Toast';
 
 const BAN_GD = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
 
@@ -29,6 +30,7 @@ export default function ProposalsPage() {
     const [responseStatus, setResponseStatus] = useState('');
     const [saving, setSaving] = useState(false);
 
+    const toast = useToast();
     const isAdmin = BAN_GD.includes(session?.user?.role);
     const myEmail = session?.user?.email || '';
 
@@ -38,7 +40,8 @@ export default function ProposalsPage() {
         if (filterType) params.set('type', filterType);
         fetch(`/api/proposals?${params}`)
             .then(r => r.json())
-            .then(d => { setItems(d.data || []); setLoading(false); });
+            .then(d => { setItems(d.data || []); setLoading(false); })
+            .catch(() => { toast.error('Không thể tải dữ liệu'); setLoading(false); });
     };
 
     useEffect(() => {
@@ -57,9 +60,13 @@ export default function ProposalsPage() {
         });
         setSaving(false);
         if (res.ok) {
+            toast.success('Đã gửi thành công');
             setShowCreate(false);
             setForm({ type: 'Đề xuất', title: '', content: '' });
             fetchData();
+        } else {
+            const err = await res.json().catch(() => ({}));
+            toast.error(err.error || 'Gửi thất bại');
         }
     };
 
@@ -73,15 +80,24 @@ export default function ProposalsPage() {
         });
         setSaving(false);
         if (res.ok) {
+            toast.success('Đã lưu phản hồi');
             setSelected(null);
             fetchData();
+        } else {
+            const err = await res.json().catch(() => ({}));
+            toast.error(err.error || 'Lưu thất bại');
         }
     };
 
     const deleteItem = async (id) => {
         if (!confirm('Xác nhận xóa?')) return;
-        await fetch(`/api/proposals/${id}`, { method: 'DELETE' });
-        setItems(prev => prev.filter(i => i.id !== id));
+        const res = await fetch(`/api/proposals/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            toast.success('Đã xóa');
+            setItems(prev => prev.filter(i => i.id !== id));
+        } else {
+            toast.error('Xóa thất bại');
+        }
     };
 
     const openDetail = (item) => {

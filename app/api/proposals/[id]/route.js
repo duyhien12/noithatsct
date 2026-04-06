@@ -20,7 +20,7 @@ export const PUT = withAuth(async (request, { params }, session) => {
     if (isAdmin) {
         if (body.status) data.status = body.status;
         if (body.response !== undefined) data.response = body.response;
-        if (body.response !== undefined) data.respondedBy = session?.user?.name || '';
+        if (body.response) data.respondedBy = session?.user?.name || '';
     } else {
         // Chỉ cho sửa nếu đang là "Mới" và là chủ đề xuất
         if (existing.submittedBy !== session?.user?.email) {
