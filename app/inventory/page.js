@@ -17,6 +17,7 @@ export default function InventoryPage() {
     const [activeTab, setActiveTab] = useState('stock');
     const [txData, setTxData] = useState({ transactions: [], warehouses: [] });
     const [stockData, setStockData] = useState({ products: [], lowStock: 0 });
+    const [allProducts, setAllProducts] = useState([]); // dùng cho dropdown tìm SP trong modal
     const [workItems, setWorkItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterType, setFilterType] = useState('');
@@ -62,6 +63,7 @@ export default function InventoryPage() {
         fetch('/api/inventory/stock').then(r => r.json()).then(d => setStockData(d));
         fetch('/api/inventory?limit=1').then(r => r.json()).then(d => setTxData(t => ({ ...t, warehouses: d.warehouses || [] })));
         fetch('/api/projects?limit=500').then(r => r.json()).then(d => setProjects(d.data || []));
+        fetch('/api/products?' + new URLSearchParams({ limit: 2000, supplier: 'Kho nội thất' })).then(r => r.json()).then(d => setAllProducts(d.data || []));
     }, []);
 
     useEffect(() => {
@@ -100,7 +102,7 @@ export default function InventoryPage() {
                 importPrice: existingProduct?.importPrice || '',
             }));
         } else {
-            const p = stockData.products.find(p => p.id === val);
+            const p = allProducts.find(p => p.id === val);
             setFormSynced(f => ({ ...f, productId: val, _workItemId: '', unit: p?.unit || '', importPrice: p?.importPrice || '' }));
         }
     };
@@ -477,12 +479,12 @@ export default function InventoryPage() {
                                     <div style={{ fontSize: 12, color: '#16a34a', marginTop: 3, fontWeight: 600 }}>
                                         ✓ {form._workItemId
                                             ? workItems.find(w => w.id === form._workItemId)?.name
-                                            : stockData.products.find(p => p.id === form.productId)?.name}
+                                            : allProducts.find(p => p.id === form.productId)?.name}
                                     </div>
                                 )}
                                 {showProductDrop && (() => {
                                     const q = productSearch.toLowerCase();
-                                    const filteredProducts = stockData.products.filter(p =>
+                                    const filteredProducts = allProducts.filter(p =>
                                         !q || p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q)
                                     );
                                     const filteredWork = workItems.filter(w =>

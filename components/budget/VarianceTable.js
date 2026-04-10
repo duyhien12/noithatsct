@@ -2,6 +2,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as XLSX from 'xlsx';
 
+// Module-level: track in-flight save promises so reload() can wait for them
+const pendingSavesMap = new Map(); // id -> Promise
+
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0));
 const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const COST_TYPES = ['Tất cả', 'Vật tư', 'Nhân công', 'Thầu phụ', 'Khác'];
@@ -414,6 +417,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     const [collapsed, setCollapsed] = useState({});
     const [edits, setEdits] = useState({}); // { [id]: { qty, price, ap, name } }
     const editsRef = useRef({}); // Ref để saveItem luôn đọc edits mới nhất (tránh stale closure)
+    const itemsRef = useRef([]); // Ref để cleanup effect đọc items khi unmount
     const [dirty, setDirty] = useState(false);
     const [allSaving, setAllSaving] = useState(false);
     const savingItems = useRef(new Set()); // guard against concurrent save-on-blur retry
@@ -459,7 +463,12 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
         setTimeout(() => { win.print(); }, 600);
     };
 
-    const reload = useCallback(() => {
+    const reload = useCallback(async () => {
+        // Đợi tất cả các save đang chạy hoàn tất trước khi fetch lại
+        // (tránh race condition khi user switch tab ngay sau khi sửa ĐVT)
+        if (pendingSavesMap.size > 0) {
+            await Promise.allSettled([...pendingSavesMap.values()]);
+        }
         // Preserve scroll position so the page doesn't jump to top after reload
         const scrollY = window.scrollY;
         setLoading(true);
@@ -472,6 +481,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                 setItems(d.items || []);
                 setSummary(d.summary || null);
                 setEdits({});
+                editsRef.current = {};
                 setDirty(false);
                 if (d?.summary?.totalBudget !== undefined) onTotalBudgetLoaded?.(d.summary.totalBudget);
             })
@@ -491,6 +501,35 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
     }, [projectId]);
 
     useEffect(() => { reload(); }, [reload]);
+
+    // Khi unmount (switch tab), flush tất cả edits chưa lưu để đảm bảo không mất dữ liệu
+    useEffect(() => {
+        return () => {
+            const pending = editsRef.current;
+            if (!Object.keys(pending).length) return;
+            Object.entries(pending).forEach(([id, e]) => {
+                const item = itemsRef.current.find(i => i.id === id);
+                if (!item) return;
+                const qty = Number(e.qty ?? item.budgetQty) || 0;
+                const price = Number(e.price ?? item.budgetUnitPrice) || 0;
+                const ap = Number(e.ap ?? item.avgActualPrice) || 0;
+                const aqty = Number(e.aqty ?? (item.actualQty > 0 ? item.actualQty : item.budgetQty)) || 0;
+                const body = { quantity: qty, budgetUnitPrice: price, actualCost: ap * aqty, actualQty: aqty };
+                if (e.name !== undefined && !item.productCode) body.category = e.name;
+                if (e.unit !== undefined) body.unit = e.unit;
+                const promise = fetch(`/api/material-plans/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                    keepalive: true,
+                }).catch(() => {}).finally(() => pendingSavesMap.delete(id));
+                pendingSavesMap.set(id, promise);
+            });
+        };
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Đồng bộ itemsRef với items state để cleanup effect luôn có dữ liệu mới nhất
+    useEffect(() => { itemsRef.current = items; }, [items]);
 
     // Get current value (local edit override or original)
     const getVal = (item, field) => {
@@ -538,52 +577,57 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
         const body = buildBody(id, e);
         if (!body) return;
         savingItems.current.add(id);
-        try {
-            const res = await fetch(`/api/material-plans/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-            });
-            if (!res.ok) {
-                console.error('saveItem failed', await res.text());
-                return; // keep edits so user still sees their typed value
-            }
-            // Success: only clear fields that were included in THIS save (not any new edits typed during the request)
-            setEdits(prev => {
-                const n = { ...prev };
-                if (n[id]) {
-                    const remaining = { ...n[id] };
-                    savedFields.forEach(f => delete remaining[f]);
-                    if (Object.keys(remaining).length === 0) delete n[id];
-                    else n[id] = remaining;
+        const promise = (async () => {
+            try {
+                const res = await fetch(`/api/material-plans/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                    keepalive: true, // hoàn thành dù component đã unmount
+                });
+                if (!res.ok) {
+                    console.error('saveItem failed', await res.text());
+                    return;
                 }
-                editsRef.current = n; // đồng bộ ref sau khi clear
-                setDirty(Object.keys(n).length > 0);
-                return n;
-            });
-            setItems(prev => prev.map(i => {
-                if (i.id !== id) return i;
-                const qty = Number(e.qty ?? i.budgetQty) || 0;
-                const price = Number(e.price ?? i.budgetUnitPrice) || 0;
-                const ap = Number(e.ap ?? i.avgActualPrice) || 0;
-                const aqty = Number(e.aqty ?? (i.actualQty > 0 ? i.actualQty : i.budgetQty)) || 0;
-                return {
-                    ...i,
-                    budgetQty: qty,
-                    budgetUnitPrice: price,
-                    budgetTotal: qty * price,
-                    avgActualPrice: ap,
-                    actualQty: aqty,
-                    actualTotal: ap * aqty,
-                    ...(e.name !== undefined && !i.productCode ? { productName: e.name } : {}),
-                    ...(e.unit !== undefined ? { unit: e.unit } : {}),
-                };
-            }));
-        } catch (err) {
-            console.error('saveItem error', err);
-        } finally {
-            savingItems.current.delete(id);
-        }
+                // Success: only clear fields that were included in THIS save
+                setEdits(prev => {
+                    const n = { ...prev };
+                    if (n[id]) {
+                        const remaining = { ...n[id] };
+                        savedFields.forEach(f => delete remaining[f]);
+                        if (Object.keys(remaining).length === 0) delete n[id];
+                        else n[id] = remaining;
+                    }
+                    editsRef.current = n;
+                    setDirty(Object.keys(n).length > 0);
+                    return n;
+                });
+                setItems(prev => prev.map(i => {
+                    if (i.id !== id) return i;
+                    const qty = Number(e.qty ?? i.budgetQty) || 0;
+                    const price = Number(e.price ?? i.budgetUnitPrice) || 0;
+                    const ap = Number(e.ap ?? i.avgActualPrice) || 0;
+                    const aqty = Number(e.aqty ?? (i.actualQty > 0 ? i.actualQty : i.budgetQty)) || 0;
+                    return {
+                        ...i,
+                        budgetQty: qty,
+                        budgetUnitPrice: price,
+                        budgetTotal: qty * price,
+                        avgActualPrice: ap,
+                        actualQty: aqty,
+                        actualTotal: ap * aqty,
+                        ...(e.name !== undefined && !i.productCode ? { productName: e.name } : {}),
+                        ...(e.unit !== undefined ? { unit: e.unit } : {}),
+                    };
+                }));
+            } catch (err) {
+                console.error('saveItem error', err);
+            } finally {
+                savingItems.current.delete(id);
+                pendingSavesMap.delete(id);
+            }
+        })();
+        pendingSavesMap.set(id, promise);
     };
 
     const saveAll = async () => {
