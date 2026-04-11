@@ -18,6 +18,7 @@ export async function middleware(request) {
         pathname.startsWith('/favicon') ||
         pathname.startsWith('/uploads') ||
         pathname.startsWith('/ZaloVerify') ||
+        pathname.startsWith('/zalo_verifier') ||
         pathname.match(/\.(html|txt|xml)$/)
     ) {
         return NextResponse.next();
