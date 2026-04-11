@@ -16,6 +16,7 @@ jobs:
       - name: Create environment file
         run: |
           cat > .env <<EOF
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           DATABASE_URL=postgresql://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/noithatsct?schema=public
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
           NEXTAUTH_URL=https://admin.kientrucsct.com
