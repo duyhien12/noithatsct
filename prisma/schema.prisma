@@ -15,6 +15,7 @@ model User {
   role          String    @default("ky_thuat")
   department    String    @default("")
   phone         String    @default("")
+  zaloUserId    String    @default("")
   active        Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

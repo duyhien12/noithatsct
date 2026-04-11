@@ -14,7 +14,7 @@ export const GET = withAuth(async (req) => {
         select: {
             id: true, name: true, email: true,
             role: true, department: true, phone: true,
-            active: true, createdAt: true,
+            zaloUserId: true, active: true, createdAt: true,
         },
     });
     return NextResponse.json(users);

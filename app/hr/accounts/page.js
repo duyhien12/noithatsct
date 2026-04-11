@@ -30,7 +30,7 @@ const ROLE_COLORS = {
     ky_thuat:      { color: '#27ae60', bg: '#e8f8f0' },
 };
 
-const EMPTY_FORM = { name: '', email: '', password: '', role: 'ky_thuat', department: '', phone: '' };
+const EMPTY_FORM = { name: '', email: '', password: '', role: 'ky_thuat', department: '', phone: '', zaloUserId: '' };
 
 export default function AccountsPage() {
     const { role } = useRole();
@@ -77,7 +77,7 @@ export default function AccountsPage() {
 
     const openEdit = (u) => {
         setEditTarget(u);
-        setForm({ name: u.name, email: u.email, password: '', role: u.role, department: u.department || '', phone: u.phone || '' });
+        setForm({ name: u.name, email: u.email, password: '', role: u.role, department: u.department || '', phone: u.phone || '', zaloUserId: u.zaloUserId || '' });
         setShowModal(true);
     };
 
@@ -88,7 +88,7 @@ export default function AccountsPage() {
         setSaving(true);
         try {
             if (editTarget) {
-                const body = { name: form.name, role: form.role, department: form.department, phone: form.phone };
+                const body = { name: form.name, role: form.role, department: form.department, phone: form.phone, zaloUserId: form.zaloUserId };
                 if (form.password.trim()) body.password = form.password;
                 const res = await fetch(`/api/users/${editTarget.id}`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -213,7 +213,10 @@ export default function AccountsPage() {
                                     return (
                                         <tr key={u.id} style={{ opacity: u.active ? 1 : 0.5 }}>
                                             <td className="primary">
-                                                <div style={{ fontWeight: 600 }}>{u.name}</div>
+                                                <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    {u.name}
+                                                    {u.zaloUserId && <span title="Đã liên kết Zalo" style={{ fontSize: 14 }}>💬</span>}
+                                                </div>
                                             </td>
                                             <td style={{ fontSize: 13 }}>{u.email}</td>
                                             <td>
@@ -343,6 +346,33 @@ export default function AccountsPage() {
                             <div>
                                 <label className="form-label">Số điện thoại</label>
                                 <input className="form-input" type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="0901 234 567" />
+                            </div>
+                            <div>
+                                <label className="form-label">Zalo User ID <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}>(để nhận thông báo tự động)</span></label>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <input className="form-input" value={form.zaloUserId} onChange={e => setForm(f => ({ ...f, zaloUserId: e.target.value }))} placeholder="VD: 1234567890" style={{ flex: 1 }} />
+                                    {editTarget && form.zaloUserId && (
+                                        <button
+                                            type="button"
+                                            className="btn btn-sm"
+                                            style={{ whiteSpace: 'nowrap' }}
+                                            onClick={async () => {
+                                                const res = await fetch('/api/notifications/zalo-test', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ zaloUserId: form.zaloUserId }),
+                                                });
+                                                if (res.ok) alert('Đã gửi tin nhắn test thành công!');
+                                                else { const e = await res.json(); alert('Lỗi: ' + (e.error || 'Không gửi được')); }
+                                            }}
+                                        >
+                                            Test Zalo
+                                        </button>
+                                    )}
+                                </div>
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                                    Nhân viên cần <strong>follow Zalo OA</strong> của công ty trước, rồi nhắn bất kỳ để lấy User ID.
+                                </div>
                             </div>
                             {editTarget && (
                                 <div>
