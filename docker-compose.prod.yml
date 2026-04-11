@@ -32,8 +32,13 @@ services:
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/noithatsct?schema=public
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - NEXTAUTH_URL=${NEXTAUTH_URL:-https://admin.kientrucsct.com}
-      - GOOGLE_CLIENT_ID=853705300153-a5654bnjct635vdtlccuuc6lruu86hvi.apps.googleusercontent.com
-      - GOOGLE_CLIENT_SECRET=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
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - ZALO_APP_ID=${ZALO_APP_ID}
+      - ZALO_APP_SECRET=${ZALO_APP_SECRET}
+      - ZALO_OA_ACCESS_TOKEN=${ZALO_OA_ACCESS_TOKEN}
+      - ZALO_OA_REFRESH_TOKEN=${ZALO_OA_REFRESH_TOKEN}
+      - CRON_SECRET=${CRON_SECRET}
       - NODE_ENV=production
       - UPLOAD_DIR=/app/public/uploads
     depends_on:
