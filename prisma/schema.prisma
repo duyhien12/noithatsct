@@ -1054,3 +1054,9 @@ model Proposal {
   @@index([status])
   @@index([submittedBy])
 }
+
+model Setting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}

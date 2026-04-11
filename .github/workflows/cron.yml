@@ -1,0 +1,52 @@
+name: Cron Jobs
+
+on:
+  schedule:
+    # Nhắc nhở hàng ngày lúc 7:30 sáng (GMT+7 = 00:30 UTC)
+    - cron: '30 0 * * 1-6'
+    # Làm mới Zalo token mỗi 85 ngày (an toàn hơn giới hạn 90 ngày)
+    - cron: '0 1 1 */3 *'
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'Job cần chạy'
+        required: true
+        default: 'remind'
+        type: choice
+        options:
+          - remind
+          - refresh-zalo-token
+
+jobs:
+  remind:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'remind' || github.event_name == 'schedule' && github.event.schedule == '30 0 * * 1-6'
+    runs-on: [self-hosted, noithatsct]
+    steps:
+      - name: Gửi nhắc nhở Zalo
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            https://admin.kientrucsct.com/api/cron/remind)
+          echo "HTTP status: $response"
+          if [ "$response" != "200" ]; then
+            echo "❌ Cron remind thất bại với status $response"
+            exit 1
+          fi
+          echo "✅ Đã gửi nhắc nhở thành công"
+
+  refresh-zalo-token:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'refresh-zalo-token' || github.event_name == 'schedule' && github.event.schedule == '0 1 1 */3 *'
+    runs-on: [self-hosted, noithatsct]
+    steps:
+      - name: Làm mới Zalo OA Token
+        run: |
+          response=$(curl -s \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            https://admin.kientrucsct.com/api/cron/refresh-zalo-token)
+          echo "Response: $response"
+          success=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('success','false'))" 2>/dev/null || echo "false")
+          if [ "$success" != "True" ] && [ "$success" != "true" ]; then
+            echo "❌ Refresh token thất bại"
+            exit 1
+          fi
+          echo "✅ Token đã được làm mới thành công"

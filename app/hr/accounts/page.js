@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { useRole } from '@/contexts/RoleContext';
 import { useRouter } from 'next/navigation';
 
+const ZALO_APP_ID = '2211646598601440511';
+
 const ROLES = [
     { key: 'ban_gd',        label: 'Ban giám đốc',             icon: '👑' },
     { key: 'kinh_doanh',    label: 'Phòng kinh doanh',         icon: '💼' },
@@ -32,6 +34,94 @@ const ROLE_COLORS = {
 
 const EMPTY_FORM = { name: '', email: '', password: '', role: 'ky_thuat', department: '', phone: '', zaloUserId: '' };
 
+function ZaloOACard({ status, onRefresh }) {
+    const redirectUri = 'https://admin.kientrucsct.com/api/auth/zalo-oa/callback';
+    const oauthUrl = `https://oauth.zaloapp.com/v4/oa/permission?app_id=${ZALO_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+
+    const [refreshing, setRefreshing] = useState(false);
+
+    const handleRefreshToken = async () => {
+        setRefreshing(true);
+        try {
+            const res = await fetch('/api/cron/refresh-zalo-token', {
+                headers: { 'x-cron-secret': 'noithatsct-cron-2026' },
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Token đã được làm mới thành công!');
+                onRefresh();
+            } else {
+                alert('Lỗi: ' + (data.error || 'Không thể làm mới token'));
+            }
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
+    const isExpiringSoon = status?.expiresAt && (() => {
+        const expires = new Date(status.expiresAt);
+        const daysLeft = Math.ceil((expires - Date.now()) / 86400000);
+        return daysLeft <= 7;
+    })();
+
+    const expiresDisplay = status?.expiresAt
+        ? new Date(status.expiresAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        : null;
+
+    return (
+        <div className="card" style={{ marginBottom: 20, borderLeft: `4px solid ${status?.connected ? '#22c55e' : '#f59e0b'}` }}>
+            <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 10, background: status?.connected ? '#dcfce7' : '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+                        💬
+                    </div>
+                    <div>
+                        <div style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            Zalo OA
+                            <span style={{
+                                padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                                background: status?.connected ? '#dcfce7' : '#fef3c7',
+                                color: status?.connected ? '#16a34a' : '#d97706',
+                            }}>
+                                {status === null ? 'Đang kiểm tra...' : status.connected ? '● Đã kết nối' : '○ Chưa kết nối'}
+                            </span>
+                            {status?.connected && isExpiringSoon && (
+                                <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: '#fee2e2', color: '#dc2626' }}>
+                                    ⚠️ Sắp hết hạn
+                                </span>
+                            )}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                            {status?.connected
+                                ? `Token hết hạn: ${expiresDisplay || 'Không rõ'}${status.updatedAt ? ` · Cập nhật: ${new Date(status.updatedAt).toLocaleDateString('vi-VN')}` : ''}`
+                                : 'Cần kết nối để gửi thông báo Zalo tự động cho nhân viên'}
+                        </div>
+                    </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    {status?.connected && (
+                        <button
+                            className="btn btn-sm"
+                            onClick={handleRefreshToken}
+                            disabled={refreshing}
+                            title="Làm mới token mà không cần OAuth lại"
+                        >
+                            {refreshing ? 'Đang làm mới...' : '🔄 Làm mới token'}
+                        </button>
+                    )}
+                    <a
+                        href={oauthUrl}
+                        className="btn btn-sm btn-primary"
+                        style={{ textDecoration: 'none' }}
+                    >
+                        {status?.connected ? '🔗 Kết nối lại' : '🔗 Kết nối Zalo OA'}
+                    </a>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function AccountsPage() {
     const { role } = useRole();
     const router = useRouter();
@@ -46,12 +136,20 @@ export default function AccountsPage() {
     const [showInactive, setShowInactive] = useState(false);
     const [resetPwTarget, setResetPwTarget] = useState(null);
     const [newPassword, setNewPassword] = useState('');
+    const [zaloStatus, setZaloStatus] = useState(null);
 
     useEffect(() => {
         if (role && role !== 'ban_gd' && role !== 'giam_doc' && role !== 'pho_gd') {
             router.replace('/hr');
         }
     }, [role]);
+
+    const fetchZaloStatus = async () => {
+        try {
+            const res = await fetch('/api/notifications/zalo-status');
+            if (res.ok) setZaloStatus(await res.json());
+        } catch {}
+    };
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -62,6 +160,7 @@ export default function AccountsPage() {
     };
 
     useEffect(() => { fetchUsers(); }, [showInactive]);
+    useEffect(() => { fetchZaloStatus(); }, []);
 
     const filtered = users.filter(u => {
         if (filterRole && u.role !== filterRole) return false;
@@ -164,6 +263,9 @@ export default function AccountsPage() {
                     </div>
                 ) : null)}
             </div>
+
+            {/* Zalo OA Connection Card */}
+            <ZaloOACard status={zaloStatus} onRefresh={fetchZaloStatus} />
 
             <div className="card">
                 <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
