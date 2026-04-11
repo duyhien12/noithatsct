@@ -1105,7 +1105,13 @@ export default function ProductsPage() {
                                         <div style={{ display: 'flex', gap: 8 }}>
                                             <div className="form-group" style={{ margin: 0, flex: 1 }}>
                                                 <label className="form-label">ĐVT</label>
-                                                <input className="form-input" value={d.unit || ''} onChange={e => set('unit', e.target.value)} />
+                                                <select className="form-select" value={d.unit || ''} onChange={e => set('unit', e.target.value)}>
+                                                    <option value="">-- Chọn --</option>
+                                                    <option value="Tấm">Tấm</option>
+                                                    <option value="Cái">Cái</option>
+                                                    <option value="Bộ">Bộ</option>
+                                                    <option value="Cuộn">Cuộn</option>
+                                                </select>
                                             </div>
                                             <div className="form-group" style={{ margin: 0, flex: 2 }}>
                                                 <label className="form-label">Danh mục</label>
@@ -1244,7 +1250,13 @@ export default function ProductsPage() {
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">ĐVT *</label>
-                                    <input className="form-input" value={addForm.unit} onChange={e => setAddForm(f => ({ ...f, unit: e.target.value }))} placeholder="cái" />
+                                    <select className="form-select" value={addForm.unit} onChange={e => setAddForm(f => ({ ...f, unit: e.target.value }))}>
+                                        <option value="">-- Chọn --</option>
+                                        <option value="Tấm">Tấm</option>
+                                        <option value="Cái">Cái</option>
+                                        <option value="Bộ">Bộ</option>
+                                        <option value="Cuộn">Cuộn</option>
+                                    </select>
                                 </div>
                             </div>
                             <div className="form-row">
@@ -1394,7 +1406,13 @@ export default function ProductsPage() {
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">ĐVT *</label>
-                                    <input className="form-input" value={newLibItem.unit} onChange={e => setNewLibItem(p => ({ ...p, unit: e.target.value }))} placeholder="m2" />
+                                    <select className="form-select" value={newLibItem.unit} onChange={e => setNewLibItem(p => ({ ...p, unit: e.target.value }))}>
+                                        <option value="">-- Chọn --</option>
+                                        <option value="Tấm">Tấm</option>
+                                        <option value="Cái">Cái</option>
+                                        <option value="Bộ">Bộ</option>
+                                        <option value="Cuộn">Cuộn</option>
+                                    </select>
                                 </div>
                             </div>
                             <div className="form-row">

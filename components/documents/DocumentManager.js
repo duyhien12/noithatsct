@@ -49,10 +49,13 @@ function canPreview(mimeType) {
 }
 
 // ============ FOLDER TREE ============
-function FolderTree({ folders, selectedFolderId, onSelect, onCreateFolder }) {
+function FolderTree({ folders, selectedFolderId, onSelect, onCreateFolder, onRenameFolder, onDeleteFolder }) {
     const [expandedIds, setExpandedIds] = useState(new Set(folders.map(f => f.id)));
     const [newFolderParentId, setNewFolderParentId] = useState(null);
     const [newFolderName, setNewFolderName] = useState('');
+    const [editingFolderId, setEditingFolderId] = useState(null);
+    const [editingFolderName, setEditingFolderName] = useState('');
+    const [hoveredFolderId, setHoveredFolderId] = useState(null);
 
     const toggle = (id) => {
         setExpandedIds(prev => {
@@ -69,20 +72,29 @@ function FolderTree({ folders, selectedFolderId, onSelect, onCreateFolder }) {
         setNewFolderParentId(null);
     };
 
+    const handleRename = async (id) => {
+        if (!editingFolderName.trim()) return;
+        await onRenameFolder(id, editingFolderName.trim());
+        setEditingFolderId(null);
+        setEditingFolderName('');
+    };
+
     const renderFolder = (folder, depth = 0) => {
         const isExpanded = expandedIds.has(folder.id);
         const isSelected = selectedFolderId === folder.id;
         const hasChildren = folder.children && folder.children.length > 0;
         const docCount = folder._count?.documents || 0;
+        const isEditing = editingFolderId === folder.id;
+        const isHovered = hoveredFolderId === folder.id;
 
         return (
             <div key={folder.id}>
                 <div
                     className={`folder-node ${isSelected ? 'selected' : ''}`}
                     style={{ paddingLeft: 12 + depth * 20, display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', paddingLeft: 12 + depth * 20, cursor: 'pointer', borderRadius: 6, margin: '1px 4px', background: isSelected ? 'var(--accent-primary-light, rgba(59,130,246,0.1))' : 'transparent', color: isSelected ? 'var(--accent-primary)' : 'var(--text-primary)', fontSize: 13, transition: 'all 0.15s' }}
-                    onClick={() => onSelect(folder.id)}
-                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--bg-elevated, rgba(0,0,0,0.03))'; }}
-                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+                    onClick={() => !isEditing && onSelect(folder.id)}
+                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--bg-elevated, rgba(0,0,0,0.03))'; setHoveredFolderId(folder.id); }}
+                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; setHoveredFolderId(null); }}
                 >
                     {hasChildren ? (
                         <span onClick={(e) => { e.stopPropagation(); toggle(folder.id); }} style={{ cursor: 'pointer', fontSize: 10, width: 16, textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -92,13 +104,48 @@ function FolderTree({ folders, selectedFolderId, onSelect, onCreateFolder }) {
                         <span style={{ width: 16 }}></span>
                     )}
                     <span>{isExpanded ? '📂' : '📁'}</span>
-                    <span style={{ flex: 1, fontWeight: isSelected ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{folder.name}</span>
-                    {docCount > 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-primary)', borderRadius: 10, padding: '1px 7px', minWidth: 20, textAlign: 'center' }}>{docCount}</span>}
-                    <button
-                        onClick={(e) => { e.stopPropagation(); setNewFolderParentId(folder.id); setNewFolderName(''); }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)', padding: '0 2px', opacity: 0.5 }}
-                        title="Thêm thư mục con"
-                    >+</button>
+                    {isEditing ? (
+                        <input
+                            autoFocus
+                            className="form-input"
+                            style={{ padding: '2px 6px', fontSize: 12, flex: 1, height: 24 }}
+                            value={editingFolderName}
+                            onChange={e => setEditingFolderName(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') handleRename(folder.id); if (e.key === 'Escape') { setEditingFolderId(null); } }}
+                            onClick={e => e.stopPropagation()}
+                        />
+                    ) : (
+                        <span style={{ flex: 1, fontWeight: isSelected ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{folder.name}</span>
+                    )}
+                    {isEditing ? (
+                        <>
+                            <button onClick={(e) => { e.stopPropagation(); handleRename(folder.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--accent-primary)', padding: '0 2px' }} title="Lưu">✓</button>
+                            <button onClick={(e) => { e.stopPropagation(); setEditingFolderId(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', padding: '0 2px' }} title="Huỷ">✕</button>
+                        </>
+                    ) : (
+                        <>
+                            {docCount > 0 && !isHovered && <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-primary)', borderRadius: 10, padding: '1px 7px', minWidth: 20, textAlign: 'center' }}>{docCount}</span>}
+                            {(isHovered || isSelected) && (
+                                <div style={{ display: 'flex', gap: 2 }} onClick={e => e.stopPropagation()}>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setNewFolderParentId(folder.id); setNewFolderName(''); }}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', padding: '0 2px' }}
+                                        title="Thêm thư mục con"
+                                    >+</button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setEditingFolderId(folder.id); setEditingFolderName(folder.name); }}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', padding: '0 2px' }}
+                                        title="Đổi tên"
+                                    >✏️</button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); onDeleteFolder(folder.id); }}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#ef4444', padding: '0 2px' }}
+                                        title="Xoá thư mục"
+                                    >🗑️</button>
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
                 {newFolderParentId === folder.id && (
                     <div style={{ paddingLeft: 32 + depth * 20, paddingRight: 8, paddingBottom: 4 }}>
@@ -517,6 +564,22 @@ export default function DocumentManager({ projectId, onRefresh }) {
         } catch (err) { console.error(err); }
     };
 
+    const handleRenameFolder = async (id, name) => {
+        try {
+            await fetch(`/api/document-folders/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+            fetchFolders();
+        } catch (err) { console.error(err); }
+    };
+
+    const handleDeleteFolder = async (id) => {
+        if (!confirm('Xoá thư mục này? Các tài liệu bên trong sẽ chuyển về "Chưa phân loại".')) return;
+        try {
+            await fetch(`/api/document-folders/${id}`, { method: 'DELETE' });
+            if (selectedFolderId === id) setSelectedFolderId(null);
+            fetchFolders();
+        } catch (err) { console.error(err); }
+    };
+
     const handleInitFolders = async () => {
         try {
             const res = await fetch('/api/document-folders/init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId }) });
@@ -599,6 +662,8 @@ export default function DocumentManager({ projectId, onRefresh }) {
                                 selectedFolderId={selectedFolderId}
                                 onSelect={(id) => { setSelectedFolderId(id); setShowFolderPanel(false); }}
                                 onCreateFolder={handleCreateFolder}
+                                onRenameFolder={handleRenameFolder}
+                                onDeleteFolder={handleDeleteFolder}
                             />
                         </div>
                     )}
@@ -611,7 +676,7 @@ export default function DocumentManager({ projectId, onRefresh }) {
                         {folders.length === 0 && <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={handleInitFolders}>Tạo mặc định</button>}
                     </div>
                     <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 300px)' }}>
-                        <FolderTree folders={folders} selectedFolderId={selectedFolderId} onSelect={setSelectedFolderId} onCreateFolder={handleCreateFolder} />
+                        <FolderTree folders={folders} selectedFolderId={selectedFolderId} onSelect={setSelectedFolderId} onCreateFolder={handleCreateFolder} onRenameFolder={handleRenameFolder} onDeleteFolder={handleDeleteFolder} />
                     </div>
                 </div>
             )}
