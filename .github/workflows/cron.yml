@@ -2,8 +2,8 @@ name: Cron Jobs
 
 on:
   schedule:
-    # Nhắc nhở hàng ngày lúc 7:30 sáng (GMT+7 = 00:30 UTC)
-    - cron: '30 0 * * 1-6'
+    # Nhắc nhở hàng ngày lúc 21:30 (GMT+7 = 14:30 UTC)
+    - cron: '30 14 * * *'
     # Làm mới Zalo token mỗi 85 ngày (an toàn hơn giới hạn 90 ngày)
     - cron: '0 1 1 */3 *'
   workflow_dispatch:
@@ -19,7 +19,7 @@ on:
 
 jobs:
   remind:
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'remind' || github.event_name == 'schedule' && github.event.schedule == '30 0 * * 1-6'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'remind' || github.event_name == 'schedule' && github.event.schedule == '30 14 * * *'
     runs-on: [self-hosted, noithatsct]
     steps:
       - name: Gửi nhắc nhở Zalo
