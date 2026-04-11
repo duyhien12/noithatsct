@@ -12,11 +12,13 @@ export async function middleware(request) {
     // Public PDF pages: /quotations/[id]/pdf
     if (/^\/quotations\/[^/]+\/pdf/.test(pathname)) return NextResponse.next();
 
-    // Static files
+    // Static files & verification files
     if (
         pathname.startsWith('/_next') ||
         pathname.startsWith('/favicon') ||
-        pathname.startsWith('/uploads')
+        pathname.startsWith('/uploads') ||
+        pathname.startsWith('/ZaloVerify') ||
+        pathname.match(/\.(html|txt|xml)$/)
     ) {
         return NextResponse.next();
     }
