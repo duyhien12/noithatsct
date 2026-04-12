@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { generateCode } from '@/lib/generateCode';
 import { NextResponse } from 'next/server';
 import { workOrderCreateSchema } from '@/lib/validations/workOrder';
+import { notifyWorkOrderAssigned } from '@/lib/notify';
 
 export const GET = withAuth(async (request) => {
     const { searchParams } = new URL(request.url);
@@ -38,10 +39,14 @@ export const POST = withAuth(async (request) => {
     const data = workOrderCreateSchema.parse(body);
     const code = await generateCode('workOrder', 'WO');
     const order = await prisma.workOrder.create({
-        data: {
-            code,
-            ...data,
-        },
+        data: { code, ...data },
+        include: { project: { select: { name: true, code: true } } },
     });
+
+    // Thông báo Zalo cho người được giao việc
+    if (order.assignee) {
+        notifyWorkOrderAssigned(order).catch(e => console.error('[work-orders POST] notify lỗi:', e));
+    }
+
     return NextResponse.json(order, { status: 201 });
 });

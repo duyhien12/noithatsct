@@ -2,6 +2,7 @@ import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { workOrderUpdateSchema } from '@/lib/validations/workOrder';
+import { notifyWorkOrderAssigned } from '@/lib/notify';
 
 export const GET = withAuth(async (request, { params }) => {
     const { id } = await params;
@@ -20,7 +21,19 @@ export const PUT = withAuth(async (request, { params }) => {
     if (data.status === 'Hoàn thành' && !data.completedAt) {
         data.completedAt = new Date();
     }
-    const order = await prisma.workOrder.update({ where: { id }, data });
+
+    const existing = await prisma.workOrder.findUnique({ where: { id }, select: { assignee: true } });
+    const order = await prisma.workOrder.update({
+        where: { id },
+        data,
+        include: { project: { select: { name: true, code: true } } },
+    });
+
+    // Thông báo khi assignee thay đổi (giao lại cho người khác)
+    if (data.assignee && data.assignee !== existing?.assignee) {
+        notifyWorkOrderAssigned(order).catch(e => console.error('[work-orders PUT] notify lỗi:', e));
+    }
+
     return NextResponse.json(order);
 });
 

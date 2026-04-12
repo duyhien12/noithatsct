@@ -1,6 +1,7 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { notifyProposalReviewed } from '@/lib/notify';
 
 const BAN_GD = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
 
@@ -36,6 +37,12 @@ export const PUT = withAuth(async (request, { params }, session) => {
 
     data.updatedAt = new Date();
     const updated = await prisma.proposal.update({ where: { id }, data });
+
+    // Thông báo khi quản lý phản hồi đề xuất
+    if (isAdmin && body.status && ['Đã duyệt', 'Từ chối', 'Đang xem xét'].includes(body.status)) {
+        notifyProposalReviewed(updated).catch(e => console.error('[proposals PUT] notify lỗi:', e));
+    }
+
     return NextResponse.json(updated);
 });
 

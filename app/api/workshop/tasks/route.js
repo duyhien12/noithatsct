@@ -1,6 +1,7 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { notifyWorkshopTaskAssigned } from '@/lib/notify';
 
 export const GET = withAuth(async (req) => {
     const { searchParams } = new URL(req.url);
@@ -53,9 +54,15 @@ export const POST = withAuth(async (req) => {
         },
         include: {
             project: { select: { id: true, code: true, name: true } },
-            workers: { include: { worker: { select: { id: true, name: true, skill: true } } } },
+            workers: { include: { worker: { select: { id: true, name: true, skill: true, zaloUserId: true } } } },
             materials: { include: { product: { select: { id: true, name: true, unit: true } } } },
         },
     });
+
+    // Thông báo Zalo cho thợ được giao việc
+    if (workerIds.length > 0) {
+        notifyWorkshopTaskAssigned(task).catch(e => console.error('[workshop/tasks POST] notify lỗi:', e));
+    }
+
     return NextResponse.json(task, { status: 201 });
 });

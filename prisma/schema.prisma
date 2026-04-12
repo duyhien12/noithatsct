@@ -958,15 +958,16 @@ model Commitment {
 // ============ QUẢN LÝ XƯỞNG NỘI THẤT ============
 
 model WorkshopWorker {
-  id         String   @id @default(cuid())
-  name       String
-  skill      String   @default("")
-  phone      String   @default("")
-  status     String   @default("Hoạt động")
-  hourlyRate Float    @default(0)
-  notes      String   @default("") @db.Text
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  skill       String   @default("")
+  phone       String   @default("")
+  status      String   @default("Hoạt động")
+  hourlyRate  Float    @default(0)
+  notes       String   @default("") @db.Text
+  zaloUserId  String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   tasks       WorkshopTaskWorker[]
   attendances WorkshopAttendance[]
 }

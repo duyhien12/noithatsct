@@ -15,7 +15,7 @@ const STATUS_OPTS = ['Hoạt động', 'Tạm nghỉ', 'Nghỉ việc'];
 const STATUS_COLOR = { 'Hoạt động': '#16a34a', 'Tạm nghỉ': '#d97706', 'Nghỉ việc': '#6b7280' };
 const STATUS_BG   = { 'Hoạt động': '#dcfce7', 'Tạm nghỉ': '#fef3c7', 'Nghỉ việc': '#f3f4f6' };
 
-const EMPTY_FORM = { name: '', skill: '', phone: '', hourlyRate: '', status: 'Hoạt động', notes: '' };
+const EMPTY_FORM = { name: '', skill: '', phone: '', hourlyRate: '', status: 'Hoạt động', notes: '', zaloUserId: '' };
 
 export default function WorkersPage() {
     const router = useRouter();
@@ -129,7 +129,7 @@ export default function WorkersPage() {
     const openAdd = () => { setEditTarget(null); setForm(EMPTY_FORM); setShowModal(true); setShowSuggest(false); };
     const openEdit = (w) => {
         setEditTarget(w);
-        setForm({ name: w.name, skill: w.skill, phone: w.phone, hourlyRate: w.hourlyRate, status: w.status, notes: w.notes });
+        setForm({ name: w.name, skill: w.skill, phone: w.phone, hourlyRate: w.hourlyRate, status: w.status, notes: w.notes, zaloUserId: w.zaloUserId || '' });
         setShowModal(true);
     };
 
@@ -686,6 +686,14 @@ export default function WorkersPage() {
                                         {STATUS_OPTS.map(s => <option key={s}>{s}</option>)}
                                     </select>
                                 </div>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">
+                                    Zalo User ID
+                                    <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12, marginLeft: 6 }}>(để nhận thông báo công việc)</span>
+                                </label>
+                                <input className="form-input" value={form.zaloUserId} onChange={e => setForm(f => ({ ...f, zaloUserId: e.target.value }))} placeholder="VD: 1234567890" />
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>Thợ cần nhắn tin vào Zalo OA của công ty để lấy ID</div>
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Ghi chú</label>

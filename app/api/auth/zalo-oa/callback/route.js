@@ -66,6 +66,7 @@ export async function GET(request) {
         const accessToken = data.access_token;
         const refreshToken = data.refresh_token || '';
         const expiresIn = data.expires_in || 0;
+        console.log('[Zalo OAuth] expires_in =', expiresIn, 'seconds =', Math.round(expiresIn / 86400), 'ngày');
         const expiresAt = expiresIn
             ? new Date(Date.now() + expiresIn * 1000).toISOString()
             : '';

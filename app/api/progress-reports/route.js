@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { progressReportCreateSchema } from '@/lib/validations/progressReport';
 import { recalcParentProgress, recalcProjectProgress } from '@/lib/scheduleUtils';
+import { notifyProgressUpdated } from '@/lib/notify';
 
 /**
  * GET /api/progress-reports?taskId=xxx
@@ -102,6 +103,20 @@ export const POST = withAuth(async (request) => {
     // 4. Recalc parent + project progress (outside transaction for safety)
     if (task.parentId) await recalcParentProgress(task.parentId);
     await recalcProjectProgress(data.projectId);
+
+    // 5. Thông báo Zalo cho quản lý
+    const project = await prisma.project.findUnique({
+        where: { id: data.projectId },
+        select: { code: true, name: true },
+    });
+    notifyProgressUpdated({
+        taskName: task.name,
+        projectCode: project?.code,
+        projectName: project?.name,
+        progressFrom: task.progress,
+        progressTo: data.progressTo,
+        updatedBy: userName,
+    }).catch(e => console.error('[progress-reports POST] notify lỗi:', e));
 
     // 5. If completing (100%), check for successor tasks to unlock
     if (isCompleting) {
