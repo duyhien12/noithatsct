@@ -1,6 +1,7 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { notifyWorkshopTaskAssigned } from '@/lib/notify';
 
 export const PUT = withAuth(async (req, { params }) => {
     const { id } = await params;
@@ -37,15 +38,31 @@ export const PUT = withAuth(async (req, { params }) => {
         };
     }
 
+    const existing = workerIds !== undefined
+        ? await prisma.workshopTask.findUnique({ where: { id }, include: { workers: { select: { workerId: true } } } })
+        : null;
+
     const task = await prisma.workshopTask.update({
         where: { id },
         data: updateData,
         include: {
             project: { select: { id: true, code: true, name: true } },
-            workers: { include: { worker: { select: { id: true, name: true, skill: true } } } },
+            workers: { include: { worker: { select: { id: true, name: true, skill: true, zaloUserId: true } } } },
             materials: { include: { product: { select: { id: true, name: true, unit: true } } } },
         },
     });
+
+    // Thông báo khi danh sách thợ thay đổi
+    if (workerIds !== undefined && workerIds.length > 0) {
+        const oldWorkerIds = existing?.workers?.map(w => w.workerId) || [];
+        const newWorkerIds = workerIds.filter(wid => !oldWorkerIds.includes(wid));
+        if (newWorkerIds.length > 0) {
+            const newWorkers = task.workers.filter(w => newWorkerIds.includes(w.workerId));
+            notifyWorkshopTaskAssigned({ ...task, workers: newWorkers })
+                .catch(e => console.error('[workshop/tasks PUT] notify lỗi:', e));
+        }
+    }
+
     return NextResponse.json(task);
 });
 
