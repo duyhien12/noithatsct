@@ -219,12 +219,12 @@ export default function InventoryPage() {
                                 <table className="data-table">
                                     <thead>
                                         <tr>
-                                            <th>Mã</th><th>Tên sản phẩm</th><th>Danh mục</th>
-                                            <th style={{ textAlign: 'right' }}>Tồn kho</th>
-                                            <th style={{ textAlign: 'right' }}>Tồn tối thiểu</th>
-                                            <th style={{ textAlign: 'right' }}>Đơn giá nhập</th>
-                                            <th style={{ textAlign: 'right' }}>Giá trị tồn</th>
-                                            <th>TT</th>
+                                            <th>Mã</th><th>Tên SP</th><th>Xuất xứ</th>
+                                            <th>ĐVT</th>
+                                            <th style={{ textAlign: 'right' }}>SL</th>
+                                            <th style={{ textAlign: 'right' }}>Đơn giá</th>
+                                            <th style={{ textAlign: 'right' }}>Thành tiền</th>
+                                            <th>Ghi chú</th>
                                             <th style={{ width: 40 }}></th>
                                         </tr>
                                     </thead>
@@ -236,19 +236,14 @@ export default function InventoryPage() {
                                                 <tr key={p.id} style={{ background: isOut ? 'rgba(239,68,68,0.04)' : isLow ? 'rgba(245,158,11,0.04)' : undefined }}>
                                                     <td className="accent">{p.code}</td>
                                                     <td className="primary">{p.name}</td>
-                                                    <td><span className="badge badge-info" style={{ fontSize: 11 }}>{p.category}</span></td>
+                                                    <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{p.origin || '—'}</td>
+                                                    <td style={{ fontSize: 13 }}>{p.unit}</td>
                                                     <td style={{ textAlign: 'right', fontWeight: 700, color: isOut ? 'var(--status-danger)' : isLow ? 'var(--status-warning)' : undefined }}>
-                                                        {p.stock} {p.unit}
-                                                    </td>
-                                                    <td style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: 13 }}>
-                                                        {p.minStock > 0 ? `${p.minStock} ${p.unit}` : '—'}
+                                                        {p.stock}
                                                     </td>
                                                     <td style={{ textAlign: 'right', fontSize: 13 }}>{fmt(p.importPrice)}</td>
                                                     <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt((p.stock || 0) * (p.importPrice || 0))}</td>
-                                                    <td>
-                                                        {isOut && <span className="badge" style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--status-danger)', fontSize: 10 }}>Hết hàng</span>}
-                                                        {isLow && !isOut && <span className="badge" style={{ background: 'rgba(245,158,11,0.15)', color: 'var(--status-warning)', fontSize: 10 }}>Sắp hết</span>}
-                                                    </td>
+                                                    <td style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description || '—'}</td>
                                                     <td style={{ textAlign: 'center' }}>
                                                         <button
                                                             onClick={async () => {
@@ -272,7 +267,7 @@ export default function InventoryPage() {
                                                 <td style={{ textAlign: 'right', fontWeight: 700, padding: '8px 16px' }}>
                                                     {fmt(stockFiltered.reduce((s, p) => s + (p.stock || 0) * (p.importPrice || 0), 0))}
                                                 </td>
-                                                <td />
+                                                <td /><td />
                                             </tr>
                                         </tfoot>
                                     )}

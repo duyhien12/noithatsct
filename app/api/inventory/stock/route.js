@@ -13,7 +13,7 @@ export const GET = withAuth(async (request, _ctx, session) => {
             id: true, code: true, name: true, category: true,
             unit: true, stock: true, minStock: true,
             importPrice: true, salePrice: true,
-            supplier: true,
+            supplier: true, origin: true, description: true,
             categoryRef: { select: { supplier: true } },
         },
         orderBy: { name: 'asc' },
