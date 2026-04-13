@@ -883,7 +883,10 @@ export default function ProductsPage() {
                                                     : fmtCur(p.importPrice)}</td>
                                                 <td style={{ fontWeight: 600, padding: '4px 4px' }}>{isQE
                                                     ? <input type="number" value={qe.salePrice} onChange={e => updateQuickField(p.id, 'salePrice', Number(e.target.value))} style={{ width: 85, fontSize: 12, padding: '2px 4px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)', fontWeight: 600 }} />
-                                                    : fmtCur(p.salePrice)}</td>
+                                                    : p.salePrice > 0
+                                                        ? fmtCur(p.salePrice)
+                                                        : <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontStyle: 'italic' }}>{fmtCur(Math.round((p.importPrice || 0) * 1.08))}</span>
+                                                }</td>
                                                 <td style={{ padding: '4px 4px' }}>{isService(p) ? <span style={{ opacity: 0.3 }}>—</span> : isQE
                                                     ? <input type="number" value={qe.stock} onChange={e => updateQuickField(p.id, 'stock', Number(e.target.value))} style={{ width: 55, fontSize: 12, padding: '2px 4px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }} />
                                                     : <div style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }} onClick={() => { /* StockCell handles click */ }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: sd.color, display: 'inline-block', flexShrink: 0 }} /><StockCell value={p.stock} status={ss} onSave={v => quickUpdateStock(p.id, v)} /></div>}</td>
