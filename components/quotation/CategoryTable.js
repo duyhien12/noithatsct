@@ -298,8 +298,10 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                             {isBaoGiaNhanThat && <th style={{ width: 60 }}>DÀI</th>}
                             {isBaoGiaNhanThat && <th style={{ width: 60 }}>SÂU</th>}
                             {isBaoGiaNhanThat && <th style={{ width: 60 }}>CAO</th>}
+                            {isBaoGiaNhanThat && <th style={{ width: 50 }}>SL</th>}
                             {!isDienNuoc && !isTongHop && <th style={{ width: 55 }}>ĐVT</th>}
-                            {!isDienNuoc && !isTongHop && <th style={{ width: 55 }}>SL</th>}
+                            {!isDienNuoc && !isTongHop && !isBaoGiaNhanThat && <th style={{ width: 55 }}>SL</th>}
+                            {isBaoGiaNhanThat && <th style={{ width: 70 }}>KT</th>}
                             {!isDienNuoc && !isTongHop && (isBaoGiaThietBiDien
                                 ? <React.Fragment><th style={{ width: 100 }}>GIÁ NIÊM YẾT</th><th style={{ width: 90 }}>ĐG CK</th></React.Fragment>
                                 : <th style={{ width: 90 }}>ĐƠN GIÁ</th>
@@ -361,6 +363,7 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                         {isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.dai || ''} onChange={e => updateItem(mi, si, ii, 'dai', e.target.value)} placeholder="0" /></td>}
                                         {isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.sau || ''} onChange={e => updateItem(mi, si, ii, 'sau', e.target.value)} placeholder="0" /></td>}
                                         {isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.cao || ''} onChange={e => updateItem(mi, si, ii, 'cao', e.target.value)} placeholder="0" /></td>}
+                                        {isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.quantity || ''} onChange={e => updateItem(mi, si, ii, 'quantity', e.target.value)} placeholder="0" /></td>}
                                         {!isDienNuoc && !isTongHop && <td>
                                             {isXayDung || isBaoGiaThietBiDien
                                                 ? <input className="form-input form-input-compact" value={item.unit || ''} onChange={e => updateItem(mi, si, ii, 'unit', e.target.value)} placeholder="ĐVT" />
@@ -374,7 +377,18 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                                 })()
                                             }
                                         </td>}
-                                        {!isDienNuoc && !isTongHop && <td><input className="form-input form-input-compact" type="number" value={item.quantity || ''} onChange={e => updateItem(mi, si, ii, 'quantity', e.target.value)} placeholder="0" /></td>}
+                                        {!isDienNuoc && !isTongHop && !isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.quantity || ''} onChange={e => updateItem(mi, si, ii, 'quantity', e.target.value)} placeholder="0" /></td>}
+                                        {isBaoGiaNhanThat && (() => {
+                                            const dvt = (item.unit || '').toLowerCase().trim();
+                                            const dai = parseFloat(item.dai) || 0;
+                                            const cao = parseFloat(item.cao) || 0;
+                                            const sl = parseFloat(item.quantity) || 0;
+                                            let kt;
+                                            if (dvt === 'm2' || dvt === 'm²') kt = (dai * cao).toFixed(2);
+                                            else if (dvt === 'md' || dvt === 'mét dài') kt = dai.toFixed(2);
+                                            else kt = sl;
+                                            return <td style={{ textAlign: 'center', fontWeight: 600, fontSize: 12, color: 'var(--accent-primary)' }}>{kt}</td>;
+                                        })()}
                                         {!isDienNuoc && isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" type="number" value={item.listPrice || ''} onChange={e => updateItem(mi, si, ii, 'listPrice', e.target.value)} placeholder="0" /></td>}
                                         {!isDienNuoc && !isTongHop && <td><input className="form-input form-input-compact" type="number" value={item.unitPrice || ''} onChange={e => updateItem(mi, si, ii, 'unitPrice', e.target.value)} /></td>}
                                         {!isDienNuoc && (isTongHop
@@ -414,6 +428,7 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                             {isBaoGiaNhanThat && <td></td>}
                                             {isBaoGiaNhanThat && <td></td>}
                                             {isBaoGiaNhanThat && <td></td>}
+                                            {isBaoGiaNhanThat && <td></td>}
                                             {!isDienNuoc && !isTongHop && <td>
                                                 {isXayDung || isBaoGiaThietBiDien
                                                     ? <input className="form-input form-input-compact" value={si_item.unit || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'unit', e.target.value)} placeholder="ĐVT" />
@@ -422,7 +437,8 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                                     </select>
                                                 }
                                             </td>}
-                                            {!isDienNuoc && !isTongHop && <td><input className="form-input form-input-compact" type="number" value={si_item.quantity || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'quantity', e.target.value)} placeholder="0" /></td>}
+                                            {!isDienNuoc && !isTongHop && !isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={si_item.quantity || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'quantity', e.target.value)} placeholder="0" /></td>}
+                                            {isBaoGiaNhanThat && <td></td>}
                                             {!isDienNuoc && isBaoGiaThietBiDien && <td></td>}
                                             {!isDienNuoc && !isTongHop && <td><input className="form-input form-input-compact" type="number" value={si_item.unitPrice || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'unitPrice', e.target.value)} /></td>}
                                             {!isDienNuoc && (isTongHop
