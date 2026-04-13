@@ -9,7 +9,12 @@ export const GET = withAuth(async (request) => {
 
     const where = {};
     if (status) where.status = status;
-    if (assignee) where.assignee = assignee;
+    if (assignee) {
+        where.OR = [
+            { assignee },
+            { createdBy: assignee },
+        ];
+    }
 
     const tasks = await prisma.task.findMany({
         where,

@@ -44,7 +44,11 @@ export default function TasksPage() {
         if (effectiveFilter) params.set('assignee', effectiveFilter);
         fetch(`/api/tasks?${params}`)
             .then(r => r.json())
-            .then(d => { setTasks(d.data || []); setLoading(false); });
+            .then(d => {
+                if (d.data) setTasks(d.data);
+                setLoading(false);
+            })
+            .catch(() => setLoading(false));
     };
 
     useEffect(() => {
@@ -58,17 +62,27 @@ export default function TasksPage() {
     }, [filterUser, status, isAdmin]);
 
     const updateStatus = async (taskId, newStatus) => {
-        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-        await fetch(`/api/tasks/${taskId}`, {
+        const prev = tasks.find(t => t.id === taskId)?.status;
+        setTasks(t => t.map(x => x.id === taskId ? { ...x, status: newStatus } : x));
+        const res = await fetch(`/api/tasks/${taskId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus }),
         });
+        if (!res.ok && prev) {
+            setTasks(t => t.map(x => x.id === taskId ? { ...x, status: prev } : x));
+            alert('Lỗi cập nhật trạng thái, vui lòng thử lại.');
+        }
     };
 
     const deleteTask = async (taskId) => {
+        const snapshot = tasks;
         setTasks(prev => prev.filter(t => t.id !== taskId));
-        await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+        const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+        if (!res.ok && res.status !== 404) {
+            setTasks(snapshot);
+            alert('Lỗi xóa tác vụ, vui lòng thử lại.');
+        }
     };
 
     const filtered = tasks.filter(t => {
@@ -180,7 +194,11 @@ export default function TasksPage() {
                     users={users}
                     currentUserName={currentUserName}
                     onClose={() => setShowCreate(false)}
-                    onCreate={(task) => { setTasks(prev => [task, ...prev]); setShowCreate(false); }}
+                    onCreate={(task) => {
+                        setTasks(prev => [task, ...prev]);
+                        setShowCreate(false);
+                        fetchTasks();
+                    }}
                 />
             )}
         </div>
