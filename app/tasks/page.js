@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 
 const BAN_GD = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
+const PEER_GROUP_EMAILS = ['buihoa@kientrucsct.com', 'quocvuong@kientrucsct.com'];
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : null;
 
@@ -30,17 +31,28 @@ export default function TasksPage() {
 
     const isAdmin = BAN_GD.includes(session?.user?.role);
     const currentUserName = session?.user?.name || '';
+    const currentUserEmail = session?.user?.email || '';
+    const isPeerGroup = PEER_GROUP_EMAILS.includes(currentUserEmail);
+    const peerGroupUsers = users.filter(u => PEER_GROUP_EMAILS.includes(u.email));
+    const peerGroupNames = peerGroupUsers.map(u => u.name);
 
-    // Auto-filter: non-admin chỉ thấy việc của mình
+    // Auto-filter: non-admin và không thuộc nhóm ngang hàng chỉ thấy việc của mình
     useEffect(() => {
-        if (status === 'authenticated' && !isAdmin) {
+        if (status === 'authenticated' && !isAdmin && !isPeerGroup) {
             setFilterUser(currentUserName);
         }
-    }, [status, isAdmin, currentUserName]);
+    }, [status, isAdmin, isPeerGroup, currentUserName]);
 
     const fetchTasks = () => {
         const params = new URLSearchParams();
-        const effectiveFilter = isAdmin ? filterUser : currentUserName;
+        let effectiveFilter;
+        if (isAdmin) {
+            effectiveFilter = filterUser;
+        } else if (isPeerGroup) {
+            effectiveFilter = filterUser; // '' = tất cả nhóm, hoặc tên cụ thể
+        } else {
+            effectiveFilter = currentUserName;
+        }
         if (effectiveFilter) params.set('assignee', effectiveFilter);
         fetch(`/api/tasks?${params}`)
             .then(r => r.json())
@@ -86,6 +98,10 @@ export default function TasksPage() {
     };
 
     const filtered = tasks.filter(t => {
+        // Peer group không có filter cụ thể → chỉ hiện task của nhóm
+        if (isPeerGroup && !isAdmin && !filterUser && peerGroupNames.length > 0) {
+            if (!peerGroupNames.includes(t.assignee) && !peerGroupNames.includes(t.createdBy)) return false;
+        }
         if (!search) return true;
         const q = search.toLowerCase();
         return t.title.toLowerCase().includes(q) || (t.assignee || '').toLowerCase().includes(q);
@@ -118,6 +134,11 @@ export default function TasksPage() {
                     <select className="form-select" value={filterUser} onChange={e => setFilterUser(e.target.value)} style={{ minWidth: 180 }}>
                         <option value="">Tất cả người dùng</option>
                         {users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                    </select>
+                ) : isPeerGroup ? (
+                    <select className="form-select" value={filterUser} onChange={e => setFilterUser(e.target.value)} style={{ minWidth: 180 }}>
+                        <option value="">Tất cả nhóm</option>
+                        {peerGroupUsers.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
                     </select>
                 ) : (
                     <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '6px 12px', background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-color)' }}>
