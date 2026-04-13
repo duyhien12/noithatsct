@@ -241,8 +241,8 @@ export default function InventoryPage() {
                                                     <td style={{ textAlign: 'right', fontWeight: 700, color: isOut ? 'var(--status-danger)' : isLow ? 'var(--status-warning)' : undefined }}>
                                                         {p.stock}
                                                     </td>
-                                                    <td style={{ textAlign: 'right', fontSize: 13 }}>{fmt(p.importPrice)}</td>
-                                                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt((p.stock || 0) * (p.importPrice || 0))}</td>
+                                                    <td style={{ textAlign: 'right', fontSize: 13 }}>{fmt(p.salePrice || p.importPrice * 1.08)}</td>
+                                                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt((p.stock || 0) * (p.salePrice || p.importPrice * 1.08))}</td>
                                                     <td style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description || '—'}</td>
                                                     <td style={{ textAlign: 'center' }}>
                                                         <button
@@ -265,7 +265,7 @@ export default function InventoryPage() {
                                                     {stockFiltered.length} mã hàng
                                                 </td>
                                                 <td style={{ textAlign: 'right', fontWeight: 700, padding: '8px 16px' }}>
-                                                    {fmt(stockFiltered.reduce((s, p) => s + (p.stock || 0) * (p.importPrice || 0), 0))}
+                                                    {fmt(stockFiltered.reduce((s, p) => s + (p.stock || 0) * (p.salePrice || p.importPrice * 1.08), 0))}
                                                 </td>
                                                 <td /><td />
                                             </tr>
