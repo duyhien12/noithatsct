@@ -846,7 +846,7 @@ export default function ProductsPage() {
                                         <thead><tr>
                                             <th style={{ width: 30, padding: '4px' }}><input type="checkbox" checked={filteredP.length > 0 && filteredP.every(p => selectedIds.has(p.id))} onChange={e => setSelectedIds(e.target.checked ? new Set(filteredP.map(p => p.id)) : new Set())} /></th>
                                             <th style={{ width: 38 }}>Ảnh</th><th style={{ minWidth: 160 }}>Tên SP</th><th style={{ width: 120 }}>Kích thước</th><th style={{ width: 45 }}>ĐVT</th>
-                                            <th style={{ width: 100 }}>Giá bán</th><th style={{ width: 100 }}>Giá nhập</th><th style={{ width: 70 }}>Tồn kho</th><th style={{ width: 100 }}>Nguồn</th><th style={{ width: 85 }}>TH</th><th style={{ width: 75 }}></th>
+                                            <th style={{ width: 100 }}>Giá nhập</th><th style={{ width: 100 }}>Giá bán</th><th style={{ width: 70 }}>Tồn kho</th><th style={{ width: 100 }}>Nguồn</th><th style={{ width: 85 }}>TH</th><th style={{ width: 75 }}></th>
                                         </tr></thead>
                                         <tbody>{filteredP.map(p => {
                                             const ss = stockStatus(p);
@@ -875,12 +875,15 @@ export default function ProductsPage() {
                                                 <td style={{ padding: '4px 4px', fontSize: 11 }}>{isQE
                                                     ? <input value={qe.unit} onChange={e => updateQuickField(p.id, 'unit', e.target.value)} style={{ width: 40, fontSize: 11, padding: '2px 3px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }} />
                                                     : p.unit}</td>
+                                                <td style={{ padding: '4px 4px', color: 'var(--text-muted)', fontSize: 12 }}>{isQE
+                                                    ? <input type="number" value={qe.importPrice ?? 0} onChange={e => {
+                                                        const ip = Number(e.target.value);
+                                                        setQuickEditP(prev => { const m = new Map(prev); m.set(p.id, { ...m.get(p.id), importPrice: ip, salePrice: Math.round(ip * 1.08) }); return m; });
+                                                    }} style={{ width: 85, fontSize: 12, padding: '2px 4px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }} />
+                                                    : fmtCur(p.importPrice)}</td>
                                                 <td style={{ fontWeight: 600, padding: '4px 4px' }}>{isQE
                                                     ? <input type="number" value={qe.salePrice} onChange={e => updateQuickField(p.id, 'salePrice', Number(e.target.value))} style={{ width: 85, fontSize: 12, padding: '2px 4px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)', fontWeight: 600 }} />
                                                     : fmtCur(p.salePrice)}</td>
-                                                <td style={{ padding: '4px 4px', color: 'var(--text-muted)', fontSize: 12 }}>{isQE
-                                                    ? <input type="number" value={qe.importPrice ?? 0} onChange={e => updateQuickField(p.id, 'importPrice', Number(e.target.value))} style={{ width: 85, fontSize: 12, padding: '2px 4px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }} />
-                                                    : fmtCur(p.importPrice)}</td>
                                                 <td style={{ padding: '4px 4px' }}>{isService(p) ? <span style={{ opacity: 0.3 }}>—</span> : isQE
                                                     ? <input type="number" value={qe.stock} onChange={e => updateQuickField(p.id, 'stock', Number(e.target.value))} style={{ width: 55, fontSize: 12, padding: '2px 4px', border: '1px solid #234093', borderRadius: 4, background: 'var(--bg-input)' }} />
                                                     : <div style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }} onClick={() => { /* StockCell handles click */ }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: sd.color, display: 'inline-block', flexShrink: 0 }} /><StockCell value={p.stock} status={ss} onSave={v => quickUpdateStock(p.id, v)} /></div>}</td>
