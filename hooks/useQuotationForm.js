@@ -173,16 +173,28 @@ export default function useQuotationForm() {
         const currentType = typeOverride ?? form.type;
         const isDienNuoc = currentType === 'Thi công điện nước';
         const isTongHop = currentType === 'Tổng hợp chi phí hoàn thiện';
+        const isBaoGiaNhanThat = currentType === 'Báo giá nội thất';
         return mcs.map(mc => {
             const subs = mc.subcategories.map(sub => {
                 const items = sub.items.map(item => {
                     if (isTongHop) return { ...item, amount: Number(item.amount) || 0 };
+                    const unitPrice = Number(item.unitPrice) || 0;
+                    if (isBaoGiaNhanThat) {
+                        const dai = parseFloat(item.dai) || 0;
+                        const cao = parseFloat(item.cao) || 0;
+                        const sl = Number(item.quantity) || 0;
+                        const dvt = (item.unit || '').toLowerCase().trim();
+                        let effectiveQty;
+                        if (dvt === 'm2' || dvt === 'm²') effectiveQty = dai * cao * sl;
+                        else if (dvt === 'md' || dvt === 'mét dài') effectiveQty = dai * sl;
+                        else effectiveQty = sl;
+                        return { ...item, amount: effectiveQty * unitPrice };
+                    }
                     const l = Number(item.length) || 0;
                     const w = Number(item.width) || 0;
                     const h = Number(item.height) || 0;
                     let qty = Number(item.quantity) || 0;
                     if (l && w) qty = l * w * (h || 1);
-                    const unitPrice = Number(item.unitPrice) || 0;
                     return { ...item, quantity: qty, amount: qty * unitPrice };
                 });
                 // Thi công điện nước: subtotal = sharedQuantity × sharedUnitPrice
@@ -319,7 +331,7 @@ export default function useQuotationForm() {
         const sub = mcs[mi].subcategories[si];
         const item = { ...sub.items[ii] };
 
-        if (['quantity', 'unitPrice', 'length', 'width', 'height', 'mainMaterial', 'auxMaterial', 'labor'].includes(field)) {
+        if (['quantity', 'unitPrice', 'length', 'width', 'height', 'mainMaterial', 'auxMaterial', 'labor', 'dai', 'sau', 'cao'].includes(field)) {
             item[field] = parseFloat(value) || 0;
             // Auto-calc unitPrice from components
             if (['mainMaterial', 'auxMaterial', 'labor'].includes(field)) {
