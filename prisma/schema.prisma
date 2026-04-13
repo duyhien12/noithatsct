@@ -107,6 +107,7 @@ model Project {
   scheduleTasks   ScheduleTask[]
   progressReports ProgressReport[]
   journalEntries  JournalEntry[]
+  salaryProgress  SalaryProgress?
   commitments     Commitment[]
   changeOrders    BudgetChangeOrder[]
   workshopTasks   WorkshopTask[]
@@ -821,6 +822,33 @@ model QuotationTemplateCategory {
   templateId  String
   template    QuotationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   items       QuotationTemplateItem[]
+}
+
+// ============ LƯƠNG THEO % CÔNG VIỆC ============
+
+model SalaryProgress {
+  id                    String   @id @default(cuid())
+  projectId             String   @unique
+  project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stages                String   @default("{}") @db.Text
+  assignees             String   @default("{}") @db.Text
+  notes                 String   @default("")
+  contractValueOverride Float?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  @@index([projectId])
+}
+
+model SalaryEntry {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  name          String
+  contractValue Float    @default(0)
+  stages        String   @default("{}") @db.Text
+  assignees     String   @default("{}") @db.Text
+  notes         String   @default("")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model QuotationTemplateItem {

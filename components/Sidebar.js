@@ -9,6 +9,7 @@ import {
     BarChart3, ChevronRight, Shield, X, CalendarDays, HardHat
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
+import { useSession } from 'next-auth/react';
 
 // Nhóm role để dễ quản lý
 const BAN_GD     = ['ban_gd', 'giam_doc', 'pho_gd'];           // Ban giám đốc (cả cũ lẫn mới)
@@ -111,6 +112,8 @@ const menuItems = [
 export default function Sidebar({ isOpen, onClose }) {
     const pathname = usePathname();
     const { role, roleInfo, canViewDashboard } = useRole();
+    const { data: session } = useSession();
+    const isNgocBinh = session?.user?.email === 'ngocbinh@kientrucsct.com';
 
     const handleNavClick = () => {
         if (window.innerWidth <= 768) onClose();
@@ -174,6 +177,20 @@ export default function Sidebar({ isOpen, onClose }) {
                         </div>
                     );
                 })}
+                {isNgocBinh && (
+                    <div className="nav-section">
+                        <div className="nav-section-title">Cá nhân</div>
+                        <Link
+                            href="/luong"
+                            className={`nav-item ${pathname.startsWith('/luong') ? 'active' : ''}`}
+                            onClick={handleNavClick}
+                        >
+                            <span className="nav-icon"><Wallet size={18} strokeWidth={pathname.startsWith('/luong') ? 2 : 1.5} /></span>
+                            <span>Tính lương</span>
+                            {pathname.startsWith('/luong') && <ChevronRight size={14} className="nav-arrow" />}
+                        </Link>
+                    </div>
+                )}
             </nav>
 
             <div style={{ padding: '12px 14px', borderTop: '1px solid rgba(255,255,255,0.15)', marginTop: 'auto' }}>
