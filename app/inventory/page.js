@@ -219,7 +219,7 @@ export default function InventoryPage() {
                                 <table className="data-table">
                                     <thead>
                                         <tr>
-                                            <th>Mã</th><th>Tên SP</th><th>Xuất xứ</th>
+                                            <th>Mã</th><th>Tên SP</th><th>Thương hiệu</th>
                                             <th>ĐVT</th>
                                             <th style={{ textAlign: 'right' }}>SL</th>
                                             <th style={{ textAlign: 'right' }}>Đơn giá</th>
@@ -236,7 +236,7 @@ export default function InventoryPage() {
                                                 <tr key={p.id} style={{ background: isOut ? 'rgba(239,68,68,0.04)' : isLow ? 'rgba(245,158,11,0.04)' : undefined }}>
                                                     <td className="accent">{p.code}</td>
                                                     <td className="primary">{p.name}</td>
-                                                    <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{p.origin || '—'}</td>
+                                                    <td style={{ fontSize: 13 }}>{p.category || '—'}</td>
                                                     <td style={{ fontSize: 13 }}>{p.unit}</td>
                                                     <td style={{ textAlign: 'right', fontWeight: 700, color: isOut ? 'var(--status-danger)' : isLow ? 'var(--status-warning)' : undefined }}>
                                                         {p.stock}
