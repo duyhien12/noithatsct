@@ -124,6 +124,7 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
     const isDienNuoc = quotationType === 'Thi công điện nước';
     const isBaoGiaThietBiDien = quotationType === 'Báo giá thiết bị điện';
     const isTongHop = quotationType === 'Tổng hợp chi phí hoàn thiện';
+    const isBaoGiaNhanThat = quotationType === 'Báo giá nội thất';
 
     // Auto-initialize shared fields when type switches to Thi công điện nước
     useEffect(() => {
@@ -294,6 +295,9 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                             <th style={{ minWidth: 180 }}>HẠNG MỤC / SẢN PHẨM</th>
                             {isBaoGiaThietBiDien && <th style={{ width: 90 }}>HÃNG SX</th>}
                             {isBaoGiaThietBiDien && <th style={{ width: 90 }}>MÃ SP</th>}
+                            {isBaoGiaNhanThat && <th style={{ width: 60 }}>DÀI</th>}
+                            {isBaoGiaNhanThat && <th style={{ width: 60 }}>SÂU</th>}
+                            {isBaoGiaNhanThat && <th style={{ width: 60 }}>CAO</th>}
                             {!isDienNuoc && !isTongHop && <th style={{ width: 55 }}>ĐVT</th>}
                             {!isDienNuoc && !isTongHop && <th style={{ width: 55 }}>SL</th>}
                             {!isDienNuoc && !isTongHop && (isBaoGiaThietBiDien
@@ -354,6 +358,9 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                         </td>
                                         {isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" value={item.brand || ''} onChange={e => updateItem(mi, si, ii, 'brand', e.target.value)} placeholder="Hãng SX" /></td>}
                                         {isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" value={item.productCode || ''} onChange={e => updateItem(mi, si, ii, 'productCode', e.target.value)} placeholder="Mã SP" /></td>}
+                                        {isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.dai || ''} onChange={e => updateItem(mi, si, ii, 'dai', e.target.value)} placeholder="0" /></td>}
+                                        {isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.sau || ''} onChange={e => updateItem(mi, si, ii, 'sau', e.target.value)} placeholder="0" /></td>}
+                                        {isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.cao || ''} onChange={e => updateItem(mi, si, ii, 'cao', e.target.value)} placeholder="0" /></td>}
                                         {!isDienNuoc && !isTongHop && <td>
                                             {isXayDung || isBaoGiaThietBiDien
                                                 ? <input className="form-input form-input-compact" value={item.unit || ''} onChange={e => updateItem(mi, si, ii, 'unit', e.target.value)} placeholder="ĐVT" />
@@ -404,6 +411,9 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                             </td>
                                             {isBaoGiaThietBiDien && <td></td>}
                                             {isBaoGiaThietBiDien && <td></td>}
+                                            {isBaoGiaNhanThat && <td></td>}
+                                            {isBaoGiaNhanThat && <td></td>}
+                                            {isBaoGiaNhanThat && <td></td>}
                                             {!isDienNuoc && !isTongHop && <td>
                                                 {isXayDung || isBaoGiaThietBiDien
                                                     ? <input className="form-input form-input-compact" value={si_item.unit || ''} onChange={e => updateSubItem(mi, si, ii, sii, 'unit', e.target.value)} placeholder="ĐVT" />
