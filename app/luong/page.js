@@ -894,6 +894,7 @@ function TabThuCong() {
             const entry = entries.find(e => e.id === editId);
             body.stages = parseJSON(entry?.stages);
             body.assignees = getAssignees(entry || {});
+            body.progress = getProgress2(entry || {});
             await fetch(`/api/salary/entries/${editId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         } else {
             await fetch('/api/salary/entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -977,8 +978,10 @@ function TabThuCong() {
                                         <span style={{ fontSize: 16, cursor: 'pointer' }} onClick={() => toggleExpand(entry)}>{isExpanded ? '▾' : '▸'}</span>
                                         <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => toggleExpand(entry)}>
                                             <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--accent-primary)' }}>{entry.code}</div>
-                                            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{entry.name}</div>
-                                            {entry.notes && <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>{entry.notes}</div>}
+                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden' }}>
+                                                <span style={{ fontSize: 12, color: 'var(--text-secondary)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>{entry.name}</span>
+                                                {entry.notes && <span style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {entry.notes}</span>}
+                                            </div>
                                         </div>
                                         <div style={{ textAlign: 'right', minWidth: 110 }}><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Doanh thu</div><div style={{ fontSize: 12, fontWeight: 600 }}>{fmt(revenue)}</div></div>
                                         <div style={{ textAlign: 'right', minWidth: 110 }}><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Quỹ lương (50%)</div><div style={{ fontSize: 12, fontWeight: 600 }}>{fmt(base)}</div></div>
