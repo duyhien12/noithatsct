@@ -458,7 +458,9 @@ function TabDuAn() {
     const [deleting, setDeleting]       = useState({});
     const [localAssignees, setLocalAssignees] = useState({});
     const [localProgress, setLocalProgress]   = useState({});
+    const [saveStatus, setSaveStatus] = useState('');  // '' | 'saving' | 'saved'
     const saveTimers = useRef({});
+    const saveStatusTimer = useRef(null);
 
     const load = useCallback(() => {
         setLoading(true);
@@ -490,6 +492,7 @@ function TabDuAn() {
             : (p.contractValue || 0);
 
     const saveFull = useCallback(async (project, newStages, newAssignees, newProgress) => {
+        setSaveStatus('saving');
         await fetch(`/api/salary/${project.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -501,6 +504,9 @@ function TabDuAn() {
                 contractValueOverride: project.salaryProgress?.contractValueOverride ?? null,
             }),
         });
+        setSaveStatus('saved');
+        clearTimeout(saveStatusTimer.current);
+        saveStatusTimer.current = setTimeout(() => setSaveStatus(''), 2000);
     }, []);
 
     const toggleStage = async (project, stageKey) => {
@@ -652,6 +658,12 @@ function TabDuAn() {
                             }}>{st === 'all' ? 'Tất cả' : st}</button>
                         ))}
                     </div>
+                    {saveStatus && (
+                        <span style={{ marginLeft: 'auto', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4,
+                            color: saveStatus === 'saved' ? '#16a34a' : '#F47920', transition: 'opacity 0.3s' }}>
+                            {saveStatus === 'saving' ? '⏳ Đang lưu...' : '✓ Đã lưu'}
+                        </span>
+                    )}
                 </div>
 
                 {loading ? (
@@ -743,7 +755,9 @@ function TabThuCong() {
     const [deleting, setDeleting] = useState({});
     const [localAssignees, setLocalAssignees] = useState({});
     const [localProgress2, setLocalProgress2] = useState({});
+    const [saveStatus, setSaveStatus] = useState('');
     const saveTimers = useRef({});
+    const saveStatusTimer = useRef(null);
 
     const load = useCallback(() => {
         fetch('/api/salary/entries').then(r => r.json()).then(d => {
@@ -776,10 +790,14 @@ function TabThuCong() {
     };
 
     const saveFull = useCallback(async (entry, newStages, newAssignees, newProgress) => {
+        setSaveStatus('saving');
         await fetch(`/api/salary/entries/${entry.id}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code: entry.code, name: entry.name, contractValue: entry.contractValue, notes: entry.notes, stages: newStages, assignees: newAssignees, progress: newProgress }),
         });
+        setSaveStatus('saved');
+        clearTimeout(saveStatusTimer.current);
+        saveStatusTimer.current = setTimeout(() => setSaveStatus(''), 2000);
     }, []);
 
     const toggleStage = async (entry, stageKey) => {
@@ -906,7 +924,13 @@ function TabThuCong() {
             <SummaryTable items={allItems} />
 
             <div className="card" style={{ marginTop: 20 }}>
-                <div className="card-header" style={{ justifyContent: 'flex-end' }}>
+                <div className="card-header" style={{ justifyContent: 'flex-end', gap: 12 }}>
+                    {saveStatus && (
+                        <span style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4,
+                            color: saveStatus === 'saved' ? '#16a34a' : '#F47920' }}>
+                            {saveStatus === 'saving' ? '⏳ Đang lưu...' : '✓ Đã lưu'}
+                        </span>
+                    )}
                     <button className="btn btn-primary" onClick={() => { setForm(EMPTY_FORM); setEditId(null); setShowForm(true); }}>+ Thêm mục</button>
                 </div>
 
