@@ -13,11 +13,9 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
 
 const PIPELINE = [
     { key: 'Khách nội thất', label: 'Khách nội thất', color: '#06b6d4', bg: '#cffafe' },
-    { key: 'Tư vấn', label: 'Tư vấn', color: '#3b82f6', bg: '#dbeafe' },
-    { key: 'Báo giá', label: 'Báo giá', color: '#8b5cf6', bg: '#ede9fe' },
-    { key: 'Ký HĐ', label: 'Ký HĐ', color: '#10b981', bg: '#d1fae5' },
-    { key: 'Thi công', label: 'Thi công', color: '#f97316', bg: '#ffedd5' },
-    { key: 'VIP', label: 'VIP', color: '#ec4899', bg: '#fce7f3' },
+    { key: 'Tư vấn', label: 'Khách chăm sóc', color: '#3b82f6', bg: '#dbeafe' },
+    { key: 'Báo giá', label: 'Khách ưu tiên', color: '#8b5cf6', bg: '#ede9fe' },
+    { key: 'Thi công', label: 'Khách hợp đồng', color: '#f97316', bg: '#ffedd5' },
 ];
 
 const SOURCES = ['Facebook', 'Zalo', 'Website', 'Instagram', 'Giới thiệu', 'Đối tác'];
@@ -59,7 +57,7 @@ export default function CustomersPage() {
     const handleSubmit = async () => {
         if (!form.name.trim()) return alert('Vui lòng nhập tên khách hàng');
         if (!form.phone.trim()) return alert('Vui lòng nhập số điện thoại');
-        const res = await fetch('/api/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, status: form.pipelineStage === 'VIP' ? 'VIP' : 'Khách hàng' }) });
+        const res = await fetch('/api/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, status: 'Khách hàng' }) });
         if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi tạo khách hàng'); }
         setShowModal(false);
         setForm({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: 'Khách nội thất', taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0 });
@@ -74,8 +72,7 @@ export default function CustomersPage() {
     };
 
     const moveTo = async (id, stage) => {
-        const status = stage === 'VIP' ? 'VIP' : 'Khách hàng';
-        await fetch(`/api/customers/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pipelineStage: stage, status }) });
+        await fetch(`/api/customers/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pipelineStage: stage, status: 'Khách hàng' }) });
         fetchCustomers();
     };
 
@@ -88,8 +85,7 @@ export default function CustomersPage() {
     const stats = {
         total: customers.length,
         leads: customers.filter(c => c.pipelineStage === 'Khách nội thất').length,
-        active: customers.filter(c => ['Tư vấn', 'Báo giá', 'Ký HĐ', 'Thi công'].includes(c.pipelineStage)).length,
-        vip: customers.filter(c => c.pipelineStage === 'VIP').length,
+        active: customers.filter(c => ['Tư vấn', 'Báo giá', 'Thi công'].includes(c.pipelineStage)).length,
         totalValue: customers.reduce((s, c) => s + (c.estimatedValue || 0), 0),
         revenue: customers.reduce((s, c) => s + (c.totalRevenue || 0), 0),
     };
@@ -101,7 +97,6 @@ export default function CustomersPage() {
                 <div className="stat-card"><div className="stat-icon">👥</div><div><div className="stat-value">{stats.total}</div><div className="stat-label">Tổng KH</div></div></div>
                 <div className="stat-card"><div className="stat-icon">🎯</div><div><div className="stat-value">{stats.leads}</div><div className="stat-label">Tiềm năng</div></div></div>
                 <div className="stat-card"><div className="stat-icon">🔥</div><div><div className="stat-value">{stats.active}</div><div className="stat-label">Đang xử lý</div></div></div>
-                <div className="stat-card"><div className="stat-icon">⭐</div><div><div className="stat-value">{stats.vip}</div><div className="stat-label">VIP</div></div></div>
                 <div className="stat-card"><div className="stat-icon">💎</div><div><div className="stat-value">{fmtShort(stats.totalValue)}</div><div className="stat-label">Giá trị deal</div></div></div>
                 <div className="stat-card"><div className="stat-icon">💰</div><div><div className="stat-value">{fmtShort(stats.revenue)}</div><div className="stat-label">Doanh thu</div></div></div>
             </div>
