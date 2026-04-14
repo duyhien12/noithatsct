@@ -39,20 +39,20 @@ const AVATAR_COLORS = ['#2563eb','#7c3aed','#16a34a','#d97706','#dc2626','#0891b
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const parseJSON = (raw) => { try { return JSON.parse(raw || '{}'); } catch { return {}; } };
 
-// Chuẩn hoá về [{name, pct}] — tương thích dữ liệu cũ (string / string[] / {name,pct}[])
+// Chuẩn hoá về [{name, pct, startDate, endDate}] — tương thích dữ liệu cũ
 const toEntries = (val) => {
-    if (!val) return [{ name: '', pct: 100 }];
-    if (typeof val === 'string') return [{ name: val, pct: 100 }];
+    const norm = (e) => ({ name: e.name || '', pct: e.pct ?? 100, startDate: e.startDate || '', endDate: e.endDate || '' });
+    if (!val) return [norm({})];
+    if (typeof val === 'string') return [norm({ name: val, pct: 100 })];
     if (Array.isArray(val)) {
-        if (val.length === 0) return [{ name: '', pct: 100 }];
-        // dữ liệu cũ dạng string[]
+        if (val.length === 0) return [norm({})];
         if (typeof val[0] === 'string') {
             const share = Math.round(100 / val.length);
-            return val.map((name, i) => ({ name, pct: i === val.length - 1 ? 100 - share * (val.length - 1) : share }));
+            return val.map((name, i) => norm({ name, pct: i === val.length - 1 ? 100 - share * (val.length - 1) : share }));
         }
-        return val; // đã là [{name, pct}]
+        return val.map(norm);
     }
-    return [{ name: '', pct: 100 }];
+    return [norm({})];
 };
 // vẫn giữ toList để không lỗi nếu còn dùng chỗ khác
 const toList = (val) => toEntries(val).map(e => e.name);
@@ -130,7 +130,7 @@ function SummaryTable({ items }) {
 }
 
 // ───────── Stage list với người thực hiện ─────────
-function StageList({ base, stages, assignees, progress, users, onToggle, onAssigneeChange, onAssigneePctChange, onAssigneeAdd, onAssigneeRemove, onProgressChange }) {
+function StageList({ base, stages, assignees, progress, users, onToggle, onAssigneeChange, onAssigneePctChange, onAssigneeDateChange, onAssigneeAdd, onAssigneeRemove, onProgressChange }) {
     return (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 8 }}>
             {STAGES.map(stage => {
@@ -173,58 +173,76 @@ function StageList({ base, stages, assignees, progress, users, onToggle, onAssig
                         </label>
 
                         {/* Danh sách người thực hiện */}
-                        <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
                             {list.map((entry, idx) => {
                                 const personAmt = amount * (Number(entry.pct) || 0) / 100;
                                 return (
-                                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                        {entry.name && (
-                                            <div style={{
-                                                width: 20, height: 20, borderRadius: '50%',
-                                                background: avatarColor(entry.name), color: '#fff',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                fontSize: 9, fontWeight: 700, flexShrink: 0,
-                                            }}>{initials(entry.name)}</div>
-                                        )}
-                                        <select
-                                            value={entry.name}
-                                            onChange={e => onAssigneeChange(stage.key, idx, e.target.value)}
-                                            onClick={e => e.stopPropagation()}
-                                            style={{
-                                                flex: 1, minWidth: 0, padding: '3px 6px', borderRadius: 5, fontSize: 11,
-                                                border: '1px solid var(--border)', background: 'var(--bg-primary)',
-                                                color: entry.name ? 'var(--text-primary)' : 'var(--text-muted)',
-                                                outline: 'none', cursor: 'pointer',
-                                            }}
-                                        >
-                                            <option value="">— Người thực hiện —</option>
-                                            {users.map(u => (
-                                                <option key={u.id} value={u.name}>{u.name}</option>
-                                            ))}
-                                        </select>
-                                        {/* Ô nhập % */}
-                                        <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, gap: 1 }}>
+                                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '5px 7px', borderRadius: 6, background: 'var(--bg-primary)', border: '1px solid var(--border-light)' }}>
+                                        {/* Hàng tên + % + xóa */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                            {entry.name && (
+                                                <div style={{
+                                                    width: 20, height: 20, borderRadius: '50%',
+                                                    background: avatarColor(entry.name), color: '#fff',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    fontSize: 9, fontWeight: 700, flexShrink: 0,
+                                                }}>{initials(entry.name)}</div>
+                                            )}
+                                            <select
+                                                value={entry.name}
+                                                onChange={e => onAssigneeChange(stage.key, idx, e.target.value)}
+                                                onClick={e => e.stopPropagation()}
+                                                style={{
+                                                    flex: 1, minWidth: 0, padding: '3px 6px', borderRadius: 5, fontSize: 11,
+                                                    border: '1px solid var(--border)', background: 'transparent',
+                                                    color: entry.name ? 'var(--text-primary)' : 'var(--text-muted)',
+                                                    outline: 'none', cursor: 'pointer',
+                                                }}
+                                            >
+                                                <option value="">— Người thực hiện —</option>
+                                                {users.map(u => (
+                                                    <option key={u.id} value={u.name}>{u.name}</option>
+                                                ))}
+                                            </select>
                                             <input
-                                                type="number"
-                                                min={0} max={100}
+                                                type="number" min={0} max={100}
                                                 value={entry.pct}
                                                 onChange={e => onAssigneePctChange(stage.key, idx, e.target.value)}
                                                 onClick={e => e.stopPropagation()}
                                                 style={{
-                                                    width: 42, padding: '3px 4px', borderRadius: 5, fontSize: 11,
+                                                    width: 40, padding: '3px 4px', borderRadius: 5, fontSize: 11,
                                                     border: `1px solid ${pctOk || list.length === 1 ? 'var(--border)' : '#f97316'}`,
-                                                    background: 'var(--bg-primary)', textAlign: 'center', outline: 'none',
+                                                    background: 'transparent', textAlign: 'center', outline: 'none', flexShrink: 0,
                                                 }}
                                                 title={entry.name ? fmt(personAmt) : ''}
                                             />
-                                            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>%</span>
+                                            <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>%</span>
+                                            {list.length > 1 && (
+                                                <button
+                                                    onClick={e => { e.stopPropagation(); onAssigneeRemove(stage.key, idx); }}
+                                                    style={{ padding: '2px 5px', borderRadius: 4, fontSize: 11, cursor: 'pointer', border: '1px solid #dc262644', background: 'transparent', color: '#dc2626', flexShrink: 0, lineHeight: 1 }}
+                                                >×</button>
+                                            )}
                                         </div>
-                                        {list.length > 1 && (
-                                            <button
-                                                onClick={e => { e.stopPropagation(); onAssigneeRemove(stage.key, idx); }}
-                                                style={{ padding: '2px 5px', borderRadius: 4, fontSize: 11, cursor: 'pointer', border: '1px solid #dc262644', background: 'transparent', color: '#dc2626', flexShrink: 0, lineHeight: 1 }}
-                                            >×</button>
-                                        )}
+                                        {/* Hàng ngày bắt đầu / hoàn thành */}
+                                        <div style={{ display: 'flex', gap: 4 }}>
+                                            <input
+                                                type="date"
+                                                value={entry.startDate}
+                                                onChange={e => onAssigneeDateChange(stage.key, idx, 'startDate', e.target.value)}
+                                                onClick={e => e.stopPropagation()}
+                                                title="Ngày bắt đầu"
+                                                style={{ flex: 1, padding: '2px 5px', borderRadius: 4, fontSize: 10, border: '1px solid var(--border)', background: 'transparent', outline: 'none', color: entry.startDate ? 'var(--text-primary)' : 'var(--text-muted)' }}
+                                            />
+                                            <input
+                                                type="date"
+                                                value={entry.endDate}
+                                                onChange={e => onAssigneeDateChange(stage.key, idx, 'endDate', e.target.value)}
+                                                onClick={e => e.stopPropagation()}
+                                                title="Ngày hoàn thành"
+                                                style={{ flex: 1, padding: '2px 5px', borderRadius: 4, fontSize: 10, border: `1px solid ${entry.endDate ? '#16a34a44' : 'var(--border)'}`, background: 'transparent', outline: 'none', color: entry.endDate ? '#15803d' : 'var(--text-muted)' }}
+                                            />
+                                        </div>
                                     </div>
                                 );
                             })}
@@ -236,9 +254,8 @@ function StageList({ base, stages, assignees, progress, users, onToggle, onAssig
                             )}
                         </div>
 
-                        {/* Tiến độ + Ngày */}
-                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-light)', display: 'flex', flexDirection: 'column', gap: 5 }}>
-                            {/* Thanh tiến độ */}
+                        {/* Tiến độ */}
+                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-light)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0, width: 44 }}>Tiến độ</span>
                                 <div style={{ flex: 1, background: '#e5e7eb', borderRadius: 4, height: 6, overflow: 'hidden' }}>
@@ -252,29 +269,6 @@ function StageList({ base, stages, assignees, progress, users, onToggle, onAssig
                                     style={{ width: 40, padding: '2px 4px', borderRadius: 4, fontSize: 11, border: '1px solid var(--border)', background: 'var(--bg-primary)', textAlign: 'center', outline: 'none' }}
                                 />
                                 <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>%</span>
-                            </div>
-                            {/* Ngày bắt đầu / hoàn thành */}
-                            <div style={{ display: 'flex', gap: 6 }}>
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    <span style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Bắt đầu</span>
-                                    <input
-                                        type="date"
-                                        value={stageData.startDate}
-                                        onChange={e => onProgressChange(stage.key, 'startDate', e.target.value)}
-                                        onClick={e => e.stopPropagation()}
-                                        style={{ width: '100%', padding: '3px 5px', borderRadius: 4, fontSize: 11, border: '1px solid var(--border)', background: 'var(--bg-primary)', outline: 'none', color: stageData.startDate ? 'var(--text-primary)' : 'var(--text-muted)' }}
-                                    />
-                                </div>
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    <span style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Hoàn thành</span>
-                                    <input
-                                        type="date"
-                                        value={stageData.endDate}
-                                        onChange={e => onProgressChange(stage.key, 'endDate', e.target.value)}
-                                        onClick={e => e.stopPropagation()}
-                                        style={{ width: '100%', padding: '3px 5px', borderRadius: 4, fontSize: 11, border: `1px solid ${stageData.endDate ? '#16a34a44' : 'var(--border)'}`, background: 'var(--bg-primary)', outline: 'none', color: stageData.endDate ? '#15803d' : 'var(--text-muted)' }}
-                                    />
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -345,19 +339,19 @@ function printSalaryPDF({ code, name, base, stages, assignees, progress, notes, 
         const sd = toStageData(progress[s.key] ?? (done ? 100 : 0));
         const pct = sd.pct;
         const entries = toEntries(assignees[s.key]);
-        const personRows = entries.filter(e => e.name).map(e =>
-            `<div style="font-size:11px;color:#374151;">${e.name} <span style="color:#F47920;font-weight:600">${e.pct}%</span> → <b>${fmtVN(amount * e.pct / 100)}</b></div>`
-        ).join('');
+        const personRows = entries.filter(e => e.name).map(e => {
+            const dateStr = [e.startDate ? '▶ ' + fmtDateVN(e.startDate) : '', e.endDate ? '✓ ' + fmtDateVN(e.endDate) : ''].filter(Boolean).join(' → ');
+            return `<div style="font-size:11px;color:#374151;margin-bottom:2px;">
+                <span style="font-weight:600">${e.name}</span> <span style="color:#F47920;font-weight:600">${e.pct}%</span> → <b>${fmtVN(amount * e.pct / 100)}</b>
+                ${dateStr ? `<div style="font-size:10px;color:#6b7280;margin-top:1px">${dateStr}</div>` : ''}
+            </div>`;
+        }).join('');
         return `
         <tr style="border-bottom:1px solid #e5e7eb;">
           <td style="padding:7px 10px;font-size:12px;font-weight:500;color:${done?'#15803d':'#111827'}">${s.label}</td>
           <td style="padding:7px 10px;font-size:12px;text-align:center;color:#F47920;font-weight:600">${s.pct}%</td>
           <td style="padding:7px 10px;font-size:12px;text-align:right;font-weight:600">${fmtVN(amount)}</td>
           <td style="padding:7px 10px;font-size:12px">${personRows || '<span style="color:#9ca3af;font-size:11px">—</span>'}</td>
-          <td style="padding:7px 10px;font-size:11px;color:#374151;white-space:nowrap;">
-            <div>${sd.startDate ? '▶ ' + fmtDateVN(sd.startDate) : '<span style="color:#9ca3af">—</span>'}</div>
-            <div>${sd.endDate ? '✓ ' + fmtDateVN(sd.endDate) : '<span style="color:#9ca3af">—</span>'}</div>
-          </td>
           <td style="padding:7px 10px;min-width:90px;">
             <div style="background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden;">
               <div style="width:${pct}%;height:100%;background:${pct===100?'#16a34a':'#F47920'};border-radius:4px;"></div>
@@ -427,7 +421,6 @@ function printSalaryPDF({ code, name, base, stages, assignees, progress, notes, 
             <th style="text-align:center;width:60px">% Quỹ</th>
             <th style="text-align:right;width:120px">Số tiền</th>
             <th>Người thực hiện</th>
-            <th style="width:130px">Ngày</th>
             <th style="width:100px">Tiến độ</th>
         </tr></thead>
         <tbody>${stageRows}</tbody>
@@ -556,6 +549,12 @@ function TabDuAn() {
     const handleAssigneePctChange = (project, stageKey, idx, value) => {
         const cur = toEntries(getAssignees(project)[stageKey]);
         const newList = cur.map((e, i) => i === idx ? { ...e, pct: value === '' ? '' : Number(value) } : e);
+        _saveAssignees(project, { ...getAssignees(project), [stageKey]: newList });
+    };
+
+    const handleAssigneeDateChange = (project, stageKey, idx, field, value) => {
+        const cur = toEntries(getAssignees(project)[stageKey]);
+        const newList = cur.map((e, i) => i === idx ? { ...e, [field]: value } : e);
         _saveAssignees(project, { ...getAssignees(project), [stageKey]: newList });
     };
 
@@ -719,6 +718,7 @@ function TabDuAn() {
                                                 onToggle={(key) => toggleStage(project, key)}
                                                 onAssigneeChange={(key, idx, val) => handleAssigneeChange(project, key, idx, val)}
                                                 onAssigneePctChange={(key, idx, val) => handleAssigneePctChange(project, key, idx, val)}
+                                                onAssigneeDateChange={(key, idx, field, val) => handleAssigneeDateChange(project, key, idx, field, val)}
                                                 onAssigneeAdd={(key) => handleAssigneeAdd(project, key)}
                                                 onAssigneeRemove={(key, idx) => handleAssigneeRemove(project, key, idx)}
                                                 onProgressChange={(key, field, val) => handleProgressChange(project, key, field, val)}
@@ -815,6 +815,12 @@ function TabThuCong() {
     const handleAssigneePctChange = (entry, stageKey, idx, value) => {
         const cur = toEntries(getAssignees(entry)[stageKey]);
         const newList = cur.map((e, i) => i === idx ? { ...e, pct: value === '' ? '' : Number(value) } : e);
+        _saveAssignees2(entry, { ...getAssignees(entry), [stageKey]: newList });
+    };
+
+    const handleAssigneeDateChange = (entry, stageKey, idx, field, value) => {
+        const cur = toEntries(getAssignees(entry)[stageKey]);
+        const newList = cur.map((e, i) => i === idx ? { ...e, [field]: value } : e);
         _saveAssignees2(entry, { ...getAssignees(entry), [stageKey]: newList });
     };
 
@@ -974,6 +980,7 @@ function TabThuCong() {
                                                 onToggle={(key) => toggleStage(entry, key)}
                                                 onAssigneeChange={(key, idx, val) => handleAssigneeChange(entry, key, idx, val)}
                                                 onAssigneePctChange={(key, idx, val) => handleAssigneePctChange(entry, key, idx, val)}
+                                                onAssigneeDateChange={(key, idx, field, val) => handleAssigneeDateChange(entry, key, idx, field, val)}
                                                 onAssigneeAdd={(key) => handleAssigneeAdd(entry, key)}
                                                 onAssigneeRemove={(key, idx) => handleAssigneeRemove(entry, key, idx)}
                                                 onProgressChange={(key, field, val) => handleProgressChange2(entry, key, field, val)}
