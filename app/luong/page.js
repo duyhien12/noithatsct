@@ -292,6 +292,7 @@ function EditModal({ project, onClose, onSaved }) {
             body: JSON.stringify({
                 stages: parseJSON(sp.stages),
                 assignees: parseJSON(sp.assignees),
+                progress: parseJSON(sp.progress),
                 notes,
                 contractValueOverride: contractValueOverride === '' ? null : parseFloat(contractValueOverride) || null,
             }),
@@ -700,8 +701,10 @@ function TabDuAn() {
                                                 {project.status && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: `${statusInfo.color}22`, color: statusInfo.color, border: `1px solid ${statusInfo.color}44` }}>{project.status}</span>}
                                                 {hasOverride && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#f59e0b22', color: '#d97706', border: '1px solid #f59e0b44' }}>GT tùy chỉnh</span>}
                                             </div>
-                                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</div>
-                                            {project.salaryProgress?.notes && <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>{project.salaryProgress.notes}</div>}
+                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden' }}>
+                                                <span style={{ fontSize: 12, color: 'var(--text-secondary)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>{project.name}</span>
+                                                {project.salaryProgress?.notes && <span style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {project.salaryProgress.notes}</span>}
+                                            </div>
                                         </div>
                                         <div style={{ textAlign: 'right', minWidth: 110 }}><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Doanh thu</div><div style={{ fontSize: 12, fontWeight: 600 }}>{fmt(revenue)}</div></div>
                                         <div style={{ textAlign: 'right', minWidth: 110 }}><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Quỹ lương (50%)</div><div style={{ fontSize: 12, fontWeight: 600 }}>{fmt(base)}</div></div>
