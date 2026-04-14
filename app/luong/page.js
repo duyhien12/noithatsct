@@ -345,11 +345,9 @@ function printSalaryPDF({ code, name, base, stages, assignees, progress, notes, 
           <td style="padding:7px 10px;font-size:12px;text-align:center;color:#F47920;font-weight:600">${s.pct}%</td>
           <td style="padding:7px 10px;font-size:12px;text-align:right;font-weight:600">${fmtVN(amount)}</td>
           <td style="padding:7px 10px;font-size:12px">${personRows || '<span style="color:#9ca3af;font-size:11px">—</span>'}</td>
-          <td style="padding:7px 10px;min-width:90px;">
-            <div style="background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden;">
-              <div style="width:${pct}%;height:100%;background:${pct===100?'#16a34a':'#F47920'};border-radius:4px;"></div>
-            </div>
-            <div style="font-size:10px;color:#6b7280;margin-top:2px;text-align:center">${pct}%</div>
+          <td style="padding:7px 10px;min-width:110px;font-size:10px;color:#6b7280;line-height:1.6;">
+            ${sd.startDate ? `<div>▶ ${fmtDateVN(sd.startDate)}</div>` : ''}
+            ${sd.endDate ? `<div style="color:#16a34a">✓ ${fmtDateVN(sd.endDate)}</div>` : (!sd.startDate ? '<span style="color:#d1d5db">—</span>' : '')}
           </td>
         </tr>`;
     }).join('');
