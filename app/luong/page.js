@@ -145,8 +145,8 @@ function DateField({ label, value, onChange, color }) {
                 onClick={e => e.stopPropagation()}
                 style={{
                     width: '100%', padding: '4px 6px', borderRadius: 5, fontSize: 11,
-                    border: `1.5px solid ${value ? (color === '#15803d' ? '#16a34a66' : color === '#d97706' ? '#f59e0b66' : 'var(--border)') : 'var(--border)'}`,
-                    background: value ? (color === '#15803d' ? 'rgba(22,163,74,0.05)' : color === '#d97706' ? 'rgba(245,158,11,0.05)' : 'var(--bg-primary)') : 'var(--bg-primary)',
+                    border: `1.5px solid ${value && color ? color + '88' : 'var(--border)'}`,
+                    background: value && color ? color + '0f' : 'var(--bg-primary)',
                     outline: 'none', color: value ? (color || 'var(--text-primary)') : 'var(--text-muted)',
                     fontWeight: value ? 500 : 400,
                 }}
