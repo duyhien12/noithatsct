@@ -4,11 +4,12 @@ import { NextResponse } from 'next/server';
 
 export const PUT = withAuth(async (request, { params }) => {
     const { projectId } = await params;
-    const { stages, assignees, notes, contractValueOverride } = await request.json();
+    const { stages, assignees, progress, notes, contractValueOverride } = await request.json();
 
     const data = {
         stages: JSON.stringify(stages || {}),
         assignees: JSON.stringify(assignees || {}),
+        progress: JSON.stringify(progress || {}),
         notes: notes || '',
     };
     if (contractValueOverride !== undefined) {

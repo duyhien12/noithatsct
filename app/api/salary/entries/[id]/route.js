@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 
 export const PUT = withAuth(async (request, { params }) => {
     const { id } = await params;
-    const { code, name, contractValue, stages, assignees, notes } = await request.json();
+    const { code, name, contractValue, stages, assignees, progress, notes } = await request.json();
 
     const entry = await prisma.salaryEntry.update({
         where: { id },
@@ -14,6 +14,7 @@ export const PUT = withAuth(async (request, { params }) => {
             contractValue: contractValue || 0,
             stages: JSON.stringify(stages || {}),
             assignees: JSON.stringify(assignees || {}),
+            progress: JSON.stringify(progress || {}),
             notes: notes || '',
         },
     });

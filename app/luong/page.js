@@ -122,7 +122,7 @@ function SummaryTable({ items }) {
 }
 
 // ───────── Stage list với người thực hiện ─────────
-function StageList({ base, stages, assignees, users, onToggle, onAssigneeChange, onAssigneePctChange, onAssigneeAdd, onAssigneeRemove }) {
+function StageList({ base, stages, assignees, progress, users, onToggle, onAssigneeChange, onAssigneePctChange, onAssigneeAdd, onAssigneeRemove, onProgressChange }) {
     return (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 8 }}>
             {STAGES.map(stage => {
@@ -131,6 +131,7 @@ function StageList({ base, stages, assignees, users, onToggle, onAssigneeChange,
                 const list = toEntries(assignees[stage.key]);
                 const totalPct = list.reduce((s, e) => s + (Number(e.pct) || 0), 0);
                 const pctOk = totalPct === 100;
+                const stageProg = Number(progress[stage.key] ?? (done ? 100 : 0));
                 return (
                     <div
                         key={stage.key}
@@ -225,6 +226,24 @@ function StageList({ base, stages, assignees, users, onToggle, onAssigneeChange,
                                 >+ Thêm người</button>
                             )}
                         </div>
+
+                        {/* Tiến độ */}
+                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-light)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>Tiến độ</span>
+                                <div style={{ flex: 1, background: '#e5e7eb', borderRadius: 4, height: 6, overflow: 'hidden' }}>
+                                    <div style={{ width: `${stageProg}%`, height: '100%', background: stageProg === 100 ? '#16a34a' : '#F47920', borderRadius: 4, transition: 'width 0.3s' }} />
+                                </div>
+                                <input
+                                    type="number" min={0} max={100}
+                                    value={stageProg}
+                                    onChange={e => onProgressChange(stage.key, e.target.value)}
+                                    onClick={e => e.stopPropagation()}
+                                    style={{ width: 40, padding: '2px 4px', borderRadius: 4, fontSize: 11, border: '1px solid var(--border)', background: 'var(--bg-primary)', textAlign: 'center', outline: 'none' }}
+                                />
+                                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>%</span>
+                            </div>
+                        </div>
                     </div>
                 );
             })}
@@ -283,6 +302,126 @@ function EditModal({ project, onClose, onSaved }) {
     );
 }
 
+// ───────── Xuất PDF với bộ nhận diện SCT ─────────
+function printSalaryPDF({ code, name, base, stages, assignees, progress, notes, contractValue }) {
+    const fmtVN = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
+    const stageRows = STAGES.map(s => {
+        const done = !!stages[s.key];
+        const amount = base * s.pct / 100;
+        const pct = Number(progress[s.key] ?? (done ? 100 : 0));
+        const entries = toEntries(assignees[s.key]);
+        const personRows = entries.filter(e => e.name).map(e =>
+            `<div style="font-size:11px;color:#374151;">${e.name} <span style="color:#F47920;font-weight:600">${e.pct}%</span> → <b>${fmtVN(amount * e.pct / 100)}</b></div>`
+        ).join('');
+        return `
+        <tr style="border-bottom:1px solid #e5e7eb;">
+          <td style="padding:7px 10px;font-size:12px;font-weight:500;color:${done?'#15803d':'#111827'}">${s.label}</td>
+          <td style="padding:7px 10px;font-size:12px;text-align:center;color:#F47920;font-weight:600">${s.pct}%</td>
+          <td style="padding:7px 10px;font-size:12px;text-align:right;font-weight:600">${fmtVN(amount)}</td>
+          <td style="padding:7px 10px;font-size:12px">${personRows || '<span style="color:#9ca3af;font-size:11px">—</span>'}</td>
+          <td style="padding:7px 10px;min-width:100px;">
+            <div style="background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden;">
+              <div style="width:${pct}%;height:100%;background:${pct===100?'#16a34a':'#F47920'};border-radius:4px;"></div>
+            </div>
+            <div style="font-size:10px;color:#6b7280;margin-top:2px;text-align:center">${pct}%</div>
+          </td>
+        </tr>`;
+    }).join('');
+
+    // Bảng tổng theo người
+    const personMap = {};
+    STAGES.forEach(s => {
+        const amount = base * s.pct / 100;
+        toEntries(assignees[s.key]).forEach(({ name, pct }) => {
+            if (!name) return;
+            personMap[name] = (personMap[name] || 0) + amount * pct / 100;
+        });
+    });
+    const personSummary = Object.entries(personMap).sort((a, b) => b[1] - a[1]).map(([n, v]) =>
+        `<tr><td style="padding:6px 10px;font-size:12px;font-weight:600">${n}</td><td style="padding:6px 10px;font-size:12px;text-align:right;color:#16a34a;font-weight:700">${fmtVN(v)}</td></tr>`
+    ).join('');
+
+    const now = new Date().toLocaleDateString('vi-VN');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bảng lương — ${code}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif; background: #fff; color: #111827; }
+        @page { margin: 18mm 16mm; size: A4 landscape; }
+        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #F47920; color: #fff; padding: 8px 10px; font-size: 12px; font-weight: 600; text-align: left; }
+    </style></head><body>
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:3px solid #F47920;margin-bottom:18px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+            <svg width="44" height="44" viewBox="0 0 48 48" fill="none">
+                <path d="M12 8 L12 40" stroke="#F47920" stroke-width="7" stroke-linecap="round"/>
+                <path d="M12 24 L34 8" stroke="#F47920" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 24 L34 40" stroke="#F47920" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M20 16 L28 24" stroke="#1e293b" stroke-width="3.5" stroke-linecap="round"/>
+                <path d="M20 32 L28 24" stroke="#1e293b" stroke-width="3.5" stroke-linecap="round"/>
+            </svg>
+            <div>
+                <div style="font-size:16px;font-weight:700;color:#1e293b;letter-spacing:0.3px">KIẾN TRÚC ĐÔ THỊ SCT</div>
+                <div style="font-size:11px;color:#6b7280">Cùng bạn xây dựng ước mơ</div>
+            </div>
+        </div>
+        <div style="text-align:right;">
+            <div style="font-size:18px;font-weight:700;color:#F47920">BẢNG TÍNH LƯƠNG</div>
+            <div style="font-size:11px;color:#6b7280">Phòng Thiết Kế Kiến Trúc — ${now}</div>
+        </div>
+    </div>
+
+    <!-- Project info -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:18px;background:#fef9f5;border:1px solid #fed7aa;border-radius:8px;padding:14px;">
+        <div><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px">Mã dự án</div><div style="font-size:14px;font-weight:700;color:#F47920">${code}</div></div>
+        <div><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px">Tên dự án</div><div style="font-size:13px;font-weight:600">${name}</div></div>
+        <div><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px">Quỹ lương (50% DT)</div><div style="font-size:14px;font-weight:700;color:#16a34a">${fmtVN(base)}</div></div>
+        ${notes ? `<div style="grid-column:span 3;font-size:11px;color:#6b7280;font-style:italic">Ghi chú: ${notes}</div>` : ''}
+    </div>
+
+    <!-- Stage table -->
+    <table style="margin-bottom:20px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <thead><tr>
+            <th>Hạng mục</th>
+            <th style="text-align:center;width:60px">% Quỹ</th>
+            <th style="text-align:right;width:120px">Số tiền</th>
+            <th>Người thực hiện</th>
+            <th style="width:120px">Tiến độ</th>
+        </tr></thead>
+        <tbody>${stageRows}</tbody>
+    </table>
+
+    <!-- Person summary -->
+    ${personSummary ? `
+    <div style="display:flex;gap:24px;align-items:flex-start;">
+        <div style="flex:1;">
+            <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:#1e293b;border-bottom:2px solid #F47920;padding-bottom:4px;">Tổng hợp lương theo người thực hiện</div>
+            <table style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+                <thead><tr><th>Họ tên</th><th style="text-align:right;width:160px">Tổng lương</th></tr></thead>
+                <tbody>${personSummary}</tbody>
+            </table>
+        </div>
+        <div style="width:180px;background:#fef9f5;border:1px solid #fed7aa;border-radius:8px;padding:14px;text-align:center;">
+            <div style="font-size:11px;color:#9ca3af;margin-bottom:4px">Tổng đã phân bổ</div>
+            <div style="font-size:18px;font-weight:700;color:#F47920">${fmtVN(Object.values(personMap).reduce((a,b)=>a+b,0))}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:4px">/ ${fmtVN(base)}</div>
+        </div>
+    </div>` : ''}
+
+    <div style="margin-top:30px;font-size:10px;color:#9ca3af;text-align:center;border-top:1px solid #e5e7eb;padding-top:10px;">
+        Tài liệu nội bộ — Kiến Trúc Đô Thị SCT — Xuất ngày ${now}
+    </div>
+    </body></html>`;
+
+    const win = window.open('', '_blank', 'width=1100,height=800');
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 600);
+}
+
 // ─────────────────────────── TAB 1: DỰ ÁN ───────────────────────────
 function TabDuAn() {
     const users = useDesignUsers();
@@ -293,8 +432,8 @@ function TabDuAn() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [editProject, setEditProject] = useState(null);
     const [deleting, setDeleting]       = useState({});
-    // local assignees per project (để debounce save)
     const [localAssignees, setLocalAssignees] = useState({});
+    const [localProgress, setLocalProgress]   = useState({});
     const saveTimers = useRef({});
 
     const load = useCallback(() => {
@@ -304,9 +443,13 @@ function TabDuAn() {
             .then(d => {
                 const list = d.data || [];
                 setProjects(list);
-                const init = {};
-                list.forEach(p => { init[p.id] = parseJSON(p.salaryProgress?.assignees); });
-                setLocalAssignees(init);
+                const initA = {}, initP = {};
+                list.forEach(p => {
+                    initA[p.id] = parseJSON(p.salaryProgress?.assignees);
+                    initP[p.id] = parseJSON(p.salaryProgress?.progress);
+                });
+                setLocalAssignees(initA);
+                setLocalProgress(initP);
                 setLoading(false);
             });
     }, []);
@@ -315,19 +458,21 @@ function TabDuAn() {
 
     const getStages    = (p) => parseJSON(p.salaryProgress?.stages);
     const getAssignees = (p) => localAssignees[p.id] || parseJSON(p.salaryProgress?.assignees);
+    const getProgress  = (p) => localProgress[p.id]  || parseJSON(p.salaryProgress?.progress);
 
     const getContractValue = (p) =>
         p.salaryProgress?.contractValueOverride != null
             ? p.salaryProgress.contractValueOverride
             : (p.contractValue || 0);
 
-    const saveFull = useCallback(async (project, newStages, newAssignees) => {
+    const saveFull = useCallback(async (project, newStages, newAssignees, newProgress) => {
         await fetch(`/api/salary/${project.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 stages: newStages,
                 assignees: newAssignees,
+                progress: newProgress,
                 notes: project.salaryProgress?.notes || '',
                 contractValueOverride: project.salaryProgress?.contractValueOverride ?? null,
             }),
@@ -341,14 +486,23 @@ function TabDuAn() {
             ? { ...p, salaryProgress: { ...(p.salaryProgress || {}), stages: JSON.stringify(updated) } }
             : p
         ));
-        await saveFull(project, updated, getAssignees(project));
+        await saveFull(project, updated, getAssignees(project), getProgress(project));
     };
 
     const _saveAssignees = (project, updated) => {
         setLocalAssignees(prev => ({ ...prev, [project.id]: updated }));
         clearTimeout(saveTimers.current[project.id]);
         saveTimers.current[project.id] = setTimeout(() => {
-            saveFull(project, getStages(project), updated);
+            saveFull(project, getStages(project), updated, getProgress(project));
+        }, 800);
+    };
+
+    const handleProgressChange = (project, stageKey, value) => {
+        const updated = { ...getProgress(project), [stageKey]: value === '' ? '' : Math.min(100, Math.max(0, Number(value))) };
+        setLocalProgress(prev => ({ ...prev, [project.id]: updated }));
+        clearTimeout(saveTimers.current[project.id + '_p']);
+        saveTimers.current[project.id + '_p'] = setTimeout(() => {
+            saveFull(project, getStages(project), getAssignees(project), updated);
         }, 800);
     };
 
@@ -387,9 +541,9 @@ function TabDuAn() {
     const toggleExpand = (project) => {
         const isOpen = expanded[project.id];
         if (isOpen) {
-            // Đang mở → sắp đóng: flush save ngay
             clearTimeout(saveTimers.current[project.id]);
-            saveFull(project, getStages(project), getAssignees(project));
+            clearTimeout(saveTimers.current[project.id + '_p']);
+            saveFull(project, getStages(project), getAssignees(project), getProgress(project));
         }
         setExpanded(e => ({ ...e, [project.id]: !e[project.id] }));
     };
@@ -408,6 +562,7 @@ function TabDuAn() {
         await fetch(`/api/salary/${project.id}`, { method: 'DELETE' });
         setProjects(prev => prev.map(p => p.id === project.id ? { ...p, salaryProgress: null } : p));
         setLocalAssignees(prev => ({ ...prev, [project.id]: {} }));
+        setLocalProgress(prev => ({ ...prev, [project.id]: {} }));
         setDeleting(d => ({ ...d, [project.id]: false }));
     };
 
@@ -478,6 +633,7 @@ function TabDuAn() {
                             const { revenue, base, earned, pctDone } = getSalaryInfo(project);
                             const stages = getStages(project);
                             const assignees = getAssignees(project);
+                            const progress = getProgress(project);
                             const isExpanded = expanded[project.id];
                             const statusInfo = STATUS_LABELS[project.status] || {};
                             const hasOverride = project.salaryProgress?.contractValueOverride != null;
@@ -505,6 +661,7 @@ function TabDuAn() {
                                         <div style={{ textAlign: 'right', minWidth: 130 }}><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Đã tích lũy ({pctDone}%)</div><div style={{ fontSize: 13, fontWeight: 700, color: earned > 0 ? '#16a34a' : 'var(--text-muted)' }}>{fmt(earned)}</div></div>
                                         <div style={{ width: 70 }}><div style={{ height: 6, background: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}><div style={{ height: '100%', background: '#16a34a', width: `${pctDone}%`, borderRadius: 3, transition: 'width 0.3s' }} /></div></div>
                                         <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+                                            <button onClick={e => { e.stopPropagation(); printSalaryPDF({ code: project.code, name: project.name, base, stages, assignees, progress, notes: project.salaryProgress?.notes || '', contractValue: revenue }); }} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', border: '1px solid #F47920', background: 'transparent', color: '#F47920' }}>📄 PDF</button>
                                             <button onClick={e => { e.stopPropagation(); setEditProject(project); }} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-secondary)' }}>Sửa</button>
                                             <button onClick={e => { e.stopPropagation(); deleteProgress(project); }} disabled={deleting[project.id] || !project.salaryProgress} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', border: '1px solid #dc2626', background: 'transparent', color: '#dc2626', opacity: !project.salaryProgress ? 0.35 : 1 }}>{deleting[project.id] ? '...' : 'Xóa'}</button>
                                         </div>
@@ -516,12 +673,14 @@ function TabDuAn() {
                                                 base={base}
                                                 stages={stages}
                                                 assignees={assignees}
+                                                progress={progress}
                                                 users={users}
                                                 onToggle={(key) => toggleStage(project, key)}
                                                 onAssigneeChange={(key, idx, val) => handleAssigneeChange(project, key, idx, val)}
                                                 onAssigneePctChange={(key, idx, val) => handleAssigneePctChange(project, key, idx, val)}
                                                 onAssigneeAdd={(key) => handleAssigneeAdd(project, key)}
                                                 onAssigneeRemove={(key, idx) => handleAssigneeRemove(project, key, idx)}
+                                                onProgressChange={(key, val) => handleProgressChange(project, key, val)}
                                             />
                                             {/* Mini bảng tổng hợp trong dự án */}
                                             <SummaryTable items={projectItems} />
@@ -551,15 +710,20 @@ function TabThuCong() {
     const [submitting, setSubmitting] = useState(false);
     const [deleting, setDeleting] = useState({});
     const [localAssignees, setLocalAssignees] = useState({});
+    const [localProgress2, setLocalProgress2] = useState({});
     const saveTimers = useRef({});
 
     const load = useCallback(() => {
         fetch('/api/salary/entries').then(r => r.json()).then(d => {
             const list = d.data || [];
             setEntries(list);
-            const init = {};
-            list.forEach(e => { init[e.id] = parseJSON(e.assignees); });
-            setLocalAssignees(init);
+            const initA = {}, initP = {};
+            list.forEach(e => {
+                initA[e.id] = parseJSON(e.assignees);
+                initP[e.id] = parseJSON(e.progress);
+            });
+            setLocalAssignees(initA);
+            setLocalProgress2(initP);
             setLoading(false);
         });
     }, []);
@@ -568,6 +732,7 @@ function TabThuCong() {
 
     const getStages    = (e) => parseJSON(e.stages);
     const getAssignees = (e) => localAssignees[e.id] || parseJSON(e.assignees);
+    const getProgress2 = (e) => localProgress2[e.id]  || parseJSON(e.progress);
 
     const getSalaryInfo = (entry) => {
         const revenue = entry.contractValue || 0;
@@ -578,10 +743,10 @@ function TabThuCong() {
         return { revenue, base, earned, pctDone };
     };
 
-    const saveFull = useCallback(async (entry, newStages, newAssignees) => {
+    const saveFull = useCallback(async (entry, newStages, newAssignees, newProgress) => {
         await fetch(`/api/salary/entries/${entry.id}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: entry.code, name: entry.name, contractValue: entry.contractValue, notes: entry.notes, stages: newStages, assignees: newAssignees }),
+            body: JSON.stringify({ code: entry.code, name: entry.name, contractValue: entry.contractValue, notes: entry.notes, stages: newStages, assignees: newAssignees, progress: newProgress }),
         });
     }, []);
 
@@ -589,14 +754,14 @@ function TabThuCong() {
         const current = getStages(entry);
         const updated = { ...current, [stageKey]: !current[stageKey] };
         setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, stages: JSON.stringify(updated) } : e));
-        await saveFull(entry, updated, getAssignees(entry));
+        await saveFull(entry, updated, getAssignees(entry), getProgress2(entry));
     };
 
     const _saveAssignees2 = (entry, updated) => {
         setLocalAssignees(prev => ({ ...prev, [entry.id]: updated }));
         clearTimeout(saveTimers.current[entry.id]);
         saveTimers.current[entry.id] = setTimeout(() => {
-            saveFull(entry, getStages(entry), updated);
+            saveFull(entry, getStages(entry), updated, getProgress2(entry));
         }, 800);
     };
 
@@ -629,12 +794,22 @@ function TabThuCong() {
         _saveAssignees2(entry, { ...getAssignees(entry), [stageKey]: result });
     };
 
+    const handleProgressChange2 = (entry, stageKey, value) => {
+        const updated = { ...getProgress2(entry), [stageKey]: value === '' ? '' : Math.min(100, Math.max(0, Number(value))) };
+        setLocalProgress2(prev => ({ ...prev, [entry.id]: updated }));
+        clearTimeout(saveTimers.current[entry.id + '_p']);
+        saveTimers.current[entry.id + '_p'] = setTimeout(() => {
+            saveFull(entry, getStages(entry), getAssignees(entry), updated);
+        }, 800);
+    };
+
     // Khi thu lại row: flush debounce và lưu ngay
     const toggleExpand = (entry) => {
         const isOpen = expanded[entry.id];
         if (isOpen) {
             clearTimeout(saveTimers.current[entry.id]);
-            saveFull(entry, getStages(entry), getAssignees(entry));
+            clearTimeout(saveTimers.current[entry.id + '_p']);
+            saveFull(entry, getStages(entry), getAssignees(entry), getProgress2(entry));
         }
         setExpanded(e => ({ ...e, [entry.id]: !e[entry.id] }));
     };
@@ -722,6 +897,7 @@ function TabThuCong() {
                             const { revenue, base, earned, pctDone } = getSalaryInfo(entry);
                             const stages = getStages(entry);
                             const assignees = getAssignees(entry);
+                            const progress = getProgress2(entry);
                             const isExpanded = expanded[entry.id];
                             const projectItems = STAGES.filter(s => stages[s.key]).map(s => ({ entries: toEntries(assignees[s.key]), amount: base * s.pct / 100 }));
 
@@ -739,6 +915,7 @@ function TabThuCong() {
                                         <div style={{ textAlign: 'right', minWidth: 130 }}><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Đã tích lũy ({pctDone}%)</div><div style={{ fontSize: 13, fontWeight: 700, color: earned > 0 ? '#16a34a' : 'var(--text-muted)' }}>{fmt(earned)}</div></div>
                                         <div style={{ width: 70 }}><div style={{ height: 6, background: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}><div style={{ height: '100%', background: '#16a34a', width: `${pctDone}%`, borderRadius: 3, transition: 'width 0.3s' }} /></div></div>
                                         <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+                                            <button onClick={() => printSalaryPDF({ code: entry.code, name: entry.name, base, stages, assignees, progress, notes: entry.notes || '', contractValue: revenue })} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', border: '1px solid #F47920', background: 'transparent', color: '#F47920' }}>📄 PDF</button>
                                             <button onClick={() => openEdit(entry)} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-secondary)' }}>Sửa</button>
                                             <button onClick={() => deleteEntry(entry.id)} disabled={deleting[entry.id]} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', border: '1px solid #dc2626', background: 'transparent', color: '#dc2626' }}>{deleting[entry.id] ? '...' : 'Xóa'}</button>
                                         </div>
@@ -750,12 +927,14 @@ function TabThuCong() {
                                                 base={base}
                                                 stages={stages}
                                                 assignees={assignees}
+                                                progress={progress}
                                                 users={users}
                                                 onToggle={(key) => toggleStage(entry, key)}
                                                 onAssigneeChange={(key, idx, val) => handleAssigneeChange(entry, key, idx, val)}
                                                 onAssigneePctChange={(key, idx, val) => handleAssigneePctChange(entry, key, idx, val)}
                                                 onAssigneeAdd={(key) => handleAssigneeAdd(entry, key)}
                                                 onAssigneeRemove={(key, idx) => handleAssigneeRemove(entry, key, idx)}
+                                                onProgressChange={(key, val) => handleProgressChange2(entry, key, val)}
                                             />
                                             <SummaryTable items={projectItems} />
                                         </div>

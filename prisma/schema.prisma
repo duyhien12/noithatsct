@@ -832,6 +832,7 @@ model SalaryProgress {
   project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   stages                String   @default("{}") @db.Text
   assignees             String   @default("{}") @db.Text
+  progress              String   @default("{}") @db.Text
   notes                 String   @default("")
   contractValueOverride Float?
   createdAt             DateTime @default(now())
@@ -846,6 +847,7 @@ model SalaryEntry {
   contractValue Float    @default(0)
   stages        String   @default("{}") @db.Text
   assignees     String   @default("{}") @db.Text
+  progress      String   @default("{}") @db.Text
   notes         String   @default("")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
