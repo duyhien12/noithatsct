@@ -57,6 +57,14 @@ const toEntries = (val) => {
 // vẫn giữ toList để không lỗi nếu còn dùng chỗ khác
 const toList = (val) => toEntries(val).map(e => e.name);
 
+// Chuẩn hoá progress[key] — tương thích dữ liệu cũ (number) và mới ({pct, startDate, endDate})
+const toStageData = (val) => {
+    if (val == null || val === '') return { pct: 0, startDate: '', endDate: '' };
+    if (typeof val === 'number') return { pct: val, startDate: '', endDate: '' };
+    if (typeof val === 'object') return { pct: val.pct ?? 0, startDate: val.startDate || '', endDate: val.endDate || '' };
+    return { pct: Number(val) || 0, startDate: '', endDate: '' };
+};
+
 const initials = (name) => name ? name.trim().split(' ').slice(-2).map(w => w[0]).join('').toUpperCase() : '?';
 const avatarColor = (name) => AVATAR_COLORS[(name || '').length % AVATAR_COLORS.length];
 
@@ -131,7 +139,8 @@ function StageList({ base, stages, assignees, progress, users, onToggle, onAssig
                 const list = toEntries(assignees[stage.key]);
                 const totalPct = list.reduce((s, e) => s + (Number(e.pct) || 0), 0);
                 const pctOk = totalPct === 100;
-                const stageProg = Number(progress[stage.key] ?? (done ? 100 : 0));
+                const stageData = toStageData(progress[stage.key] ?? (done ? 100 : 0));
+                const stageProg = stageData.pct;
                 return (
                     <div
                         key={stage.key}
@@ -227,21 +236,45 @@ function StageList({ base, stages, assignees, progress, users, onToggle, onAssig
                             )}
                         </div>
 
-                        {/* Tiến độ */}
-                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-light)' }}>
+                        {/* Tiến độ + Ngày */}
+                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-light)', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                            {/* Thanh tiến độ */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>Tiến độ</span>
+                                <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0, width: 44 }}>Tiến độ</span>
                                 <div style={{ flex: 1, background: '#e5e7eb', borderRadius: 4, height: 6, overflow: 'hidden' }}>
                                     <div style={{ width: `${stageProg}%`, height: '100%', background: stageProg === 100 ? '#16a34a' : '#F47920', borderRadius: 4, transition: 'width 0.3s' }} />
                                 </div>
                                 <input
                                     type="number" min={0} max={100}
                                     value={stageProg}
-                                    onChange={e => onProgressChange(stage.key, e.target.value)}
+                                    onChange={e => onProgressChange(stage.key, 'pct', e.target.value)}
                                     onClick={e => e.stopPropagation()}
                                     style={{ width: 40, padding: '2px 4px', borderRadius: 4, fontSize: 11, border: '1px solid var(--border)', background: 'var(--bg-primary)', textAlign: 'center', outline: 'none' }}
                                 />
                                 <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>%</span>
+                            </div>
+                            {/* Ngày bắt đầu / hoàn thành */}
+                            <div style={{ display: 'flex', gap: 6 }}>
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <span style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Bắt đầu</span>
+                                    <input
+                                        type="date"
+                                        value={stageData.startDate}
+                                        onChange={e => onProgressChange(stage.key, 'startDate', e.target.value)}
+                                        onClick={e => e.stopPropagation()}
+                                        style={{ width: '100%', padding: '3px 5px', borderRadius: 4, fontSize: 11, border: '1px solid var(--border)', background: 'var(--bg-primary)', outline: 'none', color: stageData.startDate ? 'var(--text-primary)' : 'var(--text-muted)' }}
+                                    />
+                                </div>
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <span style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Hoàn thành</span>
+                                    <input
+                                        type="date"
+                                        value={stageData.endDate}
+                                        onChange={e => onProgressChange(stage.key, 'endDate', e.target.value)}
+                                        onClick={e => e.stopPropagation()}
+                                        style={{ width: '100%', padding: '3px 5px', borderRadius: 4, fontSize: 11, border: `1px solid ${stageData.endDate ? '#16a34a44' : 'var(--border)'}`, background: 'var(--bg-primary)', outline: 'none', color: stageData.endDate ? '#15803d' : 'var(--text-muted)' }}
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -305,10 +338,12 @@ function EditModal({ project, onClose, onSaved }) {
 // ───────── Xuất PDF với bộ nhận diện SCT ─────────
 function printSalaryPDF({ code, name, base, stages, assignees, progress, notes, contractValue }) {
     const fmtVN = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
+    const fmtDateVN = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('vi-VN') : '—';
     const stageRows = STAGES.map(s => {
         const done = !!stages[s.key];
         const amount = base * s.pct / 100;
-        const pct = Number(progress[s.key] ?? (done ? 100 : 0));
+        const sd = toStageData(progress[s.key] ?? (done ? 100 : 0));
+        const pct = sd.pct;
         const entries = toEntries(assignees[s.key]);
         const personRows = entries.filter(e => e.name).map(e =>
             `<div style="font-size:11px;color:#374151;">${e.name} <span style="color:#F47920;font-weight:600">${e.pct}%</span> → <b>${fmtVN(amount * e.pct / 100)}</b></div>`
@@ -319,7 +354,11 @@ function printSalaryPDF({ code, name, base, stages, assignees, progress, notes, 
           <td style="padding:7px 10px;font-size:12px;text-align:center;color:#F47920;font-weight:600">${s.pct}%</td>
           <td style="padding:7px 10px;font-size:12px;text-align:right;font-weight:600">${fmtVN(amount)}</td>
           <td style="padding:7px 10px;font-size:12px">${personRows || '<span style="color:#9ca3af;font-size:11px">—</span>'}</td>
-          <td style="padding:7px 10px;min-width:100px;">
+          <td style="padding:7px 10px;font-size:11px;color:#374151;white-space:nowrap;">
+            <div>${sd.startDate ? '▶ ' + fmtDateVN(sd.startDate) : '<span style="color:#9ca3af">—</span>'}</div>
+            <div>${sd.endDate ? '✓ ' + fmtDateVN(sd.endDate) : '<span style="color:#9ca3af">—</span>'}</div>
+          </td>
+          <td style="padding:7px 10px;min-width:90px;">
             <div style="background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden;">
               <div style="width:${pct}%;height:100%;background:${pct===100?'#16a34a':'#F47920'};border-radius:4px;"></div>
             </div>
@@ -388,7 +427,8 @@ function printSalaryPDF({ code, name, base, stages, assignees, progress, notes, 
             <th style="text-align:center;width:60px">% Quỹ</th>
             <th style="text-align:right;width:120px">Số tiền</th>
             <th>Người thực hiện</th>
-            <th style="width:120px">Tiến độ</th>
+            <th style="width:130px">Ngày</th>
+            <th style="width:100px">Tiến độ</th>
         </tr></thead>
         <tbody>${stageRows}</tbody>
     </table>
@@ -497,8 +537,9 @@ function TabDuAn() {
         }, 800);
     };
 
-    const handleProgressChange = (project, stageKey, value) => {
-        const updated = { ...getProgress(project), [stageKey]: value === '' ? '' : Math.min(100, Math.max(0, Number(value))) };
+    const handleProgressChange = (project, stageKey, field, value) => {
+        const cur = toStageData(getProgress(project)[stageKey]);
+        const updated = { ...getProgress(project), [stageKey]: { ...cur, [field]: field === 'pct' ? (value === '' ? 0 : Math.min(100, Math.max(0, Number(value)))) : value } };
         setLocalProgress(prev => ({ ...prev, [project.id]: updated }));
         clearTimeout(saveTimers.current[project.id + '_p']);
         saveTimers.current[project.id + '_p'] = setTimeout(() => {
@@ -680,7 +721,7 @@ function TabDuAn() {
                                                 onAssigneePctChange={(key, idx, val) => handleAssigneePctChange(project, key, idx, val)}
                                                 onAssigneeAdd={(key) => handleAssigneeAdd(project, key)}
                                                 onAssigneeRemove={(key, idx) => handleAssigneeRemove(project, key, idx)}
-                                                onProgressChange={(key, val) => handleProgressChange(project, key, val)}
+                                                onProgressChange={(key, field, val) => handleProgressChange(project, key, field, val)}
                                             />
                                             {/* Mini bảng tổng hợp trong dự án */}
                                             <SummaryTable items={projectItems} />
@@ -794,8 +835,9 @@ function TabThuCong() {
         _saveAssignees2(entry, { ...getAssignees(entry), [stageKey]: result });
     };
 
-    const handleProgressChange2 = (entry, stageKey, value) => {
-        const updated = { ...getProgress2(entry), [stageKey]: value === '' ? '' : Math.min(100, Math.max(0, Number(value))) };
+    const handleProgressChange2 = (entry, stageKey, field, value) => {
+        const cur = toStageData(getProgress2(entry)[stageKey]);
+        const updated = { ...getProgress2(entry), [stageKey]: { ...cur, [field]: field === 'pct' ? (value === '' ? 0 : Math.min(100, Math.max(0, Number(value)))) : value } };
         setLocalProgress2(prev => ({ ...prev, [entry.id]: updated }));
         clearTimeout(saveTimers.current[entry.id + '_p']);
         saveTimers.current[entry.id + '_p'] = setTimeout(() => {
@@ -934,7 +976,7 @@ function TabThuCong() {
                                                 onAssigneePctChange={(key, idx, val) => handleAssigneePctChange(entry, key, idx, val)}
                                                 onAssigneeAdd={(key) => handleAssigneeAdd(entry, key)}
                                                 onAssigneeRemove={(key, idx) => handleAssigneeRemove(entry, key, idx)}
-                                                onProgressChange={(key, val) => handleProgressChange2(entry, key, val)}
+                                                onProgressChange={(key, field, val) => handleProgressChange2(entry, key, field, val)}
                                             />
                                             <SummaryTable items={projectItems} />
                                         </div>
