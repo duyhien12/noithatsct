@@ -437,12 +437,22 @@ export default function AccountsPage() {
                                 <label className="form-label">Vai trò</label>
                                 <select className="form-select" value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))}>
                                     <option value="">— Chọn vai trò —</option>
-                                    <option>Trưởng phòng</option>
-                                    <option>Phó phòng</option>
-                                    <option>Nhân viên</option>
-                                    <option>Quản lý</option>
-                                    <option>Thợ chính</option>
-                                    <option>Thợ phụ</option>
+                                    {form.role === 'ban_gd' ? (
+                                        <>
+                                            <option>Giám đốc</option>
+                                            <option>Phó giám đốc</option>
+                                            <option>Nhân viên</option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <option>Trưởng phòng</option>
+                                            <option>Phó phòng</option>
+                                            <option>Nhân viên</option>
+                                            <option>Quản lý</option>
+                                            <option>Thợ chính</option>
+                                            <option>Thợ phụ</option>
+                                        </>
+                                    )}
                                 </select>
                             </div>
                             <div>
