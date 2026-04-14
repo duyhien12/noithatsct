@@ -177,9 +177,9 @@ export default function Sidebar({ isOpen, onClose }) {
                         </div>
                     );
                 })}
-                {isNgocBinh && (
+                {(isNgocBinh || BAN_GD.includes(role)) && (
                     <div className="nav-section">
-                        <div className="nav-section-title">Cá nhân</div>
+                        <div className="nav-section-title">Nhân sự</div>
                         <Link
                             href="/luong"
                             className={`nav-item ${pathname.startsWith('/luong') ? 'active' : ''}`}

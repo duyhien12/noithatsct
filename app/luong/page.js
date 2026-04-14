@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 const DESIGN_ROLES = ['xay_dung', 'thiet_ke', 'ky_thuat'];
 
 const ALLOWED_EMAIL = 'ngocbinh@kientrucsct.com';
+const BAN_GD_ROLES = ['ban_gd', 'giam_doc', 'pho_gd'];
 
 const STAGES = [
     { key: 'ks_do_dac',       label: 'KS đo đạc biên trạng',              pct: 2  },
@@ -1060,12 +1061,14 @@ export default function LuongPage() {
     const router = useRouter();
     const [tab, setTab] = useState('du_an');
 
+    const canAccess = session?.user?.email === ALLOWED_EMAIL || BAN_GD_ROLES.includes(session?.user?.role);
+
     useEffect(() => {
         if (status === 'loading') return;
-        if (status === 'unauthenticated' || session?.user?.email !== ALLOWED_EMAIL) router.replace('/');
-    }, [status, session, router]);
+        if (status === 'unauthenticated' || !canAccess) router.replace('/');
+    }, [status, canAccess, router]);
 
-    if (status === 'loading' || session?.user?.email !== ALLOWED_EMAIL) {
+    if (status === 'loading' || !canAccess) {
         return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>;
     }
 

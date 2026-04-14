@@ -39,7 +39,7 @@ services:
       - ZALO_OA_ACCESS_TOKEN=${ZALO_OA_ACCESS_TOKEN}
       - ZALO_OA_REFRESH_TOKEN=${ZALO_OA_REFRESH_TOKEN}
       - CRON_SECRET=${CRON_SECRET}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - NODE_ENV=production
       - UPLOAD_DIR=/app/public/uploads
     depends_on:
