@@ -38,8 +38,24 @@ const AVATAR_COLORS = ['#2563eb','#7c3aed','#16a34a','#d97706','#dc2626','#0891b
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const parseJSON = (raw) => { try { return JSON.parse(raw || '{}'); } catch { return {}; } };
-// Chuẩn hoá về mảng (tương thích dữ liệu cũ dạng string)
-const toList = (val) => Array.isArray(val) ? val : (val ? [val] : ['']);
+
+// Chuẩn hoá về [{name, pct}] — tương thích dữ liệu cũ (string / string[] / {name,pct}[])
+const toEntries = (val) => {
+    if (!val) return [{ name: '', pct: 100 }];
+    if (typeof val === 'string') return [{ name: val, pct: 100 }];
+    if (Array.isArray(val)) {
+        if (val.length === 0) return [{ name: '', pct: 100 }];
+        // dữ liệu cũ dạng string[]
+        if (typeof val[0] === 'string') {
+            const share = Math.round(100 / val.length);
+            return val.map((name, i) => ({ name, pct: i === val.length - 1 ? 100 - share * (val.length - 1) : share }));
+        }
+        return val; // đã là [{name, pct}]
+    }
+    return [{ name: '', pct: 100 }];
+};
+// vẫn giữ toList để không lỗi nếu còn dùng chỗ khác
+const toList = (val) => toEntries(val).map(e => e.name);
 
 const initials = (name) => name ? name.trim().split(' ').slice(-2).map(w => w[0]).join('').toUpperCase() : '?';
 const avatarColor = (name) => AVATAR_COLORS[(name || '').length % AVATAR_COLORS.length];
@@ -63,13 +79,14 @@ function useDesignUsers() {
 
 // ───────── Bảng tổng hợp lương theo người ─────────
 function SummaryTable({ items }) {
-    // items: [{ amount, assignees: string[] }]
+    // items: [{ amount: số tiền stage, entries: [{name, pct}] }]
     const map = {};
-    items.forEach(({ assignees, amount }) => {
-        const names = (assignees || []).map(n => (n || '').trim()).filter(Boolean);
-        if (!names.length) return;
-        const share = amount / names.length;
-        names.forEach(name => { map[name] = (map[name] || 0) + share; });
+    items.forEach(({ entries, amount }) => {
+        (entries || []).forEach(({ name, pct }) => {
+            const n = (name || '').trim();
+            if (!n) return;
+            map[n] = (map[n] || 0) + amount * (pct || 0) / 100;
+        });
     });
     const rows = Object.entries(map).sort((a, b) => b[1] - a[1]);
     if (!rows.length) return null;
@@ -105,14 +122,15 @@ function SummaryTable({ items }) {
 }
 
 // ───────── Stage list với người thực hiện ─────────
-function StageList({ base, stages, assignees, users, onToggle, onAssigneeChange, onAssigneeAdd, onAssigneeRemove }) {
+function StageList({ base, stages, assignees, users, onToggle, onAssigneeChange, onAssigneePctChange, onAssigneeAdd, onAssigneeRemove }) {
     return (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 8 }}>
             {STAGES.map(stage => {
                 const done = !!stages[stage.key];
                 const amount = base * stage.pct / 100;
-                const list = toList(assignees[stage.key]); // luôn là mảng
-                const share = list.filter(Boolean).length > 1 ? amount / list.filter(Boolean).length : amount;
+                const list = toEntries(assignees[stage.key]);
+                const totalPct = list.reduce((s, e) => s + (Number(e.pct) || 0), 0);
+                const pctOk = totalPct === 100;
                 return (
                     <div
                         key={stage.key}
@@ -134,9 +152,11 @@ function StageList({ base, stages, assignees, users, onToggle, onAssigneeChange,
                                 <div style={{ fontSize: 12, fontWeight: 500, color: done ? '#15803d' : 'var(--text-primary)' }}>
                                     {stage.label}
                                 </div>
-                                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                                    {stage.pct}% → {fmt(amount)}
-                                    {list.filter(Boolean).length > 1 && <span style={{ marginLeft: 4, color: '#7c3aed' }}>({list.filter(Boolean).length} người · {fmt(share)}/người)</span>}
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                                    <span>{stage.pct}% → {fmt(amount)}</span>
+                                    {list.length > 1 && !pctOk && (
+                                        <span style={{ color: '#dc2626', fontWeight: 600 }}>({totalPct}%/100%)</span>
+                                    )}
                                 </div>
                             </div>
                             {done && <span style={{ fontSize: 14, color: '#16a34a' }}>✓</span>}
@@ -144,40 +164,60 @@ function StageList({ base, stages, assignees, users, onToggle, onAssigneeChange,
 
                         {/* Danh sách người thực hiện */}
                         <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {list.map((person, idx) => (
-                                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    {person && (
-                                        <div style={{
-                                            width: 20, height: 20, borderRadius: '50%',
-                                            background: avatarColor(person), color: '#fff',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: 9, fontWeight: 700, flexShrink: 0,
-                                        }}>{initials(person)}</div>
-                                    )}
-                                    <select
-                                        value={person}
-                                        onChange={e => onAssigneeChange(stage.key, idx, e.target.value)}
-                                        onClick={e => e.stopPropagation()}
-                                        style={{
-                                            flex: 1, padding: '3px 8px', borderRadius: 5, fontSize: 11,
-                                            border: '1px solid var(--border)', background: 'var(--bg-primary)',
-                                            color: person ? 'var(--text-primary)' : 'var(--text-muted)',
-                                            outline: 'none', cursor: 'pointer',
-                                        }}
-                                    >
-                                        <option value="">— Người thực hiện —</option>
-                                        {users.map(u => (
-                                            <option key={u.id} value={u.name}>{u.name}</option>
-                                        ))}
-                                    </select>
-                                    {list.length > 1 && (
-                                        <button
-                                            onClick={e => { e.stopPropagation(); onAssigneeRemove(stage.key, idx); }}
-                                            style={{ padding: '2px 6px', borderRadius: 4, fontSize: 11, cursor: 'pointer', border: '1px solid #dc262644', background: 'transparent', color: '#dc2626', flexShrink: 0, lineHeight: 1 }}
-                                        >×</button>
-                                    )}
-                                </div>
-                            ))}
+                            {list.map((entry, idx) => {
+                                const personAmt = amount * (Number(entry.pct) || 0) / 100;
+                                return (
+                                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                        {entry.name && (
+                                            <div style={{
+                                                width: 20, height: 20, borderRadius: '50%',
+                                                background: avatarColor(entry.name), color: '#fff',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontSize: 9, fontWeight: 700, flexShrink: 0,
+                                            }}>{initials(entry.name)}</div>
+                                        )}
+                                        <select
+                                            value={entry.name}
+                                            onChange={e => onAssigneeChange(stage.key, idx, e.target.value)}
+                                            onClick={e => e.stopPropagation()}
+                                            style={{
+                                                flex: 1, minWidth: 0, padding: '3px 6px', borderRadius: 5, fontSize: 11,
+                                                border: '1px solid var(--border)', background: 'var(--bg-primary)',
+                                                color: entry.name ? 'var(--text-primary)' : 'var(--text-muted)',
+                                                outline: 'none', cursor: 'pointer',
+                                            }}
+                                        >
+                                            <option value="">— Người thực hiện —</option>
+                                            {users.map(u => (
+                                                <option key={u.id} value={u.name}>{u.name}</option>
+                                            ))}
+                                        </select>
+                                        {/* Ô nhập % */}
+                                        <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, gap: 1 }}>
+                                            <input
+                                                type="number"
+                                                min={0} max={100}
+                                                value={entry.pct}
+                                                onChange={e => onAssigneePctChange(stage.key, idx, e.target.value)}
+                                                onClick={e => e.stopPropagation()}
+                                                style={{
+                                                    width: 42, padding: '3px 4px', borderRadius: 5, fontSize: 11,
+                                                    border: `1px solid ${pctOk || list.length === 1 ? 'var(--border)' : '#f97316'}`,
+                                                    background: 'var(--bg-primary)', textAlign: 'center', outline: 'none',
+                                                }}
+                                                title={entry.name ? fmt(personAmt) : ''}
+                                            />
+                                            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>%</span>
+                                        </div>
+                                        {list.length > 1 && (
+                                            <button
+                                                onClick={e => { e.stopPropagation(); onAssigneeRemove(stage.key, idx); }}
+                                                style={{ padding: '2px 5px', borderRadius: 4, fontSize: 11, cursor: 'pointer', border: '1px solid #dc262644', background: 'transparent', color: '#dc2626', flexShrink: 0, lineHeight: 1 }}
+                                            >×</button>
+                                        )}
+                                    </div>
+                                );
+                            })}
                             {list.length < 3 && (
                                 <button
                                     onClick={e => { e.stopPropagation(); onAssigneeAdd(stage.key); }}
@@ -313,21 +353,34 @@ function TabDuAn() {
     };
 
     const handleAssigneeChange = (project, stageKey, idx, value) => {
-        const cur = toList(getAssignees(project)[stageKey]);
-        const newList = cur.map((v, i) => i === idx ? value : v);
+        const cur = toEntries(getAssignees(project)[stageKey]);
+        const newList = cur.map((e, i) => i === idx ? { ...e, name: value } : e);
+        _saveAssignees(project, { ...getAssignees(project), [stageKey]: newList });
+    };
+
+    const handleAssigneePctChange = (project, stageKey, idx, value) => {
+        const cur = toEntries(getAssignees(project)[stageKey]);
+        const newList = cur.map((e, i) => i === idx ? { ...e, pct: value === '' ? '' : Number(value) } : e);
         _saveAssignees(project, { ...getAssignees(project), [stageKey]: newList });
     };
 
     const handleAssigneeAdd = (project, stageKey) => {
-        const cur = toList(getAssignees(project)[stageKey]);
+        const cur = toEntries(getAssignees(project)[stageKey]);
         if (cur.length >= 3) return;
-        _saveAssignees(project, { ...getAssignees(project), [stageKey]: [...cur, ''] });
+        // Chia đều lại % khi thêm người
+        const n = cur.length + 1;
+        const share = Math.floor(100 / n);
+        const newList = [...cur.map((e, i) => ({ ...e, pct: i === cur.length - 1 ? 100 - share * (n - 1) : share })), { name: '', pct: share }];
+        _saveAssignees(project, { ...getAssignees(project), [stageKey]: newList });
     };
 
     const handleAssigneeRemove = (project, stageKey, idx) => {
-        const cur = toList(getAssignees(project)[stageKey]);
+        const cur = toEntries(getAssignees(project)[stageKey]);
         const newList = cur.filter((_, i) => i !== idx);
-        _saveAssignees(project, { ...getAssignees(project), [stageKey]: newList.length ? newList : [''] });
+        const result = newList.length ? newList : [{ name: '', pct: 100 }];
+        // Nếu chỉ còn 1 người, set lại 100%
+        if (result.length === 1) result[0] = { ...result[0], pct: 100 };
+        _saveAssignees(project, { ...getAssignees(project), [stageKey]: result });
     };
 
     // Khi thu lại row: flush debounce và lưu ngay
@@ -383,7 +436,7 @@ function TabDuAn() {
         const assignees = getAssignees(p);
         return STAGES
             .filter(s => stages[s.key])
-            .map(s => ({ assignees: toList(assignees[s.key]), amount: base * s.pct / 100 }));
+            .map(s => ({ entries: toEntries(assignees[s.key]), amount: base * s.pct / 100 }));
     });
 
     return (
@@ -432,7 +485,7 @@ function TabDuAn() {
                             // Tổng hợp lương trong dự án này
                             const projectItems = STAGES
                                 .filter(s => stages[s.key])
-                                .map(s => ({ assignees: toList(assignees[s.key]), amount: base * s.pct / 100 }));
+                                .map(s => ({ entries: toEntries(assignees[s.key]), amount: base * s.pct / 100 }));
 
                             return (
                                 <div key={project.id} style={{ borderBottom: '1px solid var(--border)', margin: '0 16px' }}>
@@ -466,6 +519,7 @@ function TabDuAn() {
                                                 users={users}
                                                 onToggle={(key) => toggleStage(project, key)}
                                                 onAssigneeChange={(key, idx, val) => handleAssigneeChange(project, key, idx, val)}
+                                                onAssigneePctChange={(key, idx, val) => handleAssigneePctChange(project, key, idx, val)}
                                                 onAssigneeAdd={(key) => handleAssigneeAdd(project, key)}
                                                 onAssigneeRemove={(key, idx) => handleAssigneeRemove(project, key, idx)}
                                             />
@@ -547,21 +601,32 @@ function TabThuCong() {
     };
 
     const handleAssigneeChange = (entry, stageKey, idx, value) => {
-        const cur = toList(getAssignees(entry)[stageKey]);
-        const newList = cur.map((v, i) => i === idx ? value : v);
+        const cur = toEntries(getAssignees(entry)[stageKey]);
+        const newList = cur.map((e, i) => i === idx ? { ...e, name: value } : e);
+        _saveAssignees2(entry, { ...getAssignees(entry), [stageKey]: newList });
+    };
+
+    const handleAssigneePctChange = (entry, stageKey, idx, value) => {
+        const cur = toEntries(getAssignees(entry)[stageKey]);
+        const newList = cur.map((e, i) => i === idx ? { ...e, pct: value === '' ? '' : Number(value) } : e);
         _saveAssignees2(entry, { ...getAssignees(entry), [stageKey]: newList });
     };
 
     const handleAssigneeAdd = (entry, stageKey) => {
-        const cur = toList(getAssignees(entry)[stageKey]);
+        const cur = toEntries(getAssignees(entry)[stageKey]);
         if (cur.length >= 3) return;
-        _saveAssignees2(entry, { ...getAssignees(entry), [stageKey]: [...cur, ''] });
+        const n = cur.length + 1;
+        const share = Math.floor(100 / n);
+        const newList = [...cur.map((e, i) => ({ ...e, pct: i === cur.length - 1 ? 100 - share * (n - 1) : share })), { name: '', pct: share }];
+        _saveAssignees2(entry, { ...getAssignees(entry), [stageKey]: newList });
     };
 
     const handleAssigneeRemove = (entry, stageKey, idx) => {
-        const cur = toList(getAssignees(entry)[stageKey]);
+        const cur = toEntries(getAssignees(entry)[stageKey]);
         const newList = cur.filter((_, i) => i !== idx);
-        _saveAssignees2(entry, { ...getAssignees(entry), [stageKey]: newList.length ? newList : [''] });
+        const result = newList.length ? newList : [{ name: '', pct: 100 }];
+        if (result.length === 1) result[0] = { ...result[0], pct: 100 };
+        _saveAssignees2(entry, { ...getAssignees(entry), [stageKey]: result });
     };
 
     // Khi thu lại row: flush debounce và lưu ngay
@@ -658,7 +723,7 @@ function TabThuCong() {
                             const stages = getStages(entry);
                             const assignees = getAssignees(entry);
                             const isExpanded = expanded[entry.id];
-                            const projectItems = STAGES.filter(s => stages[s.key]).map(s => ({ assignees: toList(assignees[s.key]), amount: base * s.pct / 100 }));
+                            const projectItems = STAGES.filter(s => stages[s.key]).map(s => ({ entries: toEntries(assignees[s.key]), amount: base * s.pct / 100 }));
 
                             return (
                                 <div key={entry.id} style={{ borderBottom: '1px solid var(--border)', margin: '0 16px' }}>
@@ -688,6 +753,7 @@ function TabThuCong() {
                                                 users={users}
                                                 onToggle={(key) => toggleStage(entry, key)}
                                                 onAssigneeChange={(key, idx, val) => handleAssigneeChange(entry, key, idx, val)}
+                                                onAssigneePctChange={(key, idx, val) => handleAssigneePctChange(entry, key, idx, val)}
                                                 onAssigneeAdd={(key) => handleAssigneeAdd(entry, key)}
                                                 onAssigneeRemove={(key, idx) => handleAssigneeRemove(entry, key, idx)}
                                             />
