@@ -39,9 +39,9 @@ const AVATAR_COLORS = ['#2563eb','#7c3aed','#16a34a','#d97706','#dc2626','#0891b
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const parseJSON = (raw) => { try { return JSON.parse(raw || '{}'); } catch { return {}; } };
 
-// Chuẩn hoá về [{name, pct, startDate, endDate}] — tương thích dữ liệu cũ
+// Chuẩn hoá về [{name, pct, startDate, estEndDate, endDate}] — tương thích dữ liệu cũ
 const toEntries = (val) => {
-    const norm = (e) => ({ name: e.name || '', pct: e.pct ?? 100, startDate: e.startDate || '', endDate: e.endDate || '' });
+    const norm = (e) => ({ name: e.name || '', pct: e.pct ?? 100, startDate: e.startDate || '', estEndDate: e.estEndDate || '', endDate: e.endDate || '' });
     if (!val) return [norm({})];
     if (typeof val === 'string') return [norm({ name: val, pct: 100 })];
     if (Array.isArray(val)) {
@@ -129,147 +129,140 @@ function SummaryTable({ items }) {
     );
 }
 
+// ───────── DateField helper ─────────
+function DateField({ label, value, onChange, color }) {
+    return (
+        <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 9, fontWeight: 600, color: color || 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 3 }}>{label}</div>
+            <input
+                type="date"
+                value={value}
+                onChange={onChange}
+                onClick={e => e.stopPropagation()}
+                style={{
+                    width: '100%', padding: '4px 6px', borderRadius: 5, fontSize: 11,
+                    border: `1.5px solid ${value ? (color === '#15803d' ? '#16a34a66' : color === '#d97706' ? '#f59e0b66' : 'var(--border)') : 'var(--border)'}`,
+                    background: value ? (color === '#15803d' ? 'rgba(22,163,74,0.05)' : color === '#d97706' ? 'rgba(245,158,11,0.05)' : 'var(--bg-primary)') : 'var(--bg-primary)',
+                    outline: 'none', color: value ? (color || 'var(--text-primary)') : 'var(--text-muted)',
+                    fontWeight: value ? 500 : 400,
+                }}
+            />
+        </div>
+    );
+}
+
 // ───────── Stage list với người thực hiện ─────────
 function StageList({ base, stages, assignees, progress, users, onToggle, onAssigneeChange, onAssigneePctChange, onAssigneeDateChange, onAssigneeAdd, onAssigneeRemove, onProgressChange }) {
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 10 }}>
             {STAGES.map(stage => {
                 const done = !!stages[stage.key];
                 const amount = base * stage.pct / 100;
                 const list = toEntries(assignees[stage.key]);
                 const totalPct = list.reduce((s, e) => s + (Number(e.pct) || 0), 0);
-                const pctOk = totalPct === 100;
+                const pctOk = list.length === 1 || totalPct === 100;
                 const stageData = toStageData(progress[stage.key] ?? (done ? 100 : 0));
                 const stageProg = stageData.pct;
-                return (
-                    <div
-                        key={stage.key}
-                        style={{
-                            padding: '8px 12px', borderRadius: 8,
-                            background: done ? 'rgba(22,163,74,0.07)' : 'var(--bg-secondary)',
-                            border: `1px solid ${done ? '#16a34a44' : 'var(--border)'}`,
-                            transition: 'all 0.15s',
-                        }}
-                    >
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                            <input
-                                type="checkbox"
-                                checked={done}
-                                onChange={() => onToggle(stage.key)}
-                                style={{ width: 16, height: 16, cursor: 'pointer', flexShrink: 0 }}
-                            />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 12, fontWeight: 500, color: done ? '#15803d' : 'var(--text-primary)' }}>
-                                    {stage.label}
-                                </div>
-                                <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                                    <span>{stage.pct}% → {fmt(amount)}</span>
-                                    {list.length > 1 && !pctOk && (
-                                        <span style={{ color: '#dc2626', fontWeight: 600 }}>({totalPct}%/100%)</span>
-                                    )}
-                                </div>
-                            </div>
-                            {done && <span style={{ fontSize: 14, color: '#16a34a' }}>✓</span>}
-                        </label>
 
-                        {/* Danh sách người thực hiện */}
-                        <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                return (
+                    <div key={stage.key} style={{
+                        borderRadius: 10,
+                        background: done ? 'rgba(22,163,74,0.05)' : 'var(--bg-secondary)',
+                        border: `1.5px solid ${done ? '#16a34a55' : stageProg > 0 ? '#F4792055' : 'var(--border)'}`,
+                        overflow: 'hidden', transition: 'border-color 0.2s',
+                    }}>
+                        {/* Header hạng mục */}
+                        <div style={{ padding: '10px 12px 8px', borderBottom: `1px solid ${done ? '#16a34a22' : 'var(--border-light)'}`, background: done ? 'rgba(22,163,74,0.07)' : 'transparent' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                                <input type="checkbox" checked={done} onChange={() => onToggle(stage.key)}
+                                    style={{ width: 15, height: 15, cursor: 'pointer', flexShrink: 0, accentColor: '#16a34a' }} />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 600, color: done ? '#15803d' : 'var(--text-primary)', lineHeight: 1.3 }}>{stage.label}</div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
+                                        <span style={{ color: '#F47920', fontWeight: 600 }}>{stage.pct}%</span>
+                                        <span style={{ margin: '0 4px' }}>→</span>
+                                        <span style={{ fontWeight: 600 }}>{fmt(amount)}</span>
+                                        {!pctOk && <span style={{ marginLeft: 6, color: '#dc2626', fontSize: 10 }}>⚠ {totalPct}%/100%</span>}
+                                    </div>
+                                </div>
+                                {done && <span style={{ color: '#16a34a', fontSize: 16, flexShrink: 0 }}>✓</span>}
+                            </label>
+
+                            {/* Tiến độ */}
+                            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>Tiến độ</span>
+                                <div style={{ flex: 1, background: '#e5e7eb', borderRadius: 6, height: 8, overflow: 'hidden', cursor: 'pointer' }}
+                                    onClick={e => e.stopPropagation()}>
+                                    <div style={{ width: `${stageProg}%`, height: '100%', background: stageProg === 100 ? '#16a34a' : stageProg >= 50 ? '#F47920' : '#fb923c', borderRadius: 6, transition: 'width 0.4s' }} />
+                                </div>
+                                <input type="number" min={0} max={100} value={stageProg}
+                                    onChange={e => onProgressChange(stage.key, 'pct', e.target.value)}
+                                    onClick={e => e.stopPropagation()}
+                                    style={{ width: 44, padding: '3px 4px', borderRadius: 5, fontSize: 12, fontWeight: 600, border: '1.5px solid var(--border)', background: 'var(--bg-primary)', textAlign: 'center', outline: 'none' }} />
+                                <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>%</span>
+                            </div>
+                        </div>
+
+                        {/* Danh sách người */}
+                        <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {list.map((entry, idx) => {
                                 const personAmt = amount * (Number(entry.pct) || 0) / 100;
                                 return (
-                                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '5px 7px', borderRadius: 6, background: 'var(--bg-primary)', border: '1px solid var(--border-light)' }}>
-                                        {/* Hàng tên + % + xóa */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                            {entry.name && (
-                                                <div style={{
-                                                    width: 20, height: 20, borderRadius: '50%',
-                                                    background: avatarColor(entry.name), color: '#fff',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    fontSize: 9, fontWeight: 700, flexShrink: 0,
-                                                }}>{initials(entry.name)}</div>
-                                            )}
-                                            <select
-                                                value={entry.name}
-                                                onChange={e => onAssigneeChange(stage.key, idx, e.target.value)}
+                                    <div key={idx} style={{
+                                        borderRadius: 8, border: '1px solid var(--border-light)',
+                                        background: 'var(--bg-primary)', overflow: 'hidden',
+                                    }}>
+                                        {/* Hàng 1: Avatar + Tên + % + Xóa */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderBottom: '1px solid var(--border-light)', background: entry.name ? 'rgba(0,0,0,0.02)' : 'transparent' }}>
+                                            {entry.name
+                                                ? <div style={{ width: 26, height: 26, borderRadius: '50%', background: avatarColor(entry.name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{initials(entry.name)}</div>
+                                                : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--border)', flexShrink: 0 }} />
+                                            }
+                                            <select value={entry.name} onChange={e => onAssigneeChange(stage.key, idx, e.target.value)}
                                                 onClick={e => e.stopPropagation()}
-                                                style={{
-                                                    flex: 1, minWidth: 0, padding: '3px 6px', borderRadius: 5, fontSize: 11,
-                                                    border: '1px solid var(--border)', background: 'transparent',
-                                                    color: entry.name ? 'var(--text-primary)' : 'var(--text-muted)',
-                                                    outline: 'none', cursor: 'pointer',
-                                                }}
-                                            >
-                                                <option value="">— Người thực hiện —</option>
-                                                {users.map(u => (
-                                                    <option key={u.id} value={u.name}>{u.name}</option>
-                                                ))}
+                                                style={{ flex: 1, minWidth: 0, padding: '4px 8px', borderRadius: 6, fontSize: 12, border: '1.5px solid var(--border)', background: 'var(--bg-primary)', color: entry.name ? 'var(--text-primary)' : 'var(--text-muted)', outline: 'none', cursor: 'pointer' }}>
+                                                <option value="">— Chọn người thực hiện —</option>
+                                                {users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
                                             </select>
-                                            <input
-                                                type="number" min={0} max={100}
-                                                value={entry.pct}
-                                                onChange={e => onAssigneePctChange(stage.key, idx, e.target.value)}
-                                                onClick={e => e.stopPropagation()}
-                                                style={{
-                                                    width: 40, padding: '3px 4px', borderRadius: 5, fontSize: 11,
-                                                    border: `1px solid ${pctOk || list.length === 1 ? 'var(--border)' : '#f97316'}`,
-                                                    background: 'transparent', textAlign: 'center', outline: 'none', flexShrink: 0,
-                                                }}
-                                                title={entry.name ? fmt(personAmt) : ''}
-                                            />
-                                            <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>%</span>
-                                            {list.length > 1 && (
-                                                <button
-                                                    onClick={e => { e.stopPropagation(); onAssigneeRemove(stage.key, idx); }}
-                                                    style={{ padding: '2px 5px', borderRadius: 4, fontSize: 11, cursor: 'pointer', border: '1px solid #dc262644', background: 'transparent', color: '#dc2626', flexShrink: 0, lineHeight: 1 }}
-                                                >×</button>
-                                            )}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                                                <input type="number" min={0} max={100} value={entry.pct}
+                                                    onChange={e => onAssigneePctChange(stage.key, idx, e.target.value)}
+                                                    onClick={e => e.stopPropagation()}
+                                                    title={entry.name ? `Tiền: ${fmt(personAmt)}` : ''}
+                                                    style={{ width: 46, padding: '4px 4px', borderRadius: 6, fontSize: 12, fontWeight: 600, border: `1.5px solid ${pctOk ? 'var(--border)' : '#f97316'}`, background: 'var(--bg-primary)', textAlign: 'center', outline: 'none', color: pctOk ? 'var(--text-primary)' : '#ea580c' }} />
+                                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>%</span>
+                                            </div>
+                                            {list.length > 1 &&
+                                                <button onClick={e => { e.stopPropagation(); onAssigneeRemove(stage.key, idx); }}
+                                                    style={{ width: 22, height: 22, borderRadius: '50%', border: 'none', background: '#fee2e2', color: '#dc2626', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0, lineHeight: 1 }}>×</button>
+                                            }
                                         </div>
-                                        {/* Hàng ngày bắt đầu / hoàn thành */}
-                                        <div style={{ display: 'flex', gap: 4 }}>
-                                            <input
-                                                type="date"
-                                                value={entry.startDate}
-                                                onChange={e => onAssigneeDateChange(stage.key, idx, 'startDate', e.target.value)}
-                                                onClick={e => e.stopPropagation()}
-                                                title="Ngày bắt đầu"
-                                                style={{ flex: 1, padding: '2px 5px', borderRadius: 4, fontSize: 10, border: '1px solid var(--border)', background: 'transparent', outline: 'none', color: entry.startDate ? 'var(--text-primary)' : 'var(--text-muted)' }}
-                                            />
-                                            <input
-                                                type="date"
-                                                value={entry.endDate}
-                                                onChange={e => onAssigneeDateChange(stage.key, idx, 'endDate', e.target.value)}
-                                                onClick={e => e.stopPropagation()}
-                                                title="Ngày hoàn thành"
-                                                style={{ flex: 1, padding: '2px 5px', borderRadius: 4, fontSize: 10, border: `1px solid ${entry.endDate ? '#16a34a44' : 'var(--border)'}`, background: 'transparent', outline: 'none', color: entry.endDate ? '#15803d' : 'var(--text-muted)' }}
-                                            />
+                                        {/* Hàng 2: Số tiền + 3 ngày */}
+                                        <div style={{ padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                            {entry.name && (
+                                                <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700 }}>
+                                                    Lương: {fmt(personAmt)}
+                                                </div>
+                                            )}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                                                <DateField label="Bắt đầu" value={entry.startDate}
+                                                    onChange={e => onAssigneeDateChange(stage.key, idx, 'startDate', e.target.value)} />
+                                                <DateField label="Dự kiến HT" value={entry.estEndDate} color="#d97706"
+                                                    onChange={e => onAssigneeDateChange(stage.key, idx, 'estEndDate', e.target.value)} />
+                                                <DateField label="Hoàn thành" value={entry.endDate} color="#15803d"
+                                                    onChange={e => onAssigneeDateChange(stage.key, idx, 'endDate', e.target.value)} />
+                                            </div>
                                         </div>
                                     </div>
                                 );
                             })}
-                            {list.length < 3 && (
-                                <button
-                                    onClick={e => { e.stopPropagation(); onAssigneeAdd(stage.key); }}
-                                    style={{ alignSelf: 'flex-start', padding: '2px 8px', borderRadius: 4, fontSize: 11, cursor: 'pointer', border: '1px dashed var(--border)', background: 'transparent', color: 'var(--text-muted)', marginTop: 2 }}
-                                >+ Thêm người</button>
-                            )}
-                        </div>
 
-                        {/* Tiến độ */}
-                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-light)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0, width: 44 }}>Tiến độ</span>
-                                <div style={{ flex: 1, background: '#e5e7eb', borderRadius: 4, height: 6, overflow: 'hidden' }}>
-                                    <div style={{ width: `${stageProg}%`, height: '100%', background: stageProg === 100 ? '#16a34a' : '#F47920', borderRadius: 4, transition: 'width 0.3s' }} />
-                                </div>
-                                <input
-                                    type="number" min={0} max={100}
-                                    value={stageProg}
-                                    onChange={e => onProgressChange(stage.key, 'pct', e.target.value)}
-                                    onClick={e => e.stopPropagation()}
-                                    style={{ width: 40, padding: '2px 4px', borderRadius: 4, fontSize: 11, border: '1px solid var(--border)', background: 'var(--bg-primary)', textAlign: 'center', outline: 'none' }}
-                                />
-                                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>%</span>
-                            </div>
+                            {list.length < 3 && (
+                                <button onClick={e => { e.stopPropagation(); onAssigneeAdd(stage.key); }}
+                                    style={{ padding: '6px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer', border: '1.5px dashed var(--border)', background: 'transparent', color: 'var(--text-muted)', width: '100%', transition: 'all 0.15s' }}>
+                                    + Thêm người thực hiện
+                                </button>
+                            )}
                         </div>
                     </div>
                 );
