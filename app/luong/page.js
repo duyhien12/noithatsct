@@ -38,6 +38,8 @@ const AVATAR_COLORS = ['#2563eb','#7c3aed','#16a34a','#d97706','#dc2626','#0891b
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const parseJSON = (raw) => { try { return JSON.parse(raw || '{}'); } catch { return {}; } };
+// Chuẩn hoá về mảng (tương thích dữ liệu cũ dạng string)
+const toList = (val) => Array.isArray(val) ? val : (val ? [val] : ['']);
 
 const initials = (name) => name ? name.trim().split(' ').slice(-2).map(w => w[0]).join('').toUpperCase() : '?';
 const avatarColor = (name) => AVATAR_COLORS[(name || '').length % AVATAR_COLORS.length];
@@ -61,12 +63,13 @@ function useDesignUsers() {
 
 // ───────── Bảng tổng hợp lương theo người ─────────
 function SummaryTable({ items }) {
-    // items: [{ stageKey, amount, assignee }]
+    // items: [{ amount, assignees: string[] }]
     const map = {};
-    items.forEach(({ assignee, amount }) => {
-        const name = (assignee || '').trim();
-        if (!name) return;
-        map[name] = (map[name] || 0) + amount;
+    items.forEach(({ assignees, amount }) => {
+        const names = (assignees || []).map(n => (n || '').trim()).filter(Boolean);
+        if (!names.length) return;
+        const share = amount / names.length;
+        names.forEach(name => { map[name] = (map[name] || 0) + share; });
     });
     const rows = Object.entries(map).sort((a, b) => b[1] - a[1]);
     if (!rows.length) return null;
@@ -102,13 +105,14 @@ function SummaryTable({ items }) {
 }
 
 // ───────── Stage list với người thực hiện ─────────
-function StageList({ base, stages, assignees, users, onToggle, onAssigneeChange }) {
+function StageList({ base, stages, assignees, users, onToggle, onAssigneeChange, onAssigneeAdd, onAssigneeRemove }) {
     return (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 8 }}>
             {STAGES.map(stage => {
                 const done = !!stages[stage.key];
                 const amount = base * stage.pct / 100;
-                const assignee = assignees[stage.key] || '';
+                const list = toList(assignees[stage.key]); // luôn là mảng
+                const share = list.filter(Boolean).length > 1 ? amount / list.filter(Boolean).length : amount;
                 return (
                     <div
                         key={stage.key}
@@ -132,37 +136,54 @@ function StageList({ base, stages, assignees, users, onToggle, onAssigneeChange 
                                 </div>
                                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                                     {stage.pct}% → {fmt(amount)}
+                                    {list.filter(Boolean).length > 1 && <span style={{ marginLeft: 4, color: '#7c3aed' }}>({list.filter(Boolean).length} người · {fmt(share)}/người)</span>}
                                 </div>
                             </div>
                             {done && <span style={{ fontSize: 14, color: '#16a34a' }}>✓</span>}
                         </label>
 
-                        {/* Người thực hiện — dropdown */}
-                        <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            {assignee && (
-                                <div style={{
-                                    width: 20, height: 20, borderRadius: '50%',
-                                    background: avatarColor(assignee), color: '#fff',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: 9, fontWeight: 700, flexShrink: 0,
-                                }}>{initials(assignee)}</div>
+                        {/* Danh sách người thực hiện */}
+                        <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {list.map((person, idx) => (
+                                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    {person && (
+                                        <div style={{
+                                            width: 20, height: 20, borderRadius: '50%',
+                                            background: avatarColor(person), color: '#fff',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontSize: 9, fontWeight: 700, flexShrink: 0,
+                                        }}>{initials(person)}</div>
+                                    )}
+                                    <select
+                                        value={person}
+                                        onChange={e => onAssigneeChange(stage.key, idx, e.target.value)}
+                                        onClick={e => e.stopPropagation()}
+                                        style={{
+                                            flex: 1, padding: '3px 8px', borderRadius: 5, fontSize: 11,
+                                            border: '1px solid var(--border)', background: 'var(--bg-primary)',
+                                            color: person ? 'var(--text-primary)' : 'var(--text-muted)',
+                                            outline: 'none', cursor: 'pointer',
+                                        }}
+                                    >
+                                        <option value="">— Người thực hiện —</option>
+                                        {users.map(u => (
+                                            <option key={u.id} value={u.name}>{u.name}</option>
+                                        ))}
+                                    </select>
+                                    {list.length > 1 && (
+                                        <button
+                                            onClick={e => { e.stopPropagation(); onAssigneeRemove(stage.key, idx); }}
+                                            style={{ padding: '2px 6px', borderRadius: 4, fontSize: 11, cursor: 'pointer', border: '1px solid #dc262644', background: 'transparent', color: '#dc2626', flexShrink: 0, lineHeight: 1 }}
+                                        >×</button>
+                                    )}
+                                </div>
+                            ))}
+                            {list.length < 3 && (
+                                <button
+                                    onClick={e => { e.stopPropagation(); onAssigneeAdd(stage.key); }}
+                                    style={{ alignSelf: 'flex-start', padding: '2px 8px', borderRadius: 4, fontSize: 11, cursor: 'pointer', border: '1px dashed var(--border)', background: 'transparent', color: 'var(--text-muted)', marginTop: 2 }}
+                                >+ Thêm người</button>
                             )}
-                            <select
-                                value={assignee}
-                                onChange={e => onAssigneeChange(stage.key, e.target.value)}
-                                onClick={e => e.stopPropagation()}
-                                style={{
-                                    flex: 1, padding: '3px 8px', borderRadius: 5, fontSize: 11,
-                                    border: '1px solid var(--border)', background: 'var(--bg-primary)',
-                                    color: assignee ? 'var(--text-primary)' : 'var(--text-muted)',
-                                    outline: 'none', cursor: 'pointer',
-                                }}
-                            >
-                                <option value="">— Người thực hiện —</option>
-                                {users.map(u => (
-                                    <option key={u.id} value={u.name}>{u.name}</option>
-                                ))}
-                            </select>
                         </div>
                     </div>
                 );
@@ -283,14 +304,30 @@ function TabDuAn() {
         await saveFull(project, updated, getAssignees(project));
     };
 
-    const handleAssigneeChange = (project, stageKey, value) => {
-        const updated = { ...getAssignees(project), [stageKey]: value };
+    const _saveAssignees = (project, updated) => {
         setLocalAssignees(prev => ({ ...prev, [project.id]: updated }));
-        // debounce save 800ms
         clearTimeout(saveTimers.current[project.id]);
         saveTimers.current[project.id] = setTimeout(() => {
             saveFull(project, getStages(project), updated);
         }, 800);
+    };
+
+    const handleAssigneeChange = (project, stageKey, idx, value) => {
+        const cur = toList(getAssignees(project)[stageKey]);
+        const newList = cur.map((v, i) => i === idx ? value : v);
+        _saveAssignees(project, { ...getAssignees(project), [stageKey]: newList });
+    };
+
+    const handleAssigneeAdd = (project, stageKey) => {
+        const cur = toList(getAssignees(project)[stageKey]);
+        if (cur.length >= 3) return;
+        _saveAssignees(project, { ...getAssignees(project), [stageKey]: [...cur, ''] });
+    };
+
+    const handleAssigneeRemove = (project, stageKey, idx) => {
+        const cur = toList(getAssignees(project)[stageKey]);
+        const newList = cur.filter((_, i) => i !== idx);
+        _saveAssignees(project, { ...getAssignees(project), [stageKey]: newList.length ? newList : [''] });
     };
 
     // Khi thu lại row: flush debounce và lưu ngay
@@ -346,7 +383,7 @@ function TabDuAn() {
         const assignees = getAssignees(p);
         return STAGES
             .filter(s => stages[s.key])
-            .map(s => ({ assignee: assignees[s.key] || '', amount: base * s.pct / 100 }));
+            .map(s => ({ assignees: toList(assignees[s.key]), amount: base * s.pct / 100 }));
     });
 
     return (
@@ -395,7 +432,7 @@ function TabDuAn() {
                             // Tổng hợp lương trong dự án này
                             const projectItems = STAGES
                                 .filter(s => stages[s.key])
-                                .map(s => ({ assignee: assignees[s.key] || '', amount: base * s.pct / 100 }));
+                                .map(s => ({ assignees: toList(assignees[s.key]), amount: base * s.pct / 100 }));
 
                             return (
                                 <div key={project.id} style={{ borderBottom: '1px solid var(--border)', margin: '0 16px' }}>
@@ -428,7 +465,9 @@ function TabDuAn() {
                                                 assignees={assignees}
                                                 users={users}
                                                 onToggle={(key) => toggleStage(project, key)}
-                                                onAssigneeChange={(key, val) => handleAssigneeChange(project, key, val)}
+                                                onAssigneeChange={(key, idx, val) => handleAssigneeChange(project, key, idx, val)}
+                                                onAssigneeAdd={(key) => handleAssigneeAdd(project, key)}
+                                                onAssigneeRemove={(key, idx) => handleAssigneeRemove(project, key, idx)}
                                             />
                                             {/* Mini bảng tổng hợp trong dự án */}
                                             <SummaryTable items={projectItems} />
@@ -499,13 +538,30 @@ function TabThuCong() {
         await saveFull(entry, updated, getAssignees(entry));
     };
 
-    const handleAssigneeChange = (entry, stageKey, value) => {
-        const updated = { ...getAssignees(entry), [stageKey]: value };
+    const _saveAssignees2 = (entry, updated) => {
         setLocalAssignees(prev => ({ ...prev, [entry.id]: updated }));
         clearTimeout(saveTimers.current[entry.id]);
         saveTimers.current[entry.id] = setTimeout(() => {
             saveFull(entry, getStages(entry), updated);
         }, 800);
+    };
+
+    const handleAssigneeChange = (entry, stageKey, idx, value) => {
+        const cur = toList(getAssignees(entry)[stageKey]);
+        const newList = cur.map((v, i) => i === idx ? value : v);
+        _saveAssignees2(entry, { ...getAssignees(entry), [stageKey]: newList });
+    };
+
+    const handleAssigneeAdd = (entry, stageKey) => {
+        const cur = toList(getAssignees(entry)[stageKey]);
+        if (cur.length >= 3) return;
+        _saveAssignees2(entry, { ...getAssignees(entry), [stageKey]: [...cur, ''] });
+    };
+
+    const handleAssigneeRemove = (entry, stageKey, idx) => {
+        const cur = toList(getAssignees(entry)[stageKey]);
+        const newList = cur.filter((_, i) => i !== idx);
+        _saveAssignees2(entry, { ...getAssignees(entry), [stageKey]: newList.length ? newList : [''] });
     };
 
     // Khi thu lại row: flush debounce và lưu ngay
@@ -602,7 +658,7 @@ function TabThuCong() {
                             const stages = getStages(entry);
                             const assignees = getAssignees(entry);
                             const isExpanded = expanded[entry.id];
-                            const projectItems = STAGES.filter(s => stages[s.key]).map(s => ({ assignee: assignees[s.key] || '', amount: base * s.pct / 100 }));
+                            const projectItems = STAGES.filter(s => stages[s.key]).map(s => ({ assignees: toList(assignees[s.key]), amount: base * s.pct / 100 }));
 
                             return (
                                 <div key={entry.id} style={{ borderBottom: '1px solid var(--border)', margin: '0 16px' }}>
@@ -631,7 +687,9 @@ function TabThuCong() {
                                                 assignees={assignees}
                                                 users={users}
                                                 onToggle={(key) => toggleStage(entry, key)}
-                                                onAssigneeChange={(key, val) => handleAssigneeChange(entry, key, val)}
+                                                onAssigneeChange={(key, idx, val) => handleAssigneeChange(entry, key, idx, val)}
+                                                onAssigneeAdd={(key) => handleAssigneeAdd(entry, key)}
+                                                onAssigneeRemove={(key, idx) => handleAssigneeRemove(entry, key, idx)}
                                             />
                                             <SummaryTable items={projectItems} />
                                         </div>
