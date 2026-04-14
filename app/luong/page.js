@@ -466,6 +466,7 @@ function TabDuAn() {
     const [saveStatus, setSaveStatus] = useState('');  // '' | 'saving' | 'saved'
     const saveTimers = useRef({});
     const saveStatusTimer = useRef(null);
+    const pendingData = useRef({});   // { [projectId]: { assignees, progress } }
 
     const load = useCallback(() => {
         setLoading(true);
@@ -524,22 +525,30 @@ function TabDuAn() {
         await saveFull(project, updated, getAssignees(project), getProgress(project));
     };
 
-    const _saveAssignees = (project, updated) => {
-        setLocalAssignees(prev => ({ ...prev, [project.id]: updated }));
+    const _scheduleSave = (project, newAssignees, newProgress) => {
+        if (!pendingData.current[project.id]) pendingData.current[project.id] = {};
+        if (newAssignees !== undefined) pendingData.current[project.id].assignees = newAssignees;
+        if (newProgress !== undefined) pendingData.current[project.id].progress = newProgress;
         clearTimeout(saveTimers.current[project.id]);
         saveTimers.current[project.id] = setTimeout(() => {
-            saveFull(project, getStages(project), updated, getProgress(project));
+            const p = pendingData.current[project.id] || {};
+            const a = p.assignees ?? getAssignees(project);
+            const prog = p.progress ?? getProgress(project);
+            delete pendingData.current[project.id];
+            saveFull(project, getStages(project), a, prog);
         }, 800);
+    };
+
+    const _saveAssignees = (project, updated) => {
+        setLocalAssignees(prev => ({ ...prev, [project.id]: updated }));
+        _scheduleSave(project, updated, undefined);
     };
 
     const handleProgressChange = (project, stageKey, field, value) => {
         const cur = toStageData(getProgress(project)[stageKey]);
         const updated = { ...getProgress(project), [stageKey]: { ...cur, [field]: field === 'pct' ? (value === '' ? 0 : Math.min(100, Math.max(0, Number(value)))) : value } };
         setLocalProgress(prev => ({ ...prev, [project.id]: updated }));
-        clearTimeout(saveTimers.current[project.id + '_p']);
-        saveTimers.current[project.id + '_p'] = setTimeout(() => {
-            saveFull(project, getStages(project), getAssignees(project), updated);
-        }, 800);
+        _scheduleSave(project, undefined, updated);
     };
 
     const handleAssigneeChange = (project, stageKey, idx, value) => {
@@ -584,8 +593,11 @@ function TabDuAn() {
         const isOpen = expanded[project.id];
         if (isOpen) {
             clearTimeout(saveTimers.current[project.id]);
-            clearTimeout(saveTimers.current[project.id + '_p']);
-            saveFull(project, getStages(project), getAssignees(project), getProgress(project));
+            const p = pendingData.current[project.id] || {};
+            const a = p.assignees ?? getAssignees(project);
+            const prog = p.progress ?? getProgress(project);
+            delete pendingData.current[project.id];
+            saveFull(project, getStages(project), a, prog);
         }
         setExpanded(e => ({ ...e, [project.id]: !e[project.id] }));
     };
@@ -765,6 +777,7 @@ function TabThuCong() {
     const [saveStatus, setSaveStatus] = useState('');
     const saveTimers = useRef({});
     const saveStatusTimer = useRef(null);
+    const pendingData = useRef({});   // { [entryId]: { assignees, progress } }
 
     const load = useCallback(() => {
         fetch('/api/salary/entries').then(r => r.json()).then(d => {
@@ -814,12 +827,23 @@ function TabThuCong() {
         await saveFull(entry, updated, getAssignees(entry), getProgress2(entry));
     };
 
-    const _saveAssignees2 = (entry, updated) => {
-        setLocalAssignees(prev => ({ ...prev, [entry.id]: updated }));
+    const _scheduleSave2 = (entry, newAssignees, newProgress) => {
+        if (!pendingData.current[entry.id]) pendingData.current[entry.id] = {};
+        if (newAssignees !== undefined) pendingData.current[entry.id].assignees = newAssignees;
+        if (newProgress !== undefined) pendingData.current[entry.id].progress = newProgress;
         clearTimeout(saveTimers.current[entry.id]);
         saveTimers.current[entry.id] = setTimeout(() => {
-            saveFull(entry, getStages(entry), updated, getProgress2(entry));
+            const p = pendingData.current[entry.id] || {};
+            const a = p.assignees ?? getAssignees(entry);
+            const prog = p.progress ?? getProgress2(entry);
+            delete pendingData.current[entry.id];
+            saveFull(entry, getStages(entry), a, prog);
         }, 800);
+    };
+
+    const _saveAssignees2 = (entry, updated) => {
+        setLocalAssignees(prev => ({ ...prev, [entry.id]: updated }));
+        _scheduleSave2(entry, updated, undefined);
     };
 
     const handleAssigneeChange = (entry, stageKey, idx, value) => {
@@ -861,10 +885,7 @@ function TabThuCong() {
         const cur = toStageData(getProgress2(entry)[stageKey]);
         const updated = { ...getProgress2(entry), [stageKey]: { ...cur, [field]: field === 'pct' ? (value === '' ? 0 : Math.min(100, Math.max(0, Number(value)))) : value } };
         setLocalProgress2(prev => ({ ...prev, [entry.id]: updated }));
-        clearTimeout(saveTimers.current[entry.id + '_p']);
-        saveTimers.current[entry.id + '_p'] = setTimeout(() => {
-            saveFull(entry, getStages(entry), getAssignees(entry), updated);
-        }, 800);
+        _scheduleSave2(entry, undefined, updated);
     };
 
     // Khi thu lại row: flush debounce và lưu ngay
@@ -872,8 +893,11 @@ function TabThuCong() {
         const isOpen = expanded[entry.id];
         if (isOpen) {
             clearTimeout(saveTimers.current[entry.id]);
-            clearTimeout(saveTimers.current[entry.id + '_p']);
-            saveFull(entry, getStages(entry), getAssignees(entry), getProgress2(entry));
+            const p = pendingData.current[entry.id] || {};
+            const a = p.assignees ?? getAssignees(entry);
+            const prog = p.progress ?? getProgress2(entry);
+            delete pendingData.current[entry.id];
+            saveFull(entry, getStages(entry), a, prog);
         }
         setExpanded(e => ({ ...e, [entry.id]: !e[entry.id] }));
     };
