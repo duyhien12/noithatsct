@@ -245,7 +245,7 @@ function StageList({ base, stages, assignees, progress, users, onToggle, onAssig
                                                 </div>
                                             )}
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
-                                                <DateField label="Bắt đầu" value={entry.startDate}
+                                                <DateField label="Bắt đầu" value={entry.startDate} color="#0284c7"
                                                     onChange={e => onAssigneeDateChange(stage.key, idx, 'startDate', e.target.value)} />
                                                 <DateField label="Dự kiến HT" value={entry.estEndDate} color="#d97706"
                                                     onChange={e => onAssigneeDateChange(stage.key, idx, 'estEndDate', e.target.value)} />
