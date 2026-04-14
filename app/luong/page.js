@@ -778,6 +778,7 @@ function TabThuCong() {
     const saveTimers = useRef({});
     const saveStatusTimer = useRef(null);
     const pendingData = useRef({});   // { [entryId]: { assignees, progress } }
+    const latestNotes = useRef({});   // { [entryId]: notes } — luôn cập nhật mới nhất
 
     const load = useCallback(() => {
         fetch('/api/salary/entries').then(r => r.json()).then(d => {
@@ -787,6 +788,7 @@ function TabThuCong() {
             list.forEach(e => {
                 initA[e.id] = parseJSON(e.assignees);
                 initP[e.id] = parseJSON(e.progress);
+                latestNotes.current[e.id] = e.notes || '';
             });
             setLocalAssignees(initA);
             setLocalProgress2(initP);
@@ -811,9 +813,10 @@ function TabThuCong() {
 
     const saveFull = useCallback(async (entry, newStages, newAssignees, newProgress) => {
         setSaveStatus('saving');
+        const notes = latestNotes.current[entry.id] ?? entry.notes ?? '';
         await fetch(`/api/salary/entries/${entry.id}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: entry.code, name: entry.name, contractValue: entry.contractValue, notes: entry.notes, stages: newStages, assignees: newAssignees, progress: newProgress }),
+            body: JSON.stringify({ code: entry.code, name: entry.name, contractValue: entry.contractValue, notes, stages: newStages, assignees: newAssignees, progress: newProgress }),
         });
         setSaveStatus('saved');
         clearTimeout(saveStatusTimer.current);
@@ -915,6 +918,10 @@ function TabThuCong() {
         setSubmitting(true);
         const body = { ...form, contractValue: parseFloat(form.contractValue) || 0 };
         if (editId) {
+            // Xóa timer debounce đang chờ để tránh ghi đè ghi chú mới
+            clearTimeout(saveTimers.current[editId]);
+            delete pendingData.current[editId];
+            latestNotes.current[editId] = form.notes || '';
             const entry = entries.find(e => e.id === editId);
             body.stages = parseJSON(entry?.stages);
             body.assignees = getAssignees(entry || {});
