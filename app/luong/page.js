@@ -35,6 +35,10 @@ const STATUS_LABELS = {
 };
 
 const AVATAR_COLORS = ['#2563eb','#7c3aed','#16a34a','#d97706','#dc2626','#0891b2','#be185d','#65a30d'];
+const AVATAR_COLOR_MAP = {
+    'Bùi Hải Đăng': '#16a34a',
+    'Đặng Bình Ngọc': '#dc2626',
+};
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const parseJSON = (raw) => { try { return JSON.parse(raw || '{}'); } catch { return {}; } };
@@ -66,7 +70,7 @@ const toStageData = (val) => {
 };
 
 const initials = (name) => name ? name.trim().split(' ').slice(-2).map(w => w[0]).join('').toUpperCase() : '?';
-const avatarColor = (name) => AVATAR_COLORS[(name || '').length % AVATAR_COLORS.length];
+const avatarColor = (name) => AVATAR_COLOR_MAP[name] || AVATAR_COLORS[(name || '').length % AVATAR_COLORS.length];
 
 // ───────── Hook lấy danh sách nhân viên phòng xây dựng ─────────
 function useDesignUsers() {
