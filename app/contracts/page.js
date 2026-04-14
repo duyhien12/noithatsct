@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const pct = (a, b) => b > 0 ? Math.round((a / b) * 100) : 0;
@@ -14,12 +15,19 @@ export default function ContractsPage() {
     const [filterStatus, setFilterStatus] = useState('');
     const [filterType, setFilterType] = useState('');
     const router = useRouter();
+    const { data: session, status } = useSession();
 
-    useEffect(() => { fetch('/api/contracts?limit=1000').then(r => r.json()).then(d => { setContracts(d.data || []); setLoading(false); }); }, []);
+    useEffect(() => {
+        if (status === 'loading') return;
+        if (session?.user?.role === 'xuong') { router.replace('/'); return; }
+        fetch('/api/contracts?limit=1000').then(r => r.json()).then(d => { setContracts(d.data || []); setLoading(false); });
+    }, [session, status]);
+
+    if (status === 'loading' || session?.user?.role === 'xuong') return null;
 
     const filtered = contracts.filter(c => {
-        if (filterStatus && c.status !== filterStatus) return false;
         if (filterType && c.type !== filterType) return false;
+        if (filterStatus && c.status !== filterStatus) return false;
         if (search && !c.name.toLowerCase().includes(search.toLowerCase()) && !c.code.toLowerCase().includes(search.toLowerCase())) return false;
         return true;
     });
