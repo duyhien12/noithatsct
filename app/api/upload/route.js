@@ -107,22 +107,50 @@ export const POST = withAuth(async (request) => {
     const thumbBuffer = type === 'documents' ? await generateThumbnail(fileBuffer, fileMime) : null;
     const thumbFilename = thumbBuffer ? `${crypto.randomUUID()}.jpg` : null;
 
+    const forwardUrl = process.env.UPLOAD_FORWARD_URL;
+    const forwardKey = process.env.UPLOAD_SERVICE_KEY;
+
     if (isR2Configured) {
+        // R2 cloud storage
         url = await uploadToR2(fileBuffer, `${type}/${filename}`, fileMime);
         if (thumbBuffer && thumbFilename) {
             thumbnailUrl = await uploadToR2(thumbBuffer, `${type}/thumbnails/${thumbFilename}`, 'image/jpeg');
         }
+    } else if (forwardUrl && forwardKey) {
+        // Forward lên production server
+        const fd = new FormData();
+        fd.append('file', new Blob([fileBuffer], { type: fileMime }), filename);
+        fd.append('type', type);
+        fd.append('filename', filename);
+        if (thumbBuffer && thumbFilename) {
+            fd.append('thumbnail', new Blob([thumbBuffer], { type: 'image/jpeg' }), thumbFilename);
+            fd.append('thumbnailFilename', thumbFilename);
+        }
+        const res = await fetch(`${forwardUrl}/api/upload-direct`, {
+            method: 'POST',
+            headers: { 'x-upload-service-key': forwardKey },
+            body: fd,
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `Forward upload failed: ${res.status}`);
+        }
+        const result = await res.json();
+        url = result.url || '';
+        thumbnailUrl = result.thumbnailUrl || '';
     } else {
+        // Local storage (fallback)
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
         const uploadDir = path.join(process.cwd(), 'public', 'uploads', type);
         await mkdir(uploadDir, { recursive: true });
         await writeFile(path.join(uploadDir, filename), fileBuffer);
-        url = `/uploads/${type}/${filename}`;
+        url = `${baseUrl}/uploads/${type}/${filename}`;
 
         if (thumbBuffer && thumbFilename) {
             const thumbDir = path.join(process.cwd(), 'public', 'uploads', type, 'thumbnails');
             await mkdir(thumbDir, { recursive: true });
             await writeFile(path.join(thumbDir, thumbFilename), thumbBuffer);
-            thumbnailUrl = `/uploads/${type}/thumbnails/${thumbFilename}`;
+            thumbnailUrl = `${baseUrl}/uploads/${type}/thumbnails/${thumbFilename}`;
         }
     }
 
