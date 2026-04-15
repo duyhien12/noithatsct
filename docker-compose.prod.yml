@@ -40,6 +40,8 @@ services:
       - ZALO_OA_REFRESH_TOKEN=${ZALO_OA_REFRESH_TOKEN}
       - CRON_SECRET=${CRON_SECRET}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-https://admin.kientrucsct.com}
+      - UPLOAD_SERVICE_KEY=${UPLOAD_SERVICE_KEY}
       - NODE_ENV=production
       - UPLOAD_DIR=/app/public/uploads
     depends_on:
