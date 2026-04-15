@@ -27,6 +27,9 @@ jobs:
           ZALO_OA_ACCESS_TOKEN=${{ secrets.ZALO_OA_ACCESS_TOKEN }}
           ZALO_OA_REFRESH_TOKEN=${{ secrets.ZALO_OA_REFRESH_TOKEN }}
           CRON_SECRET=noithatsct-cron-2026
+          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+          NEXT_PUBLIC_BASE_URL=https://admin.kientrucsct.com
+          UPLOAD_SERVICE_KEY=sct-upload-2026-secret
           EOF
           sed -i 's/^[[:space:]]*//' .env
 
