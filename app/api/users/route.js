@@ -8,15 +8,29 @@ export const GET = withAuth(async (req) => {
     const { searchParams } = new URL(req.url);
     const includeInactive = searchParams.get('includeInactive') === 'true';
 
-    const users = await prisma.user.findMany({
-        where: includeInactive ? {} : { active: true },
-        orderBy: { name: 'asc' },
-        select: {
-            id: true, name: true, email: true,
-            role: true, department: true, phone: true,
-            zaloUserId: true, active: true, createdAt: true,
-        },
-    });
+    let users;
+    try {
+        users = await prisma.user.findMany({
+            where: includeInactive ? {} : { active: true },
+            orderBy: { name: 'asc' },
+            select: {
+                id: true, name: true, email: true,
+                role: true, department: true, phone: true,
+                zaloUserId: true, active: true, createdAt: true,
+            },
+        });
+    } catch {
+        // Fallback: query không có zaloUserId (tương thích Prisma client cũ)
+        users = await prisma.user.findMany({
+            where: includeInactive ? {} : { active: true },
+            orderBy: { name: 'asc' },
+            select: {
+                id: true, name: true, email: true,
+                role: true, department: true, phone: true,
+                active: true, createdAt: true,
+            },
+        });
+    }
     return NextResponse.json(users);
 });
 
