@@ -13,7 +13,13 @@ export const GET = withAuth(async (request) => {
     const status = searchParams.get('status');
     const search = searchParams.get('search');
 
-    const where = { NOT: { createdByRole: 'xay_dung' } };
+    const dept = searchParams.get('dept');
+    const where = {};
+    if (dept === 'xay_dung') {
+        where.createdByRole = 'xay_dung';
+    } else if (dept === 'kinh_doanh') {
+        where.NOT = { createdByRole: 'xay_dung' };
+    }
     if (type) where.type = type;
     if (status) where.status = status;
     if (search) where.name = { contains: search };

@@ -138,8 +138,8 @@ export default function CustomersPage() {
             {loading ? <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (<>
                 {/* ========= KANBAN VIEW - desktop only ========= */}
                 {view === 'kanban' && (<>
-                {/* --- Bảng Phòng Xây Dựng (ẩn mặc định) --- */}
-                <div className="desktop-table-view" style={{ marginBottom: 8 }}>
+                {/* --- Bảng Phòng Xây Dựng (ẩn với role xuong) --- */}
+                {role !== 'xuong' && <div className="desktop-table-view" style={{ marginBottom: 8 }}>
                     <button
                         onClick={() => setShowXDBoard(v => !v)}
                         style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-light)', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', width: '100%' }}>
@@ -190,7 +190,7 @@ export default function CustomersPage() {
                         })}
                     </div>
                     )}
-                </div>
+                </div>}
 
                 {/* --- Bảng Phòng Kinh Doanh --- */}
                 <div className="desktop-table-view" style={{ marginBottom: 6 }}>
