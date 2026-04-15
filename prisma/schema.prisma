@@ -51,6 +51,7 @@ model Customer {
   deletedAt       DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+  createdByRole   String      @default("")
   projects        Project[]
   quotations      Quotation[]
   contracts       Contract[]
@@ -85,6 +86,7 @@ model Project {
   budgetLockedBy      String      @default("")
   budgetTotal         Float       @default(0)
   budgetEstimateData  Json?
+  createdByRole   String      @default("")
   customerId          String
   customer        Customer    @relation(fields: [customerId], references: [id])
   @@index([customerId])

@@ -13,7 +13,7 @@ export const GET = withAuth(async (request) => {
     const status = searchParams.get('status');
     const search = searchParams.get('search');
 
-    const where = {};
+    const where = { NOT: { createdByRole: 'xay_dung' } };
     if (type) where.type = type;
     if (status) where.status = status;
     if (search) where.name = { contains: search };
@@ -32,7 +32,7 @@ export const GET = withAuth(async (request) => {
     return NextResponse.json(paginatedResponse(projects, total, { page, limit }));
 });
 
-export const POST = withAuth(async (request) => {
+export const POST = withAuth(async (request, context, session) => {
     const body = await request.json();
     const data = projectCreateSchema.parse(body);
 
@@ -57,7 +57,7 @@ export const POST = withAuth(async (request) => {
                 const code = `DA${String(candidate).padStart(3, '0')}`;
 
                 console.log(`[project create] attempt=${attempt} code=${code} existing=[${[...existing].join(',')}]`);
-                const proj = await tx.project.create({ data: { code, ...data } });
+                const proj = await tx.project.create({ data: { code, ...data, createdByRole: session?.user?.role || '' } });
                 await createDefaultFolders(tx, proj.id);
                 return proj;
             });

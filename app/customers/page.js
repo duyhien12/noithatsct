@@ -12,7 +12,6 @@ const fmtShort = (n) => {
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
 
 const PIPELINE = [
-    { key: 'Khách nội thất', label: 'Khách nội thất', color: '#06b6d4', bg: '#cffafe' },
     { key: 'Tư vấn', label: 'Khách chăm sóc', color: '#3b82f6', bg: '#dbeafe' },
     { key: 'Báo giá', label: 'Khách ưu tiên', color: '#8b5cf6', bg: '#ede9fe' },
     { key: 'Thi công', label: 'Khách hợp đồng', color: '#f97316', bg: '#ffedd5' },
@@ -23,11 +22,13 @@ const SOURCES = ['Facebook', 'Zalo', 'Website', 'Instagram', 'Giới thiệu', '
 
 export default function CustomersPage() {
     const [customers, setCustomers] = useState([]);
+    const [customersXD, setCustomersXD] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [filterSource, setFilterSource] = useState('');
     const [view, setView] = useState('kanban');
     const [showModal, setShowModal] = useState(false);
+    const [showXDBoard, setShowXDBoard] = useState(false);
     const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: 'Khách nội thất', taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0 });
     const [dragId, setDragId] = useState(null);
     const [dragOver, setDragOver] = useState(null);
@@ -35,25 +36,29 @@ export default function CustomersPage() {
     const router = useRouter();
     const { role } = useRole();
 
-    // Lọc cột pipeline theo vai trò
-    const visiblePipeline = role === 'xuong'
-        ? PIPELINE.filter(p => p.key === 'Khách nội thất')
-        : role === 'xay_dung'
-            ? PIPELINE.filter(p => p.key !== 'Khách nội thất')
-            : PIPELINE;
+    const visiblePipeline = PIPELINE;
 
-    const fetchCustomers = async () => { setLoading(true); const r = await fetch('/api/customers?limit=1000'); const d = await r.json(); setCustomers(d.data || []); setLoading(false); };
+    const fetchCustomers = async () => {
+        setLoading(true);
+        const [r1, r2] = await Promise.all([
+            fetch('/api/customers?dept=kinh_doanh&limit=1000'),
+            fetch('/api/customers?dept=xay_dung&limit=1000'),
+        ]);
+        const [d1, d2] = await Promise.all([r1.json(), r2.json()]);
+        setCustomers(d1.data || []);
+        setCustomersXD(d2.data || []);
+        setLoading(false);
+    };
     useEffect(() => { fetchCustomers(); }, []);
 
-    const filtered = customers.filter(c => {
-        // Lọc theo vai trò
-        const stage = c.pipelineStage || 'Khách nội thất';
-        if (role === 'xuong' && stage !== 'Khách nội thất') return false;
-        if (role === 'xay_dung' && stage === 'Khách nội thất') return false;
+    const applyFilter = (list) => list.filter(c => {
         if (filterSource && c.source !== filterSource) return false;
         if (search && !c.name.toLowerCase().includes(search.toLowerCase()) && !(c.code || '').toLowerCase().includes(search.toLowerCase()) && !(c.phone || '').includes(search)) return false;
         return true;
     });
+
+    const filtered = applyFilter(customers);
+    const filteredXD = applyFilter(customersXD);
 
     const handleSubmit = async () => {
         if (!form.name.trim()) return alert('Vui lòng nhập tên khách hàng');
@@ -77,18 +82,24 @@ export default function CustomersPage() {
         fetchCustomers();
     };
 
+    const moveToDept = async (id, stage, dept) => {
+        await fetch(`/api/customers/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pipelineStage: stage, status: 'Khách hàng', createdByRole: dept }) });
+        fetchCustomers();
+    };
+
     const onDragStart = (e, id) => { isDragging.current = true; setDragId(id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id); };
     const onDragEnd = () => { setTimeout(() => { isDragging.current = false; }, 100); setDragId(null); setDragOver(null); };
     const onDragOver = (e, stageKey) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver(stageKey); };
     const onDragLeave = () => { setDragOver(null); };
     const onDrop = (e, stage) => { e.preventDefault(); setDragOver(null); const droppedId = e.dataTransfer.getData('text/plain') || dragId; if (droppedId) { moveTo(droppedId, stage); setDragId(null); } };
 
+    const allCustomers = [...customers, ...customersXD];
     const stats = {
-        total: customers.length,
-        leads: customers.filter(c => c.pipelineStage === 'Khách nội thất').length,
-        active: customers.filter(c => ['Tư vấn', 'Báo giá', 'Thi công'].includes(c.pipelineStage)).length,
-        totalValue: customers.reduce((s, c) => s + (c.estimatedValue || 0), 0),
-        revenue: customers.reduce((s, c) => s + (c.totalRevenue || 0), 0),
+        total: allCustomers.length,
+        leads: allCustomers.filter(c => c.pipelineStage === 'Tư vấn').length,
+        active: allCustomers.filter(c => ['Tư vấn', 'Báo giá', 'Thi công'].includes(c.pipelineStage)).length,
+        totalValue: allCustomers.reduce((s, c) => s + (c.estimatedValue || 0), 0),
+        revenue: allCustomers.reduce((s, c) => s + (c.totalRevenue || 0), 0),
     };
 
     return (
@@ -126,7 +137,68 @@ export default function CustomersPage() {
 
             {loading ? <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (<>
                 {/* ========= KANBAN VIEW - desktop only ========= */}
-                {view === 'kanban' && (
+                {view === 'kanban' && (<>
+                {/* --- Bảng Phòng Xây Dựng (ẩn mặc định) --- */}
+                <div className="desktop-table-view" style={{ marginBottom: 8 }}>
+                    <button
+                        onClick={() => setShowXDBoard(v => !v)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-light)', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', width: '100%' }}>
+                        <span style={{ transition: 'transform .2s', display: 'inline-block', transform: showXDBoard ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                        🏗️ Khách hàng Phòng Xây Dựng
+                        <span style={{ background: '#e8f4fd', color: '#2980b9', fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 8 }}>{filteredXD.length}</span>
+                    </button>
+                    {showXDBoard && (
+                    <div style={{ display: 'flex', flexDirection: 'row', gap: 6, paddingTop: 10, paddingBottom: 12, minHeight: 200, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                        {PIPELINE.filter(p => p.key !== 'Khách nội thất').map(stage => {
+                            const cards = filteredXD.filter(c => (c.pipelineStage || 'Tư vấn') === stage.key);
+                            const stageValue = cards.reduce((s, c) => s + (c.estimatedValue || 0), 0);
+                            const isOverXD = dragOver === ('xd_' + stage.key);
+                            return (
+                                <div key={stage.key}
+                                    onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver('xd_' + stage.key); }}
+                                    onDragLeave={onDragLeave}
+                                    onDrop={e => { e.preventDefault(); setDragOver(null); const id = e.dataTransfer.getData('text/plain') || dragId; if (id) { moveToDept(id, stage.key, 'xay_dung'); setDragId(null); } }}
+                                    style={{ flex: '1 0 0', minWidth: 180, display: 'flex', flexDirection: 'column', background: isOverXD ? stage.bg : 'var(--bg-secondary)', borderRadius: 10, border: isOverXD ? `2px dashed ${stage.color}` : '1px solid var(--border-light)', transition: 'all .2s' }}>
+                                    <div style={{ padding: '10px 10px 6px', borderBottom: '2px solid ' + stage.color }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: stage.color, flexShrink: 0 }} />
+                                            <span style={{ fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>{stage.label}</span>
+                                            <span style={{ background: stage.bg, color: stage.color, fontSize: 10, fontWeight: 700, padding: '0 6px', borderRadius: 8 }}>{cards.length}</span>
+                                        </div>
+                                        {stageValue > 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{fmtShort(stageValue)}</div>}
+                                    </div>
+                                    <div style={{ flex: 1, padding: 6, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                        {cards.map(c => (
+                                            <div key={c.id}
+                                                draggable
+                                                onDragStart={e => onDragStart(e, c.id)}
+                                                onDragEnd={onDragEnd}
+                                                onClick={() => { if (!isDragging.current) router.push(`/customers/${c.id}`); }}
+                                                style={{ background: dragId === c.id ? stage.bg : 'var(--bg-card)', borderRadius: 8, padding: '8px 10px', cursor: 'grab', border: '1px solid var(--border-light)', boxShadow: '0 1px 2px rgba(0,0,0,.05)', transition: 'all .15s', opacity: dragId === c.id ? 0.5 : 1, WebkitTapHighlightColor: 'transparent' }}>
+                                                <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.phone && <div>📱 {c.phone}</div>}</div>
+                                                {(c.estimatedValue > 0 || c.projects?.length > 0) && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, paddingTop: 4, borderTop: '1px solid var(--border-light)', fontSize: 10 }}>
+                                                    {c.estimatedValue > 0 ? <span style={{ fontWeight: 700, color: 'var(--status-success)' }}>{fmtShort(c.estimatedValue)}</span> : <span />}
+                                                    {c.projects?.length > 0 && <span style={{ background: 'var(--bg-primary)', padding: '0 4px', borderRadius: 4 }}>🏗️{c.projects.length}</span>}
+                                                </div>}
+                                            </div>
+                                        ))}
+                                        {cards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 11, textAlign: 'center', padding: 16, opacity: 0.5 }}>Kéo thả vào đây</div>}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    )}
+                </div>
+
+                {/* --- Bảng Phòng Kinh Doanh --- */}
+                <div className="desktop-table-view" style={{ marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-primary)' }}>💼 Khách hàng Phòng Kinh Doanh</span>
+                        <span style={{ background: '#fde8d0', color: '#e67e22', fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 8 }}>{filtered.length}</span>
+                    </div>
+                </div>
                 <div className="desktop-table-view kanban-board" style={{ gap: 6, paddingBottom: 20, minHeight: 400, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                     {visiblePipeline.map(stage => {
                         const cards = filtered.filter(c => (c.pipelineStage || c.status || 'Khách nội thất') === stage.key);
@@ -137,7 +209,7 @@ export default function CustomersPage() {
                                 className="kanban-column"
                                 onDragOver={e => onDragOver(e, stage.key)}
                                 onDragLeave={onDragLeave}
-                                onDrop={e => onDrop(e, stage.key)}
+                                onDrop={e => { e.preventDefault(); setDragOver(null); const id = e.dataTransfer.getData('text/plain') || dragId; if (id) { moveToDept(id, stage.key, 'kinh_doanh'); setDragId(null); } }}
                                 style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', background: isOver ? stage.bg : 'var(--bg-secondary)', borderRadius: 10, border: isOver ? `2px dashed ${stage.color}` : '1px solid var(--border-light)', transition: 'all .2s' }}>
                                 <div style={{ padding: '10px 10px 6px', borderBottom: '2px solid ' + stage.color }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -171,7 +243,7 @@ export default function CustomersPage() {
                         );
                     })}
                 </div>
-                )}
+                </>)}
 
                 {/* ========= TABLE VIEW (Desktop when selected) + Card list (Mobile always) ========= */}
                 <div className="card" style={view === 'kanban' ? {} : {}}>
