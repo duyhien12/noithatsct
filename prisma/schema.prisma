@@ -709,6 +709,8 @@ model ProjectDocument {
   @@index([customerId])
   @@index([supplierId])
   @@index([contractorId])
+  @@index([folderId])
+  @@index([parentDocumentId])
 }
 
 model DocumentFolder {
@@ -825,6 +827,7 @@ model QuotationTemplateCategory {
   templateId  String
   template    QuotationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   items       QuotationTemplateItem[]
+  @@index([templateId])
 }
 
 // ============ LƯƠNG THEO % CÔNG VIỆC ============
