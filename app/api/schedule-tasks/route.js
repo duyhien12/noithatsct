@@ -2,6 +2,7 @@ import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { scheduleTaskCreateSchema, scheduleTaskBulkUpdateSchema } from '@/lib/validations/scheduleTask';
+import { recalcProjectProgress } from '@/lib/scheduleUtils';
 
 export const GET = withAuth(async (request) => {
     const { searchParams } = new URL(request.url);
@@ -83,14 +84,3 @@ export const PUT = withAuth(async (request) => {
     return NextResponse.json(results);
 });
 
-async function recalcProjectProgress(projectId) {
-    const tasks = await prisma.scheduleTask.findMany({
-        where: { projectId, parentId: null },
-    });
-    if (tasks.length === 0) return;
-    const totalWeight = tasks.reduce((s, t) => s + t.weight, 0);
-    const progress = totalWeight > 0
-        ? Math.round(tasks.reduce((s, t) => s + t.progress * t.weight, 0) / totalWeight)
-        : 0;
-    await prisma.project.update({ where: { id: projectId }, data: { progress } });
-}

@@ -915,7 +915,7 @@ model ProgressReport {
   progressTo    Int
   description   String   @default("") @db.Text
   images        String   @default("[]") @db.Text
-  status        String   @default("Đã duyệt")
+  status        String   @default("Chờ duyệt")
   rejectionNote String   @default("")
   reportDate    DateTime @default(now())
   createdBy     String   @default("")
