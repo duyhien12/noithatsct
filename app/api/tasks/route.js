@@ -6,14 +6,29 @@ export const GET = withAuth(async (request) => {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const assignee = searchParams.get('assignee');
+    const dept = searchParams.get('dept'); // role group, dùng cho trưởng phòng/quản lý
 
     const where = {};
     if (status) where.status = status;
+
     if (assignee) {
         where.OR = [
             { assignee },
             { createdBy: assignee },
         ];
+    } else if (dept) {
+        // Lấy tên tất cả nhân viên trong phòng ban (cùng role)
+        const deptUsers = await prisma.user.findMany({
+            where: { role: dept, active: true },
+            select: { name: true },
+        });
+        const names = deptUsers.map(u => u.name);
+        if (names.length > 0) {
+            where.OR = [
+                { assignee: { in: names } },
+                { createdBy: { in: names } },
+            ];
+        }
     }
 
     const tasks = await prisma.task.findMany({

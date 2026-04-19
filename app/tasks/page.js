@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 
 const BAN_GD = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
 const PEER_GROUP_EMAILS = ['buihoa@kientrucsct.com', 'quocvuong@kientrucsct.com'];
+const MANAGER_POSITIONS = ['Trưởng phòng', 'Quản lý'];
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : null;
 
@@ -32,28 +33,34 @@ export default function TasksPage() {
     const isAdmin = BAN_GD.includes(session?.user?.role);
     const currentUserName = session?.user?.name || '';
     const currentUserEmail = session?.user?.email || '';
+    const currentUserRole = session?.user?.role || '';
+    const currentUserDept = session?.user?.department || '';
     const isPeerGroup = PEER_GROUP_EMAILS.includes(currentUserEmail);
+    const isManager = !isAdmin && MANAGER_POSITIONS.includes(currentUserDept);
     const peerGroupUsers = users.filter(u => PEER_GROUP_EMAILS.includes(u.email));
     const peerGroupNames = peerGroupUsers.map(u => u.name);
+    const teamUsers = isManager ? users.filter(u => u.role === currentUserRole) : [];
+    const teamNames = teamUsers.map(u => u.name);
 
-    // Auto-filter: non-admin và không thuộc nhóm ngang hàng chỉ thấy việc của mình
+    // Auto-filter: non-admin, non-peer, non-manager chỉ thấy việc của mình
     useEffect(() => {
-        if (status === 'authenticated' && !isAdmin && !isPeerGroup) {
+        if (status === 'authenticated' && !isAdmin && !isPeerGroup && !isManager) {
             setFilterUser(currentUserName);
         }
-    }, [status, isAdmin, isPeerGroup, currentUserName]);
+    }, [status, isAdmin, isPeerGroup, isManager, currentUserName]);
 
     const fetchTasks = () => {
         const params = new URLSearchParams();
-        let effectiveFilter;
         if (isAdmin) {
-            effectiveFilter = filterUser;
+            if (filterUser) params.set('assignee', filterUser);
+        } else if (isManager) {
+            if (filterUser) params.set('assignee', filterUser);
+            else params.set('dept', currentUserRole);
         } else if (isPeerGroup) {
-            effectiveFilter = filterUser; // '' = tất cả nhóm, hoặc tên cụ thể
+            if (filterUser) params.set('assignee', filterUser);
         } else {
-            effectiveFilter = currentUserName;
+            params.set('assignee', currentUserName);
         }
-        if (effectiveFilter) params.set('assignee', effectiveFilter);
         fetch(`/api/tasks?${params}`)
             .then(r => r.json())
             .then(d => {
@@ -71,7 +78,7 @@ export default function TasksPage() {
         if (status !== 'authenticated') return;
         setLoading(true);
         fetchTasks();
-    }, [filterUser, status, isAdmin]);
+    }, [filterUser, status, isAdmin, isManager]);
 
     const updateStatus = async (taskId, newStatus) => {
         const prev = tasks.find(t => t.id === taskId)?.status;
@@ -98,7 +105,6 @@ export default function TasksPage() {
     };
 
     const filtered = tasks.filter(t => {
-        // Peer group không có filter cụ thể → chỉ hiện task của nhóm
         if (isPeerGroup && !isAdmin && !filterUser && peerGroupNames.length > 0) {
             if (!peerGroupNames.includes(t.assignee) && !peerGroupNames.includes(t.createdBy)) return false;
         }
@@ -134,6 +140,11 @@ export default function TasksPage() {
                     <select className="form-select" value={filterUser} onChange={e => setFilterUser(e.target.value)} style={{ minWidth: 180 }}>
                         <option value="">Tất cả người dùng</option>
                         {users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                    </select>
+                ) : isManager ? (
+                    <select className="form-select" value={filterUser} onChange={e => setFilterUser(e.target.value)} style={{ minWidth: 180 }}>
+                        <option value="">Tất cả phòng ({teamUsers.length} người)</option>
+                        {teamUsers.map(u => <option key={u.id} value={u.name}>{u.name}{u.department ? ` · ${u.department}` : ''}</option>)}
                     </select>
                 ) : isPeerGroup ? (
                     <select className="form-select" value={filterUser} onChange={e => setFilterUser(e.target.value)} style={{ minWidth: 180 }}>
@@ -212,7 +223,7 @@ export default function TasksPage() {
 
             {showCreate && (
                 <CreateTaskModal
-                    users={users}
+                    users={isAdmin ? users : isManager ? teamUsers : users}
                     currentUserName={currentUserName}
                     onClose={() => setShowCreate(false)}
                     onCreate={(task) => {
