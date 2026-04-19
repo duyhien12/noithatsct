@@ -7,7 +7,16 @@ import {
     ClipboardList, ChevronRight, X, Building2,
     Wrench, CalendarDays, CreditCard, Receipt, ShoppingCart, Warehouse, Package,
 } from 'lucide-react';
-import { useRole } from '@/contexts/RoleContext';
+import { useRole, ROLES } from '@/contexts/RoleContext';
+import { useState } from 'react';
+
+const DEPT_VIEWS = [
+    { key: 'ban_gd',         label: 'Ban GĐ',     icon: '👑' },
+    { key: 'kinh_doanh',    label: 'Kinh doanh', icon: '💼' },
+    { key: 'xay_dung',      label: 'Xây dựng',   icon: '🏗️' },
+    { key: 'hanh_chinh_kt', label: 'Hành chính', icon: '📊' },
+    { key: 'xuong',         label: 'Xưởng',      icon: '🪚' },
+];
 
 const menuItems = [
     {
@@ -42,7 +51,8 @@ const menuItems = [
 
 export default function SalesSidebar({ isOpen, onClose }) {
     const pathname = usePathname();
-    const { roleInfo } = useRole();
+    const { roleInfo, role, isPhamDuong, viewAsRole, setViewAsRole, actualRole } = useRole();
+    const [showDeptPicker, setShowDeptPicker] = useState(false);
 
     const handleNavClick = () => {
         if (window.innerWidth <= 768) onClose();
@@ -102,9 +112,41 @@ export default function SalesSidebar({ isOpen, onClose }) {
                 <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
                     Vai trò
                 </div>
-                <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.15)', color: '#FFFFFF', fontWeight: 600, fontSize: 12 }}>
-                    {roleInfo.icon} {roleInfo.label}
+                <div
+                    onClick={() => isPhamDuong && setShowDeptPicker(v => !v)}
+                    style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.15)', color: '#FFFFFF', fontWeight: 600, fontSize: 12, cursor: isPhamDuong ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                >
+                    <span>{roleInfo.icon} {roleInfo.label}</span>
+                    {isPhamDuong && <span style={{ fontSize: 10, opacity: 0.7 }}>▲</span>}
                 </div>
+
+                {isPhamDuong && showDeptPicker && (
+                    <div style={{ marginTop: 8, background: 'rgba(0,0,0,0.3)', borderRadius: 8, overflow: 'hidden' }}>
+                        {viewAsRole && (
+                            <button
+                                onClick={() => { setViewAsRole(null); setShowDeptPicker(false); }}
+                                style={{ width: '100%', padding: '7px 10px', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', fontSize: 11, border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                            >
+                                ↩ Về vai trò thật ({ROLES.find(r => r.key === actualRole)?.icon} {ROLES.find(r => r.key === actualRole)?.label || actualRole})
+                            </button>
+                        )}
+                        {DEPT_VIEWS.map(d => (
+                            <button
+                                key={d.key}
+                                onClick={() => { setViewAsRole(d.key); setShowDeptPicker(false); }}
+                                style={{
+                                    width: '100%', padding: '7px 10px', border: 'none', cursor: 'pointer',
+                                    textAlign: 'left', fontSize: 12, fontWeight: role === d.key ? 700 : 400,
+                                    background: role === d.key ? 'rgba(255,255,255,0.2)' : 'transparent',
+                                    color: role === d.key ? '#FFFFFF' : 'rgba(255,255,255,0.75)',
+                                }}
+                            >
+                                {d.icon} {d.label}
+                                {role === d.key && <span style={{ marginLeft: 4, fontSize: 10 }}>✓</span>}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
         </aside>
     );
