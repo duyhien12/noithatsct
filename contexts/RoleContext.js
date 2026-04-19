@@ -1,6 +1,8 @@
 'use client';
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+
+const PHAM_DUONG_EMAIL = 'phamduong@kientrucsct.com';
 
 export const ROLES = [
     { key: 'ban_gd',        label: 'Ban giám đốc',              icon: '👑', color: '#c0392b' },
@@ -123,9 +125,27 @@ const ADMIN_EMAIL = 'admin@kientrucsct.com';
 
 export function RoleProvider({ children }) {
     const { data: session } = useSession();
-    const role = session?.user?.role || 'xay_dung';
+    const actualRole = session?.user?.role || 'xay_dung';
     const email = session?.user?.email || '';
     const department = session?.user?.department || '';
+    const isPhamDuong = email === PHAM_DUONG_EMAIL;
+
+    const [viewAsRole, setViewAsRoleState] = useState(null);
+
+    useEffect(() => {
+        if (isPhamDuong) {
+            const saved = localStorage.getItem('phamduong_viewAsRole');
+            if (saved) setViewAsRoleState(saved);
+        }
+    }, [isPhamDuong]);
+
+    const setViewAsRole = (newRole) => {
+        setViewAsRoleState(newRole);
+        if (newRole) localStorage.setItem('phamduong_viewAsRole', newRole);
+        else localStorage.removeItem('phamduong_viewAsRole');
+    };
+
+    const role = (isPhamDuong && viewAsRole) ? viewAsRole : actualRole;
     const permissions = PERMISSIONS[role] || PERMISSIONS.xay_dung;
     const roleInfo = ROLES.find(r => r.key === role)
         // fallback cho roles cũ còn trong DB
@@ -138,7 +158,11 @@ export function RoleProvider({ children }) {
     const isXuongNhanVien = role === 'xuong' && ['Nhân viên', 'Thợ chính', 'Thợ phụ'].includes(department);
 
     return (
-        <RoleContext.Provider value={{ role, email, department, roleInfo, permissions, isKinhDoanh, isXuong, isXuongNhanVien, isViewer, canViewDashboard }}>
+        <RoleContext.Provider value={{
+            role, email, department, roleInfo, permissions,
+            isKinhDoanh, isXuong, isXuongNhanVien, isViewer, canViewDashboard,
+            isPhamDuong, viewAsRole, setViewAsRole, actualRole,
+        }}>
             {children}
         </RoleContext.Provider>
     );
@@ -149,6 +173,7 @@ export function useRole() {
     if (!ctx) return {
         role: 'xay_dung', email: '', permissions: PERMISSIONS.xay_dung,
         roleInfo: ROLES[2], isKinhDoanh: false, isXuong: false, canViewDashboard: false,
+        isPhamDuong: false, viewAsRole: null, setViewAsRole: () => {}, actualRole: 'xay_dung',
     };
     return ctx;
 }

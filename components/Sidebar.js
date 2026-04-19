@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useSession } from 'next-auth/react';
+import { useState } from 'react';
 
 // Nhóm role để dễ quản lý
 const BAN_GD     = ['ban_gd', 'giam_doc', 'pho_gd'];           // Ban giám đốc (cả cũ lẫn mới)
@@ -109,11 +110,20 @@ const menuItems = [
     },
 ];
 
+const DEPT_VIEWS = [
+    { key: 'ban_gd',        label: 'Ban GĐ',      icon: '👑' },
+    { key: 'kinh_doanh',   label: 'Kinh doanh',  icon: '💼' },
+    { key: 'xay_dung',     label: 'Xây dựng',    icon: '🏗️' },
+    { key: 'hanh_chinh_kt',label: 'Hành chính',  icon: '📊' },
+    { key: 'xuong',        label: 'Xưởng',       icon: '🪚' },
+];
+
 export default function Sidebar({ isOpen, onClose }) {
     const pathname = usePathname();
-    const { role, roleInfo, canViewDashboard } = useRole();
+    const { role, roleInfo, canViewDashboard, isPhamDuong, viewAsRole, setViewAsRole, actualRole } = useRole();
     const { data: session } = useSession();
     const isNgocBinh = session?.user?.email === 'ngocbinh@kientrucsct.com';
+    const [showDeptPicker, setShowDeptPicker] = useState(false);
 
     const handleNavClick = () => {
         if (window.innerWidth <= 768) onClose();
@@ -197,9 +207,41 @@ export default function Sidebar({ isOpen, onClose }) {
                 <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                     <Shield size={12} /> Vai trò
                 </div>
-                <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.15)', color: '#FFFFFF', fontWeight: 600, fontSize: 12 }}>
-                    {roleInfo.icon} {roleInfo.label}
+                <div
+                    onClick={() => isPhamDuong && setShowDeptPicker(v => !v)}
+                    style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.15)', color: '#FFFFFF', fontWeight: 600, fontSize: 12, cursor: isPhamDuong ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                >
+                    <span>{roleInfo.icon} {roleInfo.label}</span>
+                    {isPhamDuong && <span style={{ fontSize: 10, opacity: 0.7 }}>▲</span>}
                 </div>
+
+                {isPhamDuong && showDeptPicker && (
+                    <div style={{ marginTop: 8, background: 'rgba(0,0,0,0.3)', borderRadius: 8, overflow: 'hidden' }}>
+                        {viewAsRole && (
+                            <button
+                                onClick={() => { setViewAsRole(null); setShowDeptPicker(false); }}
+                                style={{ width: '100%', padding: '7px 10px', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', fontSize: 11, border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                            >
+                                ↩ Về vai trò thật ({ROLES.find(r => r.key === actualRole)?.icon} {ROLES.find(r => r.key === actualRole)?.label || actualRole})
+                            </button>
+                        )}
+                        {DEPT_VIEWS.map(d => (
+                            <button
+                                key={d.key}
+                                onClick={() => { setViewAsRole(d.key); setShowDeptPicker(false); }}
+                                style={{
+                                    width: '100%', padding: '7px 10px', border: 'none', cursor: 'pointer',
+                                    textAlign: 'left', fontSize: 12, fontWeight: role === d.key ? 700 : 400,
+                                    background: role === d.key ? 'rgba(255,255,255,0.2)' : 'transparent',
+                                    color: role === d.key ? '#FFFFFF' : 'rgba(255,255,255,0.75)',
+                                }}
+                            >
+                                {d.icon} {d.label}
+                                {role === d.key && <span style={{ marginLeft: 4, fontSize: 10 }}>✓</span>}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
         </aside>
     );

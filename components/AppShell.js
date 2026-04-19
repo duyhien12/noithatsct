@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useRole } from '@/contexts/RoleContext';
 import Sidebar from '@/components/Sidebar';
 import SalesSidebar from '@/components/SalesSidebar';
 import WorkshopSidebar from '@/components/WorkshopSidebar';
@@ -36,9 +37,9 @@ export default function AppShell({ children }) {
         );
     }
 
-    const role = session?.user?.role;
+    const { role } = useRole();
 
-    // Choose sidebar based on role
+    // Choose sidebar based on role (respects viewAsRole for phamduong)
     let SidebarComponent = Sidebar;
     if (role === 'kinh_doanh') SidebarComponent = SalesSidebar;
     else if (role === 'xuong') SidebarComponent = WorkshopSidebar;
