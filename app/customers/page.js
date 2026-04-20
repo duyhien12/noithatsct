@@ -29,7 +29,7 @@ export default function CustomersPage() {
     const [view, setView] = useState('kanban');
     const [showModal, setShowModal] = useState(false);
     const [showXDBoard, setShowXDBoard] = useState(false);
-    const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: 'Khách nội thất', taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0 });
+    const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: 'Tư vấn', taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0 });
     const [dragId, setDragId] = useState(null);
     const [dragOver, setDragOver] = useState(null);
     const isDragging = useRef(false);
@@ -66,7 +66,7 @@ export default function CustomersPage() {
         const res = await fetch('/api/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, status: 'Khách hàng' }) });
         if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi tạo khách hàng'); }
         setShowModal(false);
-        setForm({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: 'Khách nội thất', taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0 });
+        setForm({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: 'Tư vấn', taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0 });
         fetchCustomers();
     };
 
