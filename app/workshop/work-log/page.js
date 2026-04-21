@@ -24,13 +24,20 @@ function isSameDay(a, b) { return a.getFullYear() === b.getFullYear() && a.getMo
 function isActiveOnDay(task, day) {
     const start = task.startDate ? new Date(task.startDate) : null;
     const end = task.deadline ? new Date(task.deadline) : null;
-    if (start && end) { const d = new Date(day); d.setHours(12,0,0,0); return d >= start && d <= end; }
-    if (start) return isSameDay(day, start);
-    if (end) return isSameDay(day, end);
+    const localStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const dayStr = localStr(day);
+    const startStr = start ? localStr(start) : null;
+    const endStr = end ? localStr(end) : null;
+    if (startStr && endStr) return dayStr >= startStr && dayStr <= endStr;
+    if (startStr) return dayStr === startStr;
+    if (endStr) return dayStr === endStr;
     return false;
 }
 function fmtShortDate(d) { return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}`; }
-function toISO(date) { return date.toISOString().split('T')[0]; }
+// toLocalISO dùng giờ địa phương để tránh lệch timezone
+function toISO(date) {
+    return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
 function getWeekNum(date) {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
