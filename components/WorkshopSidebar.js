@@ -72,7 +72,7 @@ const NHAN_VIEN_MENU = [
 
 export default function WorkshopSidebar({ isOpen, onClose }) {
     const pathname = usePathname();
-    const { roleInfo, isXuongNhanVien, department, isPhamDuong, viewAsRole, setViewAsRole, actualRole, role } = useRole();
+    const { roleInfo, isXuongNhanVien, department, isPhamDuong, canSwitchRole, viewAsRole, setViewAsRole, actualRole, role } = useRole();
     const [showDeptPicker, setShowDeptPicker] = useState(false);
 
     const menuItems = isXuongNhanVien ? NHAN_VIEN_MENU : FULL_MENU;
@@ -136,14 +136,14 @@ export default function WorkshopSidebar({ isOpen, onClose }) {
                     Vai trò
                 </div>
                 <div
-                    onClick={() => isPhamDuong && setShowDeptPicker(v => !v)}
-                    style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.15)', color: '#FFFFFF', fontWeight: 600, fontSize: 12, cursor: isPhamDuong ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                    onClick={() => canSwitchRole && setShowDeptPicker(v => !v)}
+                    style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.15)', color: '#FFFFFF', fontWeight: 600, fontSize: 12, cursor: canSwitchRole ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
                 >
-                    <span>{roleInfo.icon} {roleInfo.label}{!isPhamDuong && department ? ` · ${department}` : ''}</span>
-                    {isPhamDuong && <span style={{ fontSize: 10, opacity: 0.7 }}>▲</span>}
+                    <span>{roleInfo.icon} {roleInfo.label}{!canSwitchRole && department ? ` · ${department}` : ''}</span>
+                    {canSwitchRole && <span style={{ fontSize: 10, opacity: 0.7 }}>▲</span>}
                 </div>
 
-                {isPhamDuong && showDeptPicker && (
+                {canSwitchRole && showDeptPicker && (
                     <div style={{ marginTop: 8, background: 'rgba(0,0,0,0.3)', borderRadius: 8, overflow: 'hidden' }}>
                         {viewAsRole && (
                             <button

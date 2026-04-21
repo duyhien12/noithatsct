@@ -120,7 +120,7 @@ const DEPT_VIEWS = [
 
 export default function Sidebar({ isOpen, onClose }) {
     const pathname = usePathname();
-    const { role, roleInfo, canViewDashboard, isPhamDuong, viewAsRole, setViewAsRole, actualRole } = useRole();
+    const { role, roleInfo, canViewDashboard, isPhamDuong, canSwitchRole, viewAsRole, setViewAsRole, actualRole } = useRole();
     const { data: session } = useSession();
     const isNgocBinh = session?.user?.email === 'ngocbinh@kientrucsct.com';
     const [showDeptPicker, setShowDeptPicker] = useState(false);
@@ -208,14 +208,14 @@ export default function Sidebar({ isOpen, onClose }) {
                     <Shield size={12} /> Vai trò
                 </div>
                 <div
-                    onClick={() => isPhamDuong && setShowDeptPicker(v => !v)}
-                    style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.15)', color: '#FFFFFF', fontWeight: 600, fontSize: 12, cursor: isPhamDuong ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                    onClick={() => canSwitchRole && setShowDeptPicker(v => !v)}
+                    style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.15)', color: '#FFFFFF', fontWeight: 600, fontSize: 12, cursor: canSwitchRole ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
                 >
                     <span>{roleInfo.icon} {roleInfo.label}</span>
-                    {isPhamDuong && <span style={{ fontSize: 10, opacity: 0.7 }}>▲</span>}
+                    {canSwitchRole && <span style={{ fontSize: 10, opacity: 0.7 }}>▲</span>}
                 </div>
 
-                {isPhamDuong && showDeptPicker && (
+                {canSwitchRole && showDeptPicker && (
                     <div style={{ marginTop: 8, background: 'rgba(0,0,0,0.3)', borderRadius: 8, overflow: 'hidden' }}>
                         {viewAsRole && (
                             <button

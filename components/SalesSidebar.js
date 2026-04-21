@@ -51,7 +51,7 @@ const menuItems = [
 
 export default function SalesSidebar({ isOpen, onClose }) {
     const pathname = usePathname();
-    const { roleInfo, role, isPhamDuong, viewAsRole, setViewAsRole, actualRole } = useRole();
+    const { roleInfo, role, isPhamDuong, canSwitchRole, viewAsRole, setViewAsRole, actualRole } = useRole();
     const [showDeptPicker, setShowDeptPicker] = useState(false);
 
     const handleNavClick = () => {
@@ -113,14 +113,14 @@ export default function SalesSidebar({ isOpen, onClose }) {
                     Vai trò
                 </div>
                 <div
-                    onClick={() => isPhamDuong && setShowDeptPicker(v => !v)}
-                    style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.15)', color: '#FFFFFF', fontWeight: 600, fontSize: 12, cursor: isPhamDuong ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                    onClick={() => canSwitchRole && setShowDeptPicker(v => !v)}
+                    style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.15)', color: '#FFFFFF', fontWeight: 600, fontSize: 12, cursor: canSwitchRole ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
                 >
                     <span>{roleInfo.icon} {roleInfo.label}</span>
-                    {isPhamDuong && <span style={{ fontSize: 10, opacity: 0.7 }}>▲</span>}
+                    {canSwitchRole && <span style={{ fontSize: 10, opacity: 0.7 }}>▲</span>}
                 </div>
 
-                {isPhamDuong && showDeptPicker && (
+                {canSwitchRole && showDeptPicker && (
                     <div style={{ marginTop: 8, background: 'rgba(0,0,0,0.3)', borderRadius: 8, overflow: 'hidden' }}>
                         {viewAsRole && (
                             <button
