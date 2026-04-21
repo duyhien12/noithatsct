@@ -735,11 +735,15 @@ export default function WorkersPage() {
                                             {h}h
                                         </button>
                                     ))}
-                                    <input type="number" min={0.5} max={24} step={0.5} value={attendForm.hoursWorked}
+                                    <input type="number" min={0} max={24} step={0.5} value={attendForm.hoursWorked}
                                         onChange={e => setAttendForm(f => ({ ...f, hoursWorked: Number(e.target.value) }))}
                                         style={{ width: 70, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13 }} />
                                 </div>
-                                {attendTarget.hourlyRate > 0 && (
+                                {attendForm.hoursWorked === 0 ? (
+                                    <div style={{ fontSize: 13, color: '#dc2626', fontWeight: 600, padding: '6px 10px', background: '#fef2f2', borderRadius: 8, border: '1px solid #fecaca' }}>
+                                        ⚠️ Nhập 0 giờ sẽ xóa chấm công ngày này
+                                    </div>
+                                ) : attendTarget.hourlyRate > 0 && (
                                     <div style={{ fontSize: 13, color: '#8b5cf6', fontWeight: 700 }}>
                                         Chi phí: {new Intl.NumberFormat('vi-VN').format((attendForm.hoursWorked / 8) * attendTarget.hourlyRate)}đ
                                         <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>({attendForm.hoursWorked}h / 8h × {new Intl.NumberFormat('vi-VN').format(attendTarget.hourlyRate)}đ/ngày)</span>
@@ -753,7 +757,9 @@ export default function WorkersPage() {
                         </div>
                         <div className="modal-footer">
                             <button className="btn btn-ghost" onClick={() => setAttendTarget(null)}>Hủy</button>
-                            <button className="btn btn-primary" onClick={handleAttend}>✅ Xác nhận chấm công</button>
+                            <button className={`btn ${attendForm.hoursWorked === 0 ? 'btn-danger' : 'btn-primary'}`} onClick={handleAttend}>
+                                {attendForm.hoursWorked === 0 ? '🗑️ Xóa chấm công' : '✅ Xác nhận chấm công'}
+                            </button>
                         </div>
                     </div>
                 </div>

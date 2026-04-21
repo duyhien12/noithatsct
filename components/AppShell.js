@@ -13,6 +13,7 @@ export default function AppShell({ children }) {
     const pathname = usePathname();
     const { data: session, status } = useSession();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const { role } = useRole();
 
     const toggleSidebar = useCallback(() => setSidebarOpen(prev => !prev), []);
     const closeSidebar = useCallback(() => setSidebarOpen(false), []);
@@ -36,8 +37,6 @@ export default function AppShell({ children }) {
             </div>
         );
     }
-
-    const { role } = useRole();
 
     // Choose sidebar based on role (respects viewAsRole for phamduong)
     let SidebarComponent = Sidebar;

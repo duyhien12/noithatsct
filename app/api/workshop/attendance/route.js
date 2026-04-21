@@ -37,16 +37,25 @@ export const POST = withAuth(async (req) => {
         return NextResponse.json({ error: 'Thiếu thông tin' }, { status: 400 });
     }
 
+    // 0 giờ = xóa chấm công (chấm nhầm)
+    if (Number(hoursWorked) === 0) {
+        await prisma.workshopAttendance.deleteMany({
+            where: { workerId, date: new Date(date) },
+        });
+        return NextResponse.json({ deleted: true });
+    }
+
+    const hours = Number(hoursWorked) > 0 ? Number(hoursWorked) : 8;
     const record = await prisma.workshopAttendance.upsert({
         where: { workerId_date: { workerId, date: new Date(date) } },
         create: {
             workerId,
             date: new Date(date),
-            hoursWorked: Number(hoursWorked) || 8,
+            hoursWorked: hours,
             notes: notes?.trim() || '',
         },
         update: {
-            hoursWorked: Number(hoursWorked) || 8,
+            hoursWorked: hours,
             notes: notes?.trim() || '',
         },
         include: { worker: { select: { id: true, name: true } } },

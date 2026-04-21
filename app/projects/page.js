@@ -20,7 +20,12 @@ export default function ProjectsPage() {
     const [dragId, setDragId] = useState(null);
     const [dropTarget, setDropTarget] = useState(null); // 'xay_dung' | 'kinh_doanh'
     const isDragging = useRef(false);
-    const { role } = useRole();
+    const { role, email } = useRole();
+    const canSeeXD = role !== 'xuong' || email === 'buihoa@kientrucsct.com';
+
+    useEffect(() => {
+        if (email === 'buihoa@kientrucsct.com') setShowXDTable(true);
+    }, [email]);
 
     const visibleTypes = role === 'xuong'
         ? ['Thi công nội thất']
@@ -169,7 +174,7 @@ export default function ProjectsPage() {
             {loading ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (<>
 
                 {/* ===== Bảng Phòng Xây Dựng (ẩn với role xuong) ===== */}
-                {role !== 'xuong' && <div className="card" style={{ marginBottom: 12 }}>
+                {canSeeXD && <div className="card" style={{ marginBottom: 12 }}>
                     <button
                         onClick={() => setShowXDTable(v => !v)}
                         style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', padding: '12px 16px', width: '100%' }}>

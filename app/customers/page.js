@@ -34,7 +34,12 @@ export default function CustomersPage() {
     const [dragOver, setDragOver] = useState(null);
     const isDragging = useRef(false);
     const router = useRouter();
-    const { role } = useRole();
+    const { role, email } = useRole();
+    const canSeeXD = role !== 'xuong' || email === 'buihoa@kientrucsct.com';
+
+    useEffect(() => {
+        if (email === 'buihoa@kientrucsct.com') setShowXDBoard(true);
+    }, [email]);
 
     const visiblePipeline = PIPELINE;
 
@@ -139,7 +144,7 @@ export default function CustomersPage() {
                 {/* ========= KANBAN VIEW - desktop only ========= */}
                 {view === 'kanban' && (<>
                 {/* --- Bảng Phòng Xây Dựng (ẩn với role xuong) --- */}
-                {role !== 'xuong' && <div className="desktop-table-view" style={{ marginBottom: 8 }}>
+                {canSeeXD && <div className="desktop-table-view" style={{ marginBottom: 8 }}>
                     <button
                         onClick={() => setShowXDBoard(v => !v)}
                         style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-light)', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', width: '100%' }}>
@@ -301,7 +306,41 @@ export default function CustomersPage() {
                         })}
                     </div>
 
-                    {filtered.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Không có dữ liệu</div>}
+                    {filtered.length === 0 && filteredXD.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Không có dữ liệu</div>}
+
+                    {/* XD customers - mobile only, shown when canSeeXD */}
+                    {canSeeXD && filteredXD.length > 0 && (
+                    <div className="mobile-card-list">
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#2980b9', padding: '8px 4px 4px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                            🏗️ Khách Phòng Xây Dựng ({filteredXD.length})
+                        </div>
+                        {filteredXD.map(c => {
+                            const stage = PIPELINE.find(p => p.key === (c.pipelineStage || 'Tư vấn')) || PIPELINE[0];
+                            return (
+                                <div key={c.id} className="mobile-card-item" onClick={() => router.push(`/customers/${c.id}`)}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                            <div className="card-subtitle">{c.code} · {c.phone}</div>
+                                        </div>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: stage.bg, color: stage.color, flexShrink: 0 }}>
+                                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: stage.color }} />{stage.label}
+                                        </span>
+                                    </div>
+                                    {(c.estimatedValue > 0 || c.totalRevenue > 0 || c.source) && (
+                                        <div className="card-row" style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-light)', fontSize: 12 }}>
+                                            {c.source && <span style={{ color: 'var(--text-muted)' }}>{c.source}</span>}
+                                            <div style={{ display: 'flex', gap: 12, marginLeft: 'auto' }}>
+                                                {c.estimatedValue > 0 && <span style={{ fontWeight: 600, color: 'var(--text-accent)' }}>{fmtShort(c.estimatedValue)}</span>}
+                                                {c.totalRevenue > 0 && <span style={{ fontWeight: 600, color: 'var(--status-success)' }}>{fmtShort(c.totalRevenue)}</span>}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                    )}
                 </div>
             </>)}
 
