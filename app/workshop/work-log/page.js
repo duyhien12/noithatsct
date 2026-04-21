@@ -112,9 +112,72 @@ function WorkerChipInput({ selected, workerList, onChange }) {
     );
 }
 
+// Project autocomplete input (single line)
+function ProjectInput({ value, projectId, projects, onChange }) {
+    const [input, setInput] = useState(value || '');
+    const [suggestions, setSuggestions] = useState([]);
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+
+    // Sync when value changes externally
+    useEffect(() => { setInput(value || ''); }, [value]);
+
+    const handleInput = (val) => {
+        setInput(val);
+        if (val.trim().length > 0) {
+            const q = val.toLowerCase();
+            setSuggestions(projects.filter(p =>
+                p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q)
+            ).slice(0, 8));
+            setOpen(true);
+        } else {
+            setSuggestions([]);
+            setOpen(false);
+            onChange('', null);
+        }
+    };
+
+    const select = (p) => {
+        setInput(p.name);
+        setSuggestions([]);
+        setOpen(false);
+        onChange(p.name, p.id);
+    };
+
+    return (
+        <div style={{ position: 'relative' }}>
+            <input
+                ref={ref}
+                className="form-input"
+                placeholder="Tên công trình *"
+                value={input}
+                autoFocus
+                onChange={e => handleInput(e.target.value)}
+                onBlur={() => setTimeout(() => setOpen(false), 150)}
+                onFocus={() => input.trim() && suggestions.length > 0 && setOpen(true)}
+                style={{ fontSize: 12, padding: '5px 8px', width: '100%' }}
+            />
+            {open && suggestions.length > 0 && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1100, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.15)', maxHeight: 200, overflowY: 'auto', marginTop: 2 }}>
+                    {suggestions.map(p => (
+                        <div key={p.id} onMouseDown={() => select(p)}
+                            style={{ padding: '6px 10px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid var(--border-light)' }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                            <span style={{ fontWeight: 700, color: '#2563eb', marginRight: 6 }}>{p.code}</span>
+                            <span style={{ color: 'var(--text-primary)' }}>{p.name}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // Cell editor popover
 function CellEditor({ day, category, task, workers, projects, onSave, onDelete, onClose }) {
-    const [title, setTitle] = useState(task?.title || '');
+    const initTitle = task?.title || (task?.project?.name || '');
+    const [title, setTitle] = useState(initTitle);
     const [projectId, setProjectId] = useState(task?.projectId || '');
     const [selectedWorkers, setSelectedWorkers] = useState(
         task?.workers?.map(tw => tw.worker?.name).filter(Boolean) || []
@@ -122,7 +185,6 @@ function CellEditor({ day, category, task, workers, projects, onSave, onDelete, 
     const [saving, setSaving] = useState(false);
     const ref = useRef(null);
 
-    // Close on outside click
     useEffect(() => {
         const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
         setTimeout(() => document.addEventListener('mousedown', handler), 10);
@@ -157,24 +219,24 @@ function CellEditor({ day, category, task, workers, projects, onSave, onDelete, 
     };
 
     return (
-        <div ref={ref} style={{ position: 'absolute', top: 0, left: 0, zIndex: 1000, width: 280, background: 'var(--bg-card)', border: '1.5px solid var(--accent-primary)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', padding: 12 }}>
-            <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--accent-primary)', marginBottom: 8 }}>
+        <div ref={ref} style={{ position: 'absolute', top: 0, left: 0, zIndex: 1000, width: 260, background: 'var(--bg-card)', border: '1.5px solid var(--accent-primary)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', padding: 10 }}>
+            <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--accent-primary)', marginBottom: 7, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {DAYS_VI[day.getDay()]} {fmtShortDate(day)} · {category.label}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <input className="form-input" placeholder="Tên công việc *" value={title} onChange={e => setTitle(e.target.value)} autoFocus style={{ fontSize: 12, padding: '5px 8px' }} onKeyDown={e => e.key === 'Enter' && handleSave()} />
-                <select className="form-select" value={projectId} onChange={e => setProjectId(e.target.value)} style={{ fontSize: 12, padding: '5px 8px' }}>
-                    <option value="">-- Dự án --</option>
-                    {projects.map(p => <option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}
-                </select>
-                <div>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 3 }}>CB Thực hiện</div>
-                    <WorkerChipInput selected={selectedWorkers} workerList={workers} onChange={setSelectedWorkers} />
-                </div>
-                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 4 }}>
-                    {task && <button className="btn btn-sm" style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '4px 8px' }} onClick={handleDelete}>🗑️</button>}
-                    <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '4px 8px' }}>Hủy</button>
-                    <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving || !title.trim()} style={{ padding: '4px 10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {/* Tên CT: project autocomplete */}
+                <ProjectInput
+                    value={title}
+                    projectId={projectId}
+                    projects={projects}
+                    onChange={(name, id) => { setTitle(name); setProjectId(id || ''); }}
+                />
+                {/* CB Thực hiện */}
+                <WorkerChipInput selected={selectedWorkers} workerList={workers} onChange={setSelectedWorkers} />
+                <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>
+                    {task && <button style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6, padding: '3px 7px', cursor: 'pointer', fontSize: 12 }} onClick={handleDelete}>🗑️</button>}
+                    <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '3px 8px', fontSize: 12 }}>Hủy</button>
+                    <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving || !title.trim()} style={{ padding: '3px 10px', fontSize: 12 }}>
                         {saving ? '...' : task ? 'Lưu' : '+ Thêm'}
                     </button>
                 </div>
