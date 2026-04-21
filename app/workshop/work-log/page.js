@@ -124,6 +124,7 @@ function ProjectInput({ value, projectId, projects, onChange }) {
 
     const handleInput = (val) => {
         setInput(val);
+        onChange(val, null);
         if (val.trim().length > 0) {
             const q = val.toLowerCase();
             setSuggestions(projects.filter(p =>
@@ -133,7 +134,6 @@ function ProjectInput({ value, projectId, projects, onChange }) {
         } else {
             setSuggestions([]);
             setOpen(false);
-            onChange('', null);
         }
     };
 
