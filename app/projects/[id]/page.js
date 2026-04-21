@@ -13,6 +13,94 @@ import BudgetEstimateForm from '@/components/budget/BudgetEstimateForm';
 import MeasurementSheet, { MeasurementActions } from '@/components/contractor/MeasurementSheet';
 import ProjectChatPanel from '@/components/ProjectChatPanel';
 import { useSession } from 'next-auth/react';
+
+// Banner chia sẻ link + QR cho khách hàng
+function CustomerShareBanner({ projectCode }) {
+    const [copied, setCopied] = useState(false);
+    const [showQR, setShowQR] = useState(false);
+    const link = typeof window !== 'undefined'
+        ? `${window.location.origin}/progress/${projectCode}`
+        : `/progress/${projectCode}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(link)}`;
+
+    const copy = () => {
+        navigator.clipboard.writeText(link);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const print = () => {
+        const win = window.open('', '_blank');
+        win.document.write(`
+            <html><head><title>QR - ${projectCode}</title>
+            <style>body{font-family:sans-serif;text-align:center;padding:40px} h2{color:#1C3A6B} p{color:#555;font-size:14px} img{margin:20px auto;display:block;border:1px solid #eee;border-radius:8px} .link{background:#f3f4f6;padding:10px 16px;border-radius:8px;font-size:13px;word-break:break-all;margin:16px auto;max-width:400px}</style>
+            </head><body>
+            <h2>Theo dõi tiến độ dự án</h2>
+            <p>Mã dự án: <strong>${projectCode}</strong></p>
+            <img src="${qrUrl}&size=250x250" width="250" height="250" />
+            <div class="link">${link}</div>
+            <p style="font-size:12px;color:#999">Quét mã QR hoặc truy cập đường link để xem tiến độ & chat với đội thi công</p>
+            </body></html>
+        `);
+        win.document.close();
+        win.print();
+    };
+
+    return (
+        <div style={{ padding: '12px 16px', background: '#f0f9ff', borderBottom: '1px solid #bae6fd', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            {/* QR nhỏ */}
+            <img src={`${qrUrl}&size=64x64`} width={64} height={64} alt="QR" onClick={() => setShowQR(true)}
+                style={{ borderRadius: 8, border: '2px solid #0ea5e9', cursor: 'zoom-in', flexShrink: 0 }} title="Bấm để phóng to" />
+
+            {/* Link + buttons */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#0369a1', marginBottom: 4 }}>🔗 Link theo dõi dự án cho khách hàng</div>
+                <div style={{ fontSize: 12, color: '#374151', background: '#fff', border: '1px solid #bae6fd', borderRadius: 8, padding: '5px 10px', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {link}
+                </div>
+            </div>
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                <button onClick={copy}
+                    style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #0ea5e9', background: copied ? '#0ea5e9' : '#fff', color: copied ? '#fff' : '#0369a1', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
+                    {copied ? '✓ Đã copy' : '📋 Copy link'}
+                </button>
+                <button onClick={() => setShowQR(true)}
+                    style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #0ea5e9', background: '#fff', color: '#0369a1', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                    🔍 Xem QR
+                </button>
+                <button onClick={print}
+                    style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #0ea5e9', background: '#fff', color: '#0369a1', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                    🖨️ In QR
+                </button>
+            </div>
+
+            {/* QR lightbox */}
+            {showQR && (
+                <>
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9000 }} onClick={() => setShowQR(false)} />
+                    <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 9001, background: '#fff', borderRadius: 20, padding: 32, textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', minWidth: 280 }}>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: '#1C3A6B', marginBottom: 4 }}>QR Code — Dự án {projectCode}</div>
+                        <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 16 }}>Khách hàng quét để xem tiến độ & chat</div>
+                        <img src={`${qrUrl}&size=220x220`} width={220} height={220} alt="QR" style={{ borderRadius: 12, border: '1px solid #e5e7eb' }} />
+                        <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 12, padding: '6px 10px', background: '#f9fafb', borderRadius: 8, wordBreak: 'break-all' }}>{link}</div>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'center' }}>
+                            <button onClick={copy} style={{ padding: '8px 16px', borderRadius: 8, background: copied ? '#0ea5e9' : '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                                {copied ? '✓ Đã copy' : '📋 Copy link'}
+                            </button>
+                            <button onClick={print} style={{ padding: '8px 16px', borderRadius: 8, background: '#1C3A6B', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                                🖨️ In QR
+                            </button>
+                        </div>
+                        <button onClick={() => setShowQR(false)} style={{ position: 'absolute', top: 12, right: 14, background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9ca3af' }}>×</button>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const pct = (a, b) => b > 0 ? Math.round((a / b) * 100) : 0;
@@ -896,6 +984,7 @@ export default function ProjectDetailPage() {
             {/* TAB: Chat KH */}
             {tab === 'chat' && (
                 <div className="card" style={{ overflow: 'hidden' }}>
+                    {/* Header */}
                     <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', background: '#1C3A6B', color: '#fff', display: 'flex', alignItems: 'center', gap: 10 }}>
                         <span style={{ fontSize: 20 }}>💬</span>
                         <div>
@@ -903,7 +992,11 @@ export default function ProjectDetailPage() {
                             <div style={{ fontSize: 11, opacity: 0.75 }}>Trao đổi giữa nội bộ &amp; khách hàng dự án {p.code}</div>
                         </div>
                     </div>
-                    <div style={{ height: 520 }}>
+
+                    {/* Banner chia sẻ link */}
+                    <CustomerShareBanner projectCode={p.code} />
+
+                    <div style={{ height: 480 }}>
                         <ProjectChatPanel
                             apiBase={`/api/projects/${id}/chat`}
                             myId={session?.user?.name || session?.user?.email}
