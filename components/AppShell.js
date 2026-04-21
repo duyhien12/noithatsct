@@ -8,6 +8,7 @@ import Sidebar from '@/components/Sidebar';
 import SalesSidebar from '@/components/SalesSidebar';
 import WorkshopSidebar from '@/components/WorkshopSidebar';
 import Header from '@/components/Header';
+import WorkshopChat from '@/components/WorkshopChat';
 
 export default function AppShell({ children }) {
     const pathname = usePathname();
@@ -43,6 +44,8 @@ export default function AppShell({ children }) {
     if (role === 'kinh_doanh') SidebarComponent = SalesSidebar;
     else if (role === 'xuong') SidebarComponent = WorkshopSidebar;
 
+    const showChat = ['xuong', 'ban_gd', 'giam_doc', 'pho_gd', 'admin'].includes(role);
+
     return (
         <div className="app-layout">
             <SidebarComponent isOpen={sidebarOpen} onClose={closeSidebar} />
@@ -53,6 +56,7 @@ export default function AppShell({ children }) {
                     {children}
                 </main>
             </div>
+            {showChat && <WorkshopChat />}
         </div>
     );
 }

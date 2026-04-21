@@ -1066,6 +1066,17 @@ model WorkLogEntry {
   @@index([projectId])
 }
 
+model ChatMessage {
+  id        String   @id @default(cuid())
+  content   String   @default("") @db.Text
+  images    String   @default("[]")
+  userId    String
+  userName  String
+  userRole  String   @default("")
+  createdAt DateTime @default(now())
+  @@index([createdAt])
+}
+
 model WorkshopAttendance {
   id          String         @id @default(cuid())
   workerId    String
