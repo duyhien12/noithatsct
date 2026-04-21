@@ -11,6 +11,8 @@ import BudgetQuickAdd from '@/components/budget/BudgetQuickAdd';
 import SCurveChart from '@/components/budget/SCurveChart';
 import BudgetEstimateForm from '@/components/budget/BudgetEstimateForm';
 import MeasurementSheet, { MeasurementActions } from '@/components/contractor/MeasurementSheet';
+import ProjectChatPanel from '@/components/ProjectChatPanel';
+import { useSession } from 'next-auth/react';
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const pct = (a, b) => b > 0 ? Math.round((a / b) * 100) : 0;
@@ -29,6 +31,7 @@ const STATUS_MAP = { 'Khảo sát': 0, 'Báo giá': 0, 'Thiết kế': 1, 'Chu�
 export default function ProjectDetailPage() {
     const { id } = useParams();
     const router = useRouter();
+    const { data: session } = useSession();
     const [data, setData] = useState(null);
     const [tab, setTab] = useState('overview');
     const [loading, setLoading] = useState(true);
@@ -690,6 +693,7 @@ export default function ProjectDetailPage() {
         { key: 'documents', label: 'Tài liệu', icon: '📁', count: p.documents?.length },
 
         { key: 'journal', label: 'Nhật ký AI', icon: '🤖' },
+        { key: 'chat', label: 'Chat KH', icon: '💬' },
     ];
 
     return (
@@ -886,6 +890,26 @@ export default function ProjectDetailPage() {
             {tab === 'journal' && (
                 <div className="card" style={{ padding: 24 }}>
                     <JournalTab projectId={id} />
+                </div>
+            )}
+
+            {/* TAB: Chat KH */}
+            {tab === 'chat' && (
+                <div className="card" style={{ overflow: 'hidden' }}>
+                    <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', background: '#1C3A6B', color: '#fff', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 20 }}>💬</span>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: 14 }}>Chat với khách hàng</div>
+                            <div style={{ fontSize: 11, opacity: 0.75 }}>Trao đổi giữa nội bộ &amp; khách hàng dự án {p.code}</div>
+                        </div>
+                    </div>
+                    <div style={{ height: 520 }}>
+                        <ProjectChatPanel
+                            apiBase={`/api/projects/${id}/chat`}
+                            myId={session?.user?.name || session?.user?.email}
+                            isCustomer={false}
+                        />
+                    </div>
                 </div>
             )}
 
