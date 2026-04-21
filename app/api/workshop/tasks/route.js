@@ -30,7 +30,7 @@ export const GET = withAuth(async (req) => {
 
 export const POST = withAuth(async (req) => {
     const body = await req.json();
-    const { title, description, projectId, startDate, deadline, priority, notes, workerIds = [], materials = [] } = body;
+    const { title, description, projectId, startDate, deadline, priority, notes, category, workerIds = [], materials = [] } = body;
 
     if (!title?.trim()) {
         return NextResponse.json({ error: 'Tiêu đề bắt buộc' }, { status: 400 });
@@ -44,6 +44,7 @@ export const POST = withAuth(async (req) => {
             startDate: startDate ? new Date(startDate) : null,
             deadline: deadline ? new Date(deadline) : null,
             priority: priority || 'Trung bình',
+            category: category || 'Lắp ghép tại xưởng',
             notes: notes?.trim() || '',
             workers: workerIds.length > 0 ? {
                 create: workerIds.map(wid => ({ workerId: wid })),

@@ -42,7 +42,7 @@ export default function WorkersPage() {
     const [savingCurrentWork, setSavingCurrentWork] = useState(false);
     const [projects, setProjects] = useState([]);
     const [showAddTask, setShowAddTask] = useState(false);
-    const [newTaskForm, setNewTaskForm] = useState({ title: '', projectId: '', deadline: '' });
+    const [newTaskForm, setNewTaskForm] = useState({ title: '', projectId: '', deadline: '', category: 'Lắp ghép tại xưởng' });
 
     // ── Tổng hợp tháng ───────────────────────────────────────────────────────
     const [showSummary, setShowSummary] = useState(false);
@@ -194,7 +194,7 @@ export default function WorkersPage() {
         setCurrentWorkTarget(w);
         setCurrentWorkTaskIds(assigned);
         setShowAddTask(false);
-        setNewTaskForm({ title: '', projectId: '', deadline: '' });
+        setNewTaskForm({ title: '', projectId: '', deadline: '', category: 'Lắp ghép tại xưởng' });
     };
 
     const addNewTask = async () => {
@@ -207,6 +207,7 @@ export default function WorkersPage() {
                     title: newTaskForm.title.trim(),
                     projectId: newTaskForm.projectId || null,
                     deadline: newTaskForm.deadline || null,
+                    category: newTaskForm.category || 'Lắp ghép tại xưởng',
                     status: 'Đang làm',
                     workerIds: [currentWorkTarget.id],
                 }),
@@ -215,7 +216,7 @@ export default function WorkersPage() {
             setAllTasks(prev => [...prev, created]);
             setCurrentWorkTaskIds(prev => [...prev, created.id]);
             setShowAddTask(false);
-            setNewTaskForm({ title: '', projectId: '', deadline: '' });
+            setNewTaskForm({ title: '', projectId: '', deadline: '', category: 'Lắp ghép tại xưởng' });
         } finally { setSavingCurrentWork(false); }
     };
 
@@ -901,6 +902,9 @@ export default function WorkersPage() {
                                         <option value="">-- Dự án (tùy chọn) --</option>
                                         {projects.map(p => <option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}
                                     </select>
+                                    <select className="form-select" value={newTaskForm.category} onChange={e => setNewTaskForm(f => ({ ...f, category: e.target.value }))} style={{ fontSize: 13 }}>
+                                        {['Gia công nguội','Lắp ghép tại xưởng','Lắp đặt tại công trình','Bảo dưỡng','Việc khác'].map(c => <option key={c}>{c}</option>)}
+                                    </select>
                                     <div style={{ display: 'flex', gap: 6 }}>
                                         <div style={{ flex: 1 }}>
                                             <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Hạn chót</label>
@@ -908,7 +912,7 @@ export default function WorkersPage() {
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                                        <button className="btn btn-ghost btn-sm" onClick={() => { setShowAddTask(false); setNewTaskForm({ title: '', projectId: '', deadline: '' }); }}>Hủy</button>
+                                        <button className="btn btn-ghost btn-sm" onClick={() => { setShowAddTask(false); setNewTaskForm({ title: '', projectId: '', deadline: '', category: 'Lắp ghép tại xưởng' }); }}>Hủy</button>
                                         <button className="btn btn-primary btn-sm" onClick={addNewTask} disabled={savingCurrentWork || !newTaskForm.title.trim()}>
                                             {savingCurrentWork ? 'Đang tạo...' : '+ Tạo & giao việc'}
                                         </button>

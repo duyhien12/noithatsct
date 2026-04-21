@@ -1019,6 +1019,7 @@ model WorkshopTask {
   deadline    DateTime?
   progress    Int       @default(0)
   status      String    @default("Chờ làm")
+  category    String    @default("Lắp ghép tại xưởng")
   priority    String    @default("Trung bình")
   isLocked    Boolean   @default(false)
   notes       String    @default("") @db.Text

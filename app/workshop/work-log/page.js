@@ -3,245 +3,252 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRole } from '@/contexts/RoleContext';
 
-const STATUS_COLOR = {
-    'Chờ làm':  { color: '#6b7280', bg: '#f3f4f6' },
-    'Đang làm': { color: '#d97706', bg: '#fef3c7' },
-    'Hoàn thành': { color: '#16a34a', bg: '#dcfce7' },
-    'Tạm dừng': { color: '#dc2626', bg: '#fee2e2' },
-};
+const CATEGORIES = [
+    { key: 'Gia công nguội',         label: 'Gia công nguội',         short: 'GCN',  color: '#dbeafe', hd: '#bfdbfe' },
+    { key: 'Lắp ghép tại xưởng',     label: 'Lắp ghép tại xưởng',     short: 'LGX',  color: '#fef9c3', hd: '#fef08a' },
+    { key: 'Lắp đặt tại công trình', label: 'Lắp đặt tại công trình', short: 'LĐCT', color: '#dbeafe', hd: '#bfdbfe' },
+    { key: 'Bảo dưỡng',              label: 'Bảo dưỡng',              short: 'BD',   color: '#fef9c3', hd: '#fef08a' },
+    { key: 'Việc khác',              label: 'Việc khác',              short: 'VK',   color: '#f0fdf4', hd: '#bbf7d0' },
+];
 
-const fmtDate = (str) => {
-    if (!str) return '—';
-    return new Date(str).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-};
+const DAYS_VI = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
 
-const todayStr = () => new Date().toISOString().split('T')[0];
+function getWeekStart(date) {
+    const d = new Date(date);
+    const day = d.getDay(); // 0=Sun
+    const diff = day === 0 ? -6 : 1 - day; // shift to Monday
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
+
+function addDays(date, n) {
+    const d = new Date(date);
+    d.setDate(d.getDate() + n);
+    return d;
+}
+
+function isSameDay(a, b) {
+    return a.getFullYear() === b.getFullYear() &&
+        a.getMonth() === b.getMonth() &&
+        a.getDate() === b.getDate();
+}
+
+function isActiveOnDay(task, day) {
+    if (!task.startDate && !task.deadline) return false;
+    const start = task.startDate ? new Date(task.startDate) : null;
+    const end = task.deadline ? new Date(task.deadline) : null;
+    if (start && end) return day >= start && day <= end;
+    if (start) return isSameDay(day, start);
+    if (end) return isSameDay(day, end);
+    return false;
+}
+
+function fmtShortDate(date) {
+    return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function getWeekNum(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
 
 export default function WorkLogPage() {
     const router = useRouter();
     const { role } = useRole();
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filterWorker, setFilterWorker] = useState('');
-    const [filterStatus, setFilterStatus] = useState('');
-    const [filterProject, setFilterProject] = useState('');
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
-    const [expandedId, setExpandedId] = useState(null);
+    const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
 
     useEffect(() => {
         if (role && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd'].includes(role)) {
             router.replace('/');
             return;
         }
-        fetchTasks();
+        fetch('/api/workshop/tasks')
+            .then(r => r.json())
+            .then(d => { setTasks(Array.isArray(d) ? d : []); setLoading(false); });
     }, [role]);
 
-    const fetchTasks = async () => {
-        setLoading(true);
-        const res = await fetch('/api/workshop/tasks');
-        const data = await res.json();
-        setTasks(Array.isArray(data) ? data : []);
-        setLoading(false);
-    };
+    const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+    const weekEnd = weekDays[6];
+    const weekNum = getWeekNum(weekStart);
 
-    // Derive unique worker names and project names for filter dropdowns
-    const allWorkerNames = [...new Set(
-        tasks.flatMap(t => t.workers?.map(tw => tw.worker?.name).filter(Boolean) || [])
-    )].sort();
+    const prevWeek = () => setWeekStart(d => addDays(d, -7));
+    const nextWeek = () => setWeekStart(d => addDays(d, 7));
+    const thisWeek = () => setWeekStart(getWeekStart(new Date()));
 
-    const allProjects = [...new Map(
-        tasks.filter(t => t.project).map(t => [t.project.id, t.project])
-    ).values()];
+    // For each day and category, get tasks active that day with that category
+    const getCell = (day, catKey) =>
+        tasks.filter(t => t.category === catKey && isActiveOnDay(t, day));
 
-    const filtered = tasks.filter(t => {
-        if (filterStatus && t.status !== filterStatus) return false;
-        if (filterProject && t.projectId !== filterProject) return false;
-        if (filterWorker && !t.workers?.some(tw => tw.worker?.name === filterWorker)) return false;
-        if (dateFrom && t.createdAt && t.createdAt.slice(0, 10) < dateFrom) return false;
-        if (dateTo && t.createdAt && t.createdAt.slice(0, 10) > dateTo) return false;
-        return true;
-    });
-
-    // Stats
-    const totalTasks = filtered.length;
-    const doneTasks = filtered.filter(t => t.status === 'Hoàn thành').length;
-    const inProgressTasks = filtered.filter(t => t.status === 'Đang làm').length;
-    const pendingTasks = filtered.filter(t => t.status === 'Chờ làm').length;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* KPI */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
-                <div className="card" style={{ padding: '14px 18px', borderLeft: '4px solid #2563eb' }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>📋 Tổng công việc</div>
-                    <div style={{ fontSize: 26, fontWeight: 800, color: '#2563eb' }}>{totalTasks}</div>
-                </div>
-                <div className="card" style={{ padding: '14px 18px', borderLeft: '4px solid #d97706' }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>⚙️ Đang thực hiện</div>
-                    <div style={{ fontSize: 26, fontWeight: 800, color: '#d97706' }}>{inProgressTasks}</div>
-                </div>
-                <div className="card" style={{ padding: '14px 18px', borderLeft: '4px solid #16a34a' }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>✅ Hoàn thành</div>
-                    <div style={{ fontSize: 26, fontWeight: 800, color: '#16a34a' }}>{doneTasks}</div>
-                </div>
-                <div className="card" style={{ padding: '14px 18px', borderLeft: '4px solid #6b7280' }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>🕐 Chờ làm</div>
-                    <div style={{ fontSize: 26, fontWeight: 800, color: '#6b7280' }}>{pendingTasks}</div>
-                </div>
-            </div>
-
-            <div className="card">
-                <div className="card-header">
-                    <h3>📒 Nhật ký công việc xưởng</h3>
-                    <button className="btn btn-ghost btn-sm" onClick={fetchTasks}>🔄 Làm mới</button>
+            <div className="card" style={{ overflow: 'hidden' }}>
+                {/* Header */}
+                <div style={{ padding: '16px 20px', borderBottom: '2px solid var(--border)', background: '#1C3A6B', color: '#fff', textAlign: 'center' }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                        Kế hoạch - Nhật ký nhân sự xưởng nội thất SCT
+                    </div>
+                    <div style={{ fontSize: 13, marginTop: 4, opacity: 0.85 }}>
+                        Từ ngày {fmtShortDate(weekStart)} đến ngày {fmtShortDate(weekEnd)}.{weekEnd.getFullYear()}
+                    </div>
                 </div>
 
-                {/* Filters */}
-                <div className="filter-bar" style={{ borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 8 }}>
-                    <select className="form-select" style={{ flex: '1 1 150px', minWidth: 130 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                        <option value="">Tất cả trạng thái</option>
-                        {Object.keys(STATUS_COLOR).map(s => <option key={s}>{s}</option>)}
-                    </select>
-                    <select className="form-select" style={{ flex: '1 1 160px', minWidth: 130 }} value={filterWorker} onChange={e => setFilterWorker(e.target.value)}>
-                        <option value="">Tất cả nhân công</option>
-                        {allWorkerNames.map(n => <option key={n}>{n}</option>)}
-                    </select>
-                    <select className="form-select" style={{ flex: '1 1 180px', minWidth: 140 }} value={filterProject} onChange={e => setFilterProject(e.target.value)}>
-                        <option value="">Tất cả dự án</option>
-                        {allProjects.map(p => <option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}
-                    </select>
-                    <input type="date" className="form-input" style={{ flex: '0 0 140px' }} value={dateFrom} onChange={e => setDateFrom(e.target.value)} title="Từ ngày" />
-                    <input type="date" className="form-input" style={{ flex: '0 0 140px' }} value={dateTo} onChange={e => setDateTo(e.target.value)} title="Đến ngày" />
-                    {(filterStatus || filterWorker || filterProject || dateFrom || dateTo) && (
-                        <button className="btn btn-ghost btn-sm" onClick={() => { setFilterStatus(''); setFilterWorker(''); setFilterProject(''); setDateFrom(''); setDateTo(''); }}>
-                            ✕ Xóa lọc
-                        </button>
-                    )}
+                {/* Week nav */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <button className="btn btn-ghost btn-sm" onClick={prevWeek}>◀</button>
+                        <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', padding: '0 8px' }}>
+                            Tuần {weekNum}
+                        </span>
+                        <button className="btn btn-ghost btn-sm" onClick={nextWeek}>▶</button>
+                        <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={thisWeek}>Tuần này</button>
+                    </div>
+                    <button className="btn btn-ghost btn-sm" onClick={() => { setLoading(true); fetch('/api/workshop/tasks').then(r => r.json()).then(d => { setTasks(Array.isArray(d) ? d : []); setLoading(false); }); }}>
+                        🔄 Làm mới
+                    </button>
                 </div>
 
                 {loading ? (
                     <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
                 ) : (
                     <>
-                    {/* Desktop */}
-                    <div className="desktop-table-view">
-                        <div className="table-container">
-                            <table className="data-table">
-                                <thead>
-                                    <tr>
-                                        <th style={{ minWidth: 200 }}>Công việc</th>
-                                        <th>Dự án</th>
-                                        <th>Nhân công</th>
-                                        <th>Trạng thái</th>
-                                        <th style={{ textAlign: 'center' }}>Tiến độ</th>
-                                        <th>Ngày tạo</th>
-                                        <th>Hạn chót</th>
-                                        <th>Ghi chú</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filtered.map(t => {
-                                        const sc = STATUS_COLOR[t.status] || { color: '#6b7280', bg: '#f3f4f6' };
-                                        const isExpanded = expandedId === t.id;
-                                        const isOverdue = t.deadline && t.status !== 'Hoàn thành' && new Date(t.deadline) < new Date();
-                                        return (
-                                            <tr key={t.id} style={{ cursor: 'pointer' }} onClick={() => setExpandedId(isExpanded ? null : t.id)}>
-                                                <td>
-                                                    <div style={{ fontWeight: 600, fontSize: 13 }}>{t.title}</div>
-                                                    {t.description && isExpanded && (
-                                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, whiteSpace: 'pre-wrap' }}>{t.description}</div>
-                                                    )}
+                    {/* ── Desktop table ── */}
+                    <div className="desktop-table-view" style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 900 }}>
+                            <thead>
+                                {/* Row 1: category groups */}
+                                <tr style={{ background: '#1C3A6B', color: '#fff' }}>
+                                    <th rowSpan={2} style={{ padding: '8px 10px', border: '1px solid #2a4a8b', minWidth: 80, whiteSpace: 'nowrap', verticalAlign: 'middle', textAlign: 'center', fontSize: 11 }}>
+                                        Ngày / Tháng
+                                    </th>
+                                    {CATEGORIES.map(cat => (
+                                        <th key={cat.key} colSpan={2} style={{ padding: '6px 10px', border: '1px solid #2a4a8b', textAlign: 'center', fontSize: 12, fontWeight: 700 }}>
+                                            {cat.label}
+                                        </th>
+                                    ))}
+                                </tr>
+                                {/* Row 2: Tên CT / CB T/hiện */}
+                                <tr style={{ background: '#2A5298', color: '#e2e8f0' }}>
+                                    {CATEGORIES.map(cat => (
+                                        <>
+                                            <th key={cat.key + '_ct'} style={{ padding: '5px 8px', border: '1px solid #3a5fa8', minWidth: 130, fontSize: 11, fontWeight: 600, textAlign: 'center' }}>Tên CT</th>
+                                            <th key={cat.key + '_cb'} style={{ padding: '5px 8px', border: '1px solid #3a5fa8', minWidth: 120, fontSize: 11, fontWeight: 600, textAlign: 'center' }}>CB T/hiện</th>
+                                        </>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {weekDays.map((day, di) => {
+                                    const isToday = isSameDay(day, today);
+                                    const dayOfWeek = day.getDay();
+                                    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                                    const rowBg = isToday ? '#fffbeb' : isWeekend ? '#fef2f2' : di % 2 === 0 ? '#f8fafc' : '#ffffff';
+
+                                    // max rows needed for this day (most tasks in any category)
+                                    const cellTasks = CATEGORIES.map(cat => getCell(day, cat.key));
+                                    const maxRows = Math.max(1, ...cellTasks.map(t => t.length));
+
+                                    return Array.from({ length: maxRows }, (_, ri) => (
+                                        <tr key={`${day.toISOString()}-${ri}`} style={{ background: rowBg, borderBottom: ri === maxRows - 1 ? '2px solid var(--border)' : '1px solid var(--border-light)' }}>
+                                            {ri === 0 && (
+                                                <td rowSpan={maxRows} style={{
+                                                    padding: '8px 10px', border: '1px solid var(--border)',
+                                                    background: isToday ? '#fef3c7' : isWeekend ? '#fee2e2' : '#f1f5f9',
+                                                    fontWeight: isToday ? 800 : 600, textAlign: 'center', verticalAlign: 'middle',
+                                                    fontSize: 12, whiteSpace: 'nowrap',
+                                                    color: isToday ? '#92400e' : isWeekend ? '#dc2626' : '#475569',
+                                                }}>
+                                                    <div>{DAYS_VI[dayOfWeek]}</div>
+                                                    <div style={{ fontSize: 13, fontWeight: 800 }}>{fmtShortDate(day)}</div>
+                                                    {isToday && <div style={{ fontSize: 10, color: '#d97706', marginTop: 2 }}>Hôm nay</div>}
                                                 </td>
-                                                <td style={{ fontSize: 12 }}>
-                                                    {t.project ? (
-                                                        <div>
-                                                            <div style={{ fontWeight: 600, fontSize: 12 }}>{t.project.code}</div>
-                                                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t.project.name}</div>
-                                                        </div>
-                                                    ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
-                                                </td>
-                                                <td>
-                                                    {t.workers?.length > 0 ? (
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                            {t.workers.map(tw => (
-                                                                <span key={tw.workerId} style={{ fontSize: 12, padding: '1px 6px', borderRadius: 8, background: '#f0fdf4', color: '#15803d', whiteSpace: 'nowrap' }}>
-                                                                    {tw.worker?.name}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    ) : <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Chưa giao</span>}
-                                                </td>
-                                                <td>
-                                                    <span style={{ padding: '3px 9px', borderRadius: 20, background: sc.bg, color: sc.color, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                                        {t.status}
-                                                    </span>
-                                                </td>
-                                                <td style={{ textAlign: 'center' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                        <div style={{ flex: 1, height: 6, borderRadius: 3, background: '#e5e7eb', overflow: 'hidden', minWidth: 50 }}>
-                                                            <div style={{ width: `${t.progress || 0}%`, height: '100%', background: t.progress >= 100 ? '#16a34a' : '#2563eb', borderRadius: 3 }} />
-                                                        </div>
-                                                        <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 28 }}>{t.progress || 0}%</span>
-                                                    </div>
-                                                </td>
-                                                <td style={{ fontSize: 12 }}>{fmtDate(t.createdAt)}</td>
-                                                <td style={{ fontSize: 12, color: isOverdue ? '#dc2626' : 'inherit', fontWeight: isOverdue ? 700 : 400 }}>
-                                                    {fmtDate(t.deadline)}{isOverdue && ' ⚠️'}
-                                                </td>
-                                                <td style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {t.notes || '—'}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                    {filtered.length === 0 && (
-                                        <tr><td colSpan={8} style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)' }}>Không có công việc nào</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                            )}
+                                            {cellTasks.map((catTasks, ci) => {
+                                                const task = catTasks[ri];
+                                                const cat = CATEGORIES[ci];
+                                                const workers = task?.workers?.map(tw => tw.worker?.name).filter(Boolean).join(', ') || '';
+                                                return (
+                                                    <>
+                                                        <td key={cat.key + '_ct_' + ri} style={{ padding: '5px 8px', border: '1px solid var(--border-light)', background: task ? cat.color : 'transparent', verticalAlign: 'top', fontSize: 12 }}>
+                                                            {task ? (
+                                                                <div>
+                                                                    <div style={{ fontWeight: 600, color: '#1e3a5f', lineHeight: 1.3 }}>{task.title}</div>
+                                                                    {task.project && <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>{task.project.code}</div>}
+                                                                </div>
+                                                            ) : null}
+                                                        </td>
+                                                        <td key={cat.key + '_cb_' + ri} style={{ padding: '5px 8px', border: '1px solid var(--border-light)', background: task ? cat.color : 'transparent', verticalAlign: 'top', fontSize: 12 }}>
+                                                            {task && workers ? (
+                                                                <div style={{ color: '#374151' }}>{workers}</div>
+                                                            ) : null}
+                                                        </td>
+                                                    </>
+                                                );
+                                            })}
+                                        </tr>
+                                    ));
+                                })}
+                            </tbody>
+                        </table>
                     </div>
 
-                    {/* Mobile */}
+                    {/* ── Mobile view ── */}
                     <div className="mobile-card-list">
-                        {filtered.map(t => {
-                            const sc = STATUS_COLOR[t.status] || { color: '#6b7280', bg: '#f3f4f6' };
-                            const isOverdue = t.deadline && t.status !== 'Hoàn thành' && new Date(t.deadline) < new Date();
+                        {weekDays.map(day => {
+                            const dayOfWeek = day.getDay();
+                            const isToday = isSameDay(day, today);
+                            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                            const dayTasks = tasks.filter(t => isActiveOnDay(t, day));
                             return (
-                                <div key={t.id} className="mobile-card-item">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                                        <div style={{ fontWeight: 700, fontSize: 14, flex: 1, marginRight: 8 }}>{t.title}</div>
-                                        <span style={{ padding: '2px 8px', borderRadius: 20, background: sc.bg, color: sc.color, fontSize: 11, fontWeight: 600, flexShrink: 0 }}>{t.status}</span>
+                                <div key={day.toISOString()}>
+                                    <div style={{ padding: '8px 14px', background: isToday ? '#fef3c7' : isWeekend ? '#fee2e2' : '#f1f5f9', borderBottom: '2px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <span style={{ fontWeight: 700, fontSize: 13, color: isWeekend ? '#dc2626' : '#475569' }}>{DAYS_VI[dayOfWeek]} {fmtShortDate(day)}</span>
+                                        {isToday && <span style={{ fontSize: 11, background: '#f59e0b', color: '#fff', padding: '1px 6px', borderRadius: 8 }}>Hôm nay</span>}
+                                        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)' }}>{dayTasks.length} việc</span>
                                     </div>
-                                    {t.project && (
-                                        <div style={{ fontSize: 12, color: '#2563eb', marginBottom: 4 }}>{t.project.code} · {t.project.name}</div>
+                                    {dayTasks.length === 0 ? (
+                                        <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Không có việc</div>
+                                    ) : (
+                                        dayTasks.map(task => (
+                                            <div key={task.id} className="mobile-card-item" style={{ borderLeft: `3px solid ${CATEGORIES.find(c => c.key === task.category)?.hd || '#e5e7eb'}` }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                    <div style={{ fontWeight: 700, fontSize: 13 }}>{task.title}</div>
+                                                    <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 8, background: CATEGORIES.find(c => c.key === task.category)?.color || '#f3f4f6', color: '#374151', flexShrink: 0, marginLeft: 6 }}>
+                                                        {CATEGORIES.find(c => c.key === task.category)?.short || task.category}
+                                                    </span>
+                                                </div>
+                                                {task.project && <div style={{ fontSize: 11, color: '#2563eb' }}>{task.project.code} · {task.project.name}</div>}
+                                                {task.workers?.length > 0 && (
+                                                    <div style={{ fontSize: 12, color: '#15803d', marginTop: 3 }}>
+                                                        👷 {task.workers.map(tw => tw.worker?.name).filter(Boolean).join(', ')}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))
                                     )}
-                                    {t.workers?.length > 0 && (
-                                        <div style={{ fontSize: 12, color: '#15803d', marginBottom: 6 }}>
-                                            👷 {t.workers.map(tw => tw.worker?.name).filter(Boolean).join(', ')}
-                                        </div>
-                                    )}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                                        <div style={{ flex: 1, height: 6, borderRadius: 3, background: '#e5e7eb', overflow: 'hidden' }}>
-                                            <div style={{ width: `${t.progress || 0}%`, height: '100%', background: t.progress >= 100 ? '#16a34a' : '#2563eb', borderRadius: 3 }} />
-                                        </div>
-                                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t.progress || 0}%</span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)' }}>
-                                        <span>Tạo: {fmtDate(t.createdAt)}</span>
-                                        {t.deadline && <span style={{ color: isOverdue ? '#dc2626' : 'inherit', fontWeight: isOverdue ? 700 : 400 }}>Hạn: {fmtDate(t.deadline)}{isOverdue && ' ⚠️'}</span>}
-                                    </div>
-                                    {t.notes && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, fontStyle: 'italic' }}>{t.notes}</div>}
                                 </div>
                             );
                         })}
-                        {filtered.length === 0 && (
-                            <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)' }}>Không có công việc nào</div>
-                        )}
                     </div>
                     </>
                 )}
+
+                {/* Legend */}
+                <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border-light)', display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 11, color: 'var(--text-muted)' }}>
+                    {CATEGORIES.map(cat => (
+                        <span key={cat.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ width: 12, height: 12, borderRadius: 3, background: cat.hd, display: 'inline-block' }} />
+                            {cat.label}
+                        </span>
+                    ))}
+                </div>
             </div>
         </div>
     );

@@ -6,7 +6,7 @@ import { notifyWorkshopTaskAssigned } from '@/lib/notify';
 export const PUT = withAuth(async (req, { params }) => {
     const { id } = await params;
     const body = await req.json();
-    const { title, description, projectId, startDate, deadline, priority, status, progress, notes, workerIds, materials } = body;
+    const { title, description, projectId, startDate, deadline, priority, status, progress, notes, category, workerIds, materials } = body;
 
     const updateData = {};
     if (title !== undefined) updateData.title = title.trim();
@@ -16,6 +16,7 @@ export const PUT = withAuth(async (req, { params }) => {
     if (deadline !== undefined) updateData.deadline = deadline ? new Date(deadline) : null;
     if (priority !== undefined) updateData.priority = priority;
     if (status !== undefined) updateData.status = status;
+    if (category !== undefined) updateData.category = category;
     if (progress !== undefined) {
         updateData.progress = Number(progress);
         if (Number(progress) >= 100) updateData.isLocked = true;
