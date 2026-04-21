@@ -29,9 +29,7 @@ export const GET = withAuth(async (req) => {
 });
 
 export const POST = withAuth(async (req) => {
-    let body;
-    try { body = await req.json(); } catch(e) { return NextResponse.json({ error: 'Invalid JSON: ' + e.message }, { status: 400 }); }
-    console.log('[POST /workshop/tasks] body:', JSON.stringify(body));
+    const body = await req.json();
     const { title, description, projectId, startDate, deadline, priority, notes, category, workerIds = [], materials = [] } = body;
 
     if (!title?.trim()) {
