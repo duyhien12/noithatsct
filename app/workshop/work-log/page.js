@@ -230,19 +230,12 @@ function TaskRow({ task, category, workers, projects, onSaved, onDeleted }) {
 }
 
 // Cell editor popover — manages ALL tasks in a day+category cell
-function CellEditor({ day, category, cellTasks, workers, projects, onSave, onClose }) {
+function CellEditor({ day, category, cellTasks, pos, workers, projects, onSave, onClose }) {
     const [showAdd, setShowAdd] = useState(cellTasks.length === 0);
     const [newTitle, setNewTitle] = useState('');
     const [newProjectId, setNewProjectId] = useState('');
     const [newWorkers, setNewWorkers] = useState([]);
     const [saving, setSaving] = useState(false);
-    const ref = useRef(null);
-
-    useEffect(() => {
-        const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
-        setTimeout(() => document.addEventListener('mousedown', handler), 10);
-        return () => document.removeEventListener('mousedown', handler);
-    }, []);
 
     const addTask = async () => {
         if (!newTitle.trim()) return;
@@ -260,34 +253,38 @@ function CellEditor({ day, category, cellTasks, workers, projects, onSave, onClo
     };
 
     return (
-        <div ref={ref} style={{ position: 'absolute', top: 0, left: 0, zIndex: 1000, width: 280, background: 'var(--bg-card)', border: '1.5px solid var(--accent-primary)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', padding: 10 }}>
-            <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--accent-primary)', marginBottom: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {DAYS_VI[day.getDay()]} {fmtShortDate(day)} · {category.label}
-            </div>
+        <>
+            {/* Overlay để click ngoài đóng */}
+            <div style={{ position: 'fixed', inset: 0, zIndex: 1998 }} onMouseDown={onClose} />
+            <div style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 1999, width: 290, background: 'var(--bg-card)', border: '1.5px solid var(--accent-primary)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.22)', padding: 12, maxHeight: 'calc(100vh - 80px)', overflowY: 'auto' }} onMouseDown={e => e.stopPropagation()}>
+                <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--accent-primary)', marginBottom: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {DAYS_VI[day.getDay()]} {fmtShortDate(day)} · {category.label}
+                </div>
 
-            {/* Existing tasks */}
-            {cellTasks.map(task => (
-                <TaskRow key={task.id} task={task} category={category} workers={workers} projects={projects} onSaved={onSave} onDeleted={onSave} />
-            ))}
+                {/* Existing tasks */}
+                {cellTasks.map(task => (
+                    <TaskRow key={task.id} task={task} category={category} workers={workers} projects={projects} onSaved={onSave} onDeleted={onSave} />
+                ))}
 
-            {/* Add form */}
-            {showAdd ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: cellTasks.length > 0 ? '1px dashed var(--border)' : 'none', paddingTop: cellTasks.length > 0 ? 8 : 0 }}>
-                    {cellTasks.length > 0 && <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>Thêm dự án mới</div>}
-                    <ProjectInput value={newTitle} projects={projects} onChange={(name, id) => { setNewTitle(name); setNewProjectId(id || ''); }} />
-                    <WorkerChipInput selected={newWorkers} workerList={workers} onChange={setNewWorkers} />
-                    <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => { setShowAdd(false); if (cellTasks.length === 0) onClose(); }} style={{ padding: '3px 8px', fontSize: 12 }}>Hủy</button>
-                        <button className="btn btn-primary btn-sm" onClick={addTask} disabled={saving || !newTitle.trim()} style={{ padding: '3px 10px', fontSize: 12 }}>{saving ? '...' : '+ Thêm'}</button>
+                {/* Add form */}
+                {showAdd ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: cellTasks.length > 0 ? '1px dashed var(--border)' : 'none', paddingTop: cellTasks.length > 0 ? 8 : 0 }}>
+                        {cellTasks.length > 0 && <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>Thêm dự án mới</div>}
+                        <ProjectInput value={newTitle} projects={projects} onChange={(name, id) => { setNewTitle(name); setNewProjectId(id || ''); }} />
+                        <WorkerChipInput selected={newWorkers} workerList={workers} onChange={setNewWorkers} />
+                        <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>
+                            <button className="btn btn-ghost btn-sm" onClick={() => { setShowAdd(false); if (cellTasks.length === 0) onClose(); }} style={{ padding: '3px 8px', fontSize: 12 }}>Hủy</button>
+                            <button className="btn btn-primary btn-sm" onClick={addTask} disabled={saving || !newTitle.trim()} style={{ padding: '3px 10px', fontSize: 12 }}>{saving ? '...' : '+ Thêm'}</button>
+                        </div>
                     </div>
-                </div>
-            ) : (
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--border)', paddingTop: 8, marginTop: 4 }}>
-                    <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '3px 8px', fontSize: 12 }}>Đóng</button>
-                    <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)} style={{ padding: '3px 10px', fontSize: 12 }}>+ Thêm dự án</button>
-                </div>
-            )}
-        </div>
+                ) : (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--border)', paddingTop: 8, marginTop: 4 }}>
+                        <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '3px 8px', fontSize: 12 }}>Đóng</button>
+                        <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)} style={{ padding: '3px 10px', fontSize: 12 }}>+ Thêm dự án</button>
+                    </div>
+                )}
+            </div>
+        </>
     );
 }
 
@@ -324,8 +321,11 @@ export default function WorkLogPage() {
 
     const getCell = (day, catKey) => tasks.filter(t => t.category === catKey && isActiveOnDay(t, day));
 
-    const openEdit = (day, category) => {
-        setEditCell({ day, category });
+    const openEdit = (day, category, e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const left = Math.min(rect.left, window.innerWidth - 296);
+        const top = rect.bottom + 4;
+        setEditCell({ day, category, pos: { top, left } });
     };
 
     const closeEdit = () => setEditCell(null);
@@ -405,7 +405,7 @@ export default function WorkLogPage() {
                                                 const isEditing = editCell && isSameDay(editCell.day, day) && editCell.category.key === cat.key;
 
                                                 return [
-                                                    <td key={cat.key+'_ct_'+ri} onClick={() => openEdit(day, cat)} style={{ padding: '5px 8px', border: '1px solid var(--border-light)', background: task ? cat.color : 'transparent', verticalAlign: 'top', cursor: 'pointer', position: 'relative', minWidth: 120 }}
+                                                    <td key={cat.key+'_ct_'+ri} onClick={(e) => openEdit(day, cat, e)} style={{ padding: '5px 8px', border: '1px solid var(--border-light)', background: task ? cat.color : 'transparent', verticalAlign: 'top', cursor: 'pointer', minWidth: 120 }}
                                                         title="Nhấn để thêm/sửa">
                                                         {task ? (
                                                             <div>
@@ -415,11 +415,8 @@ export default function WorkLogPage() {
                                                         ) : (
                                                             <div style={{ color: '#d1d5db', fontSize: 11, textAlign: 'center', padding: '4px 0' }}>+</div>
                                                         )}
-                                                        {isEditing && ri === 0 && (
-                                                            <CellEditor day={day} category={cat} cellTasks={catTasks} workers={workers} projects={projects} onSave={handleSaved} onClose={closeEdit} />
-                                                        )}
                                                     </td>,
-                                                    <td key={cat.key+'_cb_'+ri} onClick={() => openEdit(day, cat)} style={{ padding: '5px 8px', border: '1px solid var(--border-light)', background: task ? cat.color : 'transparent', verticalAlign: 'top', cursor: 'pointer', minWidth: 110 }}>
+                                                    <td key={cat.key+'_cb_'+ri} onClick={(e) => openEdit(day, cat, e)} style={{ padding: '5px 8px', border: '1px solid var(--border-light)', background: task ? cat.color : 'transparent', verticalAlign: 'top', cursor: 'pointer', minWidth: 110 }}>
                                                         {task && workers_ ? <div style={{ color: '#374151', fontSize: 12 }}>{workers_}</div> : null}
                                                     </td>
                                                 ];
@@ -443,24 +440,21 @@ export default function WorkLogPage() {
                                     <div style={{ padding: '8px 14px', background: isToday ? '#fef3c7' : isWeekend ? '#fee2e2' : '#f1f5f9', borderBottom: '2px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
                                         <span style={{ fontWeight: 700, fontSize: 13, color: isWeekend ? '#dc2626' : '#475569' }}>{DAYS_VI[dow]} {fmtShortDate(day)}</span>
                                         {isToday && <span style={{ fontSize: 11, background: '#f59e0b', color: '#fff', padding: '1px 6px', borderRadius: 8 }}>Hôm nay</span>}
-                                        <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto', fontSize: 11 }} onClick={() => openEdit(day, CATEGORIES[0])}>+ Thêm</button>
+                                                        <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto', fontSize: 11 }} onClick={(e) => openEdit(day, CATEGORIES[0], e)}>+ Thêm</button>
                                     </div>
                                     {dayTasks.length === 0
                                         ? <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Không có việc</div>
                                         : dayTasks.map(task => {
                                             const cat = CATEGORIES.find(c => c.key === task.category);
                                             return (
-                                                <div key={task.id} className="mobile-card-item" style={{ borderLeft: `3px solid ${cat?.hd || '#e5e7eb'}`, cursor: 'pointer', position: 'relative' }}
-                                                    onClick={() => openEdit(day, cat || CATEGORIES[0])}>
+                                                <div key={task.id} className="mobile-card-item" style={{ borderLeft: `3px solid ${cat?.hd || '#e5e7eb'}`, cursor: 'pointer' }}
+                                                    onClick={(e) => openEdit(day, cat || CATEGORIES[0], e)}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                                                         <div style={{ fontWeight: 700, fontSize: 13 }}>{task.title}</div>
                                                         <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 8, background: cat?.color || '#f3f4f6', color: '#374151', flexShrink: 0, marginLeft: 6 }}>{cat?.label}</span>
                                                     </div>
                                                     {task.project && <div style={{ fontSize: 11, color: '#2563eb' }}>{task.project.code} · {task.project.name}</div>}
                                                     {task.workers?.length > 0 && <div style={{ fontSize: 12, color: '#15803d', marginTop: 3 }}>👷 {task.workers.map(tw => tw.worker?.name).filter(Boolean).join(', ')}</div>}
-                                                    {editCell && isSameDay(editCell.day, day) && editCell.category.key === (cat?.key || CATEGORIES[0].key) && (
-                                                        <CellEditor day={day} category={cat || CATEGORIES[0]} cellTasks={tasks.filter(t => t.category === (cat?.key || CATEGORIES[0].key) && isActiveOnDay(t, day))} workers={workers} projects={projects} onSave={handleSaved} onClose={closeEdit} />
-                                                    )}
                                                 </div>
                                             );
                                         })
@@ -482,6 +476,20 @@ export default function WorkLogPage() {
                     ))}
                 </div>
             </div>
+
+            {/* CellEditor portal — render ngoài table tránh bị clip bởi overflow */}
+            {editCell && (
+                <CellEditor
+                    day={editCell.day}
+                    category={editCell.category}
+                    cellTasks={getCell(editCell.day, editCell.category.key)}
+                    pos={editCell.pos}
+                    workers={workers}
+                    projects={projects}
+                    onSave={handleSaved}
+                    onClose={closeEdit}
+                />
+            )}
         </div>
     );
 }
