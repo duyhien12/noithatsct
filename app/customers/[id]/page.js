@@ -94,6 +94,50 @@ export default function CustomerDetailPage() {
         { key: 'quotations', label: 'Báo giá', icon: '📄', count: c.quotations?.length },
         { key: 'timeline', label: 'Timeline', icon: '🕐', count: c.trackingLogs?.length },
         { key: 'transactions', label: 'Giao dịch', icon: '💰', count: c.transactions?.length },
+        { key: 'process', label: 'Quy trình', icon: '🔄' },
+    ];
+
+    // Quy trình pipeline
+    const PROCESS_STEPS = [
+        {
+            key: 'Tư vấn', label: 'Tư vấn', icon: '📞', color: '#3b82f6', bg: '#dbeafe',
+            desc: 'Tiếp nhận & tư vấn nhu cầu khách hàng',
+            check: () => true,
+            detail: () => c.trackingLogs?.length > 0 ? `${c.trackingLogs.length} lần liên hệ` : 'Chưa có ghi chú',
+        },
+        {
+            key: 'Báo giá', label: 'Báo giá', icon: '📄', color: '#8b5cf6', bg: '#ede9fe',
+            desc: 'Lập và gửi báo giá cho khách',
+            check: () => (c.quotations?.length || 0) > 0 || ['Báo giá','Ký HĐ','Thi công','VIP'].includes(c.pipelineStage),
+            detail: () => c.quotations?.length > 0 ? `${c.quotations.length} báo giá · ${fmt(c.quotations.reduce((s, q) => s + (q.grandTotal || 0), 0))}` : 'Chưa có báo giá',
+        },
+        {
+            key: 'Ký HĐ', label: 'Ký hợp đồng', icon: '✍️', color: '#10b981', bg: '#d1fae5',
+            desc: 'Thống nhất và ký kết hợp đồng',
+            check: () => (c.contracts?.length || 0) > 0 || ['Ký HĐ','Thi công','VIP'].includes(c.pipelineStage),
+            detail: () => c.contracts?.length > 0 ? `${c.contracts.length} hợp đồng · ${fmt(s.totalContractValue)}` : 'Chưa ký hợp đồng',
+        },
+        {
+            key: 'Thi công', label: 'Thi công', icon: '🔨', color: '#f97316', bg: '#ffedd5',
+            desc: 'Triển khai thi công dự án',
+            check: () => (c.projects?.length || 0) > 0 || ['Thi công','VIP'].includes(c.pipelineStage),
+            detail: () => c.projects?.length > 0 ? `${c.projects.length} dự án · ${c.projects.filter(p => p.status === 'Đang thi công' || p.status === 'Thi công').length} đang thi công` : 'Chưa có dự án',
+        },
+        {
+            key: 'Thu tiền', label: 'Thu tiền', icon: '💵', color: '#f59e0b', bg: '#fef3c7',
+            desc: 'Thanh toán và quyết toán hợp đồng',
+            check: () => s.totalPaid > 0,
+            detail: () => s.totalPaid > 0 ? `Đã thu ${fmt(s.totalPaid)} / ${pct(s.totalPaid, s.totalContractValue)}%` : 'Chưa thu tiền',
+        },
+        {
+            key: 'Bàn giao', label: 'Bàn giao & Bảo hành', icon: '🏆', color: '#ec4899', bg: '#fce7f3',
+            desc: 'Bàn giao công trình và bảo hành',
+            check: () => c.projects?.some(p => ['Bảo hành','Hoàn thành','Bàn giao','Nghiệm thu'].includes(p.status)),
+            detail: () => {
+                const done = c.projects?.filter(p => ['Bảo hành','Hoàn thành','Bàn giao','Nghiệm thu'].includes(p.status)) || [];
+                return done.length > 0 ? `${done.length} dự án hoàn thành` : 'Chưa bàn giao';
+            },
+        },
     ];
 
     return (
@@ -424,6 +468,83 @@ export default function CustomerDetailPage() {
                         ))}
                     </div>
                     {(!c.transactions || c.transactions.length === 0) && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có giao dịch</div>}
+                </div>
+            )}
+
+            {/* TAB: Quy trình */}
+            {tab === 'process' && (
+                <div className="card">
+                    <div className="card-header">
+                        <span className="card-title">🔄 Quy trình bán hàng</span>
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                            Giai đoạn hiện tại: <strong style={{ color: stage.color }}>{c.pipelineStage || 'Tư vấn'}</strong>
+                        </span>
+                    </div>
+                    <div style={{ padding: '20px 24px' }}>
+                        {PROCESS_STEPS.map((step, idx) => {
+                            const done = step.check();
+                            const isCurrent = step.key === c.pipelineStage;
+                            return (
+                                <div key={step.key} style={{ display: 'flex', gap: 16, marginBottom: idx < PROCESS_STEPS.length - 1 ? 0 : 0 }}>
+                                    {/* Line + Icon */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                                        <div style={{
+                                            width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontSize: 18, flexShrink: 0, border: '2px solid',
+                                            borderColor: done ? step.color : 'var(--border)',
+                                            background: done ? step.bg : 'var(--bg-secondary)',
+                                            boxShadow: isCurrent ? `0 0 0 3px ${step.bg}` : 'none',
+                                            transition: 'all .2s',
+                                        }}>
+                                            {done ? step.icon : <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>{idx + 1}</span>}
+                                        </div>
+                                        {idx < PROCESS_STEPS.length - 1 && (
+                                            <div style={{ width: 2, flex: 1, minHeight: 28, background: done ? step.color : 'var(--border)', opacity: done ? 0.4 : 0.2, margin: '4px 0' }} />
+                                        )}
+                                    </div>
+                                    {/* Content */}
+                                    <div style={{ flex: 1, paddingBottom: idx < PROCESS_STEPS.length - 1 ? 20 : 0, paddingTop: 8 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                                            <span style={{ fontWeight: 700, fontSize: 14, color: done ? step.color : 'var(--text-muted)' }}>
+                                                {step.label}
+                                            </span>
+                                            {isCurrent && (
+                                                <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 8px', borderRadius: 10, background: step.bg, color: step.color }}>
+                                                    HIỆN TẠI
+                                                </span>
+                                            )}
+                                            {done && !isCurrent && (
+                                                <span style={{ fontSize: 11, color: '#10b981' }}>✓ Hoàn thành</span>
+                                            )}
+                                        </div>
+                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{step.desc}</div>
+                                        <div style={{ fontSize: 12, fontWeight: 600, color: done ? 'var(--text-primary)' : 'var(--text-muted)', padding: '4px 10px', borderRadius: 6, background: done ? step.bg : 'var(--bg-secondary)', display: 'inline-block' }}>
+                                            {step.detail()}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    {/* Tóm tắt */}
+                    <div style={{ borderTop: '1px solid var(--border-light)', padding: '14px 24px', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: 20, fontWeight: 700, color: '#3b82f6' }}>{PROCESS_STEPS.filter(s => s.check()).length}/{PROCESS_STEPS.length}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Bước hoàn thành</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: 20, fontWeight: 700, color: '#10b981' }}>{fmt(s.totalPaid)}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Đã thu</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: 20, fontWeight: 700, color: s.totalDebt > 0 ? '#ef4444' : '#94a3b8' }}>{fmt(s.totalDebt)}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Còn nợ</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>{c.trackingLogs?.length || 0}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Lần liên hệ</div>
+                        </div>
+                    </div>
                 </div>
             )}
 
