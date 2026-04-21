@@ -21,20 +21,7 @@ function getWeekStart(date) {
 }
 function addDays(date, n) { const d = new Date(date); d.setDate(d.getDate() + n); return d; }
 function isSameDay(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
-function isActiveOnDay(task, day) {
-    const start = task.startDate ? new Date(task.startDate) : null;
-    const end = task.deadline ? new Date(task.deadline) : null;
-    const localStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    const dayStr = localStr(day);
-    const startStr = start ? localStr(start) : null;
-    const endStr = end ? localStr(end) : null;
-    if (startStr && endStr) return dayStr >= startStr && dayStr <= endStr;
-    if (startStr) return dayStr === startStr;
-    if (endStr) return dayStr === endStr;
-    return false;
-}
 function fmtShortDate(d) { return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}`; }
-// toLocalISO dùng giờ địa phương để tránh lệch timezone
 function toISO(date) {
     return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 }
@@ -43,9 +30,12 @@ function getWeekNum(date) {
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
     return Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(),0,1))) / 86400000) + 1) / 7);
 }
+function parseWorkers(json) {
+    try { const v = JSON.parse(json); return Array.isArray(v) ? v : []; } catch { return []; }
+}
 
-// Worker autocomplete chip input
-function WorkerChipInput({ selected, workerList, onChange }) {
+// Worker multi-select chip input
+function WorkerChipInput({ selected, workerList, onChange, placeholder = 'Chọn thợ...' }) {
     const [input, setInput] = useState('');
     const [suggestions, setSuggestions] = useState([]);
     const ref = useRef(null);
@@ -57,7 +47,7 @@ function WorkerChipInput({ selected, workerList, onChange }) {
                 w.name.toLowerCase().includes(val.toLowerCase()) && !selected.includes(w.name)
             ).slice(0, 6));
         } else {
-            setSuggestions([]);
+            setSuggestions(workerList.filter(w => !selected.includes(w.name)).slice(0, 8));
         }
     };
 
@@ -66,7 +56,6 @@ function WorkerChipInput({ selected, workerList, onChange }) {
         setInput('');
         setSuggestions([]);
     };
-
     const remove = (name) => onChange(selected.filter(n => n !== name));
 
     const handleKeyDown = (e) => {
@@ -75,33 +64,29 @@ function WorkerChipInput({ selected, workerList, onChange }) {
             if (suggestions.length > 0) add(suggestions[0].name);
             else add(input.trim());
         }
-        if (e.key === 'Backspace' && !input && selected.length > 0) {
-            remove(selected[selected.length - 1]);
-        }
+        if (e.key === 'Backspace' && !input && selected.length > 0) remove(selected[selected.length - 1]);
     };
 
     return (
         <div style={{ position: 'relative' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '4px 6px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-card)', minHeight: 34, alignItems: 'center', cursor: 'text' }} onClick={() => ref.current?.focus()}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '4px 6px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-card)', minHeight: 34, alignItems: 'center', cursor: 'text' }}
+                onClick={() => { ref.current?.focus(); if (!input) setSuggestions(workerList.filter(w => !selected.includes(w.name)).slice(0, 8)); }}>
                 {selected.map(name => (
                     <span key={name} style={{ padding: '1px 6px', borderRadius: 12, background: '#dbeafe', color: '#1d4ed8', fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}>
                         {name}
-                        <span style={{ cursor: 'pointer', fontWeight: 700, fontSize: 12, lineHeight: 1 }} onClick={(e) => { e.stopPropagation(); remove(name); }}>×</span>
+                        <span style={{ cursor: 'pointer', fontWeight: 700, fontSize: 12 }} onClick={e => { e.stopPropagation(); remove(name); }}>×</span>
                     </span>
                 ))}
-                <input
-                    ref={ref}
-                    value={input}
-                    onChange={e => handleInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={selected.length === 0 ? 'Nhập tên thợ...' : ''}
-                    style={{ border: 'none', outline: 'none', fontSize: 12, flex: 1, minWidth: 80, background: 'transparent', padding: '2px 0' }}
-                />
+                <input ref={ref} value={input} onChange={e => handleInput(e.target.value)} onKeyDown={handleKeyDown}
+                    onBlur={() => setTimeout(() => setSuggestions([]), 150)}
+                    placeholder={selected.length === 0 ? placeholder : ''}
+                    style={{ border: 'none', outline: 'none', fontSize: 12, flex: 1, minWidth: 80, background: 'transparent', padding: '2px 0' }} />
             </div>
             {suggestions.length > 0 && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', maxHeight: 180, overflowY: 'auto', marginTop: 2 }}>
                     {suggestions.map(w => (
-                        <div key={w.id} onMouseDown={() => add(w.name)} style={{ padding: '7px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: 8 }}
+                        <div key={w.id} onMouseDown={() => add(w.name)}
+                            style={{ padding: '7px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: 8 }}
                             onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                             <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#dbeafe', color: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>
@@ -119,29 +104,23 @@ function WorkerChipInput({ selected, workerList, onChange }) {
     );
 }
 
-// Project autocomplete input (single line)
-function ProjectInput({ value, projectId, projects, onChange }) {
+// Project dropdown (for non-"Việc khác" categories)
+function ProjectDropdown({ value, projectId, projects, onChange }) {
     const [input, setInput] = useState(value || '');
     const [suggestions, setSuggestions] = useState([]);
     const [open, setOpen] = useState(false);
     const ref = useRef(null);
 
-    // Sync when value changes externally
     useEffect(() => { setInput(value || ''); }, [value]);
 
     const handleInput = (val) => {
         setInput(val);
         onChange(val, null);
-        if (val.trim().length > 0) {
-            const q = val.toLowerCase();
-            setSuggestions(projects.filter(p =>
-                p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q)
-            ).slice(0, 8));
-            setOpen(true);
-        } else {
-            setSuggestions([]);
-            setOpen(false);
-        }
+        const q = val.toLowerCase();
+        setSuggestions(val.trim() ? projects.filter(p =>
+            p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q)
+        ).slice(0, 10) : projects.slice(0, 10));
+        setOpen(true);
     };
 
     const select = (p) => {
@@ -153,17 +132,12 @@ function ProjectInput({ value, projectId, projects, onChange }) {
 
     return (
         <div style={{ position: 'relative' }}>
-            <input
-                ref={ref}
-                className="form-input"
-                placeholder="Tên công trình *"
+            <input ref={ref} className="form-input" placeholder="Chọn công trình..."
                 value={input}
-                autoFocus
                 onChange={e => handleInput(e.target.value)}
+                onFocus={() => { setSuggestions(projects.slice(0, 10)); setOpen(true); }}
                 onBlur={() => setTimeout(() => setOpen(false), 150)}
-                onFocus={() => input.trim() && suggestions.length > 0 && setOpen(true)}
-                style={{ fontSize: 12, padding: '5px 8px', width: '100%' }}
-            />
+                style={{ fontSize: 12, padding: '5px 8px', width: '100%' }} />
             {open && suggestions.length > 0 && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1100, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.15)', maxHeight: 200, overflowY: 'auto', marginTop: 2 }}>
                     {suggestions.map(p => (
@@ -172,7 +146,7 @@ function ProjectInput({ value, projectId, projects, onChange }) {
                             onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                             <span style={{ fontWeight: 700, color: '#2563eb', marginRight: 6 }}>{p.code}</span>
-                            <span style={{ color: 'var(--text-primary)' }}>{p.name}</span>
+                            <span>{p.name}</span>
                         </div>
                     ))}
                 </div>
@@ -181,21 +155,21 @@ function ProjectInput({ value, projectId, projects, onChange }) {
     );
 }
 
-// Inline task row (edit existing task inside CellEditor)
-function TaskRow({ task, category, workers, projects, onSaved, onDeleted }) {
+// Inline entry row (edit existing entry)
+function EntryRow({ entry, category, workers, projects, onSaved, onDeleted }) {
     const [editing, setEditing] = useState(false);
-    const [title, setTitle] = useState(task.title || '');
-    const [projectId, setProjectId] = useState(task.projectId || '');
-    const [selWorkers, setSelWorkers] = useState(task.workers?.map(tw => tw.worker?.name).filter(Boolean) || []);
+    const [projectName, setProjectName] = useState(entry.projectName || '');
+    const [projectId, setProjectId] = useState(entry.projectId || '');
+    const [selWorkers, setSelWorkers] = useState(parseWorkers(entry.mainWorkers));
+    const [note, setNote] = useState(entry.note || '');
     const [saving, setSaving] = useState(false);
+    const isViecKhac = category.key === 'Việc khác';
 
     const save = async () => {
-        if (!title.trim()) return;
         setSaving(true);
-        const workerIds = selWorkers.map(name => workers.find(w => w.name === name)?.id).filter(Boolean);
-        await fetch(`/api/workshop/tasks/${task.id}`, {
+        await fetch(`/api/workshop/work-log/${entry.id}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: title.trim(), projectId: projectId || null, workerIds, category: category.key }),
+            body: JSON.stringify({ projectId: projectId || null, projectName, mainWorkers: selWorkers, subWorkers: [], note }),
         });
         setSaving(false);
         setEditing(false);
@@ -203,19 +177,21 @@ function TaskRow({ task, category, workers, projects, onSaved, onDeleted }) {
     };
 
     const del = async () => {
-        if (!confirm(`Xóa "${task.title}"?`)) return;
-        await fetch(`/api/workshop/tasks/${task.id}`, { method: 'DELETE' });
+        if (!confirm('Xóa mục này?')) return;
+        await fetch(`/api/workshop/work-log/${entry.id}`, { method: 'DELETE' });
         onDeleted();
     };
 
-    const workerNames = task.workers?.map(tw => tw.worker?.name).filter(Boolean).join(', ');
+    const displayName = entry.projectName || entry.project?.name || '';
+    const workerNames = parseWorkers(entry.mainWorkers);
 
     if (!editing) return (
         <div style={{ padding: '5px 7px', background: category.color, borderRadius: 6, marginBottom: 5, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 4 }}>
             <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setEditing(true)}>
-                <div style={{ fontWeight: 600, fontSize: 12, color: '#1e3a5f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</div>
-                {task.project && <div style={{ fontSize: 10, color: '#2563eb' }}>{task.project.code}</div>}
-                {workerNames && <div style={{ fontSize: 11, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>👷 {workerNames}</div>}
+                {!isViecKhac && displayName && <div style={{ fontWeight: 600, fontSize: 12, color: '#1e3a5f' }}>{displayName}</div>}
+                {entry.project && !isViecKhac && <div style={{ fontSize: 10, color: '#2563eb' }}>{entry.project.code}</div>}
+                {isViecKhac && entry.note && <div style={{ fontWeight: 600, fontSize: 12, color: '#166534' }}>{entry.note}</div>}
+                {workerNames.length > 0 && <div style={{ fontSize: 11, color: '#374151' }}>👷 {workerNames.join(', ')}</div>}
             </div>
             <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
                 <button style={{ background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: 5, padding: '2px 5px', cursor: 'pointer', fontSize: 11 }} onClick={() => setEditing(true)}>✏️</button>
@@ -225,69 +201,82 @@ function TaskRow({ task, category, workers, projects, onSaved, onDeleted }) {
     );
 
     return (
-        <div style={{ padding: '6px 7px', background: '#f0f9ff', border: '1px solid #93c5fd', borderRadius: 6, marginBottom: 5, display: 'flex', flexDirection: 'column', gap: 5 }}>
-            <ProjectInput value={title} projectId={projectId} projects={projects} onChange={(name, id) => { setTitle(name); setProjectId(id || ''); }} />
-            <WorkerChipInput selected={selWorkers} workerList={workers} onChange={setSelWorkers} />
+        <div style={{ padding: '6px 7px', background: '#f0f9ff', border: '1px solid #93c5fd', borderRadius: 6, marginBottom: 5, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {isViecKhac ? (
+                <input className="form-input" placeholder="Nội dung việc khác..." value={note}
+                    onChange={e => setNote(e.target.value)} style={{ fontSize: 12, padding: '5px 8px' }} />
+            ) : (
+                <ProjectDropdown value={projectName} projectId={projectId} projects={projects}
+                    onChange={(name, id) => { setProjectName(name); setProjectId(id || ''); }} />
+            )}
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: -2 }}>Người thực hiện</div>
+            <WorkerChipInput selected={selWorkers} workerList={workers} onChange={setSelWorkers} placeholder="Chọn người thực hiện..." />
             <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                 <button className="btn btn-ghost btn-sm" onClick={() => setEditing(false)} style={{ padding: '2px 7px', fontSize: 11 }}>Hủy</button>
-                <button className="btn btn-primary btn-sm" onClick={save} disabled={saving || !title.trim()} style={{ padding: '2px 8px', fontSize: 11 }}>{saving ? '...' : 'Lưu'}</button>
+                <button className="btn btn-primary btn-sm" onClick={save} disabled={saving} style={{ padding: '2px 8px', fontSize: 11 }}>{saving ? '...' : 'Lưu'}</button>
             </div>
         </div>
     );
 }
 
-// Cell editor popover — manages ALL tasks in a day+category cell
-function CellEditor({ day, category, cellTasks, pos, workers, projects, onSave, onClose }) {
-    const [showAdd, setShowAdd] = useState(cellTasks.length === 0);
-    const [newTitle, setNewTitle] = useState('');
-    const [newProjectId, setNewProjectId] = useState('');
-    const [newWorkers, setNewWorkers] = useState([]);
+// Cell editor popover
+function CellEditor({ day, category, cellEntries, pos, workers, projects, onSave, onClose }) {
+    const [showAdd, setShowAdd] = useState(cellEntries.length === 0);
+    const [projectName, setProjectName] = useState('');
+    const [projectId, setProjectId] = useState('');
+    const [selWorkers, setSelWorkers] = useState([]);
+    const [note, setNote] = useState('');
     const [saving, setSaving] = useState(false);
+    const isViecKhac = category.key === 'Việc khác';
 
-    const addTask = async () => {
-        if (!newTitle.trim()) return;
+    const addEntry = async () => {
+        if (!isViecKhac && !projectName.trim() && selWorkers.length === 0) return;
+        if (isViecKhac && !note.trim() && selWorkers.length === 0) return;
         setSaving(true);
-        const workerIds = newWorkers.map(name => workers.find(w => w.name === name)?.id).filter(Boolean);
-        const dateStr = toISO(day);
-        await fetch('/api/workshop/tasks', {
+        await fetch('/api/workshop/work-log', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: newTitle.trim(), projectId: newProjectId || null, startDate: dateStr, deadline: dateStr, category: category.key, status: 'Đang làm', workerIds }),
+            body: JSON.stringify({ date: toISO(day), category: category.key, projectId: projectId || null, projectName, mainWorkers: selWorkers, subWorkers: [], note }),
         });
         setSaving(false);
-        setNewTitle(''); setNewProjectId(''); setNewWorkers([]);
+        setProjectName(''); setProjectId(''); setSelWorkers([]); setNote('');
         setShowAdd(false);
         onSave();
     };
 
     return (
         <>
-            {/* Overlay để click ngoài đóng */}
             <div style={{ position: 'fixed', inset: 0, zIndex: 1998 }} onMouseDown={onClose} />
-            <div style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 1999, width: 290, background: 'var(--bg-card)', border: '1.5px solid var(--accent-primary)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.22)', padding: 12, maxHeight: 'calc(100vh - 80px)', overflowY: 'auto' }} onMouseDown={e => e.stopPropagation()}>
-                <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--accent-primary)', marginBottom: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 1999, width: 300, background: 'var(--bg-card)', border: '1.5px solid var(--accent-primary)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.22)', padding: 12, maxHeight: 'calc(100vh - 80px)', overflowY: 'auto' }}
+                onMouseDown={e => e.stopPropagation()}>
+                <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--accent-primary)', marginBottom: 8 }}>
                     {DAYS_VI[day.getDay()]} {fmtShortDate(day)} · {category.label}
                 </div>
 
-                {/* Existing tasks */}
-                {cellTasks.map(task => (
-                    <TaskRow key={task.id} task={task} category={category} workers={workers} projects={projects} onSaved={onSave} onDeleted={onSave} />
+                {cellEntries.map(entry => (
+                    <EntryRow key={entry.id} entry={entry} category={category} workers={workers} projects={projects} onSaved={onSave} onDeleted={onSave} />
                 ))}
 
-                {/* Add form */}
                 {showAdd ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: cellTasks.length > 0 ? '1px dashed var(--border)' : 'none', paddingTop: cellTasks.length > 0 ? 8 : 0 }}>
-                        {cellTasks.length > 0 && <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>Thêm dự án mới</div>}
-                        <ProjectInput value={newTitle} projects={projects} onChange={(name, id) => { setNewTitle(name); setNewProjectId(id || ''); }} />
-                        <WorkerChipInput selected={newWorkers} workerList={workers} onChange={setNewWorkers} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: cellEntries.length > 0 ? '1px dashed var(--border)' : 'none', paddingTop: cellEntries.length > 0 ? 8 : 0 }}>
+                        {cellEntries.length > 0 && <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>Thêm mục mới</div>}
+                        {isViecKhac ? (
+                            <input className="form-input" placeholder="Nội dung việc khác..." value={note}
+                                autoFocus onChange={e => setNote(e.target.value)} style={{ fontSize: 12, padding: '5px 8px' }} />
+                        ) : (
+                            <ProjectDropdown value={projectName} projectId={projectId} projects={projects}
+                                onChange={(name, id) => { setProjectName(name); setProjectId(id || ''); }} />
+                        )}
+                        <div style={{ fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: -2 }}>Người thực hiện</div>
+                        <WorkerChipInput selected={selWorkers} workerList={workers} onChange={setSelWorkers} placeholder="Chọn người thực hiện..." />
                         <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>
-                            <button className="btn btn-ghost btn-sm" onClick={() => { setShowAdd(false); if (cellTasks.length === 0) onClose(); }} style={{ padding: '3px 8px', fontSize: 12 }}>Hủy</button>
-                            <button className="btn btn-primary btn-sm" onClick={addTask} disabled={saving || !newTitle.trim()} style={{ padding: '3px 10px', fontSize: 12 }}>{saving ? '...' : '+ Thêm'}</button>
+                            <button className="btn btn-ghost btn-sm" onClick={() => { setShowAdd(false); if (cellEntries.length === 0) onClose(); }} style={{ padding: '3px 8px', fontSize: 12 }}>Hủy</button>
+                            <button className="btn btn-primary btn-sm" onClick={addEntry} disabled={saving} style={{ padding: '3px 10px', fontSize: 12 }}>{saving ? '...' : '+ Thêm'}</button>
                         </div>
                     </div>
                 ) : (
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--border)', paddingTop: 8, marginTop: 4 }}>
                         <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '3px 8px', fontSize: 12 }}>Đóng</button>
-                        <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)} style={{ padding: '3px 10px', fontSize: 12 }}>+ Thêm dự án</button>
+                        <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)} style={{ padding: '3px 10px', fontSize: 12 }}>+ Thêm mục</button>
                     </div>
                 )}
             </div>
@@ -298,45 +287,49 @@ function CellEditor({ day, category, cellTasks, pos, workers, projects, onSave, 
 export default function WorkLogPage() {
     const router = useRouter();
     const { role } = useRole();
-    const [tasks, setTasks] = useState([]);
+    const [entries, setEntries] = useState([]);
     const [workers, setWorkers] = useState([]);
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
-    const [editCell, setEditCell] = useState(null); // { day, category }
+    const [editCell, setEditCell] = useState(null);
 
     useEffect(() => {
         if (role && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd'].includes(role)) {
             router.replace('/'); return;
         }
-        fetchAll();
         fetch('/api/workshop/workers').then(r => r.json()).then(d => setWorkers(Array.isArray(d) ? d : []));
-        fetch('/api/projects?limit=200').then(r => r.json()).then(d => setProjects(Array.isArray(d?.data) ? d.data : []));
+        fetch('/api/projects?limit=200&type=Thi công nội thất').then(r => r.json()).then(d => setProjects(Array.isArray(d?.data) ? d.data : []));
     }, [role]);
+
+    useEffect(() => {
+        fetchAll();
+    }, [weekStart]);
 
     const fetchAll = () => {
         setLoading(true);
-        fetch('/api/workshop/tasks')
+        const start = toISO(weekStart);
+        const end = toISO(addDays(weekStart, 6));
+        fetch(`/api/workshop/work-log?start=${start}&end=${end}`)
             .then(r => r.json())
-            .then(d => { setTasks(Array.isArray(d) ? d : []); setLoading(false); });
+            .then(d => { setEntries(Array.isArray(d) ? d : []); setLoading(false); });
     };
 
     const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
     const weekEnd = weekDays[6];
     const weekNum = getWeekNum(weekStart);
-    const today = new Date(); today.setHours(0,0,0,0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
 
-    const getCell = (day, catKey) => tasks.filter(t => t.category === catKey && isActiveOnDay(t, day));
+    const getCell = (day, catKey) => entries.filter(e => e.category === catKey && isSameDay(new Date(e.date), day));
 
     const openEdit = (day, category, e) => {
         const rect = e.currentTarget.getBoundingClientRect();
-        const left = Math.min(rect.left, window.innerWidth - 296);
-        const top = rect.bottom + 4;
+        const left = Math.min(rect.left, window.innerWidth - 316);
+        const top = Math.min(rect.bottom + 4, window.innerHeight - 420);
         setEditCell({ day, category, pos: { top, left } });
     };
 
     const closeEdit = () => setEditCell(null);
-
     const handleSaved = () => { closeEdit(); fetchAll(); };
 
     return (
@@ -370,9 +363,9 @@ export default function WorkLogPage() {
                     <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
                 ) : (
                     <>
-                    {/* ── Desktop table ── */}
+                    {/* Desktop table */}
                     <div className="desktop-table-view" style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 900 }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 1100 }}>
                             <thead>
                                 <tr style={{ background: '#1C3A6B', color: '#fff' }}>
                                     <th rowSpan={2} style={{ padding: '8px 10px', border: '1px solid #2a4a8b', minWidth: 80, verticalAlign: 'middle', textAlign: 'center', fontSize: 11 }}>Ngày / Tháng</th>
@@ -381,10 +374,12 @@ export default function WorkLogPage() {
                                     ))}
                                 </tr>
                                 <tr style={{ background: '#2A5298', color: '#e2e8f0' }}>
-                                    {CATEGORIES.map(cat => (
-                                        [<th key={cat.key+'_ct'} style={{ padding: '5px 8px', border: '1px solid #3a5fa8', minWidth: 120, fontSize: 11, fontWeight: 600, textAlign: 'center' }}>Tên CT</th>,
-                                         <th key={cat.key+'_cb'} style={{ padding: '5px 8px', border: '1px solid #3a5fa8', minWidth: 110, fontSize: 11, fontWeight: 600, textAlign: 'center' }}>CB T/hiện</th>]
-                                    ))}
+                                    {CATEGORIES.map(cat => [
+                                        <th key={cat.key+'_ct'} style={{ padding: '5px 8px', border: '1px solid #3a5fa8', minWidth: 130, fontSize: 11, fontWeight: 600, textAlign: 'center' }}>
+                                            {cat.key === 'Việc khác' ? 'Nội dung' : 'Tên CT'}
+                                        </th>,
+                                        <th key={cat.key+'_nth'} style={{ padding: '5px 8px', border: '1px solid #3a5fa8', minWidth: 120, fontSize: 11, fontWeight: 600, textAlign: 'center' }}>Người thực hiện</th>,
+                                    ])}
                                 </tr>
                             </thead>
                             <tbody>
@@ -393,11 +388,11 @@ export default function WorkLogPage() {
                                     const dow = day.getDay();
                                     const isWeekend = dow === 0 || dow === 6;
                                     const rowBg = isToday ? '#fffbeb' : isWeekend ? '#fef2f2' : di % 2 === 0 ? '#f8fafc' : '#ffffff';
-                                    const cellTasks = CATEGORIES.map(cat => getCell(day, cat.key));
-                                    const maxRows = Math.max(1, ...cellTasks.map(t => t.length));
+                                    const cellEntries = CATEGORIES.map(cat => getCell(day, cat.key));
+                                    const maxRows = Math.max(1, ...cellEntries.map(t => t.length));
 
                                     return Array.from({ length: maxRows }, (_, ri) => (
-                                        <tr key={`${day.toISOString()}-${ri}`} style={{ background: rowBg, borderBottom: ri === maxRows - 1 ? '2px solid var(--border)' : '1px solid var(--border-light)' }}>
+                                        <tr key={`${toISO(day)}-${ri}`} style={{ background: rowBg, borderBottom: ri === maxRows - 1 ? '2px solid var(--border)' : '1px solid var(--border-light)' }}>
                                             {ri === 0 && (
                                                 <td rowSpan={maxRows} style={{ padding: '8px 10px', border: '1px solid var(--border)', background: isToday ? '#fef3c7' : isWeekend ? '#fee2e2' : '#f1f5f9', fontWeight: isToday ? 800 : 600, textAlign: 'center', verticalAlign: 'middle', fontSize: 12, whiteSpace: 'nowrap', color: isToday ? '#92400e' : isWeekend ? '#dc2626' : '#475569' }}>
                                                     <div>{DAYS_VI[dow]}</div>
@@ -406,26 +401,29 @@ export default function WorkLogPage() {
                                                 </td>
                                             )}
                                             {CATEGORIES.map((cat, ci) => {
-                                                const catTasks = cellTasks[ci];
-                                                const task = catTasks[ri];
-                                                const workers_ = task?.workers?.map(tw => tw.worker?.name).filter(Boolean).join(', ') || '';
-                                                const isEditing = editCell && isSameDay(editCell.day, day) && editCell.category.key === cat.key;
+                                                const catEntries = cellEntries[ci];
+                                                const entry = catEntries[ri];
+                                                const workers_ = entry ? parseWorkers(entry.mainWorkers) : [];
+                                                const isViecKhac = cat.key === 'Việc khác';
+                                                const displayName = entry ? (isViecKhac ? (entry.note || '') : (entry.projectName || entry.project?.name || '')) : '';
+                                                const cellBg = entry ? cat.color : 'transparent';
+                                                const tdStyle = { padding: '5px 8px', border: '1px solid var(--border-light)', background: cellBg, verticalAlign: 'top', cursor: 'pointer' };
+                                                const onClick = (e) => openEdit(day, cat, e);
 
                                                 return [
-                                                    <td key={cat.key+'_ct_'+ri} onClick={(e) => openEdit(day, cat, e)} style={{ padding: '5px 8px', border: '1px solid var(--border-light)', background: task ? cat.color : 'transparent', verticalAlign: 'top', cursor: 'pointer', minWidth: 120 }}
-                                                        title="Nhấn để thêm/sửa">
-                                                        {task ? (
+                                                    <td key={cat.key+'_ct_'+ri} onClick={onClick} style={{ ...tdStyle, minWidth: 130 }} title="Nhấn để thêm/sửa">
+                                                        {displayName ? (
                                                             <div>
-                                                                <div style={{ fontWeight: 600, color: '#1e3a5f', lineHeight: 1.3, fontSize: 12 }}>{task.title}</div>
-                                                                {task.project && <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>{task.project.code}</div>}
+                                                                <div style={{ fontWeight: 600, color: isViecKhac ? '#166534' : '#1e3a5f', fontSize: 12 }}>{displayName}</div>
+                                                                {entry?.project && !isViecKhac && <div style={{ fontSize: 10, color: '#6b7280' }}>{entry.project.code}</div>}
                                                             </div>
-                                                        ) : (
-                                                            <div style={{ color: '#d1d5db', fontSize: 11, textAlign: 'center', padding: '4px 0' }}>+</div>
-                                                        )}
+                                                        ) : <div style={{ color: '#d1d5db', fontSize: 11, textAlign: 'center', padding: '4px 0' }}>·</div>}
                                                     </td>,
-                                                    <td key={cat.key+'_cb_'+ri} onClick={(e) => openEdit(day, cat, e)} style={{ padding: '5px 8px', border: '1px solid var(--border-light)', background: task ? cat.color : 'transparent', verticalAlign: 'top', cursor: 'pointer', minWidth: 110 }}>
-                                                        {task && workers_ ? <div style={{ color: '#374151', fontSize: 12 }}>{workers_}</div> : null}
-                                                    </td>
+                                                    <td key={cat.key+'_nth_'+ri} onClick={onClick} style={{ ...tdStyle, minWidth: 120 }} title="Nhấn để thêm/sửa">
+                                                        {workers_.length > 0
+                                                            ? <div style={{ color: '#374151', fontSize: 11 }}>{workers_.join(', ')}</div>
+                                                            : <div style={{ color: '#d1d5db', fontSize: 11, textAlign: 'center', padding: '4px 0' }}>·</div>}
+                                                    </td>,
                                                 ];
                                             })}
                                         </tr>
@@ -435,33 +433,35 @@ export default function WorkLogPage() {
                         </table>
                     </div>
 
-                    {/* ── Mobile ── */}
+                    {/* Mobile */}
                     <div className="mobile-card-list">
                         {weekDays.map(day => {
                             const dow = day.getDay();
                             const isToday = isSameDay(day, today);
                             const isWeekend = dow === 0 || dow === 6;
-                            const dayTasks = tasks.filter(t => isActiveOnDay(t, day));
+                            const dayEntries = entries.filter(e => isSameDay(new Date(e.date), day));
                             return (
-                                <div key={day.toISOString()}>
+                                <div key={toISO(day)}>
                                     <div style={{ padding: '8px 14px', background: isToday ? '#fef3c7' : isWeekend ? '#fee2e2' : '#f1f5f9', borderBottom: '2px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
                                         <span style={{ fontWeight: 700, fontSize: 13, color: isWeekend ? '#dc2626' : '#475569' }}>{DAYS_VI[dow]} {fmtShortDate(day)}</span>
                                         {isToday && <span style={{ fontSize: 11, background: '#f59e0b', color: '#fff', padding: '1px 6px', borderRadius: 8 }}>Hôm nay</span>}
-                                                        <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto', fontSize: 11 }} onClick={(e) => openEdit(day, CATEGORIES[0], e)}>+ Thêm</button>
+                                        <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto', fontSize: 11 }} onClick={(e) => openEdit(day, CATEGORIES[0], e)}>+ Thêm</button>
                                     </div>
-                                    {dayTasks.length === 0
+                                    {dayEntries.length === 0
                                         ? <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Không có việc</div>
-                                        : dayTasks.map(task => {
-                                            const cat = CATEGORIES.find(c => c.key === task.category);
+                                        : dayEntries.map(entry => {
+                                            const cat = CATEGORIES.find(c => c.key === entry.category);
+                                            const main = parseWorkers(entry.mainWorkers);
+                                            const sub = parseWorkers(entry.subWorkers);
                                             return (
-                                                <div key={task.id} className="mobile-card-item" style={{ borderLeft: `3px solid ${cat?.hd || '#e5e7eb'}`, cursor: 'pointer' }}
+                                                <div key={entry.id} className="mobile-card-item" style={{ borderLeft: `3px solid ${cat?.hd || '#e5e7eb'}`, cursor: 'pointer' }}
                                                     onClick={(e) => openEdit(day, cat || CATEGORIES[0], e)}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                        <div style={{ fontWeight: 700, fontSize: 13 }}>{task.title}</div>
+                                                        <div style={{ fontWeight: 700, fontSize: 13 }}>{entry.projectName || entry.project?.name || entry.note || '—'}</div>
                                                         <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 8, background: cat?.color || '#f3f4f6', color: '#374151', flexShrink: 0, marginLeft: 6 }}>{cat?.label}</span>
                                                     </div>
-                                                    {task.project && <div style={{ fontSize: 11, color: '#2563eb' }}>{task.project.code} · {task.project.name}</div>}
-                                                    {task.workers?.length > 0 && <div style={{ fontSize: 12, color: '#15803d', marginTop: 3 }}>👷 {task.workers.map(tw => tw.worker?.name).filter(Boolean).join(', ')}</div>}
+                                                    {entry.project && <div style={{ fontSize: 11, color: '#2563eb' }}>{entry.project.code}</div>}
+                                                    {(() => { const w = parseWorkers(entry.mainWorkers); return w.length > 0 ? <div style={{ fontSize: 11, color: '#374151' }}>👷 {w.join(', ')}</div> : null; })()}
                                                 </div>
                                             );
                                         })
@@ -484,12 +484,11 @@ export default function WorkLogPage() {
                 </div>
             </div>
 
-            {/* CellEditor portal — render ngoài table tránh bị clip bởi overflow */}
             {editCell && (
                 <CellEditor
                     day={editCell.day}
                     category={editCell.category}
-                    cellTasks={getCell(editCell.day, editCell.category.key)}
+                    cellEntries={getCell(editCell.day, editCell.category.key)}
                     pos={editCell.pos}
                     workers={workers}
                     projects={projects}

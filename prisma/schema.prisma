@@ -115,6 +115,7 @@ model Project {
   commitments     Commitment[]
   changeOrders    BudgetChangeOrder[]
   workshopTasks   WorkshopTask[]
+  workLogEntries  WorkLogEntry[]
   deletedAt       DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -1047,6 +1048,22 @@ model WorkshopTaskMaterial {
   product   Product      @relation(fields: [productId], references: [id])
   @@index([taskId])
   @@index([productId])
+}
+
+model WorkLogEntry {
+  id          String    @id @default(cuid())
+  date        DateTime
+  category    String
+  projectId   String?
+  projectName String    @default("")
+  mainWorkers String    @default("[]")
+  subWorkers  String    @default("[]")
+  note        String    @default("")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  project     Project?  @relation(fields: [projectId], references: [id])
+  @@index([date])
+  @@index([projectId])
 }
 
 model WorkshopAttendance {
