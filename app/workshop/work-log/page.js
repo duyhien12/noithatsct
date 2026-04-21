@@ -174,14 +174,67 @@ function ProjectInput({ value, projectId, projects, onChange }) {
     );
 }
 
-// Cell editor popover
-function CellEditor({ day, category, task, workers, projects, onSave, onDelete, onClose }) {
-    const initTitle = task?.title || (task?.project?.name || '');
-    const [title, setTitle] = useState(initTitle);
-    const [projectId, setProjectId] = useState(task?.projectId || '');
-    const [selectedWorkers, setSelectedWorkers] = useState(
-        task?.workers?.map(tw => tw.worker?.name).filter(Boolean) || []
+// Inline task row (edit existing task inside CellEditor)
+function TaskRow({ task, category, workers, projects, onSaved, onDeleted }) {
+    const [editing, setEditing] = useState(false);
+    const [title, setTitle] = useState(task.title || '');
+    const [projectId, setProjectId] = useState(task.projectId || '');
+    const [selWorkers, setSelWorkers] = useState(task.workers?.map(tw => tw.worker?.name).filter(Boolean) || []);
+    const [saving, setSaving] = useState(false);
+
+    const save = async () => {
+        if (!title.trim()) return;
+        setSaving(true);
+        const workerIds = selWorkers.map(name => workers.find(w => w.name === name)?.id).filter(Boolean);
+        await fetch(`/api/workshop/tasks/${task.id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: title.trim(), projectId: projectId || null, workerIds, category: category.key }),
+        });
+        setSaving(false);
+        setEditing(false);
+        onSaved();
+    };
+
+    const del = async () => {
+        if (!confirm(`Xóa "${task.title}"?`)) return;
+        await fetch(`/api/workshop/tasks/${task.id}`, { method: 'DELETE' });
+        onDeleted();
+    };
+
+    const workerNames = task.workers?.map(tw => tw.worker?.name).filter(Boolean).join(', ');
+
+    if (!editing) return (
+        <div style={{ padding: '5px 7px', background: category.color, borderRadius: 6, marginBottom: 5, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 4 }}>
+            <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setEditing(true)}>
+                <div style={{ fontWeight: 600, fontSize: 12, color: '#1e3a5f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</div>
+                {task.project && <div style={{ fontSize: 10, color: '#2563eb' }}>{task.project.code}</div>}
+                {workerNames && <div style={{ fontSize: 11, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>👷 {workerNames}</div>}
+            </div>
+            <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                <button style={{ background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: 5, padding: '2px 5px', cursor: 'pointer', fontSize: 11 }} onClick={() => setEditing(true)}>✏️</button>
+                <button style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 5, padding: '2px 5px', cursor: 'pointer', fontSize: 11 }} onClick={del}>✕</button>
+            </div>
+        </div>
     );
+
+    return (
+        <div style={{ padding: '6px 7px', background: '#f0f9ff', border: '1px solid #93c5fd', borderRadius: 6, marginBottom: 5, display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <ProjectInput value={title} projectId={projectId} projects={projects} onChange={(name, id) => { setTitle(name); setProjectId(id || ''); }} />
+            <WorkerChipInput selected={selWorkers} workerList={workers} onChange={setSelWorkers} />
+            <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                <button className="btn btn-ghost btn-sm" onClick={() => setEditing(false)} style={{ padding: '2px 7px', fontSize: 11 }}>Hủy</button>
+                <button className="btn btn-primary btn-sm" onClick={save} disabled={saving || !title.trim()} style={{ padding: '2px 8px', fontSize: 11 }}>{saving ? '...' : 'Lưu'}</button>
+            </div>
+        </div>
+    );
+}
+
+// Cell editor popover — manages ALL tasks in a day+category cell
+function CellEditor({ day, category, cellTasks, workers, projects, onSave, onClose }) {
+    const [showAdd, setShowAdd] = useState(cellTasks.length === 0);
+    const [newTitle, setNewTitle] = useState('');
+    const [newProjectId, setNewProjectId] = useState('');
+    const [newWorkers, setNewWorkers] = useState([]);
     const [saving, setSaving] = useState(false);
     const ref = useRef(null);
 
@@ -191,56 +244,49 @@ function CellEditor({ day, category, task, workers, projects, onSave, onDelete, 
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    const handleSave = async () => {
-        if (!title.trim()) return;
+    const addTask = async () => {
+        if (!newTitle.trim()) return;
         setSaving(true);
-        const workerIds = selectedWorkers.map(name => workers.find(w => w.name === name)?.id).filter(Boolean);
+        const workerIds = newWorkers.map(name => workers.find(w => w.name === name)?.id).filter(Boolean);
         const dateStr = toISO(day);
-        if (task) {
-            await fetch(`/api/workshop/tasks/${task.id}`, {
-                method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: title.trim(), projectId: projectId || null, workerIds, category: category.key }),
-            });
-        } else {
-            await fetch('/api/workshop/tasks', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: title.trim(), projectId: projectId || null, startDate: dateStr, deadline: dateStr, category: category.key, status: 'Đang làm', workerIds }),
-            });
-        }
+        await fetch('/api/workshop/tasks', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: newTitle.trim(), projectId: newProjectId || null, startDate: dateStr, deadline: dateStr, category: category.key, status: 'Đang làm', workerIds }),
+        });
         setSaving(false);
+        setNewTitle(''); setNewProjectId(''); setNewWorkers([]);
+        setShowAdd(false);
         onSave();
     };
 
-    const handleDelete = async () => {
-        if (!task) return;
-        if (!confirm(`Xóa "${task.title}"?`)) return;
-        await fetch(`/api/workshop/tasks/${task.id}`, { method: 'DELETE' });
-        onDelete();
-    };
-
     return (
-        <div ref={ref} style={{ position: 'absolute', top: 0, left: 0, zIndex: 1000, width: 260, background: 'var(--bg-card)', border: '1.5px solid var(--accent-primary)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', padding: 10 }}>
-            <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--accent-primary)', marginBottom: 7, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div ref={ref} style={{ position: 'absolute', top: 0, left: 0, zIndex: 1000, width: 280, background: 'var(--bg-card)', border: '1.5px solid var(--accent-primary)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', padding: 10 }}>
+            <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--accent-primary)', marginBottom: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {DAYS_VI[day.getDay()]} {fmtShortDate(day)} · {category.label}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {/* Tên CT: project autocomplete */}
-                <ProjectInput
-                    value={title}
-                    projectId={projectId}
-                    projects={projects}
-                    onChange={(name, id) => { setTitle(name); setProjectId(id || ''); }}
-                />
-                {/* CB Thực hiện */}
-                <WorkerChipInput selected={selectedWorkers} workerList={workers} onChange={setSelectedWorkers} />
-                <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>
-                    {task && <button style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6, padding: '3px 7px', cursor: 'pointer', fontSize: 12 }} onClick={handleDelete}>🗑️</button>}
-                    <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '3px 8px', fontSize: 12 }}>Hủy</button>
-                    <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving || !title.trim()} style={{ padding: '3px 10px', fontSize: 12 }}>
-                        {saving ? '...' : task ? 'Lưu' : '+ Thêm'}
-                    </button>
+
+            {/* Existing tasks */}
+            {cellTasks.map(task => (
+                <TaskRow key={task.id} task={task} category={category} workers={workers} projects={projects} onSaved={onSave} onDeleted={onSave} />
+            ))}
+
+            {/* Add form */}
+            {showAdd ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: cellTasks.length > 0 ? '1px dashed var(--border)' : 'none', paddingTop: cellTasks.length > 0 ? 8 : 0 }}>
+                    {cellTasks.length > 0 && <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>Thêm dự án mới</div>}
+                    <ProjectInput value={newTitle} projects={projects} onChange={(name, id) => { setNewTitle(name); setNewProjectId(id || ''); }} />
+                    <WorkerChipInput selected={newWorkers} workerList={workers} onChange={setNewWorkers} />
+                    <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => { setShowAdd(false); if (cellTasks.length === 0) onClose(); }} style={{ padding: '3px 8px', fontSize: 12 }}>Hủy</button>
+                        <button className="btn btn-primary btn-sm" onClick={addTask} disabled={saving || !newTitle.trim()} style={{ padding: '3px 10px', fontSize: 12 }}>{saving ? '...' : '+ Thêm'}</button>
+                    </div>
                 </div>
-            </div>
+            ) : (
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--border)', paddingTop: 8, marginTop: 4 }}>
+                    <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '3px 8px', fontSize: 12 }}>Đóng</button>
+                    <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)} style={{ padding: '3px 10px', fontSize: 12 }}>+ Thêm dự án</button>
+                </div>
+            )}
         </div>
     );
 }
@@ -253,7 +299,7 @@ export default function WorkLogPage() {
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
-    const [editCell, setEditCell] = useState(null); // { day, category, task }
+    const [editCell, setEditCell] = useState(null); // { day, category }
 
     useEffect(() => {
         if (role && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd'].includes(role)) {
@@ -278,8 +324,8 @@ export default function WorkLogPage() {
 
     const getCell = (day, catKey) => tasks.filter(t => t.category === catKey && isActiveOnDay(t, day));
 
-    const openEdit = (day, category, task = null) => {
-        setEditCell({ day, category, task });
+    const openEdit = (day, category) => {
+        setEditCell({ day, category });
     };
 
     const closeEdit = () => setEditCell(null);
@@ -352,15 +398,15 @@ export default function WorkLogPage() {
                                                     {isToday && <div style={{ fontSize: 10, color: '#d97706', marginTop: 2 }}>Hôm nay</div>}
                                                 </td>
                                             )}
-                                            {cellTasks.map((catTasks, ci) => {
+                                            {CATEGORIES.map((cat, ci) => {
+                                                const catTasks = cellTasks[ci];
                                                 const task = catTasks[ri];
-                                                const cat = CATEGORIES[ci];
                                                 const workers_ = task?.workers?.map(tw => tw.worker?.name).filter(Boolean).join(', ') || '';
-                                                const isEditing = editCell && isSameDay(editCell.day, day) && editCell.category.key === cat.key && ((editCell.task?.id || null) === (task?.id || null)) && ri === (task ? catTasks.indexOf(task) : 0);
+                                                const isEditing = editCell && isSameDay(editCell.day, day) && editCell.category.key === cat.key;
 
                                                 return [
-                                                    <td key={cat.key+'_ct_'+ri} onClick={() => openEdit(day, cat, task || null)} style={{ padding: '5px 8px', border: '1px solid var(--border-light)', background: task ? cat.color : 'transparent', verticalAlign: 'top', cursor: 'pointer', position: 'relative', minWidth: 120 }}
-                                                        title="Nhấn để sửa/thêm">
+                                                    <td key={cat.key+'_ct_'+ri} onClick={() => openEdit(day, cat)} style={{ padding: '5px 8px', border: '1px solid var(--border-light)', background: task ? cat.color : 'transparent', verticalAlign: 'top', cursor: 'pointer', position: 'relative', minWidth: 120 }}
+                                                        title="Nhấn để thêm/sửa">
                                                         {task ? (
                                                             <div>
                                                                 <div style={{ fontWeight: 600, color: '#1e3a5f', lineHeight: 1.3, fontSize: 12 }}>{task.title}</div>
@@ -369,11 +415,11 @@ export default function WorkLogPage() {
                                                         ) : (
                                                             <div style={{ color: '#d1d5db', fontSize: 11, textAlign: 'center', padding: '4px 0' }}>+</div>
                                                         )}
-                                                        {isEditing && editCell.task?.id === task?.id && (
-                                                            <CellEditor day={day} category={cat} task={task} workers={workers} projects={projects} onSave={handleSaved} onDelete={handleSaved} onClose={closeEdit} />
+                                                        {isEditing && ri === 0 && (
+                                                            <CellEditor day={day} category={cat} cellTasks={catTasks} workers={workers} projects={projects} onSave={handleSaved} onClose={closeEdit} />
                                                         )}
                                                     </td>,
-                                                    <td key={cat.key+'_cb_'+ri} onClick={() => openEdit(day, cat, task || null)} style={{ padding: '5px 8px', border: '1px solid var(--border-light)', background: task ? cat.color : 'transparent', verticalAlign: 'top', cursor: 'pointer', minWidth: 110 }}>
+                                                    <td key={cat.key+'_cb_'+ri} onClick={() => openEdit(day, cat)} style={{ padding: '5px 8px', border: '1px solid var(--border-light)', background: task ? cat.color : 'transparent', verticalAlign: 'top', cursor: 'pointer', minWidth: 110 }}>
                                                         {task && workers_ ? <div style={{ color: '#374151', fontSize: 12 }}>{workers_}</div> : null}
                                                     </td>
                                                 ];
@@ -397,7 +443,7 @@ export default function WorkLogPage() {
                                     <div style={{ padding: '8px 14px', background: isToday ? '#fef3c7' : isWeekend ? '#fee2e2' : '#f1f5f9', borderBottom: '2px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
                                         <span style={{ fontWeight: 700, fontSize: 13, color: isWeekend ? '#dc2626' : '#475569' }}>{DAYS_VI[dow]} {fmtShortDate(day)}</span>
                                         {isToday && <span style={{ fontSize: 11, background: '#f59e0b', color: '#fff', padding: '1px 6px', borderRadius: 8 }}>Hôm nay</span>}
-                                        <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto', fontSize: 11 }} onClick={() => openEdit(day, CATEGORIES[0], null)}>+ Thêm</button>
+                                        <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto', fontSize: 11 }} onClick={() => openEdit(day, CATEGORIES[0])}>+ Thêm</button>
                                     </div>
                                     {dayTasks.length === 0
                                         ? <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Không có việc</div>
@@ -405,15 +451,15 @@ export default function WorkLogPage() {
                                             const cat = CATEGORIES.find(c => c.key === task.category);
                                             return (
                                                 <div key={task.id} className="mobile-card-item" style={{ borderLeft: `3px solid ${cat?.hd || '#e5e7eb'}`, cursor: 'pointer', position: 'relative' }}
-                                                    onClick={() => openEdit(day, cat || CATEGORIES[0], task)}>
+                                                    onClick={() => openEdit(day, cat || CATEGORIES[0])}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                                                         <div style={{ fontWeight: 700, fontSize: 13 }}>{task.title}</div>
                                                         <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 8, background: cat?.color || '#f3f4f6', color: '#374151', flexShrink: 0, marginLeft: 6 }}>{cat?.label}</span>
                                                     </div>
                                                     {task.project && <div style={{ fontSize: 11, color: '#2563eb' }}>{task.project.code} · {task.project.name}</div>}
                                                     {task.workers?.length > 0 && <div style={{ fontSize: 12, color: '#15803d', marginTop: 3 }}>👷 {task.workers.map(tw => tw.worker?.name).filter(Boolean).join(', ')}</div>}
-                                                    {editCell && isSameDay(editCell.day, day) && editCell.task?.id === task.id && (
-                                                        <CellEditor day={day} category={cat || CATEGORIES[0]} task={task} workers={workers} projects={projects} onSave={handleSaved} onDelete={handleSaved} onClose={closeEdit} />
+                                                    {editCell && isSameDay(editCell.day, day) && editCell.category.key === (cat?.key || CATEGORIES[0].key) && (
+                                                        <CellEditor day={day} category={cat || CATEGORIES[0]} cellTasks={tasks.filter(t => t.category === (cat?.key || CATEGORIES[0].key) && isActiveOnDay(t, day))} workers={workers} projects={projects} onSave={handleSaved} onClose={closeEdit} />
                                                     )}
                                                 </div>
                                             );
