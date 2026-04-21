@@ -242,11 +242,16 @@ function CellEditor({ day, category, cellTasks, pos, workers, projects, onSave, 
         setSaving(true);
         const workerIds = newWorkers.map(name => workers.find(w => w.name === name)?.id).filter(Boolean);
         const dateStr = toISO(day);
-        await fetch('/api/workshop/tasks', {
+        const res = await fetch('/api/workshop/tasks', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title: newTitle.trim(), projectId: newProjectId || null, startDate: dateStr, deadline: dateStr, category: category.key, status: 'Đang làm', workerIds }),
         });
         setSaving(false);
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            alert('Lỗi: ' + (errData.error || res.status) + (errData.rawBody ? '\nBody: ' + errData.rawBody.slice(0, 100) : ''));
+            return;
+        }
         setNewTitle(''); setNewProjectId(''); setNewWorkers([]);
         setShowAdd(false);
         onSave();
