@@ -25,7 +25,7 @@ jobs:
       - name: Gửi nhắc nhở Zalo
         run: |
           response=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "x-cron-secret: noithatsct-cron-2026" \
             https://admin.kientrucsct.com/api/cron/remind)
           echo "HTTP status: $response"
           if [ "$response" != "200" ]; then
@@ -41,7 +41,7 @@ jobs:
       - name: Làm mới Zalo OA Token
         run: |
           response=$(curl -s \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "x-cron-secret: noithatsct-cron-2026" \
             https://admin.kientrucsct.com/api/cron/refresh-zalo-token)
           echo "Response: $response"
           success=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('success','false'))" 2>/dev/null || echo "false")
