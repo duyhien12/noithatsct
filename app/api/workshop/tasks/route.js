@@ -29,41 +29,47 @@ export const GET = withAuth(async (req) => {
 });
 
 export const POST = withAuth(async (req) => {
-    const body = await req.json();
-    const { title, description, projectId, startDate, deadline, priority, notes, category, workerIds = [], materials = [] } = body;
+    let rawBody = '';
+    try {
+        rawBody = await req.text();
+        const body = JSON.parse(rawBody);
+        const { title, description, projectId, startDate, deadline, priority, notes, category, workerIds = [], materials = [] } = body;
 
-    if (!title?.trim()) {
-        return NextResponse.json({ error: 'Tiêu đề bắt buộc' }, { status: 400 });
+        if (!title?.trim()) {
+            return NextResponse.json({ error: 'Tiêu đề bắt buộc' }, { status: 400 });
+        }
+
+        const task = await prisma.workshopTask.create({
+            data: {
+                title: title.trim(),
+                description: description?.trim() || '',
+                projectId: projectId || null,
+                startDate: startDate ? new Date(startDate) : null,
+                deadline: deadline ? new Date(deadline) : null,
+                priority: priority || 'Trung bình',
+                category: category || 'Lắp ghép tại xưởng',
+                notes: notes?.trim() || '',
+                workers: workerIds.length > 0 ? {
+                    create: workerIds.map(wid => ({ workerId: wid })),
+                } : undefined,
+                materials: materials.length > 0 ? {
+                    create: materials.map(m => ({ productId: m.productId, quantity: Number(m.quantity) || 1 })),
+                } : undefined,
+            },
+            include: {
+                project: { select: { id: true, code: true, name: true } },
+                workers: { include: { worker: { select: { id: true, name: true, skill: true, zaloUserId: true } } } },
+                materials: { include: { product: { select: { id: true, name: true, unit: true } } } },
+            },
+        });
+
+        if (workerIds.length > 0) {
+            notifyWorkshopTaskAssigned(task).catch(e => console.error('[workshop/tasks POST] notify lỗi:', e));
+        }
+
+        return NextResponse.json(task, { status: 201 });
+    } catch (e) {
+        console.error('[POST /workshop/tasks] LỖI:', e.message, '| body:', rawBody.slice(0, 500));
+        return NextResponse.json({ error: e.message, rawBody: rawBody.slice(0, 300) }, { status: 500 });
     }
-
-    const task = await prisma.workshopTask.create({
-        data: {
-            title: title.trim(),
-            description: description?.trim() || '',
-            projectId: projectId || null,
-            startDate: startDate ? new Date(startDate) : null,
-            deadline: deadline ? new Date(deadline) : null,
-            priority: priority || 'Trung bình',
-            category: category || 'Lắp ghép tại xưởng',
-            notes: notes?.trim() || '',
-            workers: workerIds.length > 0 ? {
-                create: workerIds.map(wid => ({ workerId: wid })),
-            } : undefined,
-            materials: materials.length > 0 ? {
-                create: materials.map(m => ({ productId: m.productId, quantity: Number(m.quantity) || 1 })),
-            } : undefined,
-        },
-        include: {
-            project: { select: { id: true, code: true, name: true } },
-            workers: { include: { worker: { select: { id: true, name: true, skill: true, zaloUserId: true } } } },
-            materials: { include: { product: { select: { id: true, name: true, unit: true } } } },
-        },
-    });
-
-    // Thông báo Zalo cho thợ được giao việc
-    if (workerIds.length > 0) {
-        notifyWorkshopTaskAssigned(task).catch(e => console.error('[workshop/tasks POST] notify lỗi:', e));
-    }
-
-    return NextResponse.json(task, { status: 201 });
 });
