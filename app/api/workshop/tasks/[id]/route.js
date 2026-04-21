@@ -11,7 +11,7 @@ export const PUT = withAuth(async (req, { params }) => {
     const updateData = {};
     if (title !== undefined) updateData.title = title.trim();
     if (description !== undefined) updateData.description = description.trim();
-    if (projectId !== undefined) updateData.projectId = projectId || null;
+    if (projectId !== undefined) updateData.project = projectId ? { connect: { id: projectId } } : { disconnect: true };
     if (startDate !== undefined) updateData.startDate = startDate ? new Date(startDate) : null;
     if (deadline !== undefined) updateData.deadline = deadline ? new Date(deadline) : null;
     if (priority !== undefined) updateData.priority = priority;

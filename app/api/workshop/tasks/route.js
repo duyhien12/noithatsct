@@ -43,7 +43,7 @@ export const POST = withAuth(async (req) => {
             data: {
                 title: title.trim(),
                 description: description?.trim() || '',
-                projectId: projectId || null,
+                project: projectId ? { connect: { id: projectId } } : undefined,
                 startDate: startDate ? new Date(startDate) : null,
                 deadline: deadline ? new Date(deadline) : null,
                 priority: priority || 'Trung bình',
