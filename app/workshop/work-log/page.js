@@ -1,91 +1,228 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRole } from '@/contexts/RoleContext';
 
 const CATEGORIES = [
-    { key: 'Gia công nguội',         label: 'Gia công nguội',         short: 'GCN',  color: '#dbeafe', hd: '#bfdbfe' },
-    { key: 'Lắp ghép tại xưởng',     label: 'Lắp ghép tại xưởng',     short: 'LGX',  color: '#fef9c3', hd: '#fef08a' },
-    { key: 'Lắp đặt tại công trình', label: 'Lắp đặt tại công trình', short: 'LĐCT', color: '#dbeafe', hd: '#bfdbfe' },
-    { key: 'Bảo dưỡng',              label: 'Bảo dưỡng',              short: 'BD',   color: '#fef9c3', hd: '#fef08a' },
-    { key: 'Việc khác',              label: 'Việc khác',              short: 'VK',   color: '#f0fdf4', hd: '#bbf7d0' },
+    { key: 'Gia công nguội',         label: 'Gia công nguội',         color: '#dbeafe', hd: '#93c5fd' },
+    { key: 'Lắp ghép tại xưởng',     label: 'Lắp ghép tại xưởng',     color: '#fef9c3', hd: '#fde047' },
+    { key: 'Lắp đặt tại công trình', label: 'Lắp đặt tại công trình', color: '#dbeafe', hd: '#93c5fd' },
+    { key: 'Bảo dưỡng',              label: 'Bảo dưỡng',              color: '#fef9c3', hd: '#fde047' },
+    { key: 'Việc khác',              label: 'Việc khác',              color: '#f0fdf4', hd: '#86efac' },
 ];
-
 const DAYS_VI = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
 
 function getWeekStart(date) {
     const d = new Date(date);
-    const day = d.getDay(); // 0=Sun
-    const diff = day === 0 ? -6 : 1 - day; // shift to Monday
-    d.setDate(d.getDate() + diff);
+    const day = d.getDay();
+    d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
     d.setHours(0, 0, 0, 0);
     return d;
 }
-
-function addDays(date, n) {
-    const d = new Date(date);
-    d.setDate(d.getDate() + n);
-    return d;
-}
-
-function isSameDay(a, b) {
-    return a.getFullYear() === b.getFullYear() &&
-        a.getMonth() === b.getMonth() &&
-        a.getDate() === b.getDate();
-}
-
+function addDays(date, n) { const d = new Date(date); d.setDate(d.getDate() + n); return d; }
+function isSameDay(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
 function isActiveOnDay(task, day) {
-    if (!task.startDate && !task.deadline) return false;
     const start = task.startDate ? new Date(task.startDate) : null;
     const end = task.deadline ? new Date(task.deadline) : null;
-    if (start && end) return day >= start && day <= end;
+    if (start && end) { const d = new Date(day); d.setHours(12,0,0,0); return d >= start && d <= end; }
     if (start) return isSameDay(day, start);
     if (end) return isSameDay(day, end);
     return false;
 }
-
-function fmtShortDate(date) {
-    return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}`;
-}
-
+function fmtShortDate(d) { return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}`; }
+function toISO(date) { return date.toISOString().split('T')[0]; }
 function getWeekNum(date) {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(),0,1))) / 86400000) + 1) / 7);
+}
+
+// Worker autocomplete chip input
+function WorkerChipInput({ selected, workerList, onChange }) {
+    const [input, setInput] = useState('');
+    const [suggestions, setSuggestions] = useState([]);
+    const ref = useRef(null);
+
+    const handleInput = (val) => {
+        setInput(val);
+        if (val.trim().length > 0) {
+            setSuggestions(workerList.filter(w =>
+                w.name.toLowerCase().includes(val.toLowerCase()) && !selected.includes(w.name)
+            ).slice(0, 6));
+        } else {
+            setSuggestions([]);
+        }
+    };
+
+    const add = (name) => {
+        if (!selected.includes(name)) onChange([...selected, name]);
+        setInput('');
+        setSuggestions([]);
+    };
+
+    const remove = (name) => onChange(selected.filter(n => n !== name));
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && input.trim()) {
+            e.preventDefault();
+            if (suggestions.length > 0) add(suggestions[0].name);
+            else add(input.trim());
+        }
+        if (e.key === 'Backspace' && !input && selected.length > 0) {
+            remove(selected[selected.length - 1]);
+        }
+    };
+
+    return (
+        <div style={{ position: 'relative' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '4px 6px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-card)', minHeight: 34, alignItems: 'center', cursor: 'text' }} onClick={() => ref.current?.focus()}>
+                {selected.map(name => (
+                    <span key={name} style={{ padding: '1px 6px', borderRadius: 12, background: '#dbeafe', color: '#1d4ed8', fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}>
+                        {name}
+                        <span style={{ cursor: 'pointer', fontWeight: 700, fontSize: 12, lineHeight: 1 }} onClick={(e) => { e.stopPropagation(); remove(name); }}>×</span>
+                    </span>
+                ))}
+                <input
+                    ref={ref}
+                    value={input}
+                    onChange={e => handleInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={selected.length === 0 ? 'Nhập tên thợ...' : ''}
+                    style={{ border: 'none', outline: 'none', fontSize: 12, flex: 1, minWidth: 80, background: 'transparent', padding: '2px 0' }}
+                />
+            </div>
+            {suggestions.length > 0 && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', maxHeight: 180, overflowY: 'auto', marginTop: 2 }}>
+                    {suggestions.map(w => (
+                        <div key={w.id} onMouseDown={() => add(w.name)} style={{ padding: '7px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: 8 }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                            <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#dbeafe', color: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>
+                                {w.name.split(' ').pop()?.[0]?.toUpperCase()}
+                            </span>
+                            <div>
+                                <div style={{ fontWeight: 600 }}>{w.name}</div>
+                                {w.skill && <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{w.skill}</div>}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// Cell editor popover
+function CellEditor({ day, category, task, workers, projects, onSave, onDelete, onClose }) {
+    const [title, setTitle] = useState(task?.title || '');
+    const [projectId, setProjectId] = useState(task?.projectId || '');
+    const [selectedWorkers, setSelectedWorkers] = useState(
+        task?.workers?.map(tw => tw.worker?.name).filter(Boolean) || []
+    );
+    const [saving, setSaving] = useState(false);
+    const ref = useRef(null);
+
+    // Close on outside click
+    useEffect(() => {
+        const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+        setTimeout(() => document.addEventListener('mousedown', handler), 10);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const handleSave = async () => {
+        if (!title.trim()) return;
+        setSaving(true);
+        const workerIds = selectedWorkers.map(name => workers.find(w => w.name === name)?.id).filter(Boolean);
+        const dateStr = toISO(day);
+        if (task) {
+            await fetch(`/api/workshop/tasks/${task.id}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: title.trim(), projectId: projectId || null, workerIds, category: category.key }),
+            });
+        } else {
+            await fetch('/api/workshop/tasks', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: title.trim(), projectId: projectId || null, startDate: dateStr, deadline: dateStr, category: category.key, status: 'Đang làm', workerIds }),
+            });
+        }
+        setSaving(false);
+        onSave();
+    };
+
+    const handleDelete = async () => {
+        if (!task) return;
+        if (!confirm(`Xóa "${task.title}"?`)) return;
+        await fetch(`/api/workshop/tasks/${task.id}`, { method: 'DELETE' });
+        onDelete();
+    };
+
+    return (
+        <div ref={ref} style={{ position: 'absolute', top: 0, left: 0, zIndex: 1000, width: 280, background: 'var(--bg-card)', border: '1.5px solid var(--accent-primary)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', padding: 12 }}>
+            <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--accent-primary)', marginBottom: 8 }}>
+                {DAYS_VI[day.getDay()]} {fmtShortDate(day)} · {category.label}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <input className="form-input" placeholder="Tên công việc *" value={title} onChange={e => setTitle(e.target.value)} autoFocus style={{ fontSize: 12, padding: '5px 8px' }} onKeyDown={e => e.key === 'Enter' && handleSave()} />
+                <select className="form-select" value={projectId} onChange={e => setProjectId(e.target.value)} style={{ fontSize: 12, padding: '5px 8px' }}>
+                    <option value="">-- Dự án --</option>
+                    {projects.map(p => <option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}
+                </select>
+                <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 3 }}>CB Thực hiện</div>
+                    <WorkerChipInput selected={selectedWorkers} workerList={workers} onChange={setSelectedWorkers} />
+                </div>
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 4 }}>
+                    {task && <button className="btn btn-sm" style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '4px 8px' }} onClick={handleDelete}>🗑️</button>}
+                    <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '4px 8px' }}>Hủy</button>
+                    <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving || !title.trim()} style={{ padding: '4px 10px' }}>
+                        {saving ? '...' : task ? 'Lưu' : '+ Thêm'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 }
 
 export default function WorkLogPage() {
     const router = useRouter();
     const { role } = useRole();
     const [tasks, setTasks] = useState([]);
+    const [workers, setWorkers] = useState([]);
+    const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
+    const [editCell, setEditCell] = useState(null); // { day, category, task }
 
     useEffect(() => {
         if (role && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd'].includes(role)) {
-            router.replace('/');
-            return;
+            router.replace('/'); return;
         }
+        fetchAll();
+        fetch('/api/workshop/workers').then(r => r.json()).then(d => setWorkers(Array.isArray(d) ? d : []));
+        fetch('/api/projects?limit=200').then(r => r.json()).then(d => setProjects(Array.isArray(d?.data) ? d.data : []));
+    }, [role]);
+
+    const fetchAll = () => {
+        setLoading(true);
         fetch('/api/workshop/tasks')
             .then(r => r.json())
             .then(d => { setTasks(Array.isArray(d) ? d : []); setLoading(false); });
-    }, [role]);
+    };
 
     const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
     const weekEnd = weekDays[6];
     const weekNum = getWeekNum(weekStart);
+    const today = new Date(); today.setHours(0,0,0,0);
 
-    const prevWeek = () => setWeekStart(d => addDays(d, -7));
-    const nextWeek = () => setWeekStart(d => addDays(d, 7));
-    const thisWeek = () => setWeekStart(getWeekStart(new Date()));
+    const getCell = (day, catKey) => tasks.filter(t => t.category === catKey && isActiveOnDay(t, day));
 
-    // For each day and category, get tasks active that day with that category
-    const getCell = (day, catKey) =>
-        tasks.filter(t => t.category === catKey && isActiveOnDay(t, day));
+    const openEdit = (day, category, task = null) => {
+        setEditCell({ day, category, task });
+    };
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const closeEdit = () => setEditCell(null);
+
+    const handleSaved = () => { closeEdit(); fetchAll(); };
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -103,16 +240,15 @@ export default function WorkLogPage() {
                 {/* Week nav */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 8 }}>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <button className="btn btn-ghost btn-sm" onClick={prevWeek}>◀</button>
-                        <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', padding: '0 8px' }}>
-                            Tuần {weekNum}
-                        </span>
-                        <button className="btn btn-ghost btn-sm" onClick={nextWeek}>▶</button>
-                        <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={thisWeek}>Tuần này</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setWeekStart(d => addDays(d, -7))}>◀</button>
+                        <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', padding: '0 8px' }}>Tuần {weekNum}</span>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setWeekStart(d => addDays(d, 7))}>▶</button>
+                        <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={() => setWeekStart(getWeekStart(new Date()))}>Tuần này</button>
                     </div>
-                    <button className="btn btn-ghost btn-sm" onClick={() => { setLoading(true); fetch('/api/workshop/tasks').then(r => r.json()).then(d => { setTasks(Array.isArray(d) ? d : []); setLoading(false); }); }}>
-                        🔄 Làm mới
-                    </button>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
+                        <span>💡 Nhấn vào ô để thêm/sửa</span>
+                        <button className="btn btn-ghost btn-sm" onClick={fetchAll}>🔄 Làm mới</button>
+                    </div>
                 </div>
 
                 {loading ? (
@@ -123,49 +259,33 @@ export default function WorkLogPage() {
                     <div className="desktop-table-view" style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 900 }}>
                             <thead>
-                                {/* Row 1: category groups */}
                                 <tr style={{ background: '#1C3A6B', color: '#fff' }}>
-                                    <th rowSpan={2} style={{ padding: '8px 10px', border: '1px solid #2a4a8b', minWidth: 80, whiteSpace: 'nowrap', verticalAlign: 'middle', textAlign: 'center', fontSize: 11 }}>
-                                        Ngày / Tháng
-                                    </th>
+                                    <th rowSpan={2} style={{ padding: '8px 10px', border: '1px solid #2a4a8b', minWidth: 80, verticalAlign: 'middle', textAlign: 'center', fontSize: 11 }}>Ngày / Tháng</th>
                                     {CATEGORIES.map(cat => (
-                                        <th key={cat.key} colSpan={2} style={{ padding: '6px 10px', border: '1px solid #2a4a8b', textAlign: 'center', fontSize: 12, fontWeight: 700 }}>
-                                            {cat.label}
-                                        </th>
+                                        <th key={cat.key} colSpan={2} style={{ padding: '6px 10px', border: '1px solid #2a4a8b', textAlign: 'center', fontSize: 12, fontWeight: 700 }}>{cat.label}</th>
                                     ))}
                                 </tr>
-                                {/* Row 2: Tên CT / CB T/hiện */}
                                 <tr style={{ background: '#2A5298', color: '#e2e8f0' }}>
                                     {CATEGORIES.map(cat => (
-                                        <>
-                                            <th key={cat.key + '_ct'} style={{ padding: '5px 8px', border: '1px solid #3a5fa8', minWidth: 130, fontSize: 11, fontWeight: 600, textAlign: 'center' }}>Tên CT</th>
-                                            <th key={cat.key + '_cb'} style={{ padding: '5px 8px', border: '1px solid #3a5fa8', minWidth: 120, fontSize: 11, fontWeight: 600, textAlign: 'center' }}>CB T/hiện</th>
-                                        </>
+                                        [<th key={cat.key+'_ct'} style={{ padding: '5px 8px', border: '1px solid #3a5fa8', minWidth: 120, fontSize: 11, fontWeight: 600, textAlign: 'center' }}>Tên CT</th>,
+                                         <th key={cat.key+'_cb'} style={{ padding: '5px 8px', border: '1px solid #3a5fa8', minWidth: 110, fontSize: 11, fontWeight: 600, textAlign: 'center' }}>CB T/hiện</th>]
                                     ))}
                                 </tr>
                             </thead>
                             <tbody>
                                 {weekDays.map((day, di) => {
                                     const isToday = isSameDay(day, today);
-                                    const dayOfWeek = day.getDay();
-                                    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                                    const dow = day.getDay();
+                                    const isWeekend = dow === 0 || dow === 6;
                                     const rowBg = isToday ? '#fffbeb' : isWeekend ? '#fef2f2' : di % 2 === 0 ? '#f8fafc' : '#ffffff';
-
-                                    // max rows needed for this day (most tasks in any category)
                                     const cellTasks = CATEGORIES.map(cat => getCell(day, cat.key));
                                     const maxRows = Math.max(1, ...cellTasks.map(t => t.length));
 
                                     return Array.from({ length: maxRows }, (_, ri) => (
                                         <tr key={`${day.toISOString()}-${ri}`} style={{ background: rowBg, borderBottom: ri === maxRows - 1 ? '2px solid var(--border)' : '1px solid var(--border-light)' }}>
                                             {ri === 0 && (
-                                                <td rowSpan={maxRows} style={{
-                                                    padding: '8px 10px', border: '1px solid var(--border)',
-                                                    background: isToday ? '#fef3c7' : isWeekend ? '#fee2e2' : '#f1f5f9',
-                                                    fontWeight: isToday ? 800 : 600, textAlign: 'center', verticalAlign: 'middle',
-                                                    fontSize: 12, whiteSpace: 'nowrap',
-                                                    color: isToday ? '#92400e' : isWeekend ? '#dc2626' : '#475569',
-                                                }}>
-                                                    <div>{DAYS_VI[dayOfWeek]}</div>
+                                                <td rowSpan={maxRows} style={{ padding: '8px 10px', border: '1px solid var(--border)', background: isToday ? '#fef3c7' : isWeekend ? '#fee2e2' : '#f1f5f9', fontWeight: isToday ? 800 : 600, textAlign: 'center', verticalAlign: 'middle', fontSize: 12, whiteSpace: 'nowrap', color: isToday ? '#92400e' : isWeekend ? '#dc2626' : '#475569' }}>
+                                                    <div>{DAYS_VI[dow]}</div>
                                                     <div style={{ fontSize: 13, fontWeight: 800 }}>{fmtShortDate(day)}</div>
                                                     {isToday && <div style={{ fontSize: 10, color: '#d97706', marginTop: 2 }}>Hôm nay</div>}
                                                 </td>
@@ -173,24 +293,28 @@ export default function WorkLogPage() {
                                             {cellTasks.map((catTasks, ci) => {
                                                 const task = catTasks[ri];
                                                 const cat = CATEGORIES[ci];
-                                                const workers = task?.workers?.map(tw => tw.worker?.name).filter(Boolean).join(', ') || '';
-                                                return (
-                                                    <>
-                                                        <td key={cat.key + '_ct_' + ri} style={{ padding: '5px 8px', border: '1px solid var(--border-light)', background: task ? cat.color : 'transparent', verticalAlign: 'top', fontSize: 12 }}>
-                                                            {task ? (
-                                                                <div>
-                                                                    <div style={{ fontWeight: 600, color: '#1e3a5f', lineHeight: 1.3 }}>{task.title}</div>
-                                                                    {task.project && <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>{task.project.code}</div>}
-                                                                </div>
-                                                            ) : null}
-                                                        </td>
-                                                        <td key={cat.key + '_cb_' + ri} style={{ padding: '5px 8px', border: '1px solid var(--border-light)', background: task ? cat.color : 'transparent', verticalAlign: 'top', fontSize: 12 }}>
-                                                            {task && workers ? (
-                                                                <div style={{ color: '#374151' }}>{workers}</div>
-                                                            ) : null}
-                                                        </td>
-                                                    </>
-                                                );
+                                                const workers_ = task?.workers?.map(tw => tw.worker?.name).filter(Boolean).join(', ') || '';
+                                                const isEditing = editCell && isSameDay(editCell.day, day) && editCell.category.key === cat.key && ((editCell.task?.id || null) === (task?.id || null)) && ri === (task ? catTasks.indexOf(task) : 0);
+
+                                                return [
+                                                    <td key={cat.key+'_ct_'+ri} onClick={() => openEdit(day, cat, task || null)} style={{ padding: '5px 8px', border: '1px solid var(--border-light)', background: task ? cat.color : 'transparent', verticalAlign: 'top', cursor: 'pointer', position: 'relative', minWidth: 120 }}
+                                                        title="Nhấn để sửa/thêm">
+                                                        {task ? (
+                                                            <div>
+                                                                <div style={{ fontWeight: 600, color: '#1e3a5f', lineHeight: 1.3, fontSize: 12 }}>{task.title}</div>
+                                                                {task.project && <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>{task.project.code}</div>}
+                                                            </div>
+                                                        ) : (
+                                                            <div style={{ color: '#d1d5db', fontSize: 11, textAlign: 'center', padding: '4px 0' }}>+</div>
+                                                        )}
+                                                        {isEditing && editCell.task?.id === task?.id && (
+                                                            <CellEditor day={day} category={cat} task={task} workers={workers} projects={projects} onSave={handleSaved} onDelete={handleSaved} onClose={closeEdit} />
+                                                        )}
+                                                    </td>,
+                                                    <td key={cat.key+'_cb_'+ri} onClick={() => openEdit(day, cat, task || null)} style={{ padding: '5px 8px', border: '1px solid var(--border-light)', background: task ? cat.color : 'transparent', verticalAlign: 'top', cursor: 'pointer', minWidth: 110 }}>
+                                                        {task && workers_ ? <div style={{ color: '#374151', fontSize: 12 }}>{workers_}</div> : null}
+                                                    </td>
+                                                ];
                                             })}
                                         </tr>
                                     ));
@@ -199,40 +323,40 @@ export default function WorkLogPage() {
                         </table>
                     </div>
 
-                    {/* ── Mobile view ── */}
+                    {/* ── Mobile ── */}
                     <div className="mobile-card-list">
                         {weekDays.map(day => {
-                            const dayOfWeek = day.getDay();
+                            const dow = day.getDay();
                             const isToday = isSameDay(day, today);
-                            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                            const isWeekend = dow === 0 || dow === 6;
                             const dayTasks = tasks.filter(t => isActiveOnDay(t, day));
                             return (
                                 <div key={day.toISOString()}>
                                     <div style={{ padding: '8px 14px', background: isToday ? '#fef3c7' : isWeekend ? '#fee2e2' : '#f1f5f9', borderBottom: '2px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <span style={{ fontWeight: 700, fontSize: 13, color: isWeekend ? '#dc2626' : '#475569' }}>{DAYS_VI[dayOfWeek]} {fmtShortDate(day)}</span>
+                                        <span style={{ fontWeight: 700, fontSize: 13, color: isWeekend ? '#dc2626' : '#475569' }}>{DAYS_VI[dow]} {fmtShortDate(day)}</span>
                                         {isToday && <span style={{ fontSize: 11, background: '#f59e0b', color: '#fff', padding: '1px 6px', borderRadius: 8 }}>Hôm nay</span>}
-                                        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)' }}>{dayTasks.length} việc</span>
+                                        <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto', fontSize: 11 }} onClick={() => openEdit(day, CATEGORIES[0], null)}>+ Thêm</button>
                                     </div>
-                                    {dayTasks.length === 0 ? (
-                                        <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Không có việc</div>
-                                    ) : (
-                                        dayTasks.map(task => (
-                                            <div key={task.id} className="mobile-card-item" style={{ borderLeft: `3px solid ${CATEGORIES.find(c => c.key === task.category)?.hd || '#e5e7eb'}` }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                    <div style={{ fontWeight: 700, fontSize: 13 }}>{task.title}</div>
-                                                    <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 8, background: CATEGORIES.find(c => c.key === task.category)?.color || '#f3f4f6', color: '#374151', flexShrink: 0, marginLeft: 6 }}>
-                                                        {CATEGORIES.find(c => c.key === task.category)?.short || task.category}
-                                                    </span>
-                                                </div>
-                                                {task.project && <div style={{ fontSize: 11, color: '#2563eb' }}>{task.project.code} · {task.project.name}</div>}
-                                                {task.workers?.length > 0 && (
-                                                    <div style={{ fontSize: 12, color: '#15803d', marginTop: 3 }}>
-                                                        👷 {task.workers.map(tw => tw.worker?.name).filter(Boolean).join(', ')}
+                                    {dayTasks.length === 0
+                                        ? <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Không có việc</div>
+                                        : dayTasks.map(task => {
+                                            const cat = CATEGORIES.find(c => c.key === task.category);
+                                            return (
+                                                <div key={task.id} className="mobile-card-item" style={{ borderLeft: `3px solid ${cat?.hd || '#e5e7eb'}`, cursor: 'pointer', position: 'relative' }}
+                                                    onClick={() => openEdit(day, cat || CATEGORIES[0], task)}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                        <div style={{ fontWeight: 700, fontSize: 13 }}>{task.title}</div>
+                                                        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 8, background: cat?.color || '#f3f4f6', color: '#374151', flexShrink: 0, marginLeft: 6 }}>{cat?.label}</span>
                                                     </div>
-                                                )}
-                                            </div>
-                                        ))
-                                    )}
+                                                    {task.project && <div style={{ fontSize: 11, color: '#2563eb' }}>{task.project.code} · {task.project.name}</div>}
+                                                    {task.workers?.length > 0 && <div style={{ fontSize: 12, color: '#15803d', marginTop: 3 }}>👷 {task.workers.map(tw => tw.worker?.name).filter(Boolean).join(', ')}</div>}
+                                                    {editCell && isSameDay(editCell.day, day) && editCell.task?.id === task.id && (
+                                                        <CellEditor day={day} category={cat || CATEGORIES[0]} task={task} workers={workers} projects={projects} onSave={handleSaved} onDelete={handleSaved} onClose={closeEdit} />
+                                                    )}
+                                                </div>
+                                            );
+                                        })
+                                    }
                                 </div>
                             );
                         })}
