@@ -378,7 +378,9 @@ function PreviewModal({ doc, onClose }) {
             .then(r => {
                 if (cancelled) return;
                 const ct = r.headers.get('content-type') || '';
-                if (!r.ok || ct.includes('application/json')) setFileStatus('error');
+                // Accept only if response is OK AND content is actually PDF/image (not JSON/HTML error page)
+                const isFile = ct.includes('application/pdf') || ct.startsWith('image/') || ct.includes('application/octet-stream');
+                if (!r.ok || !isFile) setFileStatus('error');
                 else setFileStatus('ok');
             })
             .catch(() => { if (!cancelled) setFileStatus('error'); });

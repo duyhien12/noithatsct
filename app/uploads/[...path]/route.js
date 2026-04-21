@@ -14,7 +14,7 @@ const MIME = {
 
 export async function GET(request, { params }) {
     const { path: segments } = await params;
-    if (!segments?.length) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (!segments?.length) return new NextResponse('Not found', { status: 404 });
 
     // Prevent path traversal
     const safe = segments.map(s => s.replace(/\.\./g, '')).join('/');
@@ -31,6 +31,9 @@ export async function GET(request, { params }) {
             },
         });
     } catch {
-        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        return new NextResponse(
+            `<!DOCTYPE html><html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc"><div style="text-align:center;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">⚠️</div><div style="font-size:16px;font-weight:600;color:#475569;margin-bottom:6px">Không tìm thấy file</div><div style="font-size:13px">File đã bị xóa hoặc chưa được tải lên server</div></div></body></html>`,
+            { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+        );
     }
 }
