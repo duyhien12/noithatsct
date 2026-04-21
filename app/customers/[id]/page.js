@@ -28,6 +28,25 @@ const PIPELINE = [
 
 const LOG_ICONS = { 'Điện thoại': '📞', 'Gặp mặt': '🤝', 'Email': '📧', 'Zalo': '💬', 'Khác': '📝' };
 
+const PROCESS_STEP_DEFS = [
+    { key: 'tuvan',   label: 'Tư vấn',             icon: '📞', color: '#3b82f6', bg: '#dbeafe', desc: 'Tiếp nhận & tư vấn nhu cầu khách hàng' },
+    { key: 'baogía',  label: 'Báo giá',             icon: '📄', color: '#8b5cf6', bg: '#ede9fe', desc: 'Lập và gửi báo giá cho khách' },
+    { key: 'kyhd',    label: 'Ký hợp đồng',         icon: '✍️', color: '#10b981', bg: '#d1fae5', desc: 'Thống nhất và ký kết hợp đồng' },
+    { key: 'thicong', label: 'Thi công',             icon: '🔨', color: '#f97316', bg: '#ffedd5', desc: 'Triển khai thi công dự án' },
+    { key: 'thutien', label: 'Thu tiền',             icon: '💵', color: '#f59e0b', bg: '#fef3c7', desc: 'Thanh toán và quyết toán hợp đồng' },
+    { key: 'bangiao', label: 'Bàn giao & Bảo hành', icon: '🏆', color: '#ec4899', bg: '#fce7f3', desc: 'Bàn giao công trình và bảo hành' },
+];
+
+const STATUS_OPTIONS = [
+    { key: 'pending',     label: 'Chưa bắt đầu', color: '#94a3b8', bg: '#f1f5f9' },
+    { key: 'in_progress', label: 'Đang thực hiện', color: '#f59e0b', bg: '#fef3c7' },
+    { key: 'done',        label: 'Hoàn thành',     color: '#10b981', bg: '#d1fae5' },
+];
+
+function defaultProcess() {
+    return Object.fromEntries(PROCESS_STEP_DEFS.map(s => [s.key, { status: 'pending', date: '', notes: '', person: '' }]));
+}
+
 export default function CustomerDetailPage() {
     const { id } = useParams();
     const router = useRouter();
@@ -38,8 +57,19 @@ export default function CustomerDetailPage() {
     const [showEditModal, setShowEditModal] = useState(false);
     const [logForm, setLogForm] = useState({ type: 'Điện thoại', content: '', createdBy: '', nextFollowUp: '' });
     const [editForm, setEditForm] = useState({});
+    const [processForm, setProcessForm] = useState(defaultProcess());
+    const [expandedStep, setExpandedStep] = useState(null);
+    const [savingProcess, setSavingProcess] = useState(false);
 
-    const fetchData = () => { fetch(`/api/customers/${id}`).then(r => r.ok ? r.json() : null).then(d => { setData(d); setLoading(false); }); };
+    const fetchData = () => {
+        fetch(`/api/customers/${id}`).then(r => r.ok ? r.json() : null).then(d => {
+            setData(d);
+            setLoading(false);
+            if (d?.processData) {
+                try { setProcessForm({ ...defaultProcess(), ...JSON.parse(d.processData) }); } catch {}
+            }
+        });
+    };
     useEffect(fetchData, [id]);
 
     const addTrackingLog = async () => {
@@ -97,48 +127,15 @@ export default function CustomerDetailPage() {
         { key: 'process', label: 'Quy trình', icon: '🔄' },
     ];
 
-    // Quy trình pipeline
-    const PROCESS_STEPS = [
-        {
-            key: 'Tư vấn', label: 'Tư vấn', icon: '📞', color: '#3b82f6', bg: '#dbeafe',
-            desc: 'Tiếp nhận & tư vấn nhu cầu khách hàng',
-            check: () => true,
-            detail: () => c.trackingLogs?.length > 0 ? `${c.trackingLogs.length} lần liên hệ` : 'Chưa có ghi chú',
-        },
-        {
-            key: 'Báo giá', label: 'Báo giá', icon: '📄', color: '#8b5cf6', bg: '#ede9fe',
-            desc: 'Lập và gửi báo giá cho khách',
-            check: () => (c.quotations?.length || 0) > 0 || ['Báo giá','Ký HĐ','Thi công','VIP'].includes(c.pipelineStage),
-            detail: () => c.quotations?.length > 0 ? `${c.quotations.length} báo giá · ${fmt(c.quotations.reduce((s, q) => s + (q.grandTotal || 0), 0))}` : 'Chưa có báo giá',
-        },
-        {
-            key: 'Ký HĐ', label: 'Ký hợp đồng', icon: '✍️', color: '#10b981', bg: '#d1fae5',
-            desc: 'Thống nhất và ký kết hợp đồng',
-            check: () => (c.contracts?.length || 0) > 0 || ['Ký HĐ','Thi công','VIP'].includes(c.pipelineStage),
-            detail: () => c.contracts?.length > 0 ? `${c.contracts.length} hợp đồng · ${fmt(s.totalContractValue)}` : 'Chưa ký hợp đồng',
-        },
-        {
-            key: 'Thi công', label: 'Thi công', icon: '🔨', color: '#f97316', bg: '#ffedd5',
-            desc: 'Triển khai thi công dự án',
-            check: () => (c.projects?.length || 0) > 0 || ['Thi công','VIP'].includes(c.pipelineStage),
-            detail: () => c.projects?.length > 0 ? `${c.projects.length} dự án · ${c.projects.filter(p => p.status === 'Đang thi công' || p.status === 'Thi công').length} đang thi công` : 'Chưa có dự án',
-        },
-        {
-            key: 'Thu tiền', label: 'Thu tiền', icon: '💵', color: '#f59e0b', bg: '#fef3c7',
-            desc: 'Thanh toán và quyết toán hợp đồng',
-            check: () => s.totalPaid > 0,
-            detail: () => s.totalPaid > 0 ? `Đã thu ${fmt(s.totalPaid)} / ${pct(s.totalPaid, s.totalContractValue)}%` : 'Chưa thu tiền',
-        },
-        {
-            key: 'Bàn giao', label: 'Bàn giao & Bảo hành', icon: '🏆', color: '#ec4899', bg: '#fce7f3',
-            desc: 'Bàn giao công trình và bảo hành',
-            check: () => c.projects?.some(p => ['Bảo hành','Hoàn thành','Bàn giao','Nghiệm thu'].includes(p.status)),
-            detail: () => {
-                const done = c.projects?.filter(p => ['Bảo hành','Hoàn thành','Bàn giao','Nghiệm thu'].includes(p.status)) || [];
-                return done.length > 0 ? `${done.length} dự án hoàn thành` : 'Chưa bàn giao';
-            },
-        },
-    ];
+    const saveProcess = async () => {
+        setSavingProcess(true);
+        await fetch(`/api/customers/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ processData: JSON.stringify(processForm) }) });
+        setSavingProcess(false);
+    };
+
+    const updateStep = (key, field, value) => {
+        setProcessForm(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
+    };
 
     return (
         <div>
@@ -474,75 +471,134 @@ export default function CustomerDetailPage() {
             {/* TAB: Quy trình */}
             {tab === 'process' && (
                 <div className="card">
-                    <div className="card-header">
+                    <div className="card-header" style={{ flexWrap: 'wrap', gap: 8 }}>
                         <span className="card-title">🔄 Quy trình bán hàng</span>
-                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                            Giai đoạn hiện tại: <strong style={{ color: stage.color }}>{c.pipelineStage || 'Tư vấn'}</strong>
-                        </span>
+                        <button className="btn btn-primary btn-sm" onClick={saveProcess} disabled={savingProcess}>
+                            {savingProcess ? 'Đang lưu...' : '💾 Lưu quy trình'}
+                        </button>
                     </div>
-                    <div style={{ padding: '20px 24px' }}>
-                        {PROCESS_STEPS.map((step, idx) => {
-                            const done = step.check();
-                            const isCurrent = step.key === c.pipelineStage;
+                    <div style={{ padding: '16px 20px' }}>
+                        {PROCESS_STEP_DEFS.map((step, idx) => {
+                            const stepData = processForm[step.key] || { status: 'pending', date: '', notes: '', person: '' };
+                            const isDone = stepData.status === 'done';
+                            const isActive = stepData.status === 'in_progress';
+                            const isExpanded = expandedStep === step.key;
+                            const statusInfo = STATUS_OPTIONS.find(o => o.key === stepData.status) || STATUS_OPTIONS[0];
                             return (
-                                <div key={step.key} style={{ display: 'flex', gap: 16, marginBottom: idx < PROCESS_STEPS.length - 1 ? 0 : 0 }}>
-                                    {/* Line + Icon */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                                        <div style={{
-                                            width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: 18, flexShrink: 0, border: '2px solid',
-                                            borderColor: done ? step.color : 'var(--border)',
-                                            background: done ? step.bg : 'var(--bg-secondary)',
-                                            boxShadow: isCurrent ? `0 0 0 3px ${step.bg}` : 'none',
-                                            transition: 'all .2s',
-                                        }}>
-                                            {done ? step.icon : <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>{idx + 1}</span>}
+                                <div key={step.key} style={{ display: 'flex', gap: 14, marginBottom: 0 }}>
+                                    {/* Connector line + icon */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, width: 40 }}>
+                                        <div
+                                            onClick={() => setExpandedStep(isExpanded ? null : step.key)}
+                                            style={{
+                                                width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontSize: isDone ? 18 : 13, cursor: 'pointer', border: '2px solid',
+                                                borderColor: isDone ? step.color : isActive ? step.color : 'var(--border)',
+                                                background: isDone ? step.bg : isActive ? step.bg + '88' : 'var(--bg-secondary)',
+                                                fontWeight: 700, color: isDone || isActive ? step.color : 'var(--text-muted)',
+                                                transition: 'all .2s', userSelect: 'none',
+                                            }}>
+                                            {isDone ? step.icon : idx + 1}
                                         </div>
-                                        {idx < PROCESS_STEPS.length - 1 && (
-                                            <div style={{ width: 2, flex: 1, minHeight: 28, background: done ? step.color : 'var(--border)', opacity: done ? 0.4 : 0.2, margin: '4px 0' }} />
+                                        {idx < PROCESS_STEP_DEFS.length - 1 && (
+                                            <div style={{ width: 2, flex: 1, minHeight: 16, background: isDone ? step.color : 'var(--border)', opacity: isDone ? 0.35 : 0.15, margin: '3px 0' }} />
                                         )}
                                     </div>
-                                    {/* Content */}
-                                    <div style={{ flex: 1, paddingBottom: idx < PROCESS_STEPS.length - 1 ? 20 : 0, paddingTop: 8 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                                            <span style={{ fontWeight: 700, fontSize: 14, color: done ? step.color : 'var(--text-muted)' }}>
+                                    {/* Content block */}
+                                    <div style={{ flex: 1, paddingBottom: idx < PROCESS_STEP_DEFS.length - 1 ? 12 : 4 }}>
+                                        {/* Header row - always visible, clickable */}
+                                        <div
+                                            onClick={() => setExpandedStep(isExpanded ? null : step.key)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', paddingTop: 8, paddingBottom: 6 }}>
+                                            <span style={{ fontWeight: 700, fontSize: 14, color: isDone ? step.color : isActive ? step.color : 'var(--text-primary)' }}>
                                                 {step.label}
                                             </span>
-                                            {isCurrent && (
-                                                <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 8px', borderRadius: 10, background: step.bg, color: step.color }}>
-                                                    HIỆN TẠI
-                                                </span>
+                                            <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 8px', borderRadius: 10, background: statusInfo.bg, color: statusInfo.color }}>
+                                                {statusInfo.label}
+                                            </span>
+                                            {stepData.date && (
+                                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>📅 {new Date(stepData.date).toLocaleDateString('vi-VN')}</span>
                                             )}
-                                            {done && !isCurrent && (
-                                                <span style={{ fontSize: 11, color: '#10b981' }}>✓ Hoàn thành</span>
+                                            {stepData.person && (
+                                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>👤 {stepData.person}</span>
                                             )}
+                                            <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', transition: 'transform .2s', display: 'inline-block', transform: isExpanded ? 'rotate(90deg)' : 'none' }}>▶</span>
                                         </div>
-                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{step.desc}</div>
-                                        <div style={{ fontSize: 12, fontWeight: 600, color: done ? 'var(--text-primary)' : 'var(--text-muted)', padding: '4px 10px', borderRadius: 6, background: done ? step.bg : 'var(--bg-secondary)', display: 'inline-block' }}>
-                                            {step.detail()}
-                                        </div>
+                                        {!isExpanded && stepData.notes && (
+                                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', paddingBottom: 4, paddingLeft: 2, whiteSpace: 'pre-wrap', opacity: 0.85 }}>
+                                                {stepData.notes}
+                                            </div>
+                                        )}
+                                        {/* Expanded edit form */}
+                                        {isExpanded && (
+                                            <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px', marginBottom: 8, border: `1px solid ${step.color}33` }}>
+                                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>{step.desc}</div>
+                                                {/* Status */}
+                                                <div style={{ marginBottom: 10 }}>
+                                                    <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>TRẠNG THÁI</label>
+                                                    <div style={{ display: 'flex', gap: 6 }}>
+                                                        {STATUS_OPTIONS.map(opt => (
+                                                            <button key={opt.key} type="button"
+                                                                onClick={() => updateStep(step.key, 'status', opt.key)}
+                                                                style={{ padding: '5px 12px', borderRadius: 8, border: '2px solid', cursor: 'pointer', fontSize: 12, fontWeight: 600, transition: 'all .15s',
+                                                                    borderColor: stepData.status === opt.key ? opt.color : 'var(--border)',
+                                                                    background: stepData.status === opt.key ? opt.bg : 'transparent',
+                                                                    color: stepData.status === opt.key ? opt.color : 'var(--text-muted)' }}>
+                                                                {opt.label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                {/* Date + Person */}
+                                                <div style={{ display: 'flex', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+                                                    <div style={{ flex: 1, minWidth: 140 }}>
+                                                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>NGÀY THỰC HIỆN</label>
+                                                        <input type="date" className="form-input" style={{ fontSize: 13 }}
+                                                            value={stepData.date || ''}
+                                                            onChange={e => updateStep(step.key, 'date', e.target.value)} />
+                                                    </div>
+                                                    <div style={{ flex: 1, minWidth: 140 }}>
+                                                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>NGƯỜI PHỤ TRÁCH</label>
+                                                        <input type="text" className="form-input" style={{ fontSize: 13 }} placeholder="Tên nhân viên"
+                                                            value={stepData.person || ''}
+                                                            onChange={e => updateStep(step.key, 'person', e.target.value)} />
+                                                    </div>
+                                                </div>
+                                                {/* Notes */}
+                                                <div>
+                                                    <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>GHI CHÚ / KẾT QUẢ</label>
+                                                    <textarea className="form-input" rows={3} style={{ fontSize: 13, resize: 'vertical' }} placeholder="Mô tả chi tiết kết quả, vấn đề phát sinh..."
+                                                        value={stepData.notes || ''}
+                                                        onChange={e => updateStep(step.key, 'notes', e.target.value)} />
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
-                    {/* Tóm tắt */}
-                    <div style={{ borderTop: '1px solid var(--border-light)', padding: '14px 24px', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                    {/* Footer tóm tắt */}
+                    <div style={{ borderTop: '1px solid var(--border-light)', padding: '12px 20px', display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 20, fontWeight: 700, color: '#3b82f6' }}>{PROCESS_STEPS.filter(s => s.check()).length}/{PROCESS_STEPS.length}</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Bước hoàn thành</div>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: '#3b82f6' }}>
+                                {Object.values(processForm).filter(v => v.status === 'done').length}/{PROCESS_STEP_DEFS.length}
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Bước xong</div>
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 20, fontWeight: 700, color: '#10b981' }}>{fmt(s.totalPaid)}</div>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: '#f59e0b' }}>
+                                {Object.values(processForm).filter(v => v.status === 'in_progress').length}
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Đang làm</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>{fmt(s.totalPaid)}</div>
                             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Đã thu</div>
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 20, fontWeight: 700, color: s.totalDebt > 0 ? '#ef4444' : '#94a3b8' }}>{fmt(s.totalDebt)}</div>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: s.totalDebt > 0 ? '#ef4444' : '#94a3b8' }}>{fmt(s.totalDebt)}</div>
                             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Còn nợ</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>{c.trackingLogs?.length || 0}</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Lần liên hệ</div>
                         </div>
                     </div>
                 </div>
