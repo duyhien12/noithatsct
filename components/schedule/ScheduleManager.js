@@ -80,6 +80,15 @@ export default function ScheduleManager({ projectId, projectCode, projectStartDa
         fetchTasks();
     };
 
+    const addTaskInline = async ({ name, startDate, endDate, parentId }) => {
+        await fetch('/api/schedule-tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, startDate, endDate, parentId: parentId || null, projectId, weight: 1 }),
+        });
+        fetchTasks();
+    };
+
     const updateTask = async (taskId, updates) => {
         await fetch(`/api/schedule-tasks/${taskId}`, {
             method: 'PUT',
@@ -207,6 +216,7 @@ export default function ScheduleManager({ projectId, projectCode, projectStartDa
                     onUpdate={updateTask}
                     onDelete={deleteTask}
                     onRefresh={fetchTasks}
+                    onAdd={addTaskInline}
                 />
             )}
             {view === 'gantt' && flat.length > 0 && (

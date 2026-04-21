@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, Wrench, Building2, ShoppingCart, Package,
     ChevronRight, X, CalendarDays, Users, FileText, Warehouse,
-    BarChart2, Clock,
+    BarChart2, Clock, BookOpen,
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useState } from 'react';
@@ -39,6 +39,7 @@ const FULL_MENU = [
         items: [
             { href: '/workshop/tasks', icon: Wrench, label: 'Công việc xưởng' },
             { href: '/workshop/workers', icon: Users, label: 'Nhân công' },
+            { href: '/workshop/work-log', icon: BookOpen, label: 'Nhật ký công việc' },
             { href: '/workshop/timeline', icon: BarChart2, label: 'Tiến độ (Gantt)' },
             { href: '/work-orders', icon: Clock, label: 'Phiếu công việc' },
             { href: '/tasks', icon: Wrench, label: 'Tác vụ' },
@@ -63,6 +64,7 @@ const NHAN_VIEN_MENU = [
         items: [
             { href: '/workshop/tasks', icon: Wrench, label: 'Công việc xưởng' },
             { href: '/workshop/workers', icon: Users, label: 'Nhân công' },
+            { href: '/workshop/work-log', icon: BookOpen, label: 'Nhật ký công việc' },
             { href: '/workshop/timeline', icon: BarChart2, label: 'Tiến độ (Gantt)' },
         ],
     },

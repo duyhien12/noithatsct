@@ -15,12 +15,14 @@ const STATUS_COLORS = {
 };
 const STATUSES = ['Chưa bắt đầu', 'Sẵn sàng', 'Đang thi công', 'Hoàn thành'];
 
-export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onDelete, onRefresh }) {
+export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onDelete, onRefresh, onAdd }) {
     const [reportModal, setReportModal] = useState(null);
     const [historyModal, setHistoryModal] = useState(null);
     const [editModal, setEditModal] = useState(null);
     const [editForm, setEditForm] = useState({});
     const [saving, setSaving] = useState(false);
+    const [quickAdd, setQuickAdd] = useState({ show: false, name: '', startDate: '', endDate: '', parentId: '' });
+    const [savingQuickAdd, setSavingQuickAdd] = useState(false);
     const [collapsed, setCollapsed] = useState({}); // groupId -> bool
     const [users, setUsers] = useState([]);
     const [filterDept, setFilterDept] = useState('');
@@ -41,6 +43,7 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
 
     const openEdit = (task) => {
         setEditForm({
+            name: task.name || '',
             progress: task.progress,
             status: task.status || 'Chưa bắt đầu',
             assignee: task.assignee || '',
@@ -55,6 +58,7 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
         if (!editModal) return;
         setSaving(true);
         const payload = {
+            name: editForm.name.trim() || editModal.name,
             progress: Number(editForm.progress),
             status: editForm.status,
             assignee: editForm.assignee || undefined,
@@ -65,6 +69,14 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
         await onUpdate(editModal.id, payload);
         setSaving(false);
         setEditModal(null);
+    };
+
+    const submitQuickAdd = async () => {
+        if (!quickAdd.name.trim() || !quickAdd.startDate || !quickAdd.endDate) return;
+        setSavingQuickAdd(true);
+        await onAdd({ name: quickAdd.name.trim(), startDate: quickAdd.startDate, endDate: quickAdd.endDate, parentId: quickAdd.parentId || null });
+        setQuickAdd({ show: false, name: '', startDate: '', endDate: '', parentId: '' });
+        setSavingQuickAdd(false);
     };
 
     const toggleCollapse = (id) => setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
@@ -289,6 +301,45 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
                 </div>
                 {tasks.map(t => renderTaskDesktop(t, 0, tasks))}
                 {tasks.length === 0 && <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Chưa có hạng mục</div>}
+
+                {/* Quick add row */}
+                {onAdd && !quickAdd.show && (
+                    <div
+                        onClick={() => setQuickAdd(q => ({ ...q, show: true }))}
+                        style={{ padding: '10px 16px', borderTop: '1px solid var(--border-light)', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, userSelect: 'none' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-elevated)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                        <span style={{ fontSize: 16, color: 'var(--accent-primary)' }}>+</span>
+                        <span>Thêm hạng mục</span>
+                    </div>
+                )}
+                {onAdd && quickAdd.show && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '20px 1fr 90px 75px 75px 50px 150px 100px 70px', alignItems: 'center', padding: '8px 16px', borderTop: '2px solid var(--accent-primary)', background: 'rgba(99,102,241,0.04)', gap: 4 }}>
+                        <span />
+                        <input
+                            className="form-input"
+                            placeholder="Tên hạng mục *"
+                            value={quickAdd.name}
+                            onChange={e => setQuickAdd(q => ({ ...q, name: e.target.value }))}
+                            onKeyDown={e => { if (e.key === 'Enter') submitQuickAdd(); if (e.key === 'Escape') setQuickAdd(q => ({ ...q, show: false })); }}
+                            autoFocus
+                            style={{ fontSize: 13, padding: '4px 8px' }}
+                        />
+                        <span />
+                        <input type="date" className="form-input" value={quickAdd.startDate} onChange={e => setQuickAdd(q => ({ ...q, startDate: e.target.value }))} style={{ fontSize: 12, padding: '4px 6px' }} />
+                        <input type="date" className="form-input" value={quickAdd.endDate} onChange={e => setQuickAdd(q => ({ ...q, endDate: e.target.value }))} style={{ fontSize: 12, padding: '4px 6px' }} />
+                        <span />
+                        <span />
+                        <span />
+                        <div style={{ display: 'flex', gap: 4 }}>
+                            <button className="btn btn-primary btn-sm" onClick={submitQuickAdd} disabled={savingQuickAdd || !quickAdd.name.trim() || !quickAdd.startDate || !quickAdd.endDate} style={{ padding: '3px 8px', fontSize: 12 }}>
+                                {savingQuickAdd ? '...' : '✓'}
+                            </button>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setQuickAdd(q => ({ ...q, show: false }))} style={{ padding: '3px 8px', fontSize: 12 }}>✕</button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* ── MOBILE CARD LIST ── */}
@@ -307,6 +358,29 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
                 </div>
                 {tasks.map(t => renderTaskMobile(t, 0))}
                 {tasks.length === 0 && <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Chưa có hạng mục</div>}
+                {onAdd && (
+                    <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border-light)' }}>
+                        {quickAdd.show ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                <input className="form-input" placeholder="Tên hạng mục *" value={quickAdd.name} onChange={e => setQuickAdd(q => ({ ...q, name: e.target.value }))} autoFocus style={{ fontSize: 13 }} />
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                    <input type="date" className="form-input" value={quickAdd.startDate} onChange={e => setQuickAdd(q => ({ ...q, startDate: e.target.value }))} style={{ flex: 1, fontSize: 12 }} />
+                                    <input type="date" className="form-input" value={quickAdd.endDate} onChange={e => setQuickAdd(q => ({ ...q, endDate: e.target.value }))} style={{ flex: 1, fontSize: 12 }} />
+                                </div>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                    <button className="btn btn-primary btn-sm" onClick={submitQuickAdd} disabled={savingQuickAdd || !quickAdd.name.trim() || !quickAdd.startDate || !quickAdd.endDate} style={{ flex: 1 }}>
+                                        {savingQuickAdd ? 'Đang lưu...' : '✓ Thêm'}
+                                    </button>
+                                    <button className="btn btn-ghost btn-sm" onClick={() => setQuickAdd(q => ({ ...q, show: false }))} style={{ flex: 1 }}>Hủy</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <button onClick={() => setQuickAdd(q => ({ ...q, show: true }))} style={{ width: '100%', background: 'none', border: '1.5px dashed var(--border)', borderRadius: 8, padding: '8px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13 }}>
+                                + Thêm hạng mục
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Modals */}
@@ -336,9 +410,9 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
                             <button className="modal-close" onClick={() => setEditModal(null)}>×</button>
                         </div>
                         <div className="modal-body">
-                            <div style={{ padding: '10px 14px', background: 'var(--bg-card)', borderRadius: 8, marginBottom: 16, fontWeight: 700, fontSize: 14 }}>
-                                {editModal.wbs && <span style={{ color: 'var(--text-muted)', marginRight: 6, fontSize: 12 }}>{editModal.wbs}</span>}
-                                {editModal.name}
+                            <div className="form-group">
+                                <label className="form-label">Tên hạng mục *</label>
+                                <input className="form-input" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} placeholder="Tên hạng mục" autoFocus />
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Tiến độ (%)</label>

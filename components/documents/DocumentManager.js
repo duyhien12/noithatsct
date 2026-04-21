@@ -368,9 +368,38 @@ function UploadModal({ onClose, onUpload, folders, preselectedFolderId, parentDo
 
 // ============ PREVIEW MODAL ============
 function PreviewModal({ doc, onClose }) {
+    const [fileStatus, setFileStatus] = useState('checking'); // checking | ok | error
+
+    useEffect(() => {
+        if (!doc?.fileUrl) { setFileStatus('error'); return; }
+        setFileStatus('checking');
+        let cancelled = false;
+        fetch(doc.fileUrl)
+            .then(r => {
+                if (cancelled) return;
+                const ct = r.headers.get('content-type') || '';
+                if (!r.ok || ct.includes('application/json')) setFileStatus('error');
+                else setFileStatus('ok');
+            })
+            .catch(() => { if (!cancelled) setFileStatus('error'); });
+        return () => { cancelled = true; };
+    }, [doc?.fileUrl]);
+
     if (!doc) return null;
     const isPdf = doc.mimeType === 'application/pdf';
     const isImage = doc.mimeType?.startsWith('image/');
+
+    const FileNotFound = () => (
+        <div style={{ padding: '40px 24px', textAlign: 'center' }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>Không tìm thấy file</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
+                File này có thể đã bị xóa hoặc di chuyển khỏi máy chủ.<br />
+                <span style={{ fontSize: 12, wordBreak: 'break-all' }}>{doc.fileName}</span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Liên hệ quản trị để khôi phục file.</div>
+        </div>
+    );
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -380,13 +409,18 @@ function PreviewModal({ doc, onClose }) {
                     <button className="modal-close" onClick={onClose}>×</button>
                 </div>
                 <div className="modal-body" style={{ padding: 0 }}>
-                    {isPdf && <iframe src={doc.fileUrl} style={{ width: '100%', height: '70vh', border: 'none' }} />}
-                    {isImage && (
+                    {fileStatus === 'checking' && (
+                        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
+                    )}
+                    {fileStatus === 'error' && <FileNotFound />}
+                    {fileStatus === 'ok' && isPdf && <iframe src={doc.fileUrl} style={{ width: '100%', height: '70vh', border: 'none' }} />}
+                    {fileStatus === 'ok' && isImage && (
                         <div style={{ textAlign: 'center', padding: 16, maxHeight: '70vh', overflow: 'auto' }}>
-                            <img src={doc.fileUrl} alt={doc.name} style={{ maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain' }} />
+                            <img src={doc.fileUrl} alt={doc.name} style={{ maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain' }}
+                                onError={() => setFileStatus('error')} />
                         </div>
                     )}
-                    {!isPdf && !isImage && (
+                    {fileStatus === 'ok' && !isPdf && !isImage && (
                         <div style={{ padding: 40, textAlign: 'center' }}>
                             <div style={{ fontSize: 48, marginBottom: 16 }}>{getFileIcon(doc.mimeType, doc.fileName)}</div>
                             <div style={{ fontSize: 14, marginBottom: 8 }}>{doc.fileName}</div>
@@ -398,7 +432,7 @@ function PreviewModal({ doc, onClose }) {
                 <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>v{doc.version} • {doc.space || '—'} • {doc.uploadedBy || '—'} • {fmtDate(doc.createdAt)}</div>
                     <div style={{ display: 'flex', gap: 8 }}>
-                        {doc.fileUrl && <a href={doc.fileUrl} download className="btn btn-ghost btn-sm" target="_blank" rel="noopener">Tải xuống</a>}
+                        {doc.fileUrl && fileStatus !== 'error' && <a href={doc.fileUrl} download className="btn btn-ghost btn-sm" target="_blank" rel="noopener">Tải xuống</a>}
                         <button className="btn btn-ghost btn-sm" onClick={onClose}>Đóng</button>
                     </div>
                 </div>

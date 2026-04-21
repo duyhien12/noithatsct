@@ -36,6 +36,13 @@ export default function WorkersPage() {
     const [userList, setUserList] = useState([]);
     const [nameSuggest, setNameSuggest] = useState([]);
     const [showSuggest, setShowSuggest] = useState(false);
+    const [allTasks, setAllTasks] = useState([]);
+    const [currentWorkTarget, setCurrentWorkTarget] = useState(null);
+    const [currentWorkTaskIds, setCurrentWorkTaskIds] = useState([]);
+    const [savingCurrentWork, setSavingCurrentWork] = useState(false);
+    const [projects, setProjects] = useState([]);
+    const [showAddTask, setShowAddTask] = useState(false);
+    const [newTaskForm, setNewTaskForm] = useState({ title: '', projectId: '', deadline: '' });
 
     // ── Tổng hợp tháng ───────────────────────────────────────────────────────
     const [showSummary, setShowSummary] = useState(false);
@@ -45,6 +52,7 @@ export default function WorkersPage() {
 
     useEffect(() => {
         fetch('/api/users').then(r => r.json()).then(d => setUserList(Array.isArray(d) ? d : []));
+        fetch('/api/projects?limit=200').then(r => r.json()).then(d => setProjects(Array.isArray(d?.data) ? d.data : []));
     }, []);
 
     const fetchWorkers = async () => {
@@ -56,6 +64,7 @@ export default function WorkersPage() {
         setWorkers(Array.isArray(w) ? w : []);
         const taskMap = {};
         if (Array.isArray(t)) {
+            setAllTasks(t);
             t.forEach(task => {
                 task.workers?.forEach(tw => {
                     if (!taskMap[tw.workerId]) taskMap[tw.workerId] = [];
@@ -180,6 +189,69 @@ export default function WorkersPage() {
         fetchAttendance(selectedDate);
     };
 
+    const openCurrentWork = (w) => {
+        const assigned = allTasks.filter(t => t.workers?.some(tw => tw.workerId === w.id)).map(t => t.id);
+        setCurrentWorkTarget(w);
+        setCurrentWorkTaskIds(assigned);
+        setShowAddTask(false);
+        setNewTaskForm({ title: '', projectId: '', deadline: '' });
+    };
+
+    const addNewTask = async () => {
+        if (!newTaskForm.title.trim()) return;
+        setSavingCurrentWork(true);
+        try {
+            const res = await fetch('/api/workshop/tasks', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: newTaskForm.title.trim(),
+                    projectId: newTaskForm.projectId || null,
+                    deadline: newTaskForm.deadline || null,
+                    status: 'Đang làm',
+                    workerIds: [currentWorkTarget.id],
+                }),
+            });
+            const created = await res.json();
+            setAllTasks(prev => [...prev, created]);
+            setCurrentWorkTaskIds(prev => [...prev, created.id]);
+            setShowAddTask(false);
+            setNewTaskForm({ title: '', projectId: '', deadline: '' });
+        } finally { setSavingCurrentWork(false); }
+    };
+
+    const toggleCurrentWorkTask = (taskId) => {
+        setCurrentWorkTaskIds(prev =>
+            prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]
+        );
+    };
+
+    const saveCurrentWork = async () => {
+        setSavingCurrentWork(true);
+        try {
+            const workerId = currentWorkTarget.id;
+            const originalIds = allTasks.filter(t => t.workers?.some(tw => tw.workerId === workerId)).map(t => t.id);
+            const added = currentWorkTaskIds.filter(id => !originalIds.includes(id));
+            const removed = originalIds.filter(id => !currentWorkTaskIds.includes(id));
+            const changed = [...new Set([...added, ...removed])];
+            await Promise.all(changed.map(taskId => {
+                const task = allTasks.find(t => t.id === taskId);
+                const currentWorkerIds = task.workers?.map(tw => tw.workerId) || [];
+                let newWorkerIds;
+                if (currentWorkTaskIds.includes(taskId)) {
+                    newWorkerIds = [...new Set([...currentWorkerIds, workerId])];
+                } else {
+                    newWorkerIds = currentWorkerIds.filter(id => id !== workerId);
+                }
+                return fetch(`/api/workshop/tasks/${taskId}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ workerIds: newWorkerIds }),
+                });
+            }));
+            setCurrentWorkTarget(null);
+            fetchWorkers();
+        } finally { setSavingCurrentWork(false); }
+    };
+
     const isToday = selectedDate === todayStr();
     const filtered = workers.filter(w =>
         !search || w.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -297,15 +369,20 @@ export default function WorkersPage() {
                                                     {w.hourlyRate > 0 ? `${new Intl.NumberFormat('vi-VN').format(w.hourlyRate)}đ/ngày` : '—'}
                                                 </td>
                                                 <td style={{ fontSize: 12 }}>
-                                                    {currentTasks.length > 0
-                                                        ? <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                            {currentTasks.slice(0, 2).map(t => (
-                                                                <span key={t.id} style={{ padding: '1px 6px', borderRadius: 8, background: '#dbeafe', color: '#1d4ed8', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 140 }}>{t.title}</span>
-                                                            ))}
-                                                            {currentTasks.length > 2 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>+{currentTasks.length - 2} việc</span>}
-                                                          </div>
-                                                        : <span style={{ color: 'var(--text-muted)' }}>Rảnh</span>
-                                                    }
+                                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4, cursor: 'pointer' }} onClick={() => openCurrentWork(w)} title="Nhấn để sửa việc hiện tại">
+                                                        <div style={{ flex: 1 }}>
+                                                            {currentTasks.length > 0
+                                                                ? <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                                    {currentTasks.slice(0, 2).map(t => (
+                                                                        <span key={t.id} style={{ padding: '1px 6px', borderRadius: 8, background: '#dbeafe', color: '#1d4ed8', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 130 }}>{t.title}</span>
+                                                                    ))}
+                                                                    {currentTasks.length > 2 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>+{currentTasks.length - 2} việc</span>}
+                                                                  </div>
+                                                                : <span style={{ color: 'var(--text-muted)' }}>Rảnh</span>
+                                                            }
+                                                        </div>
+                                                        <span style={{ fontSize: 10, color: '#94a3b8', flexShrink: 0, marginTop: 1 }}>✏️</span>
+                                                    </div>
                                                 </td>
                                                 <td>
                                                     {rec ? (
@@ -759,6 +836,94 @@ export default function WorkersPage() {
                             <button className="btn btn-ghost" onClick={() => setAttendTarget(null)}>Hủy</button>
                             <button className={`btn ${attendForm.hoursWorked === 0 ? 'btn-danger' : 'btn-primary'}`} onClick={handleAttend}>
                                 {attendForm.hoursWorked === 0 ? '🗑️ Xóa chấm công' : '✅ Xác nhận chấm công'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal sửa việc hiện tại */}
+            {currentWorkTarget && (
+                <div className="modal-overlay" onClick={() => setCurrentWorkTarget(null)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="modal-header">
+                            <h3>Việc hiện tại — {currentWorkTarget.name}</h3>
+                            <button className="modal-close" onClick={() => setCurrentWorkTarget(null)}>×</button>
+                        </div>
+                        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {allTasks.length === 0 && (
+                                <p style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: '8px 0' }}>
+                                    Chưa có tác vụ nào đang thực hiện
+                                </p>
+                            )}
+                            {allTasks.length > 0 && (
+                                <>
+                                    <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 2 }}>
+                                        Chọn việc đang giao cho <strong>{currentWorkTarget.name}</strong>:
+                                    </p>
+                                    {allTasks.map(task => {
+                                        const checked = currentWorkTaskIds.includes(task.id);
+                                        return (
+                                            <label key={task.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 8, border: `2px solid ${checked ? '#2563eb' : 'var(--border)'}`, background: checked ? '#eff6ff' : 'var(--bg-card)', cursor: 'pointer' }}>
+                                                <input type="checkbox" checked={checked} onChange={() => toggleCurrentWorkTask(task.id)} style={{ marginTop: 2, accentColor: '#2563eb', width: 16, height: 16, flexShrink: 0 }} />
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>{task.title}</div>
+                                                    {task.project && (
+                                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                                            {task.project.code} · {task.project.name}
+                                                        </div>
+                                                    )}
+                                                    {task.workers?.length > 0 && (
+                                                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+                                                            Thợ: {task.workers.map(tw => tw.worker?.name).filter(Boolean).join(', ')}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </label>
+                                        );
+                                    })}
+                                </>
+                            )}
+
+                            {/* Thêm việc mới */}
+                            {showAddTask ? (
+                                <div style={{ padding: '12px', borderRadius: 8, border: '2px dashed #2563eb', background: '#eff6ff', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <div style={{ fontWeight: 600, fontSize: 13, color: '#1d4ed8', marginBottom: 2 }}>Thêm việc mới</div>
+                                    <input
+                                        className="form-input"
+                                        placeholder="Tên công việc *"
+                                        value={newTaskForm.title}
+                                        onChange={e => setNewTaskForm(f => ({ ...f, title: e.target.value }))}
+                                        autoFocus
+                                        style={{ fontSize: 13 }}
+                                    />
+                                    <select className="form-select" value={newTaskForm.projectId} onChange={e => setNewTaskForm(f => ({ ...f, projectId: e.target.value }))} style={{ fontSize: 13 }}>
+                                        <option value="">-- Dự án (tùy chọn) --</option>
+                                        {projects.map(p => <option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}
+                                    </select>
+                                    <div style={{ display: 'flex', gap: 6 }}>
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Hạn chót</label>
+                                            <input type="date" className="form-input" value={newTaskForm.deadline} onChange={e => setNewTaskForm(f => ({ ...f, deadline: e.target.value }))} style={{ fontSize: 13 }} />
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                                        <button className="btn btn-ghost btn-sm" onClick={() => { setShowAddTask(false); setNewTaskForm({ title: '', projectId: '', deadline: '' }); }}>Hủy</button>
+                                        <button className="btn btn-primary btn-sm" onClick={addNewTask} disabled={savingCurrentWork || !newTaskForm.title.trim()}>
+                                            {savingCurrentWork ? 'Đang tạo...' : '+ Tạo & giao việc'}
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button className="btn btn-ghost btn-sm" onClick={() => setShowAddTask(true)} style={{ alignSelf: 'flex-start', color: '#2563eb', fontWeight: 600, border: '1.5px dashed #93c5fd', borderRadius: 8, padding: '6px 14px' }}>
+                                    + Thêm việc mới
+                                </button>
+                            )}
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setCurrentWorkTarget(null)}>Hủy</button>
+                            <button className="btn btn-primary" onClick={saveCurrentWork} disabled={savingCurrentWork}>
+                                {savingCurrentWork ? 'Đang lưu...' : '✅ Lưu'}
                             </button>
                         </div>
                     </div>
