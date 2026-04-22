@@ -15,7 +15,10 @@ const STATUS_OPTS = ['Hoạt động', 'Tạm nghỉ', 'Nghỉ việc'];
 const STATUS_COLOR = { 'Hoạt động': '#16a34a', 'Tạm nghỉ': '#d97706', 'Nghỉ việc': '#6b7280' };
 const STATUS_BG   = { 'Hoạt động': '#dcfce7', 'Tạm nghỉ': '#fef3c7', 'Nghỉ việc': '#f3f4f6' };
 
-const EMPTY_FORM = { name: '', skill: '', phone: '', hourlyRate: '', status: 'Hoạt động', notes: '', zaloUserId: '' };
+const WORKER_TYPES = ['Thợ chính', 'Thợ phụ'];
+const WORKER_TYPE_COLOR = { 'Thợ chính': '#1d4ed8', 'Thợ phụ': '#6d28d9' };
+const WORKER_TYPE_BG    = { 'Thợ chính': '#dbeafe', 'Thợ phụ': '#ede9fe' };
+const EMPTY_FORM = { name: '', workerType: 'Thợ chính', skill: '', phone: '', hourlyRate: '', status: 'Hoạt động', notes: '', zaloUserId: '' };
 
 export default function WorkersPage() {
     const router = useRouter();
@@ -138,7 +141,7 @@ export default function WorkersPage() {
     const openAdd = () => { setEditTarget(null); setForm(EMPTY_FORM); setShowModal(true); setShowSuggest(false); };
     const openEdit = (w) => {
         setEditTarget(w);
-        setForm({ name: w.name, skill: w.skill, phone: w.phone, hourlyRate: w.hourlyRate, status: w.status, notes: w.notes, zaloUserId: w.zaloUserId || '' });
+        setForm({ name: w.name, workerType: w.workerType || 'Thợ chính', skill: w.skill, phone: w.phone, hourlyRate: w.hourlyRate, status: w.status, notes: w.notes, zaloUserId: w.zaloUserId || '' });
         setShowModal(true);
     };
 
@@ -363,6 +366,9 @@ export default function WorkersPage() {
                                             <tr key={w.id}>
                                                 <td>
                                                     <div style={{ fontWeight: 600, fontSize: 13 }}>{w.name}</div>
+                                                    <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 8, background: WORKER_TYPE_BG[w.workerType] || '#f3f4f6', color: WORKER_TYPE_COLOR[w.workerType] || '#374151', fontWeight: 600 }}>
+                                                        {w.workerType || 'Thợ chính'}
+                                                    </span>
                                                 </td>
                                                 <td style={{ fontSize: 12 }}>{w.skill || '—'}</td>
                                                 <td style={{ fontSize: 12 }}>{w.phone || '—'}</td>
@@ -737,6 +743,20 @@ export default function WorkersPage() {
                                         ))}
                                     </div>
                                 )}
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Loại thợ</label>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        {WORKER_TYPES.map(t => (
+                                            <button key={t} type="button"
+                                                onClick={() => setForm(f => ({ ...f, workerType: t }))}
+                                                style={{ flex: 1, padding: '7px 0', borderRadius: 8, border: `2px solid ${form.workerType === t ? WORKER_TYPE_COLOR[t] : 'var(--border)'}`, background: form.workerType === t ? WORKER_TYPE_BG[t] : 'var(--bg-card)', color: form.workerType === t ? WORKER_TYPE_COLOR[t] : 'var(--text-muted)', fontWeight: form.workerType === t ? 700 : 400, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s' }}>
+                                                {t}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                             <div className="form-row">
                                 <div className="form-group">

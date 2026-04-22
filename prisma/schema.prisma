@@ -999,6 +999,7 @@ model Commitment {
 model WorkshopWorker {
   id          String   @id @default(cuid())
   name        String
+  workerType  String   @default("Thợ chính")
   skill       String   @default("")
   phone       String   @default("")
   status      String   @default("Hoạt động")

@@ -284,6 +284,133 @@ function CellEditor({ day, category, cellEntries, pos, workers, projects, onSave
     );
 }
 
+// Tính tổng hợp công: mỗi (ngày, thợ, dự án) duy nhất = 1 công
+// workerMap: { [name]: 'Thợ chính' | 'Thợ phụ' } — phân loại từ danh sách nhân viên
+function computeWorkSummary(entries, workerMap) {
+    const map = {}
+    entries.forEach(entry => {
+        if (entry.category === 'Việc khác') return
+        const projectName = entry.projectName || entry.project?.name
+        if (!projectName) return
+        const code = entry.project?.code || ''
+        const dateKey = new Date(entry.date).toDateString()
+        if (!map[projectName]) map[projectName] = { name: projectName, code, main: {}, sub: {} }
+
+        // Tất cả thợ trong entry → phân loại theo workerType của nhân viên
+        const allWorkers = [
+            ...parseWorkers(entry.mainWorkers),
+            ...parseWorkers(entry.subWorkers),
+        ]
+        allWorkers.forEach(w => {
+            const wType = workerMap[w] || 'Thợ chính'
+            const bucket = wType === 'Thợ phụ' ? map[projectName].sub : map[projectName].main
+            if (!bucket[w]) bucket[w] = new Set()
+            bucket[w].add(dateKey)
+        })
+    })
+    return Object.values(map).map(p => ({
+        name: p.name,
+        code: p.code,
+        main: Object.entries(p.main).map(([n, s]) => ({ name: n, cong: s.size })).sort((a, b) => b.cong - a.cong),
+        sub: Object.entries(p.sub).map(([n, s]) => ({ name: n, cong: s.size })).sort((a, b) => b.cong - a.cong),
+    }))
+}
+
+function WorkSummaryTable({ entries, workers, weekNum, weekStart, weekEnd }) {
+    // Build map name → workerType từ danh sách nhân viên
+    const workerMap = {}
+    workers.forEach(w => { workerMap[w.name] = w.workerType || 'Thợ chính' })
+    const summary = computeWorkSummary(entries, workerMap)
+    if (summary.length === 0) return null
+
+    const thS = { padding: '8px 10px', border: '1px solid #2a4a8b', textAlign: 'center', fontWeight: 700, fontSize: 12, color: '#fff' }
+    const tdS = { padding: '6px 10px', border: '1px solid var(--border)', verticalAlign: 'top', fontSize: 12 }
+    const grandMain = summary.reduce((a, p) => a + p.main.reduce((s, w) => s + w.cong, 0), 0)
+    const grandSub  = summary.reduce((a, p) => a + p.sub.reduce((s, w) => s + w.cong, 0), 0)
+
+    return (
+        <div className="card" style={{ overflow: 'hidden' }}>
+            <div style={{ padding: '12px 20px', background: '#1C3A6B', color: '#fff', textAlign: 'center', borderBottom: '2px solid var(--border)' }}>
+                <div style={{ fontSize: 15, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Tổng hợp số công theo dự án
+                </div>
+                <div style={{ fontSize: 12, marginTop: 4, opacity: 0.85 }}>
+                    Tuần {weekNum}&nbsp;•&nbsp;{fmtShortDate(weekStart)} – {fmtShortDate(weekEnd)}.{weekEnd.getFullYear()}
+                </div>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 700 }}>
+                    <thead>
+                        <tr style={{ background: '#1C3A6B' }}>
+                            <th style={{ ...thS, width: 44 }}>STT</th>
+                            <th style={{ ...thS, textAlign: 'left', minWidth: 220 }}>Dự án</th>
+                            <th style={{ ...thS, minWidth: 200 }}>Thợ chính</th>
+                            <th style={{ ...thS, width: 90 }}>Tổng TC</th>
+                            <th style={{ ...thS, minWidth: 200 }}>Thợ phụ</th>
+                            <th style={{ ...thS, width: 90 }}>Tổng TP</th>
+                            <th style={{ ...thS, width: 90 }}>Tổng</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {summary.map((p, i) => {
+                            const tMain = p.main.reduce((a, w) => a + w.cong, 0)
+                            const tSub  = p.sub.reduce((a, w) => a + w.cong, 0)
+                            return (
+                                <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1.5px solid var(--border)' }}>
+                                    <td style={{ ...tdS, textAlign: 'center', color: '#64748b', fontWeight: 600 }}>{i + 1}</td>
+                                    <td style={tdS}>
+                                        <div style={{ fontWeight: 700, color: '#1e3a5f', fontSize: 13 }}>{p.name}</div>
+                                        {p.code && <div style={{ fontSize: 11, color: '#2563eb', marginTop: 2 }}>{p.code}</div>}
+                                    </td>
+                                    <td style={tdS}>
+                                        {p.main.length > 0 ? p.main.map(w => (
+                                            <div key={w.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '2px 0', borderBottom: '1px solid var(--border-light)' }}>
+                                                <span style={{ color: '#374151' }}>{w.name}</span>
+                                                <span style={{ fontWeight: 700, color: '#1d4ed8', background: '#dbeafe', padding: '1px 8px', borderRadius: 10, fontSize: 11 }}>{w.cong} công</span>
+                                            </div>
+                                        )) : <span style={{ color: '#d1d5db', fontSize: 11 }}>—</span>}
+                                    </td>
+                                    <td style={{ ...tdS, textAlign: 'center', fontWeight: 800, fontSize: 20, color: '#1d4ed8', background: '#eff6ff' }}>
+                                        {tMain}
+                                    </td>
+                                    <td style={tdS}>
+                                        {p.sub.length > 0 ? p.sub.map(w => (
+                                            <div key={w.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '2px 0', borderBottom: '1px solid var(--border-light)' }}>
+                                                <span style={{ color: '#374151' }}>{w.name}</span>
+                                                <span style={{ fontWeight: 700, color: '#6d28d9', background: '#ede9fe', padding: '1px 8px', borderRadius: 10, fontSize: 11 }}>{w.cong} công</span>
+                                            </div>
+                                        )) : <span style={{ color: '#d1d5db', fontSize: 11 }}>—</span>}
+                                    </td>
+                                    <td style={{ ...tdS, textAlign: 'center', fontWeight: 800, fontSize: 20, color: '#6d28d9', background: '#f5f3ff' }}>
+                                        {tSub > 0 ? tSub : <span style={{ color: '#cbd5e1', fontSize: 14 }}>0</span>}
+                                    </td>
+                                    <td style={{ ...tdS, textAlign: 'center', fontWeight: 900, fontSize: 22, color: '#1e3a5f', background: '#f0f9ff' }}>
+                                        {tMain + tSub}
+                                    </td>
+                                </tr>
+                            )
+                        })}
+                    </tbody>
+                    <tfoot>
+                        <tr style={{ background: '#1e3a5f' }}>
+                            <td colSpan={3} style={{ ...thS, fontSize: 13, letterSpacing: 1 }}>TỔNG CỘNG TOÀN TUẦN</td>
+                            <td style={{ ...thS, fontSize: 22 }}>{grandMain}</td>
+                            <td style={thS} />
+                            <td style={{ ...thS, fontSize: 22 }}>{grandSub}</td>
+                            <td style={{ ...thS, fontSize: 24 }}>{grandMain + grandSub}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border-light)', fontSize: 11, color: 'var(--text-muted)' }}>
+                💡 Mỗi ngày làm việc = 1 công (ca sáng 4h + ca chiều 4h). Thợ xuất hiện nhiều lần cùng ngày cùng dự án vẫn tính 1 công.
+            </div>
+        </div>
+    )
+}
+
 export default function WorkLogPage() {
     const router = useRouter();
     const { role } = useRole();
@@ -483,6 +610,8 @@ export default function WorkLogPage() {
                     ))}
                 </div>
             </div>
+
+            {!loading && <WorkSummaryTable entries={entries} workers={workers} weekNum={weekNum} weekStart={weekStart} weekEnd={weekEnd} />}
 
             {editCell && (
                 <CellEditor

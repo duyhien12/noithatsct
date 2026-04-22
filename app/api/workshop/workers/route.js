@@ -14,7 +14,7 @@ export const GET = withAuth(async () => {
 
 export const POST = withAuth(async (req) => {
     const body = await req.json();
-    const { name, skill, phone, hourlyRate, notes, status } = body;
+    const { name, skill, phone, hourlyRate, notes, status, workerType } = body;
 
     if (!name?.trim()) {
         return NextResponse.json({ error: 'Tên thợ bắt buộc' }, { status: 400 });
@@ -23,6 +23,7 @@ export const POST = withAuth(async (req) => {
     const worker = await prisma.workshopWorker.create({
         data: {
             name: name.trim(),
+            workerType: workerType || 'Thợ chính',
             skill: skill?.trim() || '',
             phone: phone?.trim() || '',
             hourlyRate: Number(hourlyRate) || 0,

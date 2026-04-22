@@ -5,12 +5,13 @@ import { NextResponse } from 'next/server';
 export const PUT = withAuth(async (req, { params }) => {
     const { id } = await params;
     const body = await req.json();
-    const { name, skill, phone, hourlyRate, notes, status } = body;
+    const { name, skill, phone, hourlyRate, notes, status, workerType } = body;
 
     const worker = await prisma.workshopWorker.update({
         where: { id },
         data: {
             ...(name !== undefined && { name: name.trim() }),
+            ...(workerType !== undefined && { workerType }),
             ...(skill !== undefined && { skill: skill.trim() }),
             ...(phone !== undefined && { phone: phone.trim() }),
             ...(hourlyRate !== undefined && { hourlyRate: Number(hourlyRate) || 0 }),
