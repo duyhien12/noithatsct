@@ -105,6 +105,15 @@ export const DELETE = withAuth(async (request, { params }) => {
         await tx.transaction.deleteMany({ where: { projectId: id } });
         await tx.quotationItem.deleteMany({ where: { quotation: { projectId: id } } });
         await tx.quotation.deleteMany({ where: { projectId: id } });
+        // Tiến độ & lịch thi công
+        await tx.progressReport.deleteMany({ where: { projectId: id } });
+        await tx.scheduleTask.deleteMany({ where: { projectId: id } });
+        // Nhật ký & cam kết
+        await tx.commitment.deleteMany({ where: { projectId: id } });
+        await tx.journalEntry.deleteMany({ where: { projectId: id } });
+        // Xưởng & nhật ký công việc (optional FK → set null)
+        await tx.workshopTask.updateMany({ where: { projectId: id }, data: { projectId: null } });
+        await tx.workLogEntry.updateMany({ where: { projectId: id }, data: { projectId: null } });
         await tx.project.delete({ where: { id } });
     });
 
