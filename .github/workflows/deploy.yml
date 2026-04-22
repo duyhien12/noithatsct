@@ -36,17 +36,20 @@ jobs:
       - name: Ensure PostgreSQL is running
         run: |
           docker compose -p noithatsct -f docker-compose.prod.yml up -d postgres
-          sleep 5
+          sleep 8
+          docker exec noithatsct-postgres pg_isready -U postgres
 
       - name: Install dependencies
         run: npm ci
 
       - name: Sync database schema
-        env:
-          DATABASE_URL: postgresql://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/noithatsct?schema=public
         run: |
+          source .env
+          DB_PASS="${POSTGRES_PASSWORD:-postgres}"
+          # Reset password via Unix socket (trust auth) to ensure it matches
+          docker exec noithatsct-postgres psql -U postgres -c "ALTER USER postgres WITH PASSWORD '${DB_PASS}';"
           npx prisma generate
-          npx prisma db push --accept-data-loss
+          DATABASE_URL="postgresql://postgres:${DB_PASS}@localhost:5432/noithatsct?schema=public" npx prisma db push --accept-data-loss
 
       - name: Build and deploy app
         run: |
