@@ -84,40 +84,46 @@ export const PUT = withAuth(async (request, { params }) => {
 export const DELETE = withAuth(async (request, { params }) => {
     const { id } = await params;
 
-    await prisma.$transaction(async (tx) => {
-        await tx.contractPayment.deleteMany({ where: { contract: { projectId: id } } });
-        await tx.contract.deleteMany({ where: { projectId: id } });
-        await tx.workOrder.deleteMany({ where: { projectId: id } });
-        await tx.materialRequisition.deleteMany({ where: { projectId: id } });
-        await tx.budgetChangeOrder.deleteMany({ where: { projectId: id } });
-        await tx.materialPlan.deleteMany({ where: { projectId: id } });
-        await tx.purchaseOrderItem.deleteMany({ where: { purchaseOrder: { projectId: id } } });
-        await tx.purchaseOrder.deleteMany({ where: { projectId: id } });
-        await tx.projectExpense.deleteMany({ where: { projectId: id } });
-        await tx.trackingLog.deleteMany({ where: { projectId: id } });
-        await tx.projectDocument.deleteMany({ where: { parentDocumentId: { not: null }, projectId: id } });
-        await tx.projectDocument.deleteMany({ where: { projectId: id } });
-        await tx.documentFolder.deleteMany({ where: { parentId: { not: null }, projectId: id } });
-        await tx.documentFolder.deleteMany({ where: { projectId: id } });
-        await tx.projectMilestone.deleteMany({ where: { projectId: id } });
-        await tx.projectBudget.deleteMany({ where: { projectId: id } });
-        await tx.contractorPayment.deleteMany({ where: { projectId: id } });
-        await tx.projectEmployee.deleteMany({ where: { projectId: id } });
-        await tx.inventoryTransaction.deleteMany({ where: { projectId: id } });
-        await tx.transaction.deleteMany({ where: { projectId: id } });
-        await tx.quotationItem.deleteMany({ where: { quotation: { projectId: id } } });
-        await tx.quotation.deleteMany({ where: { projectId: id } });
-        // Tiến độ & lịch thi công
-        await tx.progressReport.deleteMany({ where: { projectId: id } });
-        await tx.scheduleTask.deleteMany({ where: { projectId: id } });
-        // Nhật ký & cam kết
-        await tx.commitment.deleteMany({ where: { projectId: id } });
-        await tx.journalEntry.deleteMany({ where: { projectId: id } });
-        // Xưởng & nhật ký công việc (optional FK → set null)
-        await tx.workshopTask.updateMany({ where: { projectId: id }, data: { projectId: null } });
-        await tx.workLogEntry.updateMany({ where: { projectId: id }, data: { projectId: null } });
-        await tx.project.delete({ where: { id } });
-    });
+    try {
+        await prisma.$transaction(async (tx) => {
+            await tx.contractPayment.deleteMany({ where: { contract: { projectId: id } } });
+            await tx.contract.deleteMany({ where: { projectId: id } });
+            await tx.workOrder.deleteMany({ where: { projectId: id } });
+            await tx.materialRequisition.deleteMany({ where: { projectId: id } });
+            await tx.budgetChangeOrder.deleteMany({ where: { projectId: id } });
+            await tx.materialPlan.deleteMany({ where: { projectId: id } });
+            await tx.purchaseOrderItem.deleteMany({ where: { purchaseOrder: { projectId: id } } });
+            await tx.purchaseOrder.deleteMany({ where: { projectId: id } });
+            await tx.projectExpense.deleteMany({ where: { projectId: id } });
+            await tx.trackingLog.deleteMany({ where: { projectId: id } });
+            await tx.projectDocument.deleteMany({ where: { parentDocumentId: { not: null }, projectId: id } });
+            await tx.projectDocument.deleteMany({ where: { projectId: id } });
+            await tx.documentFolder.deleteMany({ where: { parentId: { not: null }, projectId: id } });
+            await tx.documentFolder.deleteMany({ where: { projectId: id } });
+            await tx.projectMilestone.deleteMany({ where: { projectId: id } });
+            await tx.projectBudget.deleteMany({ where: { projectId: id } });
+            await tx.contractorPayment.deleteMany({ where: { projectId: id } });
+            await tx.projectEmployee.deleteMany({ where: { projectId: id } });
+            await tx.inventoryTransaction.deleteMany({ where: { projectId: id } });
+            await tx.transaction.deleteMany({ where: { projectId: id } });
+            await tx.quotationItem.deleteMany({ where: { quotation: { projectId: id } } });
+            await tx.quotation.deleteMany({ where: { projectId: id } });
+            // Tiến độ: clear self-reference trước khi xoá
+            await tx.scheduleTask.updateMany({ where: { projectId: id }, data: { predecessorId: null, parentId: null } });
+            await tx.progressReport.deleteMany({ where: { projectId: id } });
+            await tx.scheduleTask.deleteMany({ where: { projectId: id } });
+            // Nhật ký & cam kết
+            await tx.commitment.deleteMany({ where: { projectId: id } });
+            await tx.journalEntry.deleteMany({ where: { projectId: id } });
+            // Xưởng & nhật ký công việc (optional FK → set null)
+            await tx.workshopTask.updateMany({ where: { projectId: id }, data: { projectId: null } });
+            await tx.workLogEntry.updateMany({ where: { projectId: id }, data: { projectId: null } });
+            await tx.project.delete({ where: { id } });
+        });
+    } catch (e) {
+        console.error('[DELETE project] lỗi:', e.message);
+        return NextResponse.json({ error: e.message }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true });
 });
