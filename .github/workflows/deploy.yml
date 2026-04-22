@@ -43,10 +43,10 @@ jobs:
         run: npm ci
 
       - name: Sync database schema
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
-          source .env
           DB_PASS="${POSTGRES_PASSWORD:-postgres}"
-          # Reset password via Unix socket (trust auth) to ensure it matches
           docker exec noithatsct-postgres psql -U postgres -c "ALTER USER postgres WITH PASSWORD '${DB_PASS}';"
           npx prisma generate
           DATABASE_URL="postgresql://postgres:${DB_PASS}@localhost:5432/noithatsct?schema=public" npx prisma db push --accept-data-loss
