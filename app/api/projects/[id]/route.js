@@ -89,6 +89,7 @@ export const DELETE = withAuth(async (request, { params }) => {
         await tx.contract.deleteMany({ where: { projectId: id } });
         await tx.workOrder.deleteMany({ where: { projectId: id } });
         await tx.materialRequisition.deleteMany({ where: { projectId: id } });
+        await tx.budgetChangeOrder.deleteMany({ where: { projectId: id } });
         await tx.materialPlan.deleteMany({ where: { projectId: id } });
         await tx.purchaseOrderItem.deleteMany({ where: { purchaseOrder: { projectId: id } } });
         await tx.purchaseOrder.deleteMany({ where: { projectId: id } });
