@@ -25,6 +25,9 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
     const [savingQuickAdd, setSavingQuickAdd] = useState(false);
     const [collapsed, setCollapsed] = useState({}); // groupId -> bool
     const [users, setUsers] = useState([]);
+    const [workers, setWorkers] = useState([]);
+    const [assigneeSuggestions, setAssigneeSuggestions] = useState([]);
+    const [showAssigneeDrop, setShowAssigneeDrop] = useState(false);
     const [filterDept, setFilterDept] = useState('');
     const [now, setNow] = useState(() => new Date());
     const [dragSrcId, setDragSrcId] = useState(null);
@@ -33,7 +36,19 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
 
     useEffect(() => {
         fetch('/api/users').then(r => r.ok ? r.json() : []).then(data => setUsers(Array.isArray(data) ? data : [])).catch(() => {});
+        fetch('/api/workshop/workers').then(r => r.ok ? r.json() : []).then(data => setWorkers(Array.isArray(data) ? data : [])).catch(() => {});
     }, []);
+
+    const handleAssigneeInput = (val) => {
+        setEditForm(f => ({ ...f, assignee: val }));
+        if (val.trim()) {
+            const q = val.toLowerCase();
+            setAssigneeSuggestions(workers.filter(w => w.name.toLowerCase().includes(q)).slice(0, 8));
+        } else {
+            setAssigneeSuggestions(workers.slice(0, 8));
+        }
+        setShowAssigneeDrop(true);
+    };
 
     // Update "now" every minute so overdue status recalculates automatically
     useEffect(() => {
@@ -445,9 +460,34 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
                                     {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </div>
-                            <div className="form-group">
+                            <div className="form-group" style={{ position: 'relative' }}>
                                 <label className="form-label">Người phụ trách</label>
-                                <input className="form-input" value={editForm.assignee} onChange={e => setEditForm(f => ({ ...f, assignee: e.target.value }))} placeholder="Tên người phụ trách" />
+                                <input className="form-input" value={editForm.assignee}
+                                    onChange={e => handleAssigneeInput(e.target.value)}
+                                    onFocus={() => { setAssigneeSuggestions(workers.slice(0, 8)); setShowAssigneeDrop(true); }}
+                                    onBlur={() => setTimeout(() => setShowAssigneeDrop(false), 150)}
+                                    placeholder="Tìm hoặc nhập tên..." autoComplete="off" />
+                                {showAssigneeDrop && assigneeSuggestions.length > 0 && (
+                                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', maxHeight: 200, overflowY: 'auto', marginTop: 2 }}>
+                                        {assigneeSuggestions.map(w => (
+                                            <div key={w.id} onMouseDown={() => { setEditForm(f => ({ ...f, assignee: w.name })); setShowAssigneeDrop(false); }}
+                                                style={{ padding: '7px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: 8 }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                <span style={{ width: 26, height: 26, borderRadius: '50%', background: w.workerType === 'Thợ phụ' ? '#ede9fe' : '#dbeafe', color: w.workerType === 'Thợ phụ' ? '#6d28d9' : '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>
+                                                    {w.name.split(' ').pop()?.[0]?.toUpperCase()}
+                                                </span>
+                                                <div>
+                                                    <div style={{ fontWeight: 600 }}>{w.name}</div>
+                                                    {w.skill && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{w.skill}</div>}
+                                                </div>
+                                                <span style={{ marginLeft: 'auto', fontSize: 10, padding: '1px 6px', borderRadius: 8, background: w.workerType === 'Thợ phụ' ? '#ede9fe' : '#dbeafe', color: w.workerType === 'Thợ phụ' ? '#6d28d9' : '#1d4ed8' }}>
+                                                    {w.workerType || 'Thợ chính'}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                             <div className="form-row">
                                 <div className="form-group">

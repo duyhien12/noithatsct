@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+const toInputDate = (d) => d ? new Date(d).toISOString().slice(0, 10) : '';
 
 function getWeekStart(date) {
     const d = new Date(date);
@@ -18,6 +19,10 @@ function getWeekNum(date) {
     return Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(),0,1))) / 86400000) + 1) / 7);
 }
 
+const CATEGORIES = ['Thi công', 'Lắp đặt', 'Kiểm tra', 'Hoàn thiện', 'Sửa chữa', 'Khác'];
+const PRIORITIES = ['Cao', 'Trung bình', 'Thấp'];
+const STATUSES = ['Chờ xử lý', 'Đang xử lý', 'Hoàn thành', 'Quá hạn'];
+
 export default function WorkOrdersPage() {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -27,6 +32,10 @@ export default function WorkOrdersPage() {
     const [syncing, setSyncing] = useState(false);
     const [syncMsg, setSyncMsg] = useState('');
     const [syncWeek, setSyncWeek] = useState(() => getWeekStart(new Date()));
+    const [editingWO, setEditingWO] = useState(null);
+    const [editForm, setEditForm] = useState({});
+    const [saving, setSaving] = useState(false);
+    const [zaloMsg, setZaloMsg] = useState({});
     const router = useRouter();
 
     const fetchOrders = () => { fetch('/api/work-orders?limit=1000').then(r => r.json()).then(d => { setOrders(d.data || []); setLoading(false); }); };
@@ -54,6 +63,51 @@ export default function WorkOrdersPage() {
     const updateStatus = async (id, status) => {
         await fetch(`/api/work-orders/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
         fetchOrders();
+    };
+
+    const openEdit = (wo) => {
+        setEditingWO(wo);
+        setEditForm({
+            title: wo.title || '',
+            description: wo.description || '',
+            category: wo.category || '',
+            assignee: wo.assignee || '',
+            priority: wo.priority || 'Trung bình',
+            status: wo.status || 'Chờ xử lý',
+            dueDate: toInputDate(wo.dueDate),
+        });
+    };
+
+    const saveEdit = async () => {
+        if (!editForm.title?.trim()) return;
+        setSaving(true);
+        const body = {
+            title: editForm.title.trim(),
+            description: editForm.description || '',
+            category: editForm.category || '',
+            assignee: editForm.assignee || '',
+            priority: editForm.priority,
+            status: editForm.status,
+            dueDate: editForm.dueDate || null,
+        };
+        await fetch(`/api/work-orders/${editingWO.id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        });
+        setSaving(false);
+        setEditingWO(null);
+        fetchOrders();
+    };
+
+    const sendZalo = async (wo) => {
+        setZaloMsg(p => ({ ...p, [wo.id]: '⏳' }));
+        const res = await fetch(`/api/work-orders/${wo.id}/notify-zalo`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            setZaloMsg(p => ({ ...p, [wo.id]: '✅ Đã gửi' }));
+        } else {
+            setZaloMsg(p => ({ ...p, [wo.id]: `❌ ${data.message || 'Lỗi'}` }));
+        }
+        setTimeout(() => setZaloMsg(p => { const n = { ...p }; delete n[wo.id]; return n; }), 4000);
     };
 
     const filtered = orders.filter(w => {
@@ -113,7 +167,7 @@ export default function WorkOrdersPage() {
                 {loading ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (<>
                     <div className="desktop-table-view">
                         <div className="table-container"><table className="data-table">
-                            <thead><tr><th>Mã</th><th>Tiêu đề</th><th>Dự án</th><th>Loại</th><th>Ưu tiên</th><th>Người thực hiện</th><th>Hạn</th><th>Trạng thái</th></tr></thead>
+                            <thead><tr><th>Mã</th><th>Tiêu đề</th><th>Dự án</th><th>Loại</th><th>Ưu tiên</th><th>Người thực hiện</th><th>Hạn</th><th>Trạng thái</th><th style={{ width: 100 }}>HĐ</th></tr></thead>
                             <tbody>{filtered.map(wo => (
                                 <tr key={wo.id}>
                                     <td className="accent">
@@ -131,6 +185,22 @@ export default function WorkOrdersPage() {
                                             <option>Chờ xử lý</option><option>Đang xử lý</option><option>Hoàn thành</option><option>Quá hạn</option>
                                         </select>
                                     </td>
+                                    <td>
+                                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                            <button className="btn btn-ghost btn-sm" title="Chỉnh sửa" onClick={() => openEdit(wo)}
+                                                style={{ padding: '3px 7px', fontSize: 14 }}>✏️</button>
+                                            <button className="btn btn-ghost btn-sm" title="Gửi qua Zalo OA" onClick={() => sendZalo(wo)}
+                                                style={{ padding: '3px 7px', fontSize: 14, color: '#0068ff' }}
+                                                disabled={zaloMsg[wo.id] === '⏳'}>
+                                                {zaloMsg[wo.id] === '⏳' ? '⏳' : '💬'}
+                                            </button>
+                                        </div>
+                                        {zaloMsg[wo.id] && zaloMsg[wo.id] !== '⏳' && (
+                                            <div style={{ fontSize: 10, marginTop: 2, color: zaloMsg[wo.id].startsWith('✅') ? '#16a34a' : '#dc2626', whiteSpace: 'nowrap' }}>
+                                                {zaloMsg[wo.id]}
+                                            </div>
+                                        )}
+                                    </td>
                                 </tr>
                             ))}</tbody>
                         </table></div>
@@ -143,8 +213,19 @@ export default function WorkOrdersPage() {
                                         <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wo.title}</div>
                                         <div className="card-subtitle">{wo.code} · {wo.project?.name || '—'}</div>
                                     </div>
-                                    <span className={`badge ${wo.priority === 'Cao' ? 'danger' : wo.priority === 'Trung bình' ? 'warning' : 'muted'}`}>{wo.priority}</span>
+                                    <div style={{ display: 'flex', gap: 4 }}>
+                                        <span className={`badge ${wo.priority === 'Cao' ? 'danger' : wo.priority === 'Trung bình' ? 'warning' : 'muted'}`}>{wo.priority}</span>
+                                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(wo)} style={{ padding: '2px 6px', fontSize: 13 }}>✏️</button>
+                                        <button className="btn btn-ghost btn-sm" onClick={() => sendZalo(wo)} style={{ padding: '2px 6px', fontSize: 13 }} disabled={zaloMsg[wo.id] === '⏳'}>
+                                            {zaloMsg[wo.id] === '⏳' ? '⏳' : '💬'}
+                                        </button>
+                                    </div>
                                 </div>
+                                {zaloMsg[wo.id] && zaloMsg[wo.id] !== '⏳' && (
+                                    <div style={{ fontSize: 11, color: zaloMsg[wo.id].startsWith('✅') ? '#16a34a' : '#dc2626', marginTop: 4 }}>
+                                        {zaloMsg[wo.id]}
+                                    </div>
+                                )}
                                 <div className="card-row">
                                     <div><span className="card-label">Người TH</span><div style={{ fontSize: 12, fontWeight: 500 }}>{wo.assignee || '—'}</div></div>
                                     <div><span className="card-label">Hạn</span><div style={{ fontSize: 12, fontWeight: 500 }}>{fmtDate(wo.dueDate)}</div></div>
@@ -159,6 +240,68 @@ export default function WorkOrdersPage() {
                     </div>
                 </>)}
             </div>
+
+            {/* Edit Modal */}
+            {editingWO && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                    <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 24, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Chỉnh sửa phiếu — {editingWO.code}</h3>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setEditingWO(null)} style={{ fontSize: 18, lineHeight: 1 }}>×</button>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            <div>
+                                <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Tiêu đề *</label>
+                                <input className="form-input" value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} style={{ width: '100%' }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Mô tả</label>
+                                <textarea className="form-input" value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))}
+                                    rows={2} style={{ width: '100%', resize: 'vertical' }} />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Loại công việc</label>
+                                    <select className="form-select" value={editForm.category} onChange={e => setEditForm(p => ({ ...p, category: e.target.value }))} style={{ width: '100%' }}>
+                                        <option value="">— Chọn —</option>
+                                        {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                                        {editForm.category && !CATEGORIES.includes(editForm.category) && <option value={editForm.category}>{editForm.category}</option>}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Ưu tiên</label>
+                                    <select className="form-select" value={editForm.priority} onChange={e => setEditForm(p => ({ ...p, priority: e.target.value }))} style={{ width: '100%' }}>
+                                        {PRIORITIES.map(p => <option key={p}>{p}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Trạng thái</label>
+                                    <select className="form-select" value={editForm.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))} style={{ width: '100%' }}>
+                                        {STATUSES.map(s => <option key={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Hạn chót</label>
+                                    <input type="date" className="form-input" value={editForm.dueDate} onChange={e => setEditForm(p => ({ ...p, dueDate: e.target.value }))} style={{ width: '100%' }} />
+                                </div>
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Người thực hiện</label>
+                                <input className="form-input" value={editForm.assignee} onChange={e => setEditForm(p => ({ ...p, assignee: e.target.value }))}
+                                    placeholder="Tên hoặc email người thực hiện" style={{ width: '100%' }} />
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+                                <button className="btn btn-ghost" onClick={() => setEditingWO(null)}>Huỷ</button>
+                                <button className="btn btn-primary" onClick={saveEdit} disabled={saving || !editForm.title?.trim()}>
+                                    {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
