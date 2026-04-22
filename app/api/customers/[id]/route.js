@@ -2,6 +2,7 @@ import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { customerUpdateSchema } from '@/lib/validations/customer';
+import { z } from 'zod';
 
 export const GET = withAuth(async (request, { params }) => {
     const { id } = await params;
@@ -57,12 +58,24 @@ export const GET = withAuth(async (request, { params }) => {
     });
 });
 
+const lastContactSchema = z.string().optional().nullable().transform(v => v ? new Date(v) : null);
+
 export const PUT = withAuth(async (request, { params }) => {
     const { id } = await params;
     const body = await request.json();
-    const data = customerUpdateSchema.parse(body);
 
-    const customer = await prisma.customer.update({ where: { id }, data });
+    // Parse chỉ các field có trong body để tránh Zod default() ghi đè toàn bộ
+    const parsed = customerUpdateSchema.parse(body);
+    const updateData = {};
+    for (const key of Object.keys(body)) {
+        if (key === 'lastContactAt') {
+            updateData.lastContactAt = lastContactSchema.parse(body.lastContactAt);
+        } else if (key in parsed) {
+            updateData[key] = parsed[key];
+        }
+    }
+
+    const customer = await prisma.customer.update({ where: { id }, data: updateData });
     return NextResponse.json(customer);
 });
 
