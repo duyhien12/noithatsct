@@ -95,6 +95,7 @@ export const DELETE = withAuth(async (request, { params }) => {
         await tx.purchaseOrder.deleteMany({ where: { projectId: id } });
         await tx.projectExpense.deleteMany({ where: { projectId: id } });
         await tx.trackingLog.deleteMany({ where: { projectId: id } });
+        await tx.projectDocument.deleteMany({ where: { parentDocumentId: { not: null }, projectId: id } });
         await tx.projectDocument.deleteMany({ where: { projectId: id } });
         await tx.documentFolder.deleteMany({ where: { parentId: { not: null }, projectId: id } });
         await tx.documentFolder.deleteMany({ where: { projectId: id } });
