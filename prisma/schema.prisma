@@ -1055,6 +1055,7 @@ model WorkshopTaskMaterial {
 model WorkLogEntry {
   id          String    @id @default(cuid())
   date        DateTime
+  shift       String    @default("Sáng")
   category    String
   projectId   String?
   projectName String    @default("")

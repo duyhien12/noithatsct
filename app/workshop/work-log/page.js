@@ -30,33 +30,45 @@ function getWeekNum(date) {
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
     return Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(),0,1))) / 86400000) + 1) / 7);
 }
+// Trả về [{name, hours}] — tương thích cả format cũ (string[]) lẫn mới ({name,hours}[])
+function parseWorkersWithHours(json) {
+    try {
+        const v = JSON.parse(json);
+        if (!Array.isArray(v)) return [];
+        return v.map(item => typeof item === 'string' ? { name: item, hours: null } : item).filter(i => i?.name);
+    } catch { return []; }
+}
+// Trả về string[] tên thợ (dùng cho summary table và hiển thị đơn giản)
 function parseWorkers(json) {
-    try { const v = JSON.parse(json); return Array.isArray(v) ? v : []; } catch { return []; }
+    return parseWorkersWithHours(json).map(w => w.name);
 }
 
-// Worker multi-select chip input
+// Worker multi-select chip input — selected: [{name, hours}]
 function WorkerChipInput({ selected, workerList, onChange, placeholder = 'Chọn thợ...' }) {
     const [input, setInput] = useState('');
     const [suggestions, setSuggestions] = useState([]);
     const ref = useRef(null);
 
+    const selectedNames = selected.map(w => w.name);
+
     const handleInput = (val) => {
         setInput(val);
         if (val.trim().length > 0) {
             setSuggestions(workerList.filter(w =>
-                w.name.toLowerCase().includes(val.toLowerCase()) && !selected.includes(w.name)
+                w.name.toLowerCase().includes(val.toLowerCase()) && !selectedNames.includes(w.name)
             ).slice(0, 6));
         } else {
-            setSuggestions(workerList.filter(w => !selected.includes(w.name)).slice(0, 8));
+            setSuggestions(workerList.filter(w => !selectedNames.includes(w.name)).slice(0, 8));
         }
     };
 
     const add = (name) => {
-        if (!selected.includes(name)) onChange([...selected, name]);
+        if (!selectedNames.includes(name)) onChange([...selected, { name, hours: null }]);
         setInput('');
         setSuggestions([]);
     };
-    const remove = (name) => onChange(selected.filter(n => n !== name));
+    const remove = (name) => onChange(selected.filter(w => w.name !== name));
+    const setHours = (name, hours) => onChange(selected.map(w => w.name === name ? { ...w, hours: hours === '' ? null : Number(hours) } : w));
 
     const handleKeyDown = (e) => {
         if (e.key === 'Enter' && input.trim()) {
@@ -64,17 +76,25 @@ function WorkerChipInput({ selected, workerList, onChange, placeholder = 'Chọn
             if (suggestions.length > 0) add(suggestions[0].name);
             else add(input.trim());
         }
-        if (e.key === 'Backspace' && !input && selected.length > 0) remove(selected[selected.length - 1]);
+        if (e.key === 'Backspace' && !input && selected.length > 0) remove(selected[selected.length - 1].name);
     };
 
     return (
         <div style={{ position: 'relative' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '4px 6px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-card)', minHeight: 34, alignItems: 'center', cursor: 'text' }}
-                onClick={() => { ref.current?.focus(); if (!input) setSuggestions(workerList.filter(w => !selected.includes(w.name)).slice(0, 8)); }}>
-                {selected.map(name => (
-                    <span key={name} style={{ padding: '1px 6px', borderRadius: 12, background: '#dbeafe', color: '#1d4ed8', fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}>
+                onClick={() => { ref.current?.focus(); if (!input) setSuggestions(workerList.filter(w => !selectedNames.includes(w.name)).slice(0, 8)); }}>
+                {selected.map(({ name, hours }) => (
+                    <span key={name} style={{ padding: '1px 4px 1px 7px', borderRadius: 12, background: '#dbeafe', color: '#1d4ed8', fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}>
                         {name}
-                        <span style={{ cursor: 'pointer', fontWeight: 700, fontSize: 12 }} onClick={e => { e.stopPropagation(); remove(name); }}>×</span>
+                        <input
+                            type="number" min={0.5} step={0.5} value={hours ?? ''}
+                            onChange={e => { e.stopPropagation(); setHours(name, e.target.value); }}
+                            onClick={e => e.stopPropagation()}
+                            placeholder="h"
+                            style={{ width: 34, border: '1px solid #93c5fd', borderRadius: 4, padding: '0 3px', fontSize: 11, color: '#1d4ed8', background: '#eff6ff', outline: 'none', textAlign: 'center' }}
+                        />
+                        <span style={{ fontSize: 10, color: '#3b82f6', marginLeft: -1 }}>h</span>
+                        <span style={{ cursor: 'pointer', fontWeight: 700, fontSize: 12, marginLeft: 1 }} onClick={e => { e.stopPropagation(); remove(name); }}>×</span>
                     </span>
                 ))}
                 <input ref={ref} value={input} onChange={e => handleInput(e.target.value)} onKeyDown={handleKeyDown}
@@ -160,7 +180,7 @@ function EntryRow({ entry, category, workers, projects, onSaved, onDeleted }) {
     const [editing, setEditing] = useState(false);
     const [projectName, setProjectName] = useState(entry.projectName || '');
     const [projectId, setProjectId] = useState(entry.projectId || '');
-    const [selWorkers, setSelWorkers] = useState(parseWorkers(entry.mainWorkers));
+    const [selWorkers, setSelWorkers] = useState(parseWorkersWithHours(entry.mainWorkers));
     const [note, setNote] = useState(entry.note || '');
     const [saving, setSaving] = useState(false);
     const isViecKhac = category.key === 'Việc khác';
@@ -183,7 +203,7 @@ function EntryRow({ entry, category, workers, projects, onSaved, onDeleted }) {
     };
 
     const displayName = entry.projectName || entry.project?.name || '';
-    const workerNames = parseWorkers(entry.mainWorkers);
+    const workerNames = parseWorkersWithHours(entry.mainWorkers);
 
     if (!editing) return (
         <div style={{ padding: '5px 7px', background: category.color, borderRadius: 6, marginBottom: 5, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 4 }}>
@@ -191,7 +211,11 @@ function EntryRow({ entry, category, workers, projects, onSaved, onDeleted }) {
                 {!isViecKhac && displayName && <div style={{ fontWeight: 600, fontSize: 12, color: '#1e3a5f' }}>{displayName}</div>}
                 {entry.project && !isViecKhac && <div style={{ fontSize: 10, color: '#2563eb' }}>{entry.project.code}</div>}
                 {isViecKhac && entry.note && <div style={{ fontWeight: 600, fontSize: 12, color: '#166534' }}>{entry.note}</div>}
-                {workerNames.length > 0 && <div style={{ fontSize: 11, color: '#374151' }}>👷 {workerNames.join(', ')}</div>}
+                {workerNames.length > 0 && (
+                    <div style={{ fontSize: 11, color: '#374151' }}>
+                        👷 {workerNames.map(w => w.hours ? `${w.name} (${w.hours}h)` : w.name).join(', ')}
+                    </div>
+                )}
             </div>
             <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
                 <button style={{ background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: 5, padding: '2px 5px', cursor: 'pointer', fontSize: 11 }} onClick={() => setEditing(true)}>✏️</button>
@@ -220,11 +244,11 @@ function EntryRow({ entry, category, workers, projects, onSaved, onDeleted }) {
 }
 
 // Cell editor popover
-function CellEditor({ day, category, cellEntries, pos, workers, projects, onSave, onClose }) {
+function CellEditor({ day, category, shift, cellEntries, pos, workers, projects, onSave, onClose }) {
     const [showAdd, setShowAdd] = useState(cellEntries.length === 0);
     const [projectName, setProjectName] = useState('');
     const [projectId, setProjectId] = useState('');
-    const [selWorkers, setSelWorkers] = useState([]);
+    const [selWorkers, setSelWorkers] = useState([]);  // [{name, hours}]
     const [note, setNote] = useState('');
     const [saving, setSaving] = useState(false);
     const isViecKhac = category.key === 'Việc khác';
@@ -235,7 +259,7 @@ function CellEditor({ day, category, cellEntries, pos, workers, projects, onSave
         setSaving(true);
         await fetch('/api/workshop/work-log', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ date: toISO(day), category: category.key, projectId: projectId || null, projectName, mainWorkers: selWorkers, subWorkers: [], note }),
+            body: JSON.stringify({ date: toISO(day), category: category.key, shift, projectId: projectId || null, projectName, mainWorkers: selWorkers, subWorkers: [], note }),
         });
         setSaving(false);
         setProjectName(''); setProjectId(''); setSelWorkers([]); setNote('');
@@ -248,8 +272,9 @@ function CellEditor({ day, category, cellEntries, pos, workers, projects, onSave
             <div style={{ position: 'fixed', inset: 0, zIndex: 1998 }} onMouseDown={onClose} />
             <div style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 1999, width: 300, background: 'var(--bg-card)', border: '1.5px solid var(--accent-primary)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.22)', padding: 12, maxHeight: 'calc(100vh - 80px)', overflowY: 'auto' }}
                 onMouseDown={e => e.stopPropagation()}>
-                <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--accent-primary)', marginBottom: 8 }}>
-                    {DAYS_VI[day.getDay()]} {fmtShortDate(day)} · {category.label}
+                <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--accent-primary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>{DAYS_VI[day.getDay()]} {fmtShortDate(day)} · {category.label}</span>
+                    <span style={{ padding: '1px 7px', borderRadius: 8, fontSize: 10, fontWeight: 800, background: shift === 'Sáng' ? '#fef9c3' : '#ffedd5', color: shift === 'Sáng' ? '#854d0e' : '#9a3412' }}>Ca {shift}</span>
                 </div>
 
                 {cellEntries.map(entry => (
@@ -284,8 +309,9 @@ function CellEditor({ day, category, cellEntries, pos, workers, projects, onSave
     );
 }
 
-// Tính tổng hợp công: mỗi (ngày, thợ, dự án) duy nhất = 1 công
-// workerMap: { [name]: 'Thợ chính' | 'Thợ phụ' } — phân loại từ danh sách nhân viên
+// Tính công:
+// - Có nhập giờ → tổng giờ ÷ 8
+// - Không có giờ → mỗi ca (sáng/chiều) = 0.5 công; cả 2 ca cùng ngày = 1 công
 function computeWorkSummary(entries, workerMap) {
     const map = {}
     entries.forEach(entry => {
@@ -294,25 +320,37 @@ function computeWorkSummary(entries, workerMap) {
         if (!projectName) return
         const code = entry.project?.code || ''
         const dateKey = new Date(entry.date).toDateString()
+        const shift = entry.shift || 'Sáng'
         if (!map[projectName]) map[projectName] = { name: projectName, code, main: {}, sub: {} }
 
-        // Tất cả thợ trong entry → phân loại theo workerType của nhân viên
         const allWorkers = [
-            ...parseWorkers(entry.mainWorkers),
-            ...parseWorkers(entry.subWorkers),
+            ...parseWorkersWithHours(entry.mainWorkers),
+            ...parseWorkersWithHours(entry.subWorkers),
         ]
-        allWorkers.forEach(w => {
+        allWorkers.forEach(({ name: w, hours }) => {
             const wType = workerMap[w] || 'Thợ chính'
             const bucket = wType === 'Thợ phụ' ? map[projectName].sub : map[projectName].main
-            if (!bucket[w]) bucket[w] = new Set()
-            bucket[w].add(dateKey)
+            if (!bucket[w]) bucket[w] = { dateShifts: {}, totalHours: 0 }
+            if (hours) {
+                bucket[w].totalHours += hours
+            } else {
+                if (!bucket[w].dateShifts[dateKey]) bucket[w].dateShifts[dateKey] = new Set()
+                bucket[w].dateShifts[dateKey].add(shift)
+            }
         })
     })
+
+    const calcCong = (data) => {
+        if (data.totalHours > 0) return Math.round(data.totalHours / 8 * 10) / 10
+        return Object.values(data.dateShifts)
+            .reduce((sum, shifts) => sum + Math.min(shifts.size * 0.5, 1), 0)
+    }
+
     return Object.values(map).map(p => ({
         name: p.name,
         code: p.code,
-        main: Object.entries(p.main).map(([n, s]) => ({ name: n, cong: s.size })).sort((a, b) => b.cong - a.cong),
-        sub: Object.entries(p.sub).map(([n, s]) => ({ name: n, cong: s.size })).sort((a, b) => b.cong - a.cong),
+        main: Object.entries(p.main).map(([n, d]) => ({ name: n, cong: calcCong(d) })).sort((a, b) => b.cong - a.cong),
+        sub:  Object.entries(p.sub).map(([n, d])  => ({ name: n, cong: calcCong(d) })).sort((a, b) => b.cong - a.cong),
     }))
 }
 
@@ -325,8 +363,9 @@ function WorkSummaryTable({ entries, workers, weekNum, weekStart, weekEnd }) {
 
     const thS = { padding: '8px 10px', border: '1px solid #2a4a8b', textAlign: 'center', fontWeight: 700, fontSize: 12, color: '#fff' }
     const tdS = { padding: '6px 10px', border: '1px solid var(--border)', verticalAlign: 'top', fontSize: 12 }
-    const grandMain = summary.reduce((a, p) => a + p.main.reduce((s, w) => s + w.cong, 0), 0)
-    const grandSub  = summary.reduce((a, p) => a + p.sub.reduce((s, w) => s + w.cong, 0), 0)
+    const fmtCong = (n) => Number.isInteger(n) ? n : n.toFixed(1).replace('.0', '')
+    const grandMain = Math.round(summary.reduce((a, p) => a + p.main.reduce((s, w) => s + w.cong, 0), 0) * 10) / 10
+    const grandSub  = Math.round(summary.reduce((a, p) => a + p.sub.reduce((s, w) => s + w.cong, 0), 0) * 10) / 10
 
     return (
         <div className="card" style={{ overflow: 'hidden' }}>
@@ -367,26 +406,26 @@ function WorkSummaryTable({ entries, workers, weekNum, weekStart, weekEnd }) {
                                         {p.main.length > 0 ? p.main.map(w => (
                                             <div key={w.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '2px 0', borderBottom: '1px solid var(--border-light)' }}>
                                                 <span style={{ color: '#374151' }}>{w.name}</span>
-                                                <span style={{ fontWeight: 700, color: '#1d4ed8', background: '#dbeafe', padding: '1px 8px', borderRadius: 10, fontSize: 11 }}>{w.cong} công</span>
+                                                <span style={{ fontWeight: 700, color: '#1d4ed8', background: '#dbeafe', padding: '1px 8px', borderRadius: 10, fontSize: 11 }}>{fmtCong(w.cong)} công</span>
                                             </div>
                                         )) : <span style={{ color: '#d1d5db', fontSize: 11 }}>—</span>}
                                     </td>
                                     <td style={{ ...tdS, textAlign: 'center', fontWeight: 800, fontSize: 20, color: '#1d4ed8', background: '#eff6ff' }}>
-                                        {tMain}
+                                        {fmtCong(tMain)}
                                     </td>
                                     <td style={tdS}>
                                         {p.sub.length > 0 ? p.sub.map(w => (
                                             <div key={w.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '2px 0', borderBottom: '1px solid var(--border-light)' }}>
                                                 <span style={{ color: '#374151' }}>{w.name}</span>
-                                                <span style={{ fontWeight: 700, color: '#6d28d9', background: '#ede9fe', padding: '1px 8px', borderRadius: 10, fontSize: 11 }}>{w.cong} công</span>
+                                                <span style={{ fontWeight: 700, color: '#6d28d9', background: '#ede9fe', padding: '1px 8px', borderRadius: 10, fontSize: 11 }}>{fmtCong(w.cong)} công</span>
                                             </div>
                                         )) : <span style={{ color: '#d1d5db', fontSize: 11 }}>—</span>}
                                     </td>
                                     <td style={{ ...tdS, textAlign: 'center', fontWeight: 800, fontSize: 20, color: '#6d28d9', background: '#f5f3ff' }}>
-                                        {tSub > 0 ? tSub : <span style={{ color: '#cbd5e1', fontSize: 14 }}>0</span>}
+                                        {tSub > 0 ? fmtCong(tSub) : <span style={{ color: '#cbd5e1', fontSize: 14 }}>0</span>}
                                     </td>
                                     <td style={{ ...tdS, textAlign: 'center', fontWeight: 900, fontSize: 22, color: '#1e3a5f', background: '#f0f9ff' }}>
-                                        {tMain + tSub}
+                                        {fmtCong(Math.round((tMain + tSub) * 10) / 10)}
                                     </td>
                                 </tr>
                             )
@@ -395,17 +434,17 @@ function WorkSummaryTable({ entries, workers, weekNum, weekStart, weekEnd }) {
                     <tfoot>
                         <tr style={{ background: '#1e3a5f' }}>
                             <td colSpan={3} style={{ ...thS, fontSize: 13, letterSpacing: 1 }}>TỔNG CỘNG TOÀN TUẦN</td>
-                            <td style={{ ...thS, fontSize: 22 }}>{grandMain}</td>
+                            <td style={{ ...thS, fontSize: 22 }}>{fmtCong(grandMain)}</td>
                             <td style={thS} />
-                            <td style={{ ...thS, fontSize: 22 }}>{grandSub}</td>
-                            <td style={{ ...thS, fontSize: 24 }}>{grandMain + grandSub}</td>
+                            <td style={{ ...thS, fontSize: 22 }}>{fmtCong(grandSub)}</td>
+                            <td style={{ ...thS, fontSize: 24 }}>{fmtCong(Math.round((grandMain + grandSub) * 10) / 10)}</td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
 
             <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border-light)', fontSize: 11, color: 'var(--text-muted)' }}>
-                💡 Mỗi ngày làm việc = 1 công (ca sáng 4h + ca chiều 4h). Thợ xuất hiện nhiều lần cùng ngày cùng dự án vẫn tính 1 công.
+                💡 Ca sáng = 0.5 công, ca chiều = 0.5 công, cả 2 ca = 1 công. Nếu nhập số giờ thì tính: giờ ÷ 8 = công.
             </div>
         </div>
     )
@@ -447,13 +486,17 @@ export default function WorkLogPage() {
     const weekNum = getWeekNum(weekStart);
     const today = new Date(); today.setHours(0, 0, 0, 0);
 
-    const getCell = (day, catKey) => entries.filter(e => e.category === catKey && isSameDay(new Date(e.date), day));
+    const getCell = (day, catKey, shift) => entries.filter(e =>
+        e.category === catKey &&
+        isSameDay(new Date(e.date), day) &&
+        (e.shift || 'Sáng') === shift
+    );
 
-    const openEdit = (day, category, e) => {
+    const openEdit = (day, category, shift, e) => {
         const rect = e.currentTarget.getBoundingClientRect();
         const left = Math.min(rect.left, window.innerWidth - 316);
         const top = Math.min(rect.bottom + 4, window.innerHeight - 420);
-        setEditCell({ day, category, pos: { top, left } });
+        setEditCell({ day, category, shift, pos: { top, left } });
     };
 
     const closeEdit = () => setEditCell(null);
@@ -496,6 +539,7 @@ export default function WorkLogPage() {
                             <thead>
                                 <tr style={{ background: '#1C3A6B', color: '#fff' }}>
                                     <th rowSpan={2} style={{ padding: '8px 10px', border: '1px solid #2a4a8b', minWidth: 80, verticalAlign: 'middle', textAlign: 'center', fontSize: 11 }}>Ngày / Tháng</th>
+                                    <th rowSpan={2} style={{ padding: '8px 6px', border: '1px solid #2a4a8b', width: 40, verticalAlign: 'middle', textAlign: 'center', fontSize: 11 }}>Ca</th>
                                     {CATEGORIES.map(cat => (
                                         <th key={cat.key} colSpan={2} style={{ padding: '6px 10px', border: '1px solid #2a4a8b', textAlign: 'center', fontSize: 12, fontWeight: 700 }}>{cat.label}</th>
                                     ))}
@@ -515,41 +559,46 @@ export default function WorkLogPage() {
                                     const dow = day.getDay();
                                     const isWeekend = dow === 0 || dow === 6;
                                     const rowBg = isToday ? '#fffbeb' : isWeekend ? '#fef2f2' : di % 2 === 0 ? '#f8fafc' : '#ffffff';
-                                    const cellEntries = CATEGORIES.map(cat => getCell(day, cat.key));
-                                    const maxRows = Math.max(1, ...cellEntries.map(t => t.length));
 
-                                    return Array.from({ length: maxRows }, (_, ri) => (
-                                        <tr key={`${toISO(day)}-${ri}`} style={{ background: rowBg, borderBottom: ri === maxRows - 1 ? '2px solid var(--border)' : '1px solid var(--border-light)' }}>
-                                            {ri === 0 && (
-                                                <td rowSpan={maxRows} style={{ padding: '8px 10px', border: '1px solid var(--border)', background: isToday ? '#fef3c7' : isWeekend ? '#fee2e2' : '#f1f5f9', fontWeight: isToday ? 800 : 600, textAlign: 'center', verticalAlign: 'middle', fontSize: 12, whiteSpace: 'nowrap', color: isToday ? '#92400e' : isWeekend ? '#dc2626' : '#475569' }}>
+                                    return ['Sáng', 'Chiều'].map((shift, si) => (
+                                        <tr key={`${toISO(day)}-${shift}`} style={{ background: rowBg, borderBottom: si === 1 ? '2px solid var(--border)' : 'none' }}>
+                                            {si === 0 && (
+                                                <td rowSpan={2} style={{ padding: '8px 10px', border: '1px solid var(--border)', background: isToday ? '#fef3c7' : isWeekend ? '#fee2e2' : '#f1f5f9', fontWeight: isToday ? 800 : 600, textAlign: 'center', verticalAlign: 'middle', fontSize: 12, whiteSpace: 'nowrap', color: isToday ? '#92400e' : isWeekend ? '#dc2626' : '#475569' }}>
                                                     <div>{DAYS_VI[dow]}</div>
                                                     <div style={{ fontSize: 13, fontWeight: 800 }}>{fmtShortDate(day)}</div>
                                                     {isToday && <div style={{ fontSize: 10, color: '#d97706', marginTop: 2 }}>Hôm nay</div>}
                                                 </td>
                                             )}
-                                            {CATEGORIES.map((cat, ci) => {
-                                                const catEntries = cellEntries[ci];
-                                                const entry = catEntries[ri];
-                                                const workers_ = entry ? parseWorkers(entry.mainWorkers) : [];
+                                            <td style={{ padding: '4px 6px', border: '1px solid var(--border-light)', textAlign: 'center', fontSize: 10, fontWeight: 800, width: 40, whiteSpace: 'nowrap', verticalAlign: 'middle', background: shift === 'Sáng' ? '#fefce8' : '#fff7ed', color: shift === 'Sáng' ? '#854d0e' : '#9a3412', borderTop: si === 1 ? '1px dashed var(--border)' : undefined }}>
+                                                {shift}
+                                            </td>
+                                            {CATEGORIES.map((cat) => {
+                                                const shiftEntries = getCell(day, cat.key, shift);
                                                 const isViecKhac = cat.key === 'Việc khác';
-                                                const displayName = entry ? (isViecKhac ? (entry.note || '') : (entry.projectName || entry.project?.name || '')) : '';
-                                                const cellBg = entry ? cat.color : 'transparent';
-                                                const tdStyle = { padding: '5px 8px', border: '1px solid var(--border-light)', background: cellBg, verticalAlign: 'top', cursor: 'pointer' };
-                                                const onClick = (e) => openEdit(day, cat, e);
+                                                const tdStyle = { padding: '4px 8px', border: '1px solid var(--border-light)', verticalAlign: 'top', cursor: 'pointer', borderTop: si === 1 ? '1px dashed var(--border)' : undefined };
+                                                const onClick = (e) => openEdit(day, cat, shift, e);
 
                                                 return [
-                                                    <td key={cat.key+'_ct_'+ri} onClick={onClick} style={{ ...tdStyle, minWidth: 130 }} title="Nhấn để thêm/sửa">
-                                                        {displayName ? (
-                                                            <div>
-                                                                <div style={{ fontWeight: 600, color: isViecKhac ? '#166534' : '#1e3a5f', fontSize: 12 }}>{displayName}</div>
-                                                                {entry?.project && !isViecKhac && <div style={{ fontSize: 10, color: '#6b7280' }}>{entry.project.code}</div>}
-                                                            </div>
-                                                        ) : <div style={{ color: '#d1d5db', fontSize: 11, textAlign: 'center', padding: '4px 0' }}>·</div>}
+                                                    <td key={cat.key+'_ct_'+shift} onClick={onClick} style={{ ...tdStyle, minWidth: 130, background: shiftEntries.length > 0 ? cat.color : 'transparent' }} title="Nhấn để thêm/sửa">
+                                                        {shiftEntries.length > 0 ? shiftEntries.map(entry => {
+                                                            const displayName = isViecKhac ? (entry.note || '') : (entry.projectName || entry.project?.name || '');
+                                                            return displayName ? (
+                                                                <div key={entry.id} style={{ marginBottom: 2 }}>
+                                                                    <div style={{ fontWeight: 600, color: isViecKhac ? '#166534' : '#1e3a5f', fontSize: 12 }}>{displayName}</div>
+                                                                    {entry.project && !isViecKhac && <div style={{ fontSize: 10, color: '#6b7280' }}>{entry.project.code}</div>}
+                                                                </div>
+                                                            ) : null;
+                                                        }) : <div style={{ color: '#d1d5db', fontSize: 11, textAlign: 'center', padding: '4px 0' }}>·</div>}
                                                     </td>,
-                                                    <td key={cat.key+'_nth_'+ri} onClick={onClick} style={{ ...tdStyle, minWidth: 120 }} title="Nhấn để thêm/sửa">
-                                                        {workers_.length > 0
-                                                            ? <div style={{ color: '#374151', fontSize: 11 }}>{workers_.join(', ')}</div>
-                                                            : <div style={{ color: '#d1d5db', fontSize: 11, textAlign: 'center', padding: '4px 0' }}>·</div>}
+                                                    <td key={cat.key+'_nth_'+shift} onClick={onClick} style={{ ...tdStyle, minWidth: 120, background: shiftEntries.length > 0 ? cat.color : 'transparent' }} title="Nhấn để thêm/sửa">
+                                                        {shiftEntries.length > 0 ? shiftEntries.map(entry => {
+                                                            const ws = parseWorkersWithHours(entry.mainWorkers);
+                                                            return ws.length > 0 ? (
+                                                                <div key={entry.id} style={{ color: '#374151', fontSize: 11, marginBottom: 1 }}>
+                                                                    {ws.map(w => w.hours ? `${w.name} (${w.hours}h)` : w.name).join(', ')}
+                                                                </div>
+                                                            ) : null;
+                                                        }) : <div style={{ color: '#d1d5db', fontSize: 11, textAlign: 'center', padding: '4px 0' }}>·</div>}
                                                     </td>,
                                                 ];
                                             })}
@@ -617,7 +666,8 @@ export default function WorkLogPage() {
                 <CellEditor
                     day={editCell.day}
                     category={editCell.category}
-                    cellEntries={getCell(editCell.day, editCell.category.key)}
+                    shift={editCell.shift}
+                    cellEntries={getCell(editCell.day, editCell.category.key, editCell.shift)}
                     pos={editCell.pos}
                     workers={workers}
                     projects={projects}

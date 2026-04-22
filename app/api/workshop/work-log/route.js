@@ -27,7 +27,7 @@ export const GET = withAuth(async (req) => {
 
 export const POST = withAuth(async (req) => {
     const body = await req.json();
-    const { date, category, projectId, projectName, mainWorkers = [], subWorkers = [], note = '' } = body;
+    const { date, category, shift = 'Sáng', projectId, projectName, mainWorkers = [], subWorkers = [], note = '' } = body;
 
     if (!date || !category) {
         return NextResponse.json({ error: 'date và category bắt buộc' }, { status: 400 });
@@ -36,6 +36,7 @@ export const POST = withAuth(async (req) => {
     const entry = await prisma.workLogEntry.create({
         data: {
             date: new Date(date),
+            shift: shift || 'Sáng',
             category,
             project: projectId ? { connect: { id: projectId } } : undefined,
             projectName: projectName || '',

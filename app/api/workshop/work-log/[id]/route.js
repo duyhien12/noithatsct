@@ -5,11 +5,12 @@ import { NextResponse } from 'next/server';
 export const PUT = withAuth(async (req, { params }) => {
     const { id } = await params;
     const body = await req.json();
-    const { projectId, projectName, mainWorkers = [], subWorkers = [], note = '' } = body;
+    const { projectId, projectName, mainWorkers = [], subWorkers = [], note = '', shift } = body;
 
     const entry = await prisma.workLogEntry.update({
         where: { id },
         data: {
+            ...(shift !== undefined && { shift: shift || 'Sáng' }),
             project: projectId ? { connect: { id: projectId } } : { disconnect: true },
             projectName: projectName || '',
             mainWorkers: JSON.stringify(Array.isArray(mainWorkers) ? mainWorkers : []),
