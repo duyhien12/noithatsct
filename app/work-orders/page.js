@@ -98,6 +98,12 @@ export default function WorkOrdersPage() {
         fetchOrders();
     };
 
+    const deleteOrder = async (wo) => {
+        if (!window.confirm(`Xoá phiếu "${wo.title}"?\nHành động này không thể hoàn tác.`)) return;
+        await fetch(`/api/work-orders/${wo.id}`, { method: 'DELETE' });
+        fetchOrders();
+    };
+
     const sendZalo = async (wo) => {
         setZaloMsg(p => ({ ...p, [wo.id]: '⏳' }));
         const res = await fetch(`/api/work-orders/${wo.id}/notify-zalo`, { method: 'POST' });
@@ -167,33 +173,33 @@ export default function WorkOrdersPage() {
                 {loading ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (<>
                     <div className="desktop-table-view">
                         <div className="table-container"><table className="data-table">
-                            <thead><tr><th>Mã</th><th>Tiêu đề</th><th>Dự án</th><th>Loại</th><th>Ưu tiên</th><th>Người thực hiện</th><th>Hạn</th><th>Trạng thái</th><th style={{ width: 100 }}>HĐ</th></tr></thead>
+                            <thead><tr><th>Tiêu đề</th><th>Dự án</th><th>Loại</th><th>Ưu tiên</th><th>Người thực hiện</th><th>Hạn</th><th style={{ width: 110 }}>HĐ</th></tr></thead>
                             <tbody>{filtered.map(wo => (
                                 <tr key={wo.id}>
-                                    <td className="accent">
-                                        {wo.code}
-                                        {wo.sourceLogId && <div style={{ fontSize: 9, color: '#7c3aed', background: '#ede9fe', borderRadius: 4, padding: '1px 4px', marginTop: 2, display: 'inline-block' }}>Nhật ký</div>}
+                                    <td className="primary" style={{ cursor: wo.project ? 'pointer' : 'default' }} onClick={() => wo.project && router.push(`/projects/${wo.projectId}`)}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                                            <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>{wo.code}</span>
+                                            {wo.sourceLogId && <span style={{ fontSize: 9, color: '#7c3aed', background: '#ede9fe', borderRadius: 4, padding: '1px 4px' }}>Nhật ký</span>}
+                                        </div>
+                                        <div>{wo.title}</div>
+                                        {wo.description && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{wo.description}</div>}
                                     </td>
-                                    <td className="primary" style={{ cursor: 'pointer' }} onClick={() => wo.project && router.push(`/projects/${wo.projectId}`)}>{wo.title}<div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{wo.description}</div></td>
                                     <td><span className="badge info">{wo.project?.code}</span> <span style={{ fontSize: 12 }}>{wo.project?.name}</span></td>
                                     <td><span className="badge muted">{wo.category}</span></td>
                                     <td><span className={`badge ${wo.priority === 'Cao' ? 'danger' : wo.priority === 'Trung bình' ? 'warning' : 'muted'}`}>{wo.priority}</span></td>
                                     <td style={{ fontSize: 13 }}>{wo.assignee || '—'}</td>
                                     <td style={{ fontSize: 12 }}>{fmtDate(wo.dueDate)}</td>
                                     <td>
-                                        <select value={wo.status} onChange={e => updateStatus(wo.id, e.target.value)} className="form-select" style={{ padding: '4px 28px 4px 8px', fontSize: 12, minWidth: 110 }}>
-                                            <option>Chờ xử lý</option><option>Đang xử lý</option><option>Hoàn thành</option><option>Quá hạn</option>
-                                        </select>
-                                    </td>
-                                    <td>
                                         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                                             <button className="btn btn-ghost btn-sm" title="Chỉnh sửa" onClick={() => openEdit(wo)}
                                                 style={{ padding: '3px 7px', fontSize: 14 }}>✏️</button>
                                             <button className="btn btn-ghost btn-sm" title="Gửi qua Zalo OA" onClick={() => sendZalo(wo)}
-                                                style={{ padding: '3px 7px', fontSize: 14, color: '#0068ff' }}
+                                                style={{ padding: '3px 7px', fontSize: 14 }}
                                                 disabled={zaloMsg[wo.id] === '⏳'}>
                                                 {zaloMsg[wo.id] === '⏳' ? '⏳' : '💬'}
                                             </button>
+                                            <button className="btn btn-ghost btn-sm" title="Xoá" onClick={() => deleteOrder(wo)}
+                                                style={{ padding: '3px 7px', fontSize: 14, color: '#dc2626' }}>🗑️</button>
                                         </div>
                                         {zaloMsg[wo.id] && zaloMsg[wo.id] !== '⏳' && (
                                             <div style={{ fontSize: 10, marginTop: 2, color: zaloMsg[wo.id].startsWith('✅') ? '#16a34a' : '#dc2626', whiteSpace: 'nowrap' }}>
@@ -219,6 +225,7 @@ export default function WorkOrdersPage() {
                                         <button className="btn btn-ghost btn-sm" onClick={() => sendZalo(wo)} style={{ padding: '2px 6px', fontSize: 13 }} disabled={zaloMsg[wo.id] === '⏳'}>
                                             {zaloMsg[wo.id] === '⏳' ? '⏳' : '💬'}
                                         </button>
+                                        <button className="btn btn-ghost btn-sm" onClick={() => deleteOrder(wo)} style={{ padding: '2px 6px', fontSize: 13, color: '#dc2626' }}>🗑️</button>
                                     </div>
                                 </div>
                                 {zaloMsg[wo.id] && zaloMsg[wo.id] !== '⏳' && (
