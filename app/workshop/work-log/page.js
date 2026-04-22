@@ -9,6 +9,7 @@ const CATEGORIES = [
     { key: 'Lắp đặt tại công trình', label: 'Lắp đặt tại công trình', color: '#dbeafe', hd: '#93c5fd' },
     { key: 'Bảo dưỡng',              label: 'Bảo dưỡng',              color: '#fef9c3', hd: '#fde047' },
     { key: 'Việc khác',              label: 'Việc khác',              color: '#f0fdf4', hd: '#86efac' },
+    { key: 'Nhân công nghỉ',         label: 'Nhân công nghỉ',         color: '#fee2e2', hd: '#fca5a5', singleCol: true },
 ];
 const DAYS_VI = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
 
@@ -184,6 +185,7 @@ function EntryRow({ entry, category, workers, projects, onSaved, onDeleted }) {
     const [note, setNote] = useState(entry.note || '');
     const [saving, setSaving] = useState(false);
     const isViecKhac = category.key === 'Việc khác';
+    const isNghiPhep = category.key === 'Nhân công nghỉ';
 
     const save = async () => {
         setSaving(true);
@@ -208,12 +210,13 @@ function EntryRow({ entry, category, workers, projects, onSaved, onDeleted }) {
     if (!editing) return (
         <div style={{ padding: '5px 7px', background: category.color, borderRadius: 6, marginBottom: 5, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 4 }}>
             <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setEditing(true)}>
-                {!isViecKhac && displayName && <div style={{ fontWeight: 600, fontSize: 12, color: '#1e3a5f' }}>{displayName}</div>}
-                {entry.project && !isViecKhac && <div style={{ fontSize: 10, color: '#2563eb' }}>{entry.project.code}</div>}
+                {!isViecKhac && !isNghiPhep && displayName && <div style={{ fontWeight: 600, fontSize: 12, color: '#1e3a5f' }}>{displayName}</div>}
+                {entry.project && !isViecKhac && !isNghiPhep && <div style={{ fontSize: 10, color: '#2563eb' }}>{entry.project.code}</div>}
                 {isViecKhac && entry.note && <div style={{ fontWeight: 600, fontSize: 12, color: '#166534' }}>{entry.note}</div>}
                 {workerNames.length > 0 && (
-                    <div style={{ fontSize: 11, color: '#374151' }}>
-                        👷 {workerNames.map(w => w.hours ? `${w.name} (${w.hours}h)` : w.name).join(', ')}
+                    <div style={{ fontSize: 11, color: isNghiPhep ? '#dc2626' : '#374151' }}>
+                        {isNghiPhep ? '🏠 ' : '👷 '}
+                        {workerNames.map(w => w.hours ? `${w.name} (${w.hours}h)` : w.name).join(', ')}
                     </div>
                 )}
             </div>
@@ -229,10 +232,10 @@ function EntryRow({ entry, category, workers, projects, onSaved, onDeleted }) {
             {isViecKhac ? (
                 <input className="form-input" placeholder="Nội dung việc khác..." value={note}
                     onChange={e => setNote(e.target.value)} style={{ fontSize: 12, padding: '5px 8px' }} />
-            ) : (
+            ) : !isNghiPhep ? (
                 <ProjectDropdown value={projectName} projectId={projectId} projects={projects}
                     onChange={(name, id) => { setProjectName(name); setProjectId(id || ''); }} />
-            )}
+            ) : null}
             <div style={{ fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: -2 }}>Người thực hiện</div>
             <WorkerChipInput selected={selWorkers} workerList={workers} onChange={setSelWorkers} placeholder="Chọn người thực hiện..." />
             <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
@@ -252,10 +255,12 @@ function CellEditor({ day, category, shift, cellEntries, pos, workers, projects,
     const [note, setNote] = useState('');
     const [saving, setSaving] = useState(false);
     const isViecKhac = category.key === 'Việc khác';
+    const isNghiPhep = category.key === 'Nhân công nghỉ';
+    const noProject = isViecKhac || isNghiPhep;
 
     const addEntry = async () => {
-        if (!isViecKhac && !projectName.trim() && selWorkers.length === 0) return;
-        if (isViecKhac && !note.trim() && selWorkers.length === 0) return;
+        if (!noProject && !projectName.trim() && selWorkers.length === 0) return;
+        if (selWorkers.length === 0 && !note.trim()) return;
         setSaving(true);
         await fetch('/api/workshop/work-log', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -287,12 +292,15 @@ function CellEditor({ day, category, shift, cellEntries, pos, workers, projects,
                         {isViecKhac ? (
                             <input className="form-input" placeholder="Nội dung việc khác..." value={note}
                                 autoFocus onChange={e => setNote(e.target.value)} style={{ fontSize: 12, padding: '5px 8px' }} />
-                        ) : (
+                        ) : !isNghiPhep ? (
                             <ProjectDropdown value={projectName} projectId={projectId} projects={projects}
                                 onChange={(name, id) => { setProjectName(name); setProjectId(id || ''); }} />
-                        )}
-                        <div style={{ fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: -2 }}>Người thực hiện</div>
-                        <WorkerChipInput selected={selWorkers} workerList={workers} onChange={setSelWorkers} placeholder="Chọn người thực hiện..." />
+                        ) : null}
+                        <div style={{ fontSize: 11, fontWeight: 600, color: isNghiPhep ? '#dc2626' : '#374151', marginBottom: -2 }}>
+                            {isNghiPhep ? '👤 Nhân công nghỉ' : 'Người thực hiện'}
+                        </div>
+                        <WorkerChipInput selected={selWorkers} workerList={workers} onChange={setSelWorkers}
+                            placeholder={isNghiPhep ? 'Chọn người nghỉ...' : 'Chọn người thực hiện...'} />
                         <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>
                             <button className="btn btn-ghost btn-sm" onClick={() => { setShowAdd(false); if (cellEntries.length === 0) onClose(); }} style={{ padding: '3px 8px', fontSize: 12 }}>Hủy</button>
                             <button className="btn btn-primary btn-sm" onClick={addEntry} disabled={saving} style={{ padding: '3px 10px', fontSize: 12 }}>{saving ? '...' : '+ Thêm'}</button>
@@ -315,7 +323,7 @@ function CellEditor({ day, category, shift, cellEntries, pos, workers, projects,
 function computeWorkSummary(entries, workerMap) {
     const map = {}
     entries.forEach(entry => {
-        if (entry.category === 'Việc khác') return
+        if (entry.category === 'Việc khác' || entry.category === 'Nhân công nghỉ') return
         const projectName = entry.projectName || entry.project?.name
         if (!projectName) return
         const code = entry.project?.code || ''
@@ -540,12 +548,13 @@ export default function WorkLogPage() {
                                 <tr style={{ background: '#1C3A6B', color: '#fff' }}>
                                     <th rowSpan={2} style={{ padding: '8px 10px', border: '1px solid #2a4a8b', minWidth: 80, verticalAlign: 'middle', textAlign: 'center', fontSize: 11 }}>Ngày / Tháng</th>
                                     <th rowSpan={2} style={{ padding: '8px 6px', border: '1px solid #2a4a8b', width: 40, verticalAlign: 'middle', textAlign: 'center', fontSize: 11 }}>Ca</th>
-                                    {CATEGORIES.map(cat => (
-                                        <th key={cat.key} colSpan={2} style={{ padding: '6px 10px', border: '1px solid #2a4a8b', textAlign: 'center', fontSize: 12, fontWeight: 700 }}>{cat.label}</th>
-                                    ))}
+                                    {CATEGORIES.map(cat => cat.singleCol
+                                        ? <th key={cat.key} rowSpan={2} style={{ padding: '6px 10px', border: '1px solid #2a4a8b', textAlign: 'center', fontSize: 12, fontWeight: 700, minWidth: 140, verticalAlign: 'middle', background: '#7f1d1d' }}>{cat.label}</th>
+                                        : <th key={cat.key} colSpan={2} style={{ padding: '6px 10px', border: '1px solid #2a4a8b', textAlign: 'center', fontSize: 12, fontWeight: 700 }}>{cat.label}</th>
+                                    )}
                                 </tr>
                                 <tr style={{ background: '#2A5298', color: '#e2e8f0' }}>
-                                    {CATEGORIES.map(cat => [
+                                    {CATEGORIES.filter(cat => !cat.singleCol).map(cat => [
                                         <th key={cat.key+'_ct'} style={{ padding: '5px 8px', border: '1px solid #3a5fa8', minWidth: 130, fontSize: 11, fontWeight: 600, textAlign: 'center' }}>
                                             {cat.key === 'Việc khác' ? 'Nội dung' : 'Tên CT'}
                                         </th>,
@@ -577,6 +586,22 @@ export default function WorkLogPage() {
                                                 const isViecKhac = cat.key === 'Việc khác';
                                                 const tdStyle = { padding: '4px 8px', border: '1px solid var(--border-light)', verticalAlign: 'top', cursor: 'pointer', borderTop: si === 1 ? '1px dashed var(--border)' : undefined };
                                                 const onClick = (e) => openEdit(day, cat, shift, e);
+
+                                                if (cat.singleCol) {
+                                                    return (
+                                                        <td key={cat.key+'_'+shift} onClick={onClick} title="Nhấn để thêm/sửa"
+                                                            style={{ ...tdStyle, minWidth: 140, background: shiftEntries.length > 0 ? cat.color : 'transparent' }}>
+                                                            {shiftEntries.length > 0 ? shiftEntries.map(entry => {
+                                                                const ws = parseWorkersWithHours(entry.mainWorkers);
+                                                                return ws.length > 0 ? (
+                                                                    <div key={entry.id} style={{ color: '#dc2626', fontSize: 11, fontWeight: 600 }}>
+                                                                        🏠 {ws.map(w => w.name).join(', ')}
+                                                                    </div>
+                                                                ) : null;
+                                                            }) : <div style={{ color: '#d1d5db', fontSize: 11, textAlign: 'center', padding: '4px 0' }}>·</div>}
+                                                        </td>
+                                                    );
+                                                }
 
                                                 return [
                                                     <td key={cat.key+'_ct_'+shift} onClick={onClick} style={{ ...tdStyle, minWidth: 130, background: shiftEntries.length > 0 ? cat.color : 'transparent' }} title="Nhấn để thêm/sửa">
@@ -654,7 +679,7 @@ export default function WorkLogPage() {
                     {CATEGORIES.map(cat => (
                         <span key={cat.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                             <span style={{ width: 12, height: 12, borderRadius: 3, background: cat.hd, display: 'inline-block' }} />
-                            {cat.label}
+                            {cat.key === 'Nhân công nghỉ' ? '🏠 ' : ''}{cat.label}
                         </span>
                     ))}
                 </div>

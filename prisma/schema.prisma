@@ -515,11 +515,13 @@ model WorkOrder {
   completedAt DateTime?
   category    String   @default("")
   projectId   String
+  sourceLogId String?
   project     Project  @relation(fields: [projectId], references: [id])
   deletedAt   DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   @@index([projectId])
+  @@index([sourceLogId])
 }
 
 model MaterialPlan {
