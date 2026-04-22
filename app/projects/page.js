@@ -219,7 +219,7 @@ export default function ProjectsPage() {
                 <div className="card">
                     <div className="card-header">
                         <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            💼 Dự án Phòng Kinh Doanh
+                            💼 Phòng kinh doanh đặt hàng xưởng nội thất
                             <span style={{ background: '#fde8d0', color: '#e67e22', fontSize: 11, fontWeight: 700, padding: '1px 8px', borderRadius: 8 }}>{projectsKD.length}</span>
                         </h3>
                     </div>
