@@ -240,6 +240,18 @@ ${[1, 2].map(copy => `
     const DEPTS = [...new Set(larkEntries.map(e => e.department).filter(Boolean))];
     const filteredLark = larkDept ? larkEntries.filter(e => e.department === larkDept) : larkEntries;
 
+    const bulkSyncLark = async () => {
+        if (!confirm('Đồng bộ toàn bộ dữ liệu từ Lark Base? Có thể mất 1-2 phút.')) return;
+        const res = await fetch('/api/finance/lark-bulk-sync', { method: 'POST' });
+        const data = await res.json();
+        if (data.synced !== undefined) {
+            alert(`Đã đồng bộ ${data.synced}/${data.total} giao dịch từ Lark!`);
+            fetchAll();
+        } else {
+            alert('Lỗi: ' + (data.error || JSON.stringify(data)));
+        }
+    };
+
     return (
         <div>
             {/* KPI Cards */}
@@ -549,8 +561,9 @@ ${[1, 2].map(copy => `
                                 </div>
                             ))}
                         </div>
-                        {/* Filter */}
+                        {/* Filter + Sync button */}
                         <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <button className="btn btn-primary btn-sm" onClick={bulkSyncLark}>🔄 Đồng bộ từ Lark</button>
                             <select className="form-select" style={{ maxWidth: 160 }} value={larkDept} onChange={e => setLarkDept(e.target.value)}>
                                 <option value="">Tất cả phòng ban</option>
                                 {DEPTS.map(d => <option key={d}>{d}</option>)}
