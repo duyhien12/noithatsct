@@ -188,17 +188,24 @@ export default function ProductionCostTable({ projectId }) {
     };
 
     // ─── Inline edit ───────────────────────────────────────────────────────
-    const startEdit = (id, field, val) => { setEditingCell({ id, field }); setEditValue(String(val || '')); };
+    const NUM_FIELDS = new Set(['quantity', 'unitPrice', 'salePrice', 'dimLength', 'dimWidth', 'dimHeight', 'dimTotal']);
+
+    const startEdit = (id, field, val) => { setEditingCell({ id, field }); setEditValue(String(val ?? '')); };
     const saveEdit = async () => {
         if (!editingCell) return;
         const { id, field } = editingCell;
         setEditingCell(null);
-        const numVal = parseFloat(String(editValue).replace(/[^\d.]/g, '')) || 0;
         const item = items.find(i => i.id === id);
         if (!item) return;
-        const updated = { ...item, [field]: numVal };
+        let newVal;
+        if (NUM_FIELDS.has(field)) {
+            newVal = parseFloat(String(editValue).replace(/[^\d.]/g, '')) || 0;
+        } else {
+            newVal = editValue.trim();
+        }
+        const updated = { ...item, [field]: newVal };
         if (field === 'quantity' || field === 'unitPrice') {
-            updated.productionAmount = (field === 'quantity' ? numVal : item.quantity) * (field === 'unitPrice' ? numVal : item.unitPrice);
+            updated.productionAmount = (field === 'quantity' ? newVal : item.quantity) * (field === 'unitPrice' ? newVal : item.unitPrice);
         }
         await fetch(`/api/production-costs/${id}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -207,15 +214,23 @@ export default function ProductionCostTable({ projectId }) {
         load();
     };
 
-    const editCell = (id, field, value) => {
+    const editCell = (id, field, value, isText = false) => {
         if (editingCell?.id === id && editingCell?.field === field) {
             return (
-                <input autoFocus type="number" value={editValue}
+                <input autoFocus type={isText ? 'text' : 'number'} value={editValue}
                     onChange={e => setEditValue(e.target.value)}
                     onBlur={saveEdit}
                     onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingCell(null); }}
-                    style={{ width: '100%', border: '1px solid #2563eb', borderRadius: 3, padding: '1px 3px', fontSize: 11, textAlign: 'right', boxSizing: 'border-box' }}
+                    style={{ width: '100%', border: '1px solid #2563eb', borderRadius: 3, padding: '1px 3px', fontSize: 11, textAlign: isText ? 'left' : 'right', boxSizing: 'border-box' }}
                 />
+            );
+        }
+        if (isText) {
+            return (
+                <span onClick={() => startEdit(id, field, value)} title="Nhấn để sửa"
+                    style={{ cursor: 'pointer', display: 'block', textDecoration: 'underline dotted #bbb' }}>
+                    {value || <span style={{ color: '#bbb', fontSize: 10 }}>—</span>}
+                </span>
             );
         }
         return (
@@ -336,15 +351,15 @@ export default function ProductionCostTable({ projectId }) {
                                     ...g.items.map((item, ii) => (
                                         <tr key={item.id} style={{ background: ii % 2 === 0 ? '#fff' : '#fafafa' }}>
                                             <td style={{ ...C, textAlign: 'center', color: '#666' }}>{item.sortOrder || ii + 1}</td>
-                                            <td style={{ ...C, paddingLeft: 12 }}>{item.name}</td>
-                                            <td style={{ ...C, textAlign: 'center' }}>{item.productCode}</td>
-                                            <td style={{ ...C, textAlign: 'center' }}>{item.spec}</td>
-                                            <td style={{ ...C, textAlign: 'center' }}>{item.unit}</td>
+                                            <td style={{ ...C, paddingLeft: 12, padding: '2px 4px' }}>{editCell(item.id, 'name', item.name, true)}</td>
+                                            <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'productCode', item.productCode, true)}</td>
+                                            <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'spec', item.spec, true)}</td>
+                                            <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'unit', item.unit, true)}</td>
                                             <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'quantity', item.quantity)}</td>
-                                            <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.dimLength) || ''}</td>
-                                            <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.dimWidth) || ''}</td>
-                                            <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.dimHeight) || ''}</td>
-                                            <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.dimTotal) || ''}</td>
+                                            <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'dimLength', item.dimLength)}</td>
+                                            <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'dimWidth', item.dimWidth)}</td>
+                                            <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'dimHeight', item.dimHeight)}</td>
+                                            <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'dimTotal', item.dimTotal)}</td>
                                             <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'unitPrice', item.unitPrice)}</td>
                                             <td style={{ ...C, textAlign: 'right', fontWeight: 600 }}>{fmtN(item.productionAmount)}</td>
                                             <td style={{ ...C, textAlign: 'center', color: '#9ca3af', fontSize: 10 }} />

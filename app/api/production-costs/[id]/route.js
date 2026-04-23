@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 
 export const PUT = withAuth(async (request, context) => {
-    const id = context.params.id;
+    const { id } = await context.params;
     const body = await request.json();
     const qty = Number(body.quantity) || 0;
     const price = Number(body.unitPrice) || 0;
@@ -32,7 +32,7 @@ export const PUT = withAuth(async (request, context) => {
 });
 
 export const DELETE = withAuth(async (request, context) => {
-    const id = context.params.id;
+    const { id } = await context.params;
     await prisma.$executeRaw`DELETE FROM "ProductionCostItem" WHERE "id" = ${id}`;
     return NextResponse.json({ ok: true });
 });
