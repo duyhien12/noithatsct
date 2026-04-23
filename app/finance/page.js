@@ -15,6 +15,9 @@ function FinanceContent() {
     const [summary, setSummary] = useState({});
     const [receivables, setReceivables] = useState({ payments: [], summary: {} });
     const [transactions, setTransactions] = useState([]);
+    const [larkEntries, setLarkEntries] = useState([]);
+    const [larkSummary, setLarkSummary] = useState({});
+    const [larkDept, setLarkDept] = useState('');
     const [loading, setLoading] = useState(true);
     const [filterProject, setFilterProject] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
@@ -27,13 +30,17 @@ function FinanceContent() {
 
     const fetchAll = async () => {
         setLoading(true);
-        const [finRes, recRes] = await Promise.all([
+        const [finRes, recRes, larkRes] = await Promise.all([
             fetch('/api/finance').then(r => r.json()),
             fetch('/api/finance/receivables').then(r => r.json()),
+            fetch('/api/finance/lark-entries').then(r => r.json()).catch(e => { console.error('lark-entries error:', e); return {}; }),
         ]);
+        if (larkRes.error) console.error('lark-entries API error:', larkRes);
         setSummary(finRes.summary || {});
         setTransactions(finRes.transactions?.data || []);
         setReceivables(recRes);
+        setLarkEntries(larkRes.entries || []);
+        setLarkSummary(larkRes.summary || {});
         setLoading(false);
     };
 
@@ -227,7 +234,11 @@ ${[1, 2].map(copy => `
         { key: 'receivables', label: '📈 Công nợ phải thu', icon: '' },
         { key: 'payables', label: '📉 Công nợ phải trả', icon: '' },
         { key: 'transactions', label: '💳 Thu chi khác', icon: '' },
+        { key: 'lark', label: '📒 Nhật ký Lark', icon: '' },
     ];
+
+    const DEPTS = [...new Set(larkEntries.map(e => e.department).filter(Boolean))];
+    const filteredLark = larkDept ? larkEntries.filter(e => e.department === larkDept) : larkEntries;
 
     return (
         <div>
@@ -519,6 +530,65 @@ ${[1, 2].map(copy => `
                                     ))}
                             </div>
                         )}
+                    </>
+                )}
+                {/* TAB: Nhật ký Lark */}
+                {activeTab === 'lark' && (
+                    <>
+                        {/* Summary cards */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                            {[
+                                { label: 'Thu TM', value: larkSummary.totalCashIn, color: 'var(--status-success)' },
+                                { label: 'Chi TM', value: larkSummary.totalCashOut, color: 'var(--status-danger)' },
+                                { label: 'Thu TGNH', value: larkSummary.totalBankIn, color: 'var(--status-success)' },
+                                { label: 'Chi TGNH', value: larkSummary.totalBankOut, color: 'var(--status-danger)' },
+                            ].map(s => (
+                                <div key={s.label} style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>{s.label}</div>
+                                    <div style={{ fontWeight: 700, fontSize: 13, color: s.color }}>{fmt(s.value)}</div>
+                                </div>
+                            ))}
+                        </div>
+                        {/* Filter */}
+                        <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <select className="form-select" style={{ maxWidth: 160 }} value={larkDept} onChange={e => setLarkDept(e.target.value)}>
+                                <option value="">Tất cả phòng ban</option>
+                                {DEPTS.map(d => <option key={d}>{d}</option>)}
+                            </select>
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{filteredLark.length} giao dịch</span>
+                        </div>
+                        {/* Table */}
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                                <thead>
+                                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+                                        {['Ngày', 'Danh mục', 'Mô tả', 'Phòng ban', 'Thu TM', 'Chi TM', 'Thu NH', 'Chi NH'].map(h => (
+                                            <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>{h}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredLark.length === 0 ? (
+                                        <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Chưa có dữ liệu từ Lark</td></tr>
+                                    ) : filteredLark.map(e => (
+                                        <tr key={e.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                            <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{fmtDate(e.entryDate)}</td>
+                                            <td style={{ padding: '8px 12px' }}>
+                                                {e.category && <span className="badge muted" style={{ fontSize: 11 }}>{e.category}</span>}
+                                            </td>
+                                            <td style={{ padding: '8px 12px', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.description || '—'}</td>
+                                            <td style={{ padding: '8px 12px' }}>
+                                                {e.department && <span className="badge info" style={{ fontSize: 11 }}>{e.department}</span>}
+                                            </td>
+                                            <td style={{ padding: '8px 12px', color: 'var(--status-success)', fontWeight: e.cashIn ? 600 : 400 }}>{e.cashIn ? fmt(e.cashIn) : '—'}</td>
+                                            <td style={{ padding: '8px 12px', color: 'var(--status-danger)', fontWeight: e.cashOut ? 600 : 400 }}>{e.cashOut ? fmt(e.cashOut) : '—'}</td>
+                                            <td style={{ padding: '8px 12px', color: 'var(--status-success)', fontWeight: e.bankIn ? 600 : 400 }}>{e.bankIn ? fmt(e.bankIn) : '—'}</td>
+                                            <td style={{ padding: '8px 12px', color: 'var(--status-danger)', fontWeight: e.bankOut ? 600 : 400 }}>{e.bankOut ? fmt(e.bankOut) : '—'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </>
                 )}
             </div>

@@ -30,6 +30,9 @@ jobs:
           ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
           NEXT_PUBLIC_BASE_URL=https://admin.kientrucsct.com
           UPLOAD_SERVICE_KEY=sct-upload-2026-secret
+          LARK_APP_ID=${{ secrets.LARK_APP_ID }}
+          LARK_APP_SECRET=${{ secrets.LARK_APP_SECRET }}
+          LARK_WEBHOOK_SECRET=sct-lark-sync-2026
           EOF
           sed -i 's/^[[:space:]]*//' .env
 
