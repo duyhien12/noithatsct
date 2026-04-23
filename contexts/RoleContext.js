@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 
 const PHAM_DUONG_EMAIL = 'phamduong@kientrucsct.com';
-const SWITCH_ROLE_EMAILS = ['phamduong@kientrucsct.com', 'motnha@kientrucsct.com'];
+const SWITCH_ROLE_EMAILS = ['phamduong@kientrucsct.com', 'motnha@kientrucsct.com', 'buihoa@kientrucsct.com'];
 const SWITCH_ROLE_ROLES = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
 
 export const ROLES = [
