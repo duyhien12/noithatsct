@@ -42,6 +42,9 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-https://admin.kientrucsct.com}
       - UPLOAD_SERVICE_KEY=${UPLOAD_SERVICE_KEY}
+      - LARK_APP_ID=${LARK_APP_ID}
+      - LARK_APP_SECRET=${LARK_APP_SECRET}
+      - LARK_WEBHOOK_SECRET=${LARK_WEBHOOK_SECRET}
       - NODE_ENV=production
       - UPLOAD_DIR=/app/public/uploads
     depends_on:
