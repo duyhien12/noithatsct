@@ -11,6 +11,8 @@ export const PUT = withAuth(async (request, { params }) => {
         .catch(e => { if (!e.message?.includes('duplicate') && !e.message?.includes('already exists')) console.error('[migration] unit column:', e.message); });
     await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN "actualQty" FLOAT NOT NULL DEFAULT 0`
         .catch(e => { if (!e.message?.includes('duplicate') && !e.message?.includes('already exists')) console.error('[migration] actualQty column:', e.message); });
+    await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN IF NOT EXISTS "salePrice" FLOAT NOT NULL DEFAULT 0`
+        .catch(e => { if (!e.message?.includes('duplicate') && !e.message?.includes('already exists')) console.error('[migration] salePrice column:', e.message); });
 
     const sets = [];
     const vals = [];
@@ -37,6 +39,7 @@ export const PUT = withAuth(async (request, { params }) => {
     if (body.category !== undefined)       add('category', body.category);
     if (body.unit !== undefined)           add('unit', body.unit);
     if (body.actualQty !== undefined)      add('actualQty', Number(body.actualQty));
+    if (body.salePrice !== undefined)      add('salePrice', Number(body.salePrice));
 
     // Recompute totalAmount if quantity or price changed
     if (body.quantity !== undefined || body.unitPrice !== undefined || body.budgetUnitPrice !== undefined) {

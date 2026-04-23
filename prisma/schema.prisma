@@ -102,6 +102,7 @@ model Project {
   contracts       Contract[]
   workOrders      WorkOrder[]
   materialPlans   MaterialPlan[]
+  productionCosts ProductionCostItem[]
   purchaseOrders  PurchaseOrder[]
   requisitions    MaterialRequisition[]
   expenses        ProjectExpense[]
@@ -546,6 +547,7 @@ model MaterialPlan {
   drawingNote     String   @default("")
   supplierTag     String   @default("")            // Công ty cấp | Thầu phụ cấp
   actualCost      Float    @default(0)             // Tổng thực tế thi công
+  salePrice       Float    @default(0)             // Đơn giá doanh thu (bán cho khách)
   planType        String   @default("tracking")    // budget | tracking
   customName      String   @default("")            // tên tự nhập (khi không có sản phẩm trong DB)
   productId       String?
@@ -557,6 +559,29 @@ model MaterialPlan {
   createdAt       DateTime @default(now())
   @@index([projectId])
   @@index([productId])
+}
+
+model ProductionCostItem {
+  id                String   @id @default(cuid())
+  projectId         String
+  project           Project  @relation(fields: [projectId], references: [id])
+  groupName         String   @default("")   // Vật liệu chính | Vật tư Nep | Vật tư phụ khác
+  groupOrder        Int      @default(0)    // 1, 2, 3 ... (thứ tự nhóm)
+  sortOrder         Int      @default(0)    // thứ tự item trong nhóm
+  name              String   @default("")   // Tên vật liệu
+  productCode       String   @default("")   // Mã SP
+  spec              String   @default("")   // KT (17 ly, 6 ly...)
+  unit              String   @default("")   // ĐVT
+  quantity          Float    @default(0)    // SL
+  dimLength         Float    @default(0)    // Dài
+  dimWidth          Float    @default(0)    // Rộng
+  dimHeight         Float    @default(0)    // Cao
+  dimTotal          Float    @default(0)    // Tổng kích thước
+  unitPrice         Float    @default(0)    // Đơn giá
+  productionAmount  Float    @default(0)    // Thanh tiền Sản xuất
+  salePrice         Float    @default(0)    // Giá Bán
+  createdAt         DateTime @default(now())
+  @@index([projectId])
 }
 
 model BudgetChangeOrder {

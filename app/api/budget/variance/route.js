@@ -8,6 +8,8 @@ export const GET = withAuth(async (request) => {
         .catch(e => { if (!e.message?.includes('duplicate') && !e.message?.includes('already exists')) console.error('[migration] unit column:', e.message); });
     await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN "actualQty" FLOAT NOT NULL DEFAULT 0`
         .catch(e => { if (!e.message?.includes('duplicate') && !e.message?.includes('already exists')) console.error('[migration] actualQty column:', e.message); });
+    await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN IF NOT EXISTS "salePrice" FLOAT NOT NULL DEFAULT 0`
+        .catch(e => { if (!e.message?.includes('duplicate') && !e.message?.includes('already exists')) console.error('[migration] salePrice column:', e.message); });
 
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');
@@ -84,6 +86,8 @@ export const GET = withAuth(async (request) => {
             actualQty: manualActualQty,
             budgetUnitPrice,
             budgetTotal: qty * budgetUnitPrice,
+            salePrice: Number(plan.salePrice) || 0,
+            actualCost: Number(plan.actualCost) || 0,
             wastePercent,
             maxAllowedQty,
             orderedQty,

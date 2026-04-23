@@ -66,8 +66,9 @@ export const DELETE = withAuth(async (request) => {
 });
 
 export const POST = withAuth(async (request) => {
-    // Ensure unit column exists (idempotent)
+    // Ensure columns exist (idempotent)
     await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN IF NOT EXISTS "unit" TEXT NOT NULL DEFAULT ''`.catch(() => {});
+    await prisma.$executeRaw`ALTER TABLE "MaterialPlan" ADD COLUMN IF NOT EXISTS "salePrice" FLOAT NOT NULL DEFAULT 0`.catch(() => {});
 
     const body = await request.json();
 
@@ -94,6 +95,7 @@ export const POST = withAuth(async (request) => {
             const qty = Number(i.quantity) || 0;
             const price = Number(i.unitPrice) || 0;
             const actualCost = Number(i.actualCost) || 0;
+            const salePrice = Number(i.salePrice) || 0;
             const costType = i.costType || 'Vật tư';
             const group1 = i.group1 || '';
             const group2 = i.group2 || '';
@@ -105,13 +107,13 @@ export const POST = withAuth(async (request) => {
             const unitVal = i.unit || '';
             if (productId) {
                 await prisma.$executeRaw`
-                    INSERT INTO "MaterialPlan" (id, "projectId", "productId", quantity, "unitPrice", "totalAmount", "budgetUnitPrice", "actualCost", type, category, "costType", group1, group2, "supplierTag", status, notes, "planType", "wastePercent", "isLocked", "orderedQty", "receivedQty", "drawingUrl", "drawingNote", "unit", "createdAt")
-                    VALUES (gen_random_uuid(), ${projectId}, ${productId}, ${qty}, ${price}, ${qty * price}, ${price}, ${actualCost}, 'Chính', ${customName}, ${costType}, ${group1}, ${group2}, ${supplierTag}, 'Chưa đặt', ${notes}, ${pt}, 5, false, 0, 0, '', '', ${unitVal}, NOW())
+                    INSERT INTO "MaterialPlan" (id, "projectId", "productId", quantity, "unitPrice", "totalAmount", "budgetUnitPrice", "actualCost", "salePrice", type, category, "costType", group1, group2, "supplierTag", status, notes, "planType", "wastePercent", "isLocked", "orderedQty", "receivedQty", "drawingUrl", "drawingNote", "unit", "createdAt")
+                    VALUES (gen_random_uuid(), ${projectId}, ${productId}, ${qty}, ${price}, ${qty * price}, ${price}, ${actualCost}, ${salePrice}, 'Chính', ${customName}, ${costType}, ${group1}, ${group2}, ${supplierTag}, 'Chưa đặt', ${notes}, ${pt}, 5, false, 0, 0, '', '', ${unitVal}, NOW())
                 `;
             } else {
                 await prisma.$executeRaw`
-                    INSERT INTO "MaterialPlan" (id, "projectId", quantity, "unitPrice", "totalAmount", "budgetUnitPrice", "actualCost", type, category, "costType", group1, group2, "supplierTag", status, notes, "planType", "wastePercent", "isLocked", "orderedQty", "receivedQty", "drawingUrl", "drawingNote", "unit", "createdAt")
-                    VALUES (gen_random_uuid(), ${projectId}, ${qty}, ${price}, ${qty * price}, ${price}, ${actualCost}, 'Chính', ${customName}, ${costType}, ${group1}, ${group2}, ${supplierTag}, 'Chưa đặt', ${notes}, ${pt}, 5, false, 0, 0, '', '', ${unitVal}, NOW())
+                    INSERT INTO "MaterialPlan" (id, "projectId", quantity, "unitPrice", "totalAmount", "budgetUnitPrice", "actualCost", "salePrice", type, category, "costType", group1, group2, "supplierTag", status, notes, "planType", "wastePercent", "isLocked", "orderedQty", "receivedQty", "drawingUrl", "drawingNote", "unit", "createdAt")
+                    VALUES (gen_random_uuid(), ${projectId}, ${qty}, ${price}, ${qty * price}, ${price}, ${actualCost}, ${salePrice}, 'Chính', ${customName}, ${costType}, ${group1}, ${group2}, ${supplierTag}, 'Chưa đặt', ${notes}, ${pt}, 5, false, 0, 0, '', '', ${unitVal}, NOW())
                 `;
             }
         }

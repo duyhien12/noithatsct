@@ -10,6 +10,8 @@ import ProfitabilityWidget from '@/components/budget/ProfitabilityWidget';
 import BudgetQuickAdd from '@/components/budget/BudgetQuickAdd';
 import SCurveChart from '@/components/budget/SCurveChart';
 import BudgetEstimateForm from '@/components/budget/BudgetEstimateForm';
+import BudgetEstimateTable from '@/components/budget/BudgetEstimateTable';
+import ProductionCostTable from '@/components/budget/ProductionCostTable';
 import MeasurementSheet, { MeasurementActions } from '@/components/contractor/MeasurementSheet';
 import ProjectChatPanel from '@/components/ProjectChatPanel';
 import { useSession } from 'next-auth/react';
@@ -767,11 +769,16 @@ export default function ProjectDetailPage() {
     const st = p.settlement;
     const pipelineIdx = STATUS_MAP[p.status] ?? 0;
 
+    const userRole = session?.user?.role || '';
+    const isXuong = userRole === 'xuong';
+    const isXuongOrBGD = ['xuong', 'ban_gd', 'giam_doc', 'pho_gd'].includes(userRole);
+
     const tabs = [
         { key: 'overview', label: 'Tổng quan', icon: '📋' },
         { key: 'logs', label: 'Nhật ký', icon: '📒', count: p.trackingLogs?.length },
         { key: 'milestones', label: 'Tiến độ', icon: '📊', count: p.milestones?.length },
-        { key: 'budget', label: 'Dự trù kinh phí', icon: '💰' },
+        isXuongOrBGD && { key: 'hachtoan', label: 'Hạch toán', icon: '📊' },
+        !isXuong && { key: 'budget', label: 'Dự trù kinh phí', icon: '💰' },
         { key: 'contracts', label: 'Hợp đồng', icon: '📝', count: p.contracts?.length },
         { key: 'workorders', label: 'Phiếu CV', icon: '📋', count: p.workOrders?.length },
         { key: 'materials', label: 'Vật tư', icon: '🧱', count: p.materialPlans?.length },
@@ -779,10 +786,9 @@ export default function ProjectDetailPage() {
         { key: 'contractors', label: 'Thầu phụ', icon: '👷', count: p.contractorPays?.length },
         { key: 'finance', label: 'Tài chính', icon: '💰' },
         { key: 'documents', label: 'Tài liệu', icon: '📁', count: p.documents?.length },
-
         { key: 'journal', label: 'Nhật ký AI', icon: '🤖' },
         { key: 'chat', label: 'Chat KH', icon: '💬' },
-    ];
+    ].filter(Boolean);
 
     return (
         <div>
@@ -1002,6 +1008,20 @@ export default function ProjectDetailPage() {
                             myId={session?.user?.name || session?.user?.email}
                             isCustomer={false}
                         />
+                    </div>
+                </div>
+            )}
+
+            {/* TAB: Hạch toán (xưởng + BGĐ) */}
+            {tab === 'hachtoan' && (
+                <div>
+                    <div className="card" style={{ padding: 20 }}>
+                        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>📊 Bảng hạch toán lãi/lỗ</h3>
+                        <BudgetEstimateTable projectId={id} refreshKey={varianceKey} onRefresh={() => setVarianceKey(k => k + 1)} />
+                    </div>
+                    <div className="card" style={{ padding: 20, marginTop: 16 }}>
+                        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>🪵 Bảng tính giá sản xuất</h3>
+                        <ProductionCostTable projectId={id} />
                     </div>
                 </div>
             )}
