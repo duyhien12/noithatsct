@@ -57,6 +57,8 @@ function parseDate(val) {
 async function fetchAllRecords(token) {
     const records = [];
     let pageToken = null;
+    let pages = 0;
+    let apiTotal = null;
 
     do {
         const params = new URLSearchParams({ page_size: '500' });
@@ -70,17 +72,20 @@ async function fetchAllRecords(token) {
 
         if (data.code !== 0) throw new Error('Lark API error: ' + JSON.stringify(data));
 
+        pages++;
+        if (apiTotal === null) apiTotal = data.data?.total ?? null;
         records.push(...(data.data?.items || []));
         pageToken = data.data?.has_more ? data.data.page_token : null;
+        console.log(`[lark-bulk-sync] page=${pages} fetched=${records.length} has_more=${data.data?.has_more} apiTotal=${apiTotal}`);
     } while (pageToken);
 
-    return records;
+    return { records, pages, apiTotal };
 }
 
 // POST /api/finance/lark-bulk-sync — chỉ admin mới chạy được
 export const POST = withAuth(async () => {
     const token = await getTenantToken();
-    const records = await fetchAllRecords(token);
+    const { records, pages, apiTotal } = await fetchAllRecords(token);
 
     let synced = 0;
     for (const rec of records) {
@@ -120,5 +125,5 @@ export const POST = withAuth(async () => {
         }
     }
 
-    return NextResponse.json({ total: records.length, synced });
+    return NextResponse.json({ fetched: records.length, synced, pages, apiTotal });
 });
