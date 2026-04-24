@@ -121,4 +121,4 @@ export const POST = withAuth(async () => {
     }
 
     return NextResponse.json({ total: records.length, synced });
-}, { roles: ['giam_doc', 'pho_gd', 'ke_toan', 'admin'] });
+});
