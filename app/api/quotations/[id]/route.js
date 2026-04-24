@@ -161,6 +161,7 @@ export const PUT = withAuth(async (request, { params }) => {
                                 width: Number(item.width) || 0,
                                 height: Number(item.height) || 0,
                                 image: item.image || '',
+                                mergedWithPrev: item.mergedWithPrev || false,
                                 productId: item.productId || null,
                                 quotationId: id,
                                 categoryId: created.id,

@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/fetchClient';
 import { useToast } from '@/components/ui/Toast';
 
@@ -27,6 +27,7 @@ const calcTT = (row) => Math.round(calcKL(row) * (parseFloat(row.donGia) || 0));
 const emptyRow = () => ({
     _k: Math.random().toString(36).slice(2),
     hangMuc: '', chatLieu: '', dai: '', sau: '', cao: '', slCai: '', dvt: 'm²', donGia: '',
+    mergedWithPrev: false,
 });
 const emptyRoom = (name = '') => ({
     _k: Math.random().toString(36).slice(2),
@@ -56,6 +57,8 @@ const DRAFT_KEY = 'nt-quotation-draft';
 // ── Main component ────────────────────────────────────────────────────────────
 export default function QuotationNoiThatPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const editId = searchParams.get('id'); // existing quotation id (edit mode)
     const toast = useToast();
 
     const [sections, setSections] = useState([emptySection('Tầng 1')]);
@@ -64,28 +67,129 @@ export default function QuotationNoiThatPage() {
     const [projects, setProjects] = useState([]);
     const [saving, setSaving] = useState(false);
     const [savingDraft, setSavingDraft] = useState(false);
+    const [qMeta, setQMeta] = useState(null); // { code, status } for edit mode
     const cellRefs = useRef({});
+    const dragRef = useRef(null); // { sIdx, rmIdx, rIdx }
+    const [dragOver, setDragOver] = useState(null); // { sIdx, rmIdx, rIdx }
 
-    // Load customers/projects + restore draft
+    const handleDragStart = useCallback((e, sIdx, rmIdx, rIdx) => {
+        dragRef.current = { sIdx, rmIdx, rIdx };
+        e.dataTransfer.effectAllowed = 'move';
+    }, []);
+
+    const handleDragOver = useCallback((e, sIdx, rmIdx, rIdx) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        setDragOver({ sIdx, rmIdx, rIdx });
+    }, []);
+
+    const handleDrop = useCallback((e, toSIdx, toRmIdx, toRIdx) => {
+        e.preventDefault();
+        const from = dragRef.current;
+        if (!from || (from.sIdx === toSIdx && from.rmIdx === toRmIdx && from.rIdx === toRIdx)) {
+            setDragOver(null); return;
+        }
+        // Only reorder within same room
+        if (from.sIdx !== toSIdx || from.rmIdx !== toRmIdx) { setDragOver(null); return; }
+        setSections(prev => prev.map((sec, si) => si !== toSIdx ? sec : {
+            ...sec,
+            rooms: sec.rooms.map((rm, ri) => {
+                if (ri !== toRmIdx) return rm;
+                const rows = [...rm.rows];
+                const [moved] = rows.splice(from.rIdx, 1);
+                rows.splice(toRIdx, 0, moved);
+                // Fix mergedWithPrev: first row of room cannot be merged
+                if (rows[0]) rows[0] = { ...rows[0], mergedWithPrev: false };
+                return { ...rm, rows };
+            }),
+        }));
+        dragRef.current = null;
+        setDragOver(null);
+    }, []);
+
+    const handleDragEnd = useCallback(() => {
+        dragRef.current = null;
+        setDragOver(null);
+    }, []);
+
+    // Load customers/projects
     useEffect(() => {
         apiFetch('/api/customers?limit=500').then(d => setCustomers(d.data || [])).catch(() => {});
         apiFetch('/api/projects?limit=500').then(d => setProjects(d.data || [])).catch(() => {});
-        try {
-            const raw = localStorage.getItem(DRAFT_KEY);
-            if (raw) {
-                const { sections: s, form: f } = JSON.parse(raw);
-                if (s?.length) { setSections(s); setForm(f || {}); }
-            }
-        } catch {}
     }, []);
 
-    // Auto-save draft to localStorage (debounced 1.5s)
+    // Edit mode: load existing quotation
     useEffect(() => {
+        if (!editId) {
+            // Create mode: restore draft from localStorage
+            try {
+                const raw = localStorage.getItem(DRAFT_KEY);
+                if (raw) {
+                    const { sections: s, form: f } = JSON.parse(raw);
+                    if (s?.length) { setSections(s); setForm(f || {}); }
+                }
+            } catch {}
+            return;
+        }
+        apiFetch(`/api/quotations/${editId}`).then(q => {
+            setForm({
+                customerId: q.customerId || '',
+                projectId: q.projectId || '',
+                vat: q.vat ?? 10,
+                discount: q.discount ?? 0,
+                notes: q.notes || '',
+            });
+            setQMeta({ code: q.code, status: q.status });
+
+            // Convert categories → sections/rooms/rows
+            if (q.categories?.length) {
+                const secMap = {};
+                const secOrder = [];
+                q.categories.forEach(cat => {
+                    const g = cat.group || 'Tầng 1';
+                    if (!secMap[g]) { secMap[g] = []; secOrder.push(g); }
+                    secMap[g].push(cat);
+                });
+                const loadedSections = secOrder.map(g => ({
+                    _k: Math.random().toString(36).slice(2),
+                    name: g,
+                    rooms: secMap[g].map(cat => ({
+                        _k: Math.random().toString(36).slice(2),
+                        name: cat.name || '',
+                        rows: (cat.items || []).length
+                            ? cat.items.map((item, idx) => {
+                                const PLACEHOLDER = ['(Hạng mục)', '(Hang muc)'];
+                                const isPlaceholder = !item.name || PLACEHOLDER.includes(item.name.trim());
+                                const isMerged = item.mergedWithPrev || (idx > 0 && isPlaceholder);
+                                return {
+                                    _k: Math.random().toString(36).slice(2),
+                                    hangMuc: isPlaceholder ? '' : (item.name || ''),
+                                    chatLieu: item.description || '',
+                                    dai: item.length ? String(item.length) : '',
+                                    sau: item.width ? String(item.width) : '',
+                                    cao: item.height ? String(item.height) : '',
+                                    slCai: item.quantity > 1 ? String(item.quantity) : '',
+                                    dvt: item.unit || 'm²',
+                                    donGia: item.unitPrice ? String(item.unitPrice) : '',
+                                    mergedWithPrev: isMerged,
+                                };
+                            })
+                            : [emptyRow(), emptyRow(), emptyRow()],
+                    })),
+                }));
+                setSections(loadedSections);
+            }
+        }).catch(() => toast.error('Không tải được báo giá'));
+    }, [editId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Auto-save draft to localStorage only in create mode
+    useEffect(() => {
+        if (editId) return;
         const t = setTimeout(() => {
             localStorage.setItem(DRAFT_KEY, JSON.stringify({ sections, form }));
         }, 1500);
         return () => clearTimeout(t);
-    }, [sections, form]);
+    }, [sections, form, editId]);
 
     // ── Cell navigation helpers ───────────────────────────────────────────────
     const flatCells = useCallback(() => {
@@ -134,6 +238,20 @@ export default function QuotationNoiThatPage() {
                 if (ri !== rmIdx) return rm;
                 const rows = rm.rows.filter((_, i) => i !== rIdx);
                 return { ...rm, rows: rows.length ? rows : [emptyRow()] };
+            }),
+        }));
+    }, []);
+
+    const toggleMergeRow = useCallback((sIdx, rmIdx, rIdx) => {
+        if (rIdx === 0) return;
+        setSections(prev => prev.map((sec, si) => si !== sIdx ? sec : {
+            ...sec,
+            rooms: sec.rooms.map((rm, ri) => {
+                if (ri !== rmIdx) return rm;
+                const rows = rm.rows.map((row, rii) =>
+                    rii !== rIdx ? row : { ...row, mergedWithPrev: !row.mergedWithPrev }
+                );
+                return { ...rm, rows };
             }),
         }));
     }, []);
@@ -238,6 +356,7 @@ export default function QuotationNoiThatPage() {
                         volume: calcKL(row),
                         unitPrice: parseFloat(row.donGia) || 0,
                         amount: calcTT(row),
+                        mergedWithPrev: row.mergedWithPrev || false,
                         order: idx,
                     }));
                 if (items.length) {
@@ -269,20 +388,31 @@ export default function QuotationNoiThatPage() {
         if (!payload.categories.length) { toast.warning('Chưa có hạng mục nào!'); return; }
         setSavingDraft(true);
         try {
-            await apiFetch('/api/quotations', { method: 'POST', body: JSON.stringify(payload) });
-            toast.success('Đã lưu nháp vào hệ thống');
+            if (editId) {
+                await apiFetch(`/api/quotations/${editId}`, { method: 'PUT', body: JSON.stringify(payload) });
+                toast.success('Đã lưu thay đổi');
+            } else {
+                await apiFetch('/api/quotations', { method: 'POST', body: JSON.stringify(payload) });
+                toast.success('Đã lưu nháp vào hệ thống');
+            }
         } catch (err) { toast.error(err.message || 'Lỗi lưu nháp'); }
         setSavingDraft(false);
     };
 
     const handleSave = async () => {
-        const payload = buildPayload('Mới');
+        const payload = buildPayload(editId ? (qMeta?.status || 'Nháp') : 'Mới');
         if (!payload.categories.length) { toast.warning('Chưa có hạng mục nào!'); return; }
         setSaving(true);
         try {
-            const q = await apiFetch('/api/quotations', { method: 'POST', body: JSON.stringify(payload) });
-            localStorage.removeItem(DRAFT_KEY);
-            router.push(`/quotations/${q.id}/pdf`);
+            let targetId = editId;
+            if (editId) {
+                await apiFetch(`/api/quotations/${editId}`, { method: 'PUT', body: JSON.stringify(payload) });
+            } else {
+                const q = await apiFetch('/api/quotations', { method: 'POST', body: JSON.stringify(payload) });
+                targetId = q.id;
+                localStorage.removeItem(DRAFT_KEY);
+            }
+            router.push(`/quotations/${targetId}/pdf`);
         } catch (err) { toast.error(err.message || 'Lỗi lưu báo giá'); }
         setSaving(false);
     };
@@ -406,15 +536,21 @@ export default function QuotationNoiThatPage() {
             {/* ── Toolbar ─────────────────────────────────────────────────── */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
                 <button className="btn btn-ghost" onClick={() => router.push('/quotations')}>← Báo giá</button>
-                <h2 style={{ margin: 0, fontSize: 17 }}>Báo giá nội thất</h2>
+                <h2 style={{ margin: 0, fontSize: 17 }}>
+                    {editId && qMeta ? (
+                        <span>Chỉnh sửa: <span style={{ color: '#E05B0A', fontWeight: 800 }}>{qMeta.code}</span></span>
+                    ) : 'Báo giá nội thất'}
+                </h2>
                 <div style={{ flex: 1 }} />
                 <button className="btn btn-secondary btn-sm" onClick={handleExportExcel}>📊 Xuất Excel</button>
                 <button className="btn btn-secondary btn-sm" onClick={handleSaveDraft} disabled={savingDraft}>
-                    {savingDraft ? 'Đang lưu...' : '💾 Lưu nháp'}
+                    {savingDraft ? 'Đang lưu...' : (editId ? '💾 Lưu thay đổi' : '💾 Lưu nháp')}
                 </button>
-                <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444' }}
-                    onClick={() => { localStorage.removeItem(DRAFT_KEY); setSections([emptySection('Tầng 1')]); setForm({ customerId: '', projectId: '', vat: 10, discount: 0, notes: '' }); }}
-                    title="Xóa tất cả và làm mới">🗑 Làm mới</button>
+                {!editId && (
+                    <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444' }}
+                        onClick={() => { localStorage.removeItem(DRAFT_KEY); setSections([emptySection('Tầng 1')]); setForm({ customerId: '', projectId: '', vat: 10, discount: 0, notes: '' }); }}
+                        title="Xóa tất cả và làm mới">🗑 Làm mới</button>
+                )}
                 <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
                     {saving ? 'Đang lưu...' : '📄 Lưu & Xuất PDF'}
                 </button>
@@ -459,6 +595,7 @@ export default function QuotationNoiThatPage() {
                 <span>📋 <b>Ctrl+V</b> paste từ Excel</span>
                 <span style={{ color: '#7c3aed' }}>💬 Chất liệu: <b>Enter</b> = xuống dòng, <b>Ctrl+Enter</b> = ô tiếp</span>
                 <span>KL: Dài×Cao×SL (m²) | Dài×SL (md)</span>
+                <span style={{ color: '#0369a1' }}>⊞ Gộp ô / ⊟ Bỏ gộp (nút cuối dòng)</span>
             </div>
 
             {/* ── Sections (Tầng / Khu vực chính) ────────────────────────── */}
@@ -518,6 +655,7 @@ export default function QuotationNoiThatPage() {
                                 <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', minWidth: 800 }}>
                                     <thead>
                                         <tr>
+                                            <th style={{ ...TH, width: 22, background: '#0f2335' }}></th>
                                             <th style={{ ...TH, width: 34 }}>#</th>
                                             {COLS.map(col => (
                                                 <th key={col.key} style={{ ...TH, width: col.grow ? undefined : col.w, minWidth: col.grow ? 180 : undefined }}>
@@ -530,68 +668,114 @@ export default function QuotationNoiThatPage() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {rm.rows.map((row, rIdx) => {
-                                            const kl = calcKL(row);
-                                            const tt = calcTT(row);
-                                            const evenBg = rIdx % 2 === 1 ? '#f9fafb' : '#fff';
-                                            return (
-                                                <tr key={row._k} style={{ background: evenBg }}>
-                                                    <td style={{ ...TD, textAlign: 'center', fontSize: 10, color: '#9ca3af', background: '#f3f4f6', userSelect: 'none' }}>
-                                                        {rIdx + 1}
-                                                    </td>
-                                                    {COLS.map((col, cIdx) => {
-                                                        const refKey = `${sIdx}-${rmIdx}-${rIdx}-${cIdx}`;
-                                                        return (
-                                                            <td key={col.key} style={{ ...TD, background: evenBg, verticalAlign: col.textarea ? 'top' : 'middle' }}>
-                                                                {col.textarea ? (
-                                                                    <textarea
-                                                                        ref={el => { cellRefs.current[refKey] = el; }}
-                                                                        style={{ ...INPUT_S, resize: 'none', minHeight: 30, overflowY: 'hidden', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}
-                                                                        value={row[col.key] || ''}
-                                                                        rows={Math.max(1, (row[col.key] || '').split('\n').length)}
-                                                                        onChange={e => {
-                                                                            updateRow(sIdx, rmIdx, rIdx, col.key, e.target.value);
-                                                                            e.target.style.height = 'auto';
-                                                                            e.target.style.height = e.target.scrollHeight + 'px';
-                                                                        }}
-                                                                        onKeyDown={e => handleTextareaKey(e, sIdx, rmIdx, rIdx, cIdx)}
-                                                                        onPaste={e => handlePaste(e, sIdx, rmIdx, rIdx, cIdx)}
-                                                                        placeholder="Mô tả chất liệu..."
-                                                                        tabIndex={0}
-                                                                    />
-                                                                ) : (
-                                                                    <input
-                                                                        ref={el => { cellRefs.current[refKey] = el; }}
-                                                                        style={{ ...INPUT_S, textAlign: col.num ? 'right' : col.align || 'left' }}
-                                                                        value={row[col.key] || ''}
-                                                                        onChange={e => updateRow(sIdx, rmIdx, rIdx, col.key, e.target.value)}
-                                                                        onKeyDown={e => handleKeyDown(e, sIdx, rmIdx, rIdx, cIdx)}
-                                                                        onPaste={e => handlePaste(e, sIdx, rmIdx, rIdx, cIdx)}
-                                                                        placeholder={cIdx === 0 ? 'Hạng mục...' : ''}
-                                                                        tabIndex={0}
-                                                                    />
-                                                                )}
+                                        {(() => {
+                                            // Build merge groups
+                                            const groups = [];
+                                            rm.rows.forEach((row, rIdx) => {
+                                                if (rIdx > 0 && row.mergedWithPrev) {
+                                                    groups[groups.length - 1].push(rIdx);
+                                                } else {
+                                                    groups.push([rIdx]);
+                                                }
+                                            });
+
+                                            return groups.map((group, gi) =>
+                                                group.map((rIdx, ri) => {
+                                                    const row = rm.rows[rIdx];
+                                                    const isFirst = ri === 0;
+                                                    const span = group.length;
+                                                    const kl = calcKL(row);
+                                                    const tt = calcTT(row);
+                                                    const evenBg = gi % 2 === 1 ? '#f9fafb' : '#fff';
+                                                    const autoBg = evenBg === '#fff' ? '#eef2f7' : '#e8ecf2';
+                                                    const isDragTarget = dragOver && dragOver.sIdx === sIdx && dragOver.rmIdx === rmIdx && dragOver.rIdx === rIdx;
+                                                    return (
+                                                        <tr key={row._k}
+                                                            draggable
+                                                            onDragStart={e => handleDragStart(e, sIdx, rmIdx, rIdx)}
+                                                            onDragOver={e => handleDragOver(e, sIdx, rmIdx, rIdx)}
+                                                            onDrop={e => handleDrop(e, sIdx, rmIdx, rIdx)}
+                                                            onDragEnd={handleDragEnd}
+                                                            style={{ background: evenBg, outline: isDragTarget ? '2px solid #1e3a5f' : 'none', outlineOffset: -1 }}>
+                                                            {/* Drag handle */}
+                                                            <td style={{ ...TD, textAlign: 'center', cursor: 'grab', padding: '0 2px', background: '#f3f4f6', color: '#9ca3af', fontSize: 15, userSelect: 'none' }}
+                                                                title="Kéo để sắp xếp">⠿</td>
+                                                            {/* STT — only on first row of group */}
+                                                            {isFirst && (
+                                                                <td rowSpan={span} style={{ ...TD, textAlign: 'center', fontSize: 10, color: '#9ca3af', background: '#f3f4f6', userSelect: 'none', verticalAlign: 'middle' }}>
+                                                                    {gi + 1}
+                                                                </td>
+                                                            )}
+                                                            {COLS.map((col, cIdx) => {
+                                                                const refKey = `${sIdx}-${rmIdx}-${rIdx}-${cIdx}`;
+                                                                // hangMuc cell spans the whole group; skip on non-first rows
+                                                                if (col.key === 'hangMuc' && !isFirst) return null;
+                                                                return (
+                                                                    <td key={col.key}
+                                                                        rowSpan={col.key === 'hangMuc' ? span : 1}
+                                                                        style={{ ...TD, background: evenBg, verticalAlign: col.textarea ? 'top' : 'middle' }}>
+                                                                        {col.textarea ? (
+                                                                            <textarea
+                                                                                ref={el => { cellRefs.current[refKey] = el; }}
+                                                                                style={{ ...INPUT_S, resize: 'none', minHeight: 30, overflowY: 'hidden', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}
+                                                                                value={row[col.key] || ''}
+                                                                                rows={Math.max(1, (row[col.key] || '').split('\n').length)}
+                                                                                onChange={e => {
+                                                                                    updateRow(sIdx, rmIdx, rIdx, col.key, e.target.value);
+                                                                                    e.target.style.height = 'auto';
+                                                                                    e.target.style.height = e.target.scrollHeight + 'px';
+                                                                                }}
+                                                                                onKeyDown={e => handleTextareaKey(e, sIdx, rmIdx, rIdx, cIdx)}
+                                                                                onPaste={e => handlePaste(e, sIdx, rmIdx, rIdx, cIdx)}
+                                                                                placeholder="Mô tả chất liệu..."
+                                                                                tabIndex={0}
+                                                                            />
+                                                                        ) : (
+                                                                            <input
+                                                                                ref={el => { cellRefs.current[refKey] = el; }}
+                                                                                style={{ ...INPUT_S, textAlign: col.num ? 'right' : col.align || 'left' }}
+                                                                                value={row[col.key] || ''}
+                                                                                onChange={e => updateRow(sIdx, rmIdx, rIdx, col.key, e.target.value)}
+                                                                                onKeyDown={e => handleKeyDown(e, sIdx, rmIdx, rIdx, cIdx)}
+                                                                                onPaste={e => handlePaste(e, sIdx, rmIdx, rIdx, cIdx)}
+                                                                                placeholder={cIdx === 0 ? 'Hạng mục...' : ''}
+                                                                                tabIndex={0}
+                                                                            />
+                                                                        )}
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                            {/* KL auto */}
+                                                            <td style={{ ...AUTO_TD, background: autoBg, color: kl ? '#1e3a5f' : '#ccc' }}>
+                                                                {kl || ''}
                                                             </td>
-                                                        );
-                                                    })}
-                                                    {/* KL auto */}
-                                                    <td style={{ ...AUTO_TD, background: evenBg === '#fff' ? '#eef2f7' : '#e8ecf2', color: kl ? '#1e3a5f' : '#ccc' }}>
-                                                        {kl || ''}
-                                                    </td>
-                                                    {/* THÀNH TIỀN */}
-                                                    <td style={{ ...AUTO_TD, background: evenBg === '#fff' ? '#eef2f7' : '#e8ecf2', color: tt ? '#1e3a5f' : '#ccc' }}>
-                                                        {tt ? fmtN(tt) : ''}
-                                                    </td>
-                                                    {/* Delete row */}
-                                                    <td style={{ ...TD, textAlign: 'center', background: '#f9fafb' }}>
-                                                        <button onClick={() => removeRow(sIdx, rmIdx, rIdx)} title="Xóa dòng (Ctrl+Del)"
-                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 14, padding: '4px', lineHeight: 1 }}
-                                                            onMouseEnter={e => e.target.style.color = '#ef4444'}
-                                                            onMouseLeave={e => e.target.style.color = '#d1d5db'}>✕</button>
-                                                    </td>
-                                                </tr>
+                                                            {/* THÀNH TIỀN */}
+                                                            <td style={{ ...AUTO_TD, background: autoBg, color: tt ? '#1e3a5f' : '#ccc' }}>
+                                                                {tt ? fmtN(tt) : ''}
+                                                            </td>
+                                                            {/* Actions */}
+                                                            <td style={{ ...TD, textAlign: 'center', background: '#f9fafb', verticalAlign: 'middle' }}>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                                                                    <button onClick={() => removeRow(sIdx, rmIdx, rIdx)} title="Xóa dòng (Ctrl+Del)"
+                                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 14, padding: '2px', lineHeight: 1 }}
+                                                                        onMouseEnter={e => e.target.style.color = '#ef4444'}
+                                                                        onMouseLeave={e => e.target.style.color = '#d1d5db'}>✕</button>
+                                                                    {rIdx > 0 && (
+                                                                        <button
+                                                                            onClick={() => toggleMergeRow(sIdx, rmIdx, rIdx)}
+                                                                            title={row.mergedWithPrev ? 'Bỏ gộp ô' : 'Gộp ô với dòng trên'}
+                                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, padding: '2px', lineHeight: 1, color: row.mergedWithPrev ? '#1e3a5f' : '#d1d5db', fontWeight: 700 }}
+                                                                            onMouseEnter={e => e.currentTarget.style.color = row.mergedWithPrev ? '#ef4444' : '#1e3a5f'}
+                                                                            onMouseLeave={e => e.currentTarget.style.color = row.mergedWithPrev ? '#1e3a5f' : '#d1d5db'}
+                                                                        >{row.mergedWithPrev ? '⊟' : '⊞'}</button>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
                                             );
-                                        })}
+                                        })()}
                                     </tbody>
                                 </table>
                             </div>

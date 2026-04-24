@@ -118,7 +118,7 @@ function InlineVariants({ productId, basePrice, onPriceChange, onDescChange }) {
 }
 
 function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImageClick, quotationType }) {
-    const { updateSubcategoryName, removeSubcategory, updateItem, removeItem, addItem, addFromLibrary, addFromProduct, allSearchItems, mainCategories, setMainCategories, recalc, addSubItem, removeSubItem, updateSubItem, products, updateSubcategoryShared } = hook;
+    const { updateSubcategoryName, removeSubcategory, updateItem, removeItem, addItem, addFromLibrary, addFromProduct, allSearchItems, mainCategories, setMainCategories, recalc, addSubItem, removeSubItem, updateSubItem, products, updateSubcategoryShared, toggleMerge } = hook;
     const { role } = useRole();
     const isXayDung = role === 'xay_dung';
     const isDienNuoc = quotationType === 'Thi công điện nước';
@@ -311,97 +311,138 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                         </tr>
                     </thead>
                     <tbody>
-                        {sub.items.map((item, ii) => {
-                            const isDragOver = dragOverIdx === ii;
-                            return (
-                                <React.Fragment key={item._key}>
-                                    <tr
-                                        draggable
-                                        onDragStart={e => handleDragStart(e, ii)}
-                                        onDragOver={e => handleDragOver(e, ii)}
-                                        onDrop={e => handleDrop(e, ii)}
-                                        onDragEnd={handleDragEnd}
-                                        style={isDragOver ? { outline: '2px solid var(--primary)', outlineOffset: -1, background: 'rgba(35,64,147,0.05)' } : {}}
-                                    >
-                                        <td style={{ textAlign: 'center', cursor: 'grab', padding: '0 4px', opacity: 0.35, fontSize: 16, userSelect: 'none' }}
-                                            title="Kéo để sắp xếp">⠿</td>
-                                        <td style={{ textAlign: 'center', opacity: 0.4, fontSize: 11 }}>{ii + 1}</td>
-                                        <td style={{ textAlign: 'center', padding: 2, cursor: onImageClick ? 'pointer' : 'default' }}
-                                            onClick={() => onImageClick && onImageClick(mi, si, ii)}>
-                                            {(() => {
-                                                const productImage = item.productId ? products.find(p => p.id === item.productId)?.image : null;
-                                                const imgSrc = item.image || productImage;
-                                                return imgSrc ? (
-                                                    <img src={imgSrc} alt="" style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--border-color)' }}
-                                                        onError={(e) => {
-                                                            if (productImage && e.target.src !== productImage) {
-                                                                e.target.src = productImage;
-                                                            } else {
-                                                                e.target.style.display = 'none';
-                                                                e.target.nextSibling.style.display = 'flex';
-                                                            }
-                                                        }} />
-                                                ) : null;
+                        {(() => {
+                            // Build merge groups: each group = [firstIdx, ...mergedIdxs]
+                            const groups = [];
+                            sub.items.forEach((item, ii) => {
+                                if (ii > 0 && item.mergedWithPrev) {
+                                    groups[groups.length - 1].push(ii);
+                                } else {
+                                    groups.push([ii]);
+                                }
+                            });
+
+                            return groups.map((group, gi) => group.map((ii, ri) => {
+                                const item = sub.items[ii];
+                                const isDragOver = dragOverIdx === ii;
+                                const isFirstInGroup = ri === 0;
+                                const groupSpan = group.length;
+                                const isMerged = item.mergedWithPrev;
+
+                                return (
+                                    <React.Fragment key={item._key}>
+                                        <tr
+                                            draggable
+                                            onDragStart={e => handleDragStart(e, ii)}
+                                            onDragOver={e => handleDragOver(e, ii)}
+                                            onDrop={e => handleDrop(e, ii)}
+                                            onDragEnd={handleDragEnd}
+                                            style={isDragOver ? { outline: '2px solid var(--primary)', outlineOffset: -1, background: 'rgba(35,64,147,0.05)' } : isMerged ? { background: 'rgba(35,64,147,0.03)' } : {}}
+                                        >
+                                            <td style={{ textAlign: 'center', cursor: 'grab', padding: '0 4px', opacity: 0.35, fontSize: 16, userSelect: 'none' }}
+                                                title="Kéo để sắp xếp">⠿</td>
+                                            {/* STT — only on first row of group */}
+                                            {isFirstInGroup && (
+                                                <td rowSpan={groupSpan} style={{ textAlign: 'center', opacity: 0.4, fontSize: 11, verticalAlign: 'middle' }}>{gi + 1}</td>
+                                            )}
+                                            <td style={{ textAlign: 'center', padding: 2, cursor: onImageClick ? 'pointer' : 'default' }}
+                                                onClick={() => onImageClick && onImageClick(mi, si, ii)}>
+                                                {(() => {
+                                                    const productImage = item.productId ? products.find(p => p.id === item.productId)?.image : null;
+                                                    const imgSrc = item.image || productImage;
+                                                    return imgSrc ? (
+                                                        <img src={imgSrc} alt="" style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--border-color)' }}
+                                                            onError={(e) => {
+                                                                if (productImage && e.target.src !== productImage) {
+                                                                    e.target.src = productImage;
+                                                                } else {
+                                                                    e.target.style.display = 'none';
+                                                                    e.target.nextSibling.style.display = 'flex';
+                                                                }
+                                                            }} />
+                                                    ) : null;
+                                                })()}
+                                                <div style={{ width: 28, height: 28, borderRadius: 4, border: '2px dashed var(--border-color)', display: (item.image || (item.productId && products.find(p => p.id === item.productId)?.image)) ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, opacity: 0.25 }}>
+                                                    {onImageClick ? '📷' : '🖼️'}
+                                                </div>
+                                            </td>
+                                            {/* HẠNG MỤC — only on first row of group, spans all rows */}
+                                            {isFirstInGroup && (
+                                                <td rowSpan={groupSpan} style={{ verticalAlign: 'middle' }}>
+                                                    <input className="form-input form-input-compact" value={item.name} onChange={e => updateItem(mi, si, ii, 'name', e.target.value)} placeholder="Tên hạng mục / sản phẩm" />
+                                                    {groupSpan === 1 && (
+                                                        <input className="form-input form-input-compact" value={item.description} onChange={e => updateItem(mi, si, ii, 'description', e.target.value)}
+                                                            placeholder="Mô tả..." style={{ marginTop: 3, fontSize: 11, opacity: 0.7, fontStyle: 'italic' }} />
+                                                    )}
+                                                    <InlineVariants
+                                                        productId={item.productId}
+                                                        basePrice={item.mainMaterial || 0}
+                                                        onPriceChange={(price) => updateItem(mi, si, ii, 'unitPrice', price)}
+                                                        onDescChange={(desc) => updateItem(mi, si, ii, 'description', desc)}
+                                                    />
+                                                </td>
+                                            )}
+                                            {/* CHẤT LIỆU / MÔ TẢ — every row when merged */}
+                                            {!isFirstInGroup && (
+                                                <td>
+                                                    <input className="form-input form-input-compact" value={item.description} onChange={e => updateItem(mi, si, ii, 'description', e.target.value)}
+                                                        placeholder="Mô tả chất liệu..." style={{ fontSize: 11, fontStyle: 'italic' }} />
+                                                </td>
+                                            )}
+                                            {isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" value={item.brand || ''} onChange={e => updateItem(mi, si, ii, 'brand', e.target.value)} placeholder="Hãng SX" /></td>}
+                                            {isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" value={item.productCode || ''} onChange={e => updateItem(mi, si, ii, 'productCode', e.target.value)} placeholder="Mã SP" /></td>}
+                                            {isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.dai || ''} onChange={e => updateItem(mi, si, ii, 'dai', e.target.value)} placeholder="0" /></td>}
+                                            {isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.sau || ''} onChange={e => updateItem(mi, si, ii, 'sau', e.target.value)} placeholder="0" /></td>}
+                                            {isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.cao || ''} onChange={e => updateItem(mi, si, ii, 'cao', e.target.value)} placeholder="0" /></td>}
+                                            {isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.quantity || ''} onChange={e => updateItem(mi, si, ii, 'quantity', e.target.value)} placeholder="0" /></td>}
+                                            {!isDienNuoc && !isTongHop && <td>
+                                                {isXayDung || isBaoGiaThietBiDien
+                                                    ? <input className="form-input form-input-compact" value={item.unit || ''} onChange={e => updateItem(mi, si, ii, 'unit', e.target.value)} placeholder="ĐVT" />
+                                                    : (() => {
+                                                        const opts = UNIT_OPTIONS.includes(item.unit) ? UNIT_OPTIONS : [item.unit, ...UNIT_OPTIONS];
+                                                        return (
+                                                            <select className="form-select form-input-compact" value={item.unit} onChange={e => updateItem(mi, si, ii, 'unit', e.target.value)}>
+                                                                {opts.map(u => <option key={u} value={u}>{u}</option>)}
+                                                            </select>
+                                                        );
+                                                    })()
+                                                }
+                                            </td>}
+                                            {!isDienNuoc && !isTongHop && !isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.quantity || ''} onChange={e => updateItem(mi, si, ii, 'quantity', e.target.value)} placeholder="0" /></td>}
+                                            {isBaoGiaNhanThat && (() => {
+                                                const dvt = (item.unit || '').toLowerCase().trim();
+                                                const dai = parseFloat(item.dai) || 0;
+                                                const cao = parseFloat(item.cao) || 0;
+                                                const sl = parseFloat(item.quantity) || 0;
+                                                let kt;
+                                                if (dvt === 'm2' || dvt === 'm²') kt = (dai * cao).toFixed(2);
+                                                else if (dvt === 'md' || dvt === 'mét dài') kt = dai.toFixed(2);
+                                                else kt = sl;
+                                                return <td style={{ textAlign: 'center', fontWeight: 600, fontSize: 12, color: 'var(--accent-primary)' }}>{kt}</td>;
                                             })()}
-                                            <div style={{ width: 28, height: 28, borderRadius: 4, border: '2px dashed var(--border-color)', display: (item.image || (item.productId && products.find(p => p.id === item.productId)?.image)) ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, opacity: 0.25 }}>
-                                                {onImageClick ? '📷' : '🖼️'}
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <input className="form-input form-input-compact" value={item.name} onChange={e => updateItem(mi, si, ii, 'name', e.target.value)} placeholder="Tên hạng mục / sản phẩm" />
-                                            <input className="form-input form-input-compact" value={item.description} onChange={e => updateItem(mi, si, ii, 'description', e.target.value)}
-                                                placeholder="Mô tả..." style={{ marginTop: 3, fontSize: 11, opacity: 0.7, fontStyle: 'italic' }} />
-                                            <InlineVariants
-                                                productId={item.productId}
-                                                basePrice={item.mainMaterial || 0}
-                                                onPriceChange={(price) => updateItem(mi, si, ii, 'unitPrice', price)}
-                                                onDescChange={(desc) => updateItem(mi, si, ii, 'description', desc)}
-                                            />
-                                        </td>
-                                        {isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" value={item.brand || ''} onChange={e => updateItem(mi, si, ii, 'brand', e.target.value)} placeholder="Hãng SX" /></td>}
-                                        {isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" value={item.productCode || ''} onChange={e => updateItem(mi, si, ii, 'productCode', e.target.value)} placeholder="Mã SP" /></td>}
-                                        {isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.dai || ''} onChange={e => updateItem(mi, si, ii, 'dai', e.target.value)} placeholder="0" /></td>}
-                                        {isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.sau || ''} onChange={e => updateItem(mi, si, ii, 'sau', e.target.value)} placeholder="0" /></td>}
-                                        {isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.cao || ''} onChange={e => updateItem(mi, si, ii, 'cao', e.target.value)} placeholder="0" /></td>}
-                                        {isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.quantity || ''} onChange={e => updateItem(mi, si, ii, 'quantity', e.target.value)} placeholder="0" /></td>}
-                                        {!isDienNuoc && !isTongHop && <td>
-                                            {isXayDung || isBaoGiaThietBiDien
-                                                ? <input className="form-input form-input-compact" value={item.unit || ''} onChange={e => updateItem(mi, si, ii, 'unit', e.target.value)} placeholder="ĐVT" />
-                                                : (() => {
-                                                    const opts = UNIT_OPTIONS.includes(item.unit) ? UNIT_OPTIONS : [item.unit, ...UNIT_OPTIONS];
-                                                    return (
-                                                        <select className="form-select form-input-compact" value={item.unit} onChange={e => updateItem(mi, si, ii, 'unit', e.target.value)}>
-                                                            {opts.map(u => <option key={u} value={u}>{u}</option>)}
-                                                        </select>
-                                                    );
-                                                })()
-                                            }
-                                        </td>}
-                                        {!isDienNuoc && !isTongHop && !isBaoGiaNhanThat && <td><input className="form-input form-input-compact" type="number" value={item.quantity || ''} onChange={e => updateItem(mi, si, ii, 'quantity', e.target.value)} placeholder="0" /></td>}
-                                        {isBaoGiaNhanThat && (() => {
-                                            const dvt = (item.unit || '').toLowerCase().trim();
-                                            const dai = parseFloat(item.dai) || 0;
-                                            const cao = parseFloat(item.cao) || 0;
-                                            const sl = parseFloat(item.quantity) || 0;
-                                            let kt;
-                                            if (dvt === 'm2' || dvt === 'm²') kt = (dai * cao).toFixed(2);
-                                            else if (dvt === 'md' || dvt === 'mét dài') kt = dai.toFixed(2);
-                                            else kt = sl;
-                                            return <td style={{ textAlign: 'center', fontWeight: 600, fontSize: 12, color: 'var(--accent-primary)' }}>{kt}</td>;
-                                        })()}
-                                        {!isDienNuoc && isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" type="number" value={item.listPrice || ''} onChange={e => updateItem(mi, si, ii, 'listPrice', e.target.value)} placeholder="0" /></td>}
-                                        {!isDienNuoc && !isTongHop && <td><input className="form-input form-input-compact" type="number" value={item.unitPrice || ''} onChange={e => updateItem(mi, si, ii, 'unitPrice', e.target.value)} /></td>}
-                                        {!isDienNuoc && (isTongHop
-                                            ? <td><input className="form-input form-input-compact" type="number" value={item.amount || ''} onChange={e => updateItem(mi, si, ii, 'amount', e.target.value)} placeholder="0" style={{ fontWeight: 700, color: 'var(--accent-primary)' }} /></td>
-                                            : <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-primary)', fontSize: 12 }}>{fmt(item.amount)}</td>
-                                        )}
-                                        <td>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                <button className="btn btn-ghost" onClick={() => removeItem(mi, si, ii)} style={{ padding: '2px 4px', fontSize: 11 }}>✕</button>
-                                                <button className="btn btn-ghost" onClick={() => addSubItem(mi, si, ii)} style={{ padding: '1px 3px', fontSize: 9, opacity: 0.5 }} title="Thêm phụ kiện">+PK</button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                            {!isDienNuoc && isBaoGiaThietBiDien && <td><input className="form-input form-input-compact" type="number" value={item.listPrice || ''} onChange={e => updateItem(mi, si, ii, 'listPrice', e.target.value)} placeholder="0" /></td>}
+                                            {!isDienNuoc && !isTongHop && <td><input className="form-input form-input-compact" type="number" value={item.unitPrice || ''} onChange={e => updateItem(mi, si, ii, 'unitPrice', e.target.value)} /></td>}
+                                            {!isDienNuoc && (isTongHop
+                                                ? <td><input className="form-input form-input-compact" type="number" value={item.amount || ''} onChange={e => updateItem(mi, si, ii, 'amount', e.target.value)} placeholder="0" style={{ fontWeight: 700, color: 'var(--accent-primary)' }} /></td>
+                                                : <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--accent-primary)', fontSize: 12 }}>{fmt(item.amount)}</td>
+                                            )}
+                                            <td>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                    <button className="btn btn-ghost" onClick={() => removeItem(mi, si, ii)} style={{ padding: '2px 4px', fontSize: 11 }}>✕</button>
+                                                    <button className="btn btn-ghost" onClick={() => addSubItem(mi, si, ii)} style={{ padding: '1px 3px', fontSize: 9, opacity: 0.5 }} title="Thêm phụ kiện">+PK</button>
+                                                    {ii > 0 && (
+                                                        <button
+                                                            className="btn btn-ghost"
+                                                            onClick={() => toggleMerge(mi, si, ii)}
+                                                            title={isMerged ? 'Bỏ gộp ô' : 'Gộp ô với dòng trên'}
+                                                            style={{ padding: '1px 3px', fontSize: 9, opacity: isMerged ? 1 : 0.5, color: isMerged ? 'var(--accent-primary)' : undefined }}
+                                                        >
+                                                            {isMerged ? '⊟' : '⊞'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
                                     {/* Sub-items (phụ kiện) */}
                                     {(item.subItems || []).map((si_item, sii) => (
                                         <tr key={`sub-${item._key}-${sii}`} style={{ background: 'rgba(35,64,147,0.03)' }}>
@@ -450,7 +491,8 @@ function SubcategorySection({ sub, mi, si, hook, onImageClick, onSubcategoryImag
                                     ))}
                                 </React.Fragment>
                             );
-                        })}
+                    }));
+                })()}
                     </tbody>
                 </table>
             </div>

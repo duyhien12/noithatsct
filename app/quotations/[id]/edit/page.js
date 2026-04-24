@@ -32,6 +32,11 @@ export default function EditQuotationPage() {
     // Load quotation data → convert flat categories (with group) into 3-level mainCategories
     useEffect(() => {
         apiFetch(`/api/quotations/${params.id}`).then(q => {
+            // Redirect Báo giá nội thất to its own editor
+            if (q.type === 'Báo giá nội thất') {
+                router.replace(`/quotations/noi-that?id=${params.id}`);
+                return;
+            }
             const isDienNuoc = q.type === 'Thi công điện nước';
             setForm({
                 customerId: q.customerId || '',
@@ -97,6 +102,7 @@ export default function EditQuotationPage() {
                             width: item.width || 0,
                             height: item.height || 0,
                             image: item.image || '',
+                            mergedWithPrev: item.mergedWithPrev || false,
                             productId: item.productId || null,
                             subItems: (item.subItems || []).map(si => ({
                                 _key: Date.now() + Math.random(),

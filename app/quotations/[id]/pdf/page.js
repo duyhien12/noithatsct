@@ -882,22 +882,46 @@ export default function QuotationPDFPage() {
                                                         <td colSpan={9} style={{ textAlign: 'left', paddingLeft: 8 }}>{cat.name || `Khu vực ${ci + 1}`}</td>
                                                         <td className="r">{fmtAmt(catTotal)}</td>
                                                     </tr>
-                                                    {/* Items */}
-                                                    {items.map((item, ii) => (
-                                                        <tr key={item.id || ii} style={{ background: ii % 2 === 1 ? '#f7f7f7' : '#fff' }}>
-                                                            <td className="c" style={{ color: '#555' }}>{ii + 1}</td>
-                                                            <td style={{ fontWeight: 600, fontSize: 10 }}>{item.name}</td>
-                                                            <td style={{ whiteSpace: 'pre-line', fontSize: 9.5, lineHeight: 1.5 }}>{item.description}</td>
-                                                            <td className="c">{item.length || ''}</td>
-                                                            <td className="c">{item.width || ''}</td>
-                                                            <td className="c">{item.height || ''}</td>
-                                                            <td className="c">{item.quantity > 1 ? item.quantity : ''}</td>
-                                                            <td className="c">{item.unit}</td>
-                                                            <td className="r">{fmtAmt(item.volume || item.quantity)}</td>
-                                                            <td className="r">{fmtAmt(item.unitPrice)}</td>
-                                                            <td className="r" style={{ fontWeight: 700, color: BRAND.blue }}>{fmtAmt(ntAmt(item))}</td>
-                                                        </tr>
-                                                    ))}
+                                                    {/* Items — gộp ô theo mergedWithPrev hoặc cùng tên liên tiếp */}
+                                                    {(() => {
+                                                        const PLACEHOLDER = ['(Hạng mục)', '(Hang muc)', ''];
+                                                        const isPlaceholder = (name) => !name || PLACEHOLDER.includes(name.trim());
+                                                        const groups = [];
+                                                        items.forEach((item, idx) => {
+                                                            const mergedByFlag = idx > 0 && item.mergedWithPrev;
+                                                            const mergedByName = idx > 0 && item.name && item.name === items[idx - 1]?.name;
+                                                            // Dòng có tên trống/placeholder → tự động gộp với nhóm trước
+                                                            const mergedByEmpty = idx > 0 && isPlaceholder(item.name) && groups.length > 0;
+                                                            if (mergedByFlag || mergedByName || mergedByEmpty) {
+                                                                groups[groups.length - 1].push(item);
+                                                            } else {
+                                                                groups.push([item]);
+                                                            }
+                                                        });
+                                                        return groups.map((group, gi) => (
+                                                            <React.Fragment key={gi}>
+                                                                {group.map((item, ri) => (
+                                                                    <tr key={item.id || `${gi}-${ri}`} style={{ background: gi % 2 === 1 ? '#f7f7f7' : '#fff' }}>
+                                                                        {ri === 0 && (
+                                                                            <>
+                                                                                <td rowSpan={group.length} className="c" style={{ color: '#555', verticalAlign: 'middle' }}>{gi + 1}</td>
+                                                                                <td rowSpan={group.length} style={{ fontWeight: 600, fontSize: 10, verticalAlign: 'middle' }}>{isPlaceholder(item.name) ? '' : item.name}</td>
+                                                                            </>
+                                                                        )}
+                                                                        <td style={{ whiteSpace: 'pre-line', fontSize: 9.5, lineHeight: 1.5 }}>{item.description}</td>
+                                                                        <td className="c">{item.length || ''}</td>
+                                                                        <td className="c">{item.width || ''}</td>
+                                                                        <td className="c">{item.height || ''}</td>
+                                                                        <td className="c">{item.quantity > 1 ? item.quantity : ''}</td>
+                                                                        <td className="c">{item.unit}</td>
+                                                                        <td className="r">{fmtAmt(item.volume || item.quantity)}</td>
+                                                                        <td className="r">{fmtAmt(item.unitPrice)}</td>
+                                                                        <td className="r" style={{ fontWeight: 700, color: BRAND.blue }}>{fmtAmt(ntAmt(item))}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </React.Fragment>
+                                                        ));
+                                                    })()}
                                                 </React.Fragment>
                                             );
                                         })}

@@ -354,6 +354,20 @@ export default function useQuotationForm() {
         setMainCategories(recalc(mcs));
     };
 
+    const toggleMerge = (mi, si, ii) => {
+        if (ii === 0) return; // cannot merge first row
+        const mcs = [...mainCategories];
+        const items = [...mcs[mi].subcategories[si].items];
+        items[ii] = { ...items[ii], mergedWithPrev: !items[ii].mergedWithPrev };
+        mcs[mi] = {
+            ...mcs[mi],
+            subcategories: mcs[mi].subcategories.map((s, i) =>
+                i === si ? { ...s, items } : s
+            ),
+        };
+        setMainCategories(mcs);
+    };
+
     // ========================================
     // SUB-ITEM (phụ kiện) handlers
     // ========================================
@@ -757,7 +771,7 @@ export default function useQuotationForm() {
         // Subcategory handlers
         addSubcategory, removeSubcategory, updateSubcategoryName, updateSubcategoryImage, updateSubcategoryShared,
         // Item handlers
-        addItem, removeItem, updateItem,
+        addItem, removeItem, updateItem, toggleMerge,
         // Sub-item handlers
         addSubItem, removeSubItem, updateSubItem,
         // Tree state
