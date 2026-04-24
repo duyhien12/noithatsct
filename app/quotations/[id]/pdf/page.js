@@ -107,6 +107,7 @@ const DOC_TITLE_MAP = {
     'Nội thất': 'BÁO GIÁ NỘI THẤT',
     'Thi công nội thất': 'BÁO GIÁ NỘI THẤT',
     'Thi công điện nước': 'BÁO GIÁ THI CÔNG ĐIỆN NƯỚC',
+    'Báo giá nội thất': 'BẢNG BÁO GIÁ NỘI THẤT',
 };
 
 /* =============================================
@@ -490,6 +491,52 @@ export default function QuotationPDFPage() {
                 .item-img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; display: block; margin: 2px auto; }
                 .no-img { color: #ccc; font-size: 10px; text-align: center; }
 
+                /* ====== NỘI THẤT TABLE ====== */
+                .nt-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 10px;
+                    margin-bottom: 2px;
+                    border: 1px solid #999;
+                }
+                .nt-table th {
+                    background: #dce6f1;
+                    color: #1e3a5f;
+                    font-weight: 700;
+                    padding: 5px 4px;
+                    font-size: 9px;
+                    text-transform: uppercase;
+                    text-align: center;
+                    border: 1px solid #999;
+                    white-space: nowrap;
+                }
+                .nt-table td {
+                    border: 1px solid #bbb;
+                    padding: 5px 4px;
+                    vertical-align: top;
+                    font-size: 10px;
+                }
+                .nt-table .r { text-align: right; }
+                .nt-table .c { text-align: center; }
+                .nt-cat-a td {
+                    background: #92D050;
+                    color: #000;
+                    font-weight: 900;
+                    font-size: 12px;
+                    text-align: center;
+                    border: 1px solid #999;
+                    padding: 7px 4px;
+                }
+                .nt-cat-i td {
+                    background: #FFFF00;
+                    color: #000;
+                    font-weight: 800;
+                    font-size: 11px;
+                    text-align: center;
+                    border: 1px solid #999;
+                    padding: 6px 4px;
+                }
+
                 /* ====== NOTES ====== */
                 .mn-notes {
                     margin: 16px 0;
@@ -765,6 +812,8 @@ export default function QuotationPDFPage() {
                         const fmtAmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0));
                         const isDienNuoc = q.type === 'Thi công điện nước';
                         const isTongHop = q.type === 'Tổng hợp chi phí hoàn thiện';
+                        const isNoiThat = q.type === 'Báo giá nội thất';
+                        const ntAmt = (item) => Math.round((item.volume || item.quantity || 0) * (item.unitPrice || 0));
 
                         if (!q.categories || q.categories.length === 0) {
                             return (
@@ -790,6 +839,69 @@ export default function QuotationPDFPage() {
                                             <td className="r amt">{fmtAmt(item.amount)}</td>
                                         </tr>
                                     ))}</tbody>
+                                </table>
+                            );
+                        }
+
+                        // ── LAYOUT NỘI THẤT: Dài/Sâu/Cao/KL ──
+                        if (isNoiThat) {
+                            const allCats = q.categories || [];
+                            return (
+                                <table className="nt-table">
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: 30 }}>ST<br />T</th>
+                                            <th style={{ width: 65, textAlign: 'left' }}>HẠNG<br />MỤC</th>
+                                            <th style={{ textAlign: 'left' }}>CHẤT LIỆU</th>
+                                            <th style={{ width: 36 }}>Dài</th>
+                                            <th style={{ width: 36 }}>Sâu</th>
+                                            <th style={{ width: 36 }}>Cao</th>
+                                            <th style={{ width: 40 }}>SỐ<br />LƯỢNG<br />(CÁI)</th>
+                                            <th style={{ width: 36 }}>ĐVT</th>
+                                            <th style={{ width: 50 }}>KHỐI<br />LƯỢNG</th>
+                                            <th style={{ width: 88 }}>ĐƠN GIÁ</th>
+                                            <th style={{ width: 98 }}>THÀNH TIỀN</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {allCats.map((cat, ci) => {
+                                            const items = cat.items || [];
+                                            const catTotal = items.reduce((s, it) => s + ntAmt(it), 0);
+                                            const catLetter = String.fromCharCode(65 + ci);
+                                            return (
+                                                <React.Fragment key={cat.id || ci}>
+                                                    {/* Hàng A/B: tên nhóm chính */}
+                                                    <tr className="nt-cat-a">
+                                                        <td>{catLetter}</td>
+                                                        <td colSpan={9} style={{ textAlign: 'left', paddingLeft: 8 }}>{cat.group || cat.name}</td>
+                                                        <td className="r">{fmtAmt(catTotal)}</td>
+                                                    </tr>
+                                                    {/* Hàng I: tên phân mục */}
+                                                    <tr className="nt-cat-i">
+                                                        <td>{toRoman(ci + 1)}</td>
+                                                        <td colSpan={9} style={{ textAlign: 'left', paddingLeft: 8 }}>{cat.name || `Khu vực ${ci + 1}`}</td>
+                                                        <td className="r">{fmtAmt(catTotal)}</td>
+                                                    </tr>
+                                                    {/* Items */}
+                                                    {items.map((item, ii) => (
+                                                        <tr key={item.id || ii} style={{ background: ii % 2 === 1 ? '#f7f7f7' : '#fff' }}>
+                                                            <td className="c" style={{ color: '#555' }}>{ii + 1}</td>
+                                                            <td style={{ fontWeight: 600, fontSize: 10 }}>{item.name}</td>
+                                                            <td style={{ whiteSpace: 'pre-line', fontSize: 9.5, lineHeight: 1.5 }}>{item.description}</td>
+                                                            <td className="c">{item.length || ''}</td>
+                                                            <td className="c">{item.width || ''}</td>
+                                                            <td className="c">{item.height || ''}</td>
+                                                            <td className="c">{item.quantity > 1 ? item.quantity : ''}</td>
+                                                            <td className="c">{item.unit}</td>
+                                                            <td className="r">{fmtAmt(item.volume || item.quantity)}</td>
+                                                            <td className="r">{fmtAmt(item.unitPrice)}</td>
+                                                            <td className="r" style={{ fontWeight: 700, color: BRAND.blue }}>{fmtAmt(ntAmt(item))}</td>
+                                                        </tr>
+                                                    ))}
+                                                </React.Fragment>
+                                            );
+                                        })}
+                                    </tbody>
                                 </table>
                             );
                         }

@@ -6,7 +6,9 @@ import { apiFetch } from '@/lib/fetchClient';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { QUOTATION_TYPES } from '@/lib/quotation-constants';
 
-const emptyItem = () => ({ _key: Math.random(), name: '', unit: '', quantity: 0, mainMaterial: 0, auxMaterial: 0, labor: 0, unitPrice: 0, description: '' });
+const INTERIOR_TYPES = new Set(['Báo giá nội thất']);
+
+const emptyItem = () => ({ _key: Math.random(), name: '', unit: 'm²', quantity: 0, mainMaterial: 0, auxMaterial: 0, labor: 0, unitPrice: 0, description: '', length: 0, width: 0, height: 0, volume: 0 });
 const emptyCategory = () => ({ _key: Math.random(), name: '', items: [emptyItem()] });
 
 function TemplateEditor({ initial, onSave, onCancel }) {
@@ -27,7 +29,16 @@ function TemplateEditor({ initial, onSave, onCancel }) {
     const removeCat = (ci) => setCategories(cs => cs.filter((_, i) => i !== ci));
 
     const updateItem = (ci, ii, field, value) => setCategories(cs => cs.map((c, i) => i === ci
-        ? { ...c, items: c.items.map((item, j) => j === ii ? { ...item, [field]: value } : item) }
+        ? {
+            ...c, items: c.items.map((item, j) => {
+                if (j !== ii) return item;
+                const updated = { ...item, [field]: value };
+                if (['length', 'height', 'quantity'].includes(field)) {
+                    updated.volume = Math.round((updated.length || 0) * (updated.height || 0) * (updated.quantity || 1) * 100) / 100;
+                }
+                return updated;
+            })
+        }
         : c
     ));
     const addItem = (ci) => setCategories(cs => cs.map((c, i) => i === ci ? { ...c, items: [...c.items, emptyItem()] } : c));
@@ -44,6 +55,8 @@ function TemplateEditor({ initial, onSave, onCancel }) {
             })),
         });
     };
+
+    const isInterior = INTERIOR_TYPES.has(type);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -90,15 +103,26 @@ function TemplateEditor({ initial, onSave, onCancel }) {
                                 placeholder={`Tên danh mục ${ci + 1}`} style={{ flex: 1 }} />
                             <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => removeCat(ci)} title="Xóa danh mục">✕</button>
                         </div>
-                        <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+                        <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse', minWidth: isInterior ? 860 : 700 }}>
                             <thead>
                                 <tr style={{ background: 'var(--bg-secondary)' }}>
-                                    <th style={{ padding: '4px 6px', textAlign: 'left' }}>Tên hạng mục</th>
-                                    <th style={{ padding: '4px 6px', width: 60 }}>ĐVT</th>
-                                    <th style={{ padding: '4px 6px', width: 70 }}>SL</th>
-                                    <th style={{ padding: '4px 6px', width: 90 }}>VL chính</th>
-                                    <th style={{ padding: '4px 6px', width: 90 }}>VL phụ</th>
-                                    <th style={{ padding: '4px 6px', width: 90 }}>Nhân công</th>
+                                    <th style={{ padding: '4px 6px', textAlign: 'left', minWidth: 140 }}>Hạng mục</th>
+                                    {isInterior ? (<>
+                                        <th style={{ padding: '4px 6px', textAlign: 'left', minWidth: 160 }}>Chất liệu</th>
+                                        <th style={{ padding: '4px 6px', width: 58 }}>Dài</th>
+                                        <th style={{ padding: '4px 6px', width: 58 }}>Sâu</th>
+                                        <th style={{ padding: '4px 6px', width: 58 }}>Cao</th>
+                                        <th style={{ padding: '4px 6px', width: 52 }}>SL CÁI</th>
+                                        <th style={{ padding: '4px 6px', width: 58 }}>ĐVT</th>
+                                        <th style={{ padding: '4px 6px', width: 62 }}>KL</th>
+                                    </>) : (<>
+                                        <th style={{ padding: '4px 6px', width: 60 }}>ĐVT</th>
+                                        <th style={{ padding: '4px 6px', width: 60 }}>SL</th>
+                                        <th style={{ padding: '4px 6px', width: 88 }}>VL chính</th>
+                                        <th style={{ padding: '4px 6px', width: 88 }}>VL phụ</th>
+                                        <th style={{ padding: '4px 6px', width: 88 }}>Nhân công</th>
+                                    </>)}
                                     <th style={{ padding: '4px 6px', width: 90 }}>Đơn giá</th>
                                     <th style={{ padding: '4px 6px', width: 32 }}></th>
                                 </tr>
@@ -110,26 +134,57 @@ function TemplateEditor({ initial, onSave, onCancel }) {
                                             <input className="form-input" style={{ fontSize: 12, padding: '2px 6px' }} value={item.name}
                                                 onChange={e => updateItem(ci, ii, 'name', e.target.value)} placeholder="Tên hạng mục..." />
                                         </td>
-                                        <td style={{ padding: '3px 4px' }}>
-                                            <input className="form-input" style={{ fontSize: 12, padding: '2px 4px' }} value={item.unit}
-                                                onChange={e => updateItem(ci, ii, 'unit', e.target.value)} />
-                                        </td>
-                                        <td style={{ padding: '3px 4px' }}>
-                                            <input type="number" className="form-input" style={{ fontSize: 12, padding: '2px 4px' }} value={item.quantity}
-                                                onChange={e => updateItem(ci, ii, 'quantity', +e.target.value)} />
-                                        </td>
-                                        <td style={{ padding: '3px 4px' }}>
-                                            <input type="number" className="form-input" style={{ fontSize: 12, padding: '2px 4px' }} value={item.mainMaterial}
-                                                onChange={e => updateItem(ci, ii, 'mainMaterial', +e.target.value)} />
-                                        </td>
-                                        <td style={{ padding: '3px 4px' }}>
-                                            <input type="number" className="form-input" style={{ fontSize: 12, padding: '2px 4px' }} value={item.auxMaterial}
-                                                onChange={e => updateItem(ci, ii, 'auxMaterial', +e.target.value)} />
-                                        </td>
-                                        <td style={{ padding: '3px 4px' }}>
-                                            <input type="number" className="form-input" style={{ fontSize: 12, padding: '2px 4px' }} value={item.labor}
-                                                onChange={e => updateItem(ci, ii, 'labor', +e.target.value)} />
-                                        </td>
+                                        {isInterior ? (<>
+                                            <td style={{ padding: '3px 4px' }}>
+                                                <textarea className="form-input" style={{ fontSize: 12, padding: '2px 6px', resize: 'vertical', minHeight: 32 }} value={item.description}
+                                                    onChange={e => updateItem(ci, ii, 'description', e.target.value)} placeholder="Mô tả chất liệu..." />
+                                            </td>
+                                            <td style={{ padding: '3px 4px' }}>
+                                                <input type="number" className="form-input" style={{ fontSize: 12, padding: '2px 4px' }} value={item.length || ''}
+                                                    onChange={e => updateItem(ci, ii, 'length', +e.target.value)} placeholder="0" />
+                                            </td>
+                                            <td style={{ padding: '3px 4px' }}>
+                                                <input type="number" className="form-input" style={{ fontSize: 12, padding: '2px 4px' }} value={item.width || ''}
+                                                    onChange={e => updateItem(ci, ii, 'width', +e.target.value)} placeholder="0" />
+                                            </td>
+                                            <td style={{ padding: '3px 4px' }}>
+                                                <input type="number" className="form-input" style={{ fontSize: 12, padding: '2px 4px' }} value={item.height || ''}
+                                                    onChange={e => updateItem(ci, ii, 'height', +e.target.value)} placeholder="0" />
+                                            </td>
+                                            <td style={{ padding: '3px 4px' }}>
+                                                <input type="number" className="form-input" style={{ fontSize: 12, padding: '2px 4px' }} value={item.quantity || ''}
+                                                    onChange={e => updateItem(ci, ii, 'quantity', +e.target.value)} placeholder="0" />
+                                            </td>
+                                            <td style={{ padding: '3px 4px' }}>
+                                                <input className="form-input" style={{ fontSize: 12, padding: '2px 4px' }} value={item.unit}
+                                                    onChange={e => updateItem(ci, ii, 'unit', e.target.value)} />
+                                            </td>
+                                            <td style={{ padding: '3px 4px' }}>
+                                                <input type="number" className="form-input" style={{ fontSize: 12, padding: '2px 4px', background: 'var(--bg-secondary)' }} value={item.volume || ''}
+                                                    onChange={e => updateItem(ci, ii, 'volume', +e.target.value)} placeholder="0" />
+                                            </td>
+                                        </>) : (<>
+                                            <td style={{ padding: '3px 4px' }}>
+                                                <input className="form-input" style={{ fontSize: 12, padding: '2px 4px' }} value={item.unit}
+                                                    onChange={e => updateItem(ci, ii, 'unit', e.target.value)} />
+                                            </td>
+                                            <td style={{ padding: '3px 4px' }}>
+                                                <input type="number" className="form-input" style={{ fontSize: 12, padding: '2px 4px' }} value={item.quantity}
+                                                    onChange={e => updateItem(ci, ii, 'quantity', +e.target.value)} />
+                                            </td>
+                                            <td style={{ padding: '3px 4px' }}>
+                                                <input type="number" className="form-input" style={{ fontSize: 12, padding: '2px 4px' }} value={item.mainMaterial}
+                                                    onChange={e => updateItem(ci, ii, 'mainMaterial', +e.target.value)} />
+                                            </td>
+                                            <td style={{ padding: '3px 4px' }}>
+                                                <input type="number" className="form-input" style={{ fontSize: 12, padding: '2px 4px' }} value={item.auxMaterial}
+                                                    onChange={e => updateItem(ci, ii, 'auxMaterial', +e.target.value)} />
+                                            </td>
+                                            <td style={{ padding: '3px 4px' }}>
+                                                <input type="number" className="form-input" style={{ fontSize: 12, padding: '2px 4px' }} value={item.labor}
+                                                    onChange={e => updateItem(ci, ii, 'labor', +e.target.value)} />
+                                            </td>
+                                        </>)}
                                         <td style={{ padding: '3px 4px' }}>
                                             <input type="number" className="form-input" style={{ fontSize: 12, padding: '2px 4px' }} value={item.unitPrice}
                                                 onChange={e => updateItem(ci, ii, 'unitPrice', +e.target.value)} />
@@ -141,6 +196,7 @@ function TemplateEditor({ initial, onSave, onCancel }) {
                                 ))}
                             </tbody>
                         </table>
+                        </div>
                         <button className="btn btn-ghost btn-sm" style={{ marginTop: 6, fontSize: 12 }} onClick={() => addItem(ci)}>+ Thêm hạng mục</button>
                     </div>
                 ))}
@@ -272,12 +328,15 @@ export default function QuotationTemplatesPage() {
                                                     {ci + 1}. {cat.name || '(Chưa đặt tên)'}
                                                 </div>
                                                 {cat.items?.length > 0 ? (
+                                                    <div style={{ overflowX: 'auto' }}>
                                                     <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
                                                         <thead>
                                                             <tr style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
                                                                 <th style={{ padding: '3px 8px', textAlign: 'left' }}>Hạng mục</th>
+                                                                {INTERIOR_TYPES.has(t.type) && <th style={{ padding: '3px 8px', textAlign: 'left' }}>Chất liệu</th>}
+                                                                {INTERIOR_TYPES.has(t.type) && <th style={{ padding: '3px 8px', width: 120 }}>Dài×Sâu×Cao</th>}
                                                                 <th style={{ padding: '3px 8px', width: 50 }}>ĐVT</th>
-                                                                <th style={{ padding: '3px 8px', width: 50 }}>SL</th>
+                                                                <th style={{ padding: '3px 8px', width: 50 }}>{INTERIOR_TYPES.has(t.type) ? 'KL' : 'SL'}</th>
                                                                 <th style={{ padding: '3px 8px', width: 100, textAlign: 'right' }}>Đơn giá</th>
                                                             </tr>
                                                         </thead>
@@ -285,8 +344,17 @@ export default function QuotationTemplatesPage() {
                                                             {cat.items.map(item => (
                                                                 <tr key={item.id} style={{ borderTop: '1px solid var(--border)' }}>
                                                                     <td style={{ padding: '3px 8px' }}>{item.name}</td>
+                                                                    {INTERIOR_TYPES.has(t.type) && (
+                                                                        <td style={{ padding: '3px 8px', color: 'var(--text-muted)', whiteSpace: 'pre-wrap' }}>{item.description}</td>
+                                                                    )}
+                                                                    {INTERIOR_TYPES.has(t.type) && (
+                                                                        <td style={{ padding: '3px 8px' }}>
+                                                                            {[item.length, item.width, item.height].filter(v => v).join('×') || ''}
+                                                                            {item.quantity > 1 ? ` ×${item.quantity}` : ''}
+                                                                        </td>
+                                                                    )}
                                                                     <td style={{ padding: '3px 8px' }}>{item.unit}</td>
-                                                                    <td style={{ padding: '3px 8px' }}>{item.quantity || ''}</td>
+                                                                    <td style={{ padding: '3px 8px' }}>{INTERIOR_TYPES.has(t.type) ? (item.volume || '') : (item.quantity || '')}</td>
                                                                     <td style={{ padding: '3px 8px', textAlign: 'right' }}>
                                                                         {item.unitPrice ? item.unitPrice.toLocaleString('vi-VN') : ''}
                                                                     </td>
@@ -294,6 +362,7 @@ export default function QuotationTemplatesPage() {
                                                             ))}
                                                         </tbody>
                                                     </table>
+                                                    </div>
                                                 ) : (
                                                     <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>Chưa có hạng mục</div>
                                                 )}

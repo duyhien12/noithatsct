@@ -900,6 +900,10 @@ model QuotationTemplateItem {
   labor         Float    @default(0)
   unitPrice     Float    @default(0)
   description   String   @default("")
+  length        Float    @default(0)
+  width         Float    @default(0)
+  height        Float    @default(0)
+  volume        Float    @default(0)
   categoryId    String
   category      QuotationTemplateCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 }

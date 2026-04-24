@@ -58,6 +58,7 @@ export default function CreateQuotationPage() {
 
     const loadTemplate = (tmpl) => {
         setForm(f => ({ ...f, type: tmpl.type, vat: tmpl.vat, discount: tmpl.discount, managementFeeRate: tmpl.managementFeeRate, designFee: tmpl.designFee }));
+        const isNoiThat = tmpl.type === 'Báo giá nội thất';
         // Convert template categories → mainCategories (each template category becomes a main category with 1 subcategory)
         const mcs = tmpl.categories.map(cat => ({
             _key: Date.now() + Math.random(),
@@ -67,10 +68,16 @@ export default function CreateQuotationPage() {
                 _key: Date.now() + Math.random(),
                 name: '',
                 subtotal: 0,
-                items: cat.items.map(item => ({ _key: Date.now() + Math.random(), ...item, amount: 0 })),
+                items: cat.items.map(item => ({
+                    _key: Date.now() + Math.random(),
+                    ...item,
+                    // Map length/width/height → dai/sau/cao for nội thất editor
+                    ...(isNoiThat ? { dai: item.length, sau: item.width, cao: item.height } : {}),
+                    amount: 0,
+                })),
             }],
         }));
-        setMainCategories(recalc(mcs.length > 0 ? mcs : [emptyMainCategory()]));
+        setMainCategories(recalc(mcs.length > 0 ? mcs : [emptyMainCategory()], tmpl.type));
         setActiveMainIdx(0);
         toast.success(`Đã tải mẫu "${tmpl.name}"`);
     };

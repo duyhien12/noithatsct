@@ -180,15 +180,17 @@ export default function useQuotationForm() {
                     if (isTongHop) return { ...item, amount: Number(item.amount) || 0 };
                     const unitPrice = Number(item.unitPrice) || 0;
                     if (isBaoGiaNhanThat) {
-                        const dai = parseFloat(item.dai) || 0;
-                        const cao = parseFloat(item.cao) || 0;
+                        const dai = parseFloat(item.dai) || parseFloat(item.length) || 0;
+                        const cao = parseFloat(item.cao) || parseFloat(item.height) || 0;
                         const sl = Number(item.quantity) || 0;
                         const dvt = (item.unit || '').toLowerCase().trim();
                         let effectiveQty;
-                        if (dvt === 'm2' || dvt === 'm²') effectiveQty = dai * cao * sl;
-                        else if (dvt === 'md' || dvt === 'mét dài') effectiveQty = dai * sl;
+                        if (dvt === 'm2' || dvt === 'm²') effectiveQty = dai * cao * Math.max(sl, 1);
+                        else if (dvt === 'md' || dvt === 'mét dài') effectiveQty = dai * Math.max(sl, 1);
                         else effectiveQty = sl;
-                        return { ...item, amount: effectiveQty * unitPrice };
+                        // Nếu không có kích thước, dùng volume đã có
+                        if (!dai && !cao) effectiveQty = Number(item.volume) || sl;
+                        return { ...item, amount: Math.round(effectiveQty * unitPrice) };
                     }
                     const l = Number(item.length) || 0;
                     const w = Number(item.width) || 0;
@@ -706,9 +708,19 @@ export default function useQuotationForm() {
                         unitPrice: Number(item.unitPrice) || 0,
                         amount: Number(item.amount) || 0,
                         description: item.description || '',
-                        length: Number(item.length) || 0,
-                        width: Number(item.width) || 0,
-                        height: Number(item.height) || 0,
+                        // Nội thất: lưu dai/sau/cao → length/width/height, tính volume
+                        length: Number(item.dai) || Number(item.length) || 0,
+                        width: Number(item.sau) || Number(item.width) || 0,
+                        height: Number(item.cao) || Number(item.height) || 0,
+                        volume: (() => {
+                            const dvt = (item.unit || '').toLowerCase().trim();
+                            const d = Number(item.dai) || Number(item.length) || 0;
+                            const c = Number(item.cao) || Number(item.height) || 0;
+                            const sl = Number(item.quantity) || 0;
+                            if (d && c && (dvt === 'm2' || dvt === 'm²')) return Math.round(d * c * Math.max(sl, 1) * 100) / 100;
+                            if (d && (dvt === 'md' || dvt === 'mét dài')) return Math.round(d * Math.max(sl, 1) * 100) / 100;
+                            return Number(item.volume) || sl || 0;
+                        })(),
                         image: item.image || (item.productId ? (products.find(p => p.id === item.productId)?.image || '') : ''),
                         productId: item.productId || null,
                         brand: item.brand || '',

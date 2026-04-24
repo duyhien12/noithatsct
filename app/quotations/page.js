@@ -85,6 +85,7 @@ export default function QuotationsPage() {
                     <h3>Danh sách báo giá</h3>
                     <div style={{ display: 'flex', gap: 8 }}>
                         <button className="btn btn-secondary" onClick={() => router.push('/quotations/templates')}>📋 Mẫu báo giá</button>
+                        <button className="btn btn-secondary" onClick={() => router.push('/quotations/noi-that')} title="Nhập kiểu Excel cho Báo giá nội thất">🪑 BG Nội thất</button>
                         <button className="btn btn-primary" onClick={() => router.push('/quotations/create')}>+ Tạo báo giá mới</button>
                     </div>
                 </div>
