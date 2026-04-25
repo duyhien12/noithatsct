@@ -84,7 +84,7 @@ export default function WorkshopFinancePage() {
     const fetchExpenses = async () => {
         setLoadingExp(true);
         const [eRes, pRes, sRes, uRes] = await Promise.all([
-            fetch('/api/project-expenses?limit=1000&department=xuong').then(r => r.json()).then(d => d.data || []).catch(() => []),
+            fetch('/api/project-expenses?limit=1000&department=xuong&expenseType=X%C6%B0%E1%BB%9Fng').then(r => r.json()).then(d => d.data || []).catch(() => []),
             fetch('/api/projects?limit=500&type=Thi%20c%C3%B4ng%20n%E1%BB%99i%20th%E1%BA%A5t').then(r => r.json()).then(d => d.data || []).catch(() => []),
             fetch('/api/suppliers?limit=500').then(r => r.json()).then(d => d.data || []).catch(() => []),
             fetch('/api/users').then(r => r.json()).then(d => (d || []).filter(u => u.role === 'xuong')).catch(() => []),
@@ -152,13 +152,17 @@ export default function WorkshopFinancePage() {
         if (!form.amount || Number(form.amount) <= 0) return alert('Nhập số tiền!');
         setSaving(true);
         const recipientName = form.recipientType === 'NCC' ? (suppliers.find(s => s.id === form.recipientId)?.name || form.recipientName) : form.recipientName;
-        const payload = { ...form, amount: Number(form.amount), recipientName: recipientName || '', department: 'xuong', expenseType: 'Xưởng' };
-        if (editing) {
-            await fetch('/api/project-expenses', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editing.id, ...payload }) });
-        } else {
-            await fetch('/api/project-expenses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const payload = { ...form, amount: Number(form.amount), projectId: form.projectId || null, recipientName: recipientName || '', department: 'xuong', expenseType: 'Xưởng' };
+        const res = editing
+            ? await fetch('/api/project-expenses', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editing.id, ...payload }) })
+            : await fetch('/api/project-expenses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        setSaving(false);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            return alert('Lỗi: ' + (err.error || res.statusText));
         }
-        setSaving(false); setShowModal(false); fetchExpenses();
+        setShowModal(false);
+        await fetchExpenses();
     };
     const handleDelete = async (id) => { if (!confirm('Xóa lệnh chi này?')) return; await fetch(`/api/project-expenses?id=${id}`, { method: 'DELETE' }); fetchExpenses(); };
     const updateStatus = async (id, status, extra = {}) => { await fetch('/api/project-expenses', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status, ...extra }) }); fetchExpenses(); };
