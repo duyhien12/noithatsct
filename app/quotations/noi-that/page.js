@@ -9,7 +9,7 @@ const fmtN = (n) => n ? new Intl.NumberFormat('vi-VN').format(Math.round(n)) : '
 const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
 const toRoman = (i) => ROMAN[i] || `${i + 1}`;
 
-function calcKL(row) {
+function calcKLAuto(row) {
     const dvt = (row.dvt || '').toLowerCase().trim();
     const d = parseFloat(row.dai) || 0;
     const s = parseFloat(row.sau) || 0;
@@ -22,11 +22,18 @@ function calcKL(row) {
     if (d && (dvt === 'md' || dvt === 'mét' || dvt === 'm')) return Math.round(d * Math.max(sl, 1) * 100) / 100;
     return sl || 0;
 }
+function calcKL(row) {
+    if (row.khoiLuong !== '' && row.khoiLuong != null) {
+        const manual = parseFloat(row.khoiLuong);
+        if (!isNaN(manual)) return manual;
+    }
+    return calcKLAuto(row);
+}
 const calcTT = (row) => Math.round(calcKL(row) * (parseFloat(row.donGia) || 0));
 
 const emptyRow = () => ({
     _k: Math.random().toString(36).slice(2),
-    hangMuc: '', chatLieu: '', dai: '', sau: '', cao: '', slCai: '', dvt: 'm²', donGia: '',
+    hangMuc: '', chatLieu: '', dai: '', sau: '', cao: '', slCai: '', dvt: 'm²', khoiLuong: '', donGia: '',
     mergedWithPrev: false,
 });
 const emptyRoom = (name = '') => ({
@@ -48,8 +55,9 @@ const COLS = [
     { key: 'sau',      label: 'Sâu',         w: 56, num: true },
     { key: 'cao',      label: 'Cao',         w: 56, num: true },
     { key: 'slCai',    label: 'SL\nCÁI',    w: 50, num: true },
-    { key: 'dvt',      label: 'ĐVT',         w: 52, align: 'center' },
-    { key: 'donGia',   label: 'ĐƠN GIÁ',    w: 96, num: true },
+    { key: 'dvt',       label: 'ĐVT',          w: 52, align: 'center' },
+    { key: 'khoiLuong', label: 'KHỐI\nLƯỢNG', w: 72, num: true },
+    { key: 'donGia',    label: 'ĐƠN GIÁ',     w: 96, num: true },
 ];
 const COL_KEYS = COLS.map(c => c.key);
 const DRAFT_KEY = 'nt-quotation-draft';
@@ -662,7 +670,6 @@ export default function QuotationNoiThatPage() {
                                                     {col.label}
                                                 </th>
                                             ))}
-                                            <th style={{ ...TH, width: 68 }}>{'KHỐI\nLƯỢNG'}</th>
                                             <th style={{ ...TH, width: 106 }}>THÀNH TIỀN</th>
                                             <th style={{ ...TH, width: 26, background: '#0f2335' }}></th>
                                         </tr>
@@ -684,7 +691,6 @@ export default function QuotationNoiThatPage() {
                                                     const row = rm.rows[rIdx];
                                                     const isFirst = ri === 0;
                                                     const span = group.length;
-                                                    const kl = calcKL(row);
                                                     const tt = calcTT(row);
                                                     const evenBg = gi % 2 === 1 ? '#f9fafb' : '#fff';
                                                     const autoBg = evenBg === '#fff' ? '#eef2f7' : '#e8ecf2';
@@ -730,6 +736,17 @@ export default function QuotationNoiThatPage() {
                                                                                 placeholder="Mô tả chất liệu..."
                                                                                 tabIndex={0}
                                                                             />
+                                                                        ) : col.key === 'khoiLuong' ? (
+                                                                            <input
+                                                                                ref={el => { cellRefs.current[refKey] = el; }}
+                                                                                style={{ ...INPUT_S, textAlign: 'right' }}
+                                                                                value={row.khoiLuong || ''}
+                                                                                onChange={e => updateRow(sIdx, rmIdx, rIdx, 'khoiLuong', e.target.value)}
+                                                                                onKeyDown={e => handleKeyDown(e, sIdx, rmIdx, rIdx, cIdx)}
+                                                                                onPaste={e => handlePaste(e, sIdx, rmIdx, rIdx, cIdx)}
+                                                                                placeholder={calcKLAuto(row) || ''}
+                                                                                tabIndex={0}
+                                                                            />
                                                                         ) : (
                                                                             <input
                                                                                 ref={el => { cellRefs.current[refKey] = el; }}
@@ -745,10 +762,6 @@ export default function QuotationNoiThatPage() {
                                                                     </td>
                                                                 );
                                                             })}
-                                                            {/* KL auto */}
-                                                            <td style={{ ...AUTO_TD, background: autoBg, color: kl ? '#1e3a5f' : '#ccc' }}>
-                                                                {kl || ''}
-                                                            </td>
                                                             {/* THÀNH TIỀN */}
                                                             <td style={{ ...AUTO_TD, background: autoBg, color: tt ? '#1e3a5f' : '#ccc' }}>
                                                                 {tt ? fmtN(tt) : ''}
