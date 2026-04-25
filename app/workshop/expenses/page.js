@@ -302,6 +302,61 @@ export default function WorkshopFinancePage() {
         w.document.close();
     };
 
+    const printManualReceipt = (inc) => {
+        const today = new Date().toLocaleDateString('vi-VN');
+        const w = window.open('', '_blank', 'width=820,height=900');
+        w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Phiếu thu - ${inc.code}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Times New Roman',serif;font-size:14px}
+.page{max-width:780px;margin:0 auto;padding:24px 32px}
+.header{border-bottom:4px solid #ea580c;padding-bottom:14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.co-name{font-size:15px;font-weight:900;color:#1C3A6B;text-transform:uppercase}
+.co-info{font-size:9px;color:#555;line-height:1.8;text-align:right}
+.title{text-align:center;margin:16px 0;font-size:24px;font-weight:900;text-transform:uppercase;letter-spacing:4px;color:#1C3A6B}
+.code-badge{text-align:center;margin-bottom:10px;font-size:13px;color:#555}
+.info{border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;margin:14px 0}
+.row{display:flex;padding:7px 12px;border-bottom:1px solid #f0f0f0;font-size:13px}
+.row:last-child{border-bottom:none}.row:nth-child(even){background:#fafafa}
+.lbl{width:160px;color:#666;font-size:12px;flex-shrink:0}.val{flex:1;font-weight:700;color:#1C3A6B}
+.amount-box{margin:18px 0;padding:20px;border:2px solid #ea580c;text-align:center;background:#fff7ed;border-radius:8px}
+.amount-box .lbl{font-size:11px;color:#ea580c;text-transform:uppercase;letter-spacing:3px;margin-bottom:6px;font-weight:700;width:auto}
+.amount-box .val{font-size:28px;font-weight:900;color:#1C3A6B;width:auto}
+.signs{display:flex;justify-content:space-between;margin-top:40px}
+.sign{width:45%;text-align:center;border:1px dashed #ddd;border-radius:6px;padding:10px}
+.sign .role{font-weight:700;font-size:13px;margin-bottom:55px;color:#1C3A6B}
+.sign .hint{font-size:10px;font-style:italic;color:#999}
+.footer{border-top:2px solid #ea580c;margin-top:16px;padding-top:10px;text-align:center;font-size:9px;color:#888}
+.no-print{position:fixed;top:12px;right:12px}.no-print button{padding:10px 24px;background:#ea580c;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer}
+@media print{.no-print{display:none!important}}
+</style></head><body>
+<div class="no-print"><button onclick="window.print()">🖨️ In phiếu thu</button></div>
+<div class="page">
+  <div class="header">
+    <div><div class="co-name">Kiến Trúc Đô Thị SCT — Xưởng Nội Thất</div><div style="font-size:9px;color:#555;margin-top:4px">📞 0914 998 822 | kientrucsct.com</div></div>
+    <div class="co-info"><div><b>Ngày in:</b> ${today}</div><div><b>Số phiếu:</b> ${inc.code}</div></div>
+  </div>
+  <div class="title">Phiếu Thu Tiền</div>
+  <div class="info">
+    <div class="row"><span class="lbl">Mã phiếu</span><span class="val">${inc.code}</span></div>
+    <div class="row"><span class="lbl">Nội dung</span><span class="val">${inc.description || '—'}</span></div>
+    <div class="row"><span class="lbl">Hạng mục</span><span class="val">${inc.category || '—'}</span></div>
+    <div class="row"><span class="lbl">Ngày</span><span class="val">${new Date(inc.date).toLocaleDateString('vi-VN')}</span></div>
+    <div class="row"><span class="lbl">Trạng thái</span><span class="val">${inc.status}</span></div>
+    <div class="row"><span class="lbl">Người duyệt</span><span class="val">${inc.approvedBy || '—'}</span></div>
+    ${inc.notes ? `<div class="row"><span class="lbl">Ghi chú</span><span class="val">${inc.notes}</span></div>` : ''}
+  </div>
+  <div class="amount-box">
+    <div class="lbl">Số tiền thu</div>
+    <div class="val">${fmt(inc.amount)}</div>
+  </div>
+  <div class="signs">
+    <div class="sign"><div class="role">Người nộp tiền</div><div class="hint">(Ký, ghi rõ họ tên)</div></div>
+    <div class="sign"><div class="role">Người thu tiền</div><div class="hint">(Ký, ghi rõ họ tên)</div></div>
+  </div>
+  <div class="footer">Kiến Trúc Đô Thị SCT · Xưởng Nội Thất · kientrucsct.com · 0914 998 822</div>
+</div></body></html>`);
+        w.document.close();
+    };
+
     /* ══════════════════════════════
        LƯƠNG & TĂNG CA logic
     ══════════════════════════════ */
@@ -747,6 +802,9 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                                                                         ✅ Đã thu
                                                                     </button>
                                                                 )}
+                                                                <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => printManualReceipt(inc)} title="In phiếu thu">
+                                                                    🖨️
+                                                                </button>
                                                                 <button className="btn btn-ghost btn-sm" style={{ fontSize: 12, color: 'var(--status-danger)' }}
                                                                     onClick={() => { if (confirm('Xóa lệnh thu này?')) fetch(`/api/project-expenses?id=${inc.id}`, { method: 'DELETE' }).then(fetchPayments); }}>
                                                                     🗑️
