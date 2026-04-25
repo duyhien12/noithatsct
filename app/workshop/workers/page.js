@@ -51,7 +51,19 @@ export default function WorkersPage() {
     const [showSummary, setShowSummary] = useState(false);
     const [summaryMonth, setSummaryMonth] = useState(() => new Date().toISOString().slice(0, 7));
     const [summaryAttendance, setSummaryAttendance] = useState([]);
+    const [summaryOvertimes, setSummaryOvertimes] = useState([]);
     const [loadingSummary, setLoadingSummary] = useState(false);
+
+    // ── Tăng ca ──────────────────────────────────────────────────────────────
+    const [overtimes, setOvertimes] = useState([]);
+    const [overtimeTarget, setOvertimeTarget] = useState(null);
+    const [overtimeEditId, setOvertimeEditId] = useState(null);
+    const [overtimeForm, setOvertimeForm] = useState({ hours: 2, rateMultiplier: 1.5, reason: '', notes: '' });
+    const [savingOT, setSavingOT] = useState(false);
+    const [showOvertimeList, setShowOvertimeList] = useState(false);
+    const [overtimeMonth, setOvertimeMonth] = useState(() => new Date().toISOString().slice(0, 7));
+    const [monthlyOvertimes, setMonthlyOvertimes] = useState([]);
+    const [loadingOT, setLoadingOT] = useState(false);
 
     useEffect(() => {
         fetch('/api/users').then(r => r.json()).then(d => setUserList(Array.isArray(d) ? d : []));
@@ -86,19 +98,41 @@ export default function WorkersPage() {
 
     const fetchMonthlySummary = async (month) => {
         setLoadingSummary(true);
-        const res = await fetch(`/api/workshop/attendance?month=${month}`);
-        const data = await res.json();
-        setSummaryAttendance(Array.isArray(data) ? data : []);
+        const [attRes, otRes] = await Promise.all([
+            fetch(`/api/workshop/attendance?month=${month}`),
+            fetch(`/api/workshop/overtimes?month=${month}`),
+        ]);
+        const [attData, otData] = await Promise.all([attRes.json(), otRes.json()]);
+        setSummaryAttendance(Array.isArray(attData) ? attData : []);
+        setSummaryOvertimes(Array.isArray(otData) ? otData : []);
         setLoadingSummary(false);
+    };
+
+    const fetchOvertimes = async (date) => {
+        const res = await fetch(`/api/workshop/overtimes?date=${date}`);
+        const data = await res.json();
+        setOvertimes(Array.isArray(data) ? data : []);
+    };
+
+    const fetchMonthlyOvertimes = async (month) => {
+        setLoadingOT(true);
+        const res = await fetch(`/api/workshop/overtimes?month=${month}`);
+        const data = await res.json();
+        setMonthlyOvertimes(Array.isArray(data) ? data : []);
+        setLoadingOT(false);
     };
 
     useEffect(() => {
         if (showSummary) fetchMonthlySummary(summaryMonth);
     }, [summaryMonth, showSummary]);
 
+    useEffect(() => {
+        if (showOvertimeList) fetchMonthlyOvertimes(overtimeMonth);
+    }, [overtimeMonth, showOvertimeList]);
+
     const fetchAll = async () => {
         setLoading(true);
-        await Promise.all([fetchWorkers(), fetchAttendance(selectedDate)]);
+        await Promise.all([fetchWorkers(), fetchAttendance(selectedDate), fetchOvertimes(selectedDate)]);
         setLoading(false);
     };
 
@@ -110,9 +144,10 @@ export default function WorkersPage() {
         fetchAll();
     }, [role]);
 
-    // Khi đổi ngày → refetch chấm công
+    // Khi đổi ngày → refetch chấm công + tăng ca
     useEffect(() => {
         fetchAttendance(selectedDate);
+        fetchOvertimes(selectedDate);
     }, [selectedDate]);
 
     const onNameChange = (val) => {
@@ -256,6 +291,50 @@ export default function WorkersPage() {
         } finally { setSavingCurrentWork(false); }
     };
 
+    // ── Tăng ca ──────────────────────────────────────────────────────────────
+    const openOvertime = (w) => {
+        setOvertimeTarget(w);
+        setOvertimeEditId(null);
+        setOvertimeForm({ hours: 2, rateMultiplier: 1.5, reason: '', notes: '' });
+    };
+
+    const openOvertimeEdit = (ot) => {
+        const w = workers.find(x => x.id === ot.workerId) || { id: ot.workerId, name: ot.worker?.name || '', hourlyRate: ot.worker?.hourlyRate || 0 };
+        setOvertimeTarget(w);
+        setOvertimeEditId(ot.id);
+        setOvertimeForm({ hours: ot.hours, rateMultiplier: ot.rateMultiplier, reason: ot.reason || '', notes: ot.notes || '' });
+    };
+
+    const handleSaveOvertime = async () => {
+        setSavingOT(true);
+        try {
+            if (overtimeEditId) {
+                await fetch(`/api/workshop/overtimes/${overtimeEditId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(overtimeForm),
+                });
+            } else {
+                await fetch('/api/workshop/overtimes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ workerId: overtimeTarget.id, date: selectedDate, ...overtimeForm }),
+                });
+            }
+            setOvertimeTarget(null);
+            setOvertimeEditId(null);
+            fetchOvertimes(selectedDate);
+            if (showOvertimeList) fetchMonthlyOvertimes(overtimeMonth);
+        } finally { setSavingOT(false); }
+    };
+
+    const handleDeleteOT = async (id) => {
+        if (!confirm('Xóa bản ghi tăng ca này?')) return;
+        await fetch(`/api/workshop/overtimes/${id}`, { method: 'DELETE' });
+        fetchOvertimes(selectedDate);
+        if (showOvertimeList) fetchMonthlyOvertimes(overtimeMonth);
+    };
+
     const isToday = selectedDate === todayStr();
     const filtered = workers.filter(w =>
         !search || w.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -392,22 +471,34 @@ export default function WorkersPage() {
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    {rec ? (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                            <span style={{ padding: '2px 10px', borderRadius: 20, background: '#dcfce7', color: '#15803d', fontSize: 12, fontWeight: 700 }}>
-                                                                ✓ {rec.hoursWorked}h
-                                                            </span>
-                                                            {(rec.worker?.hourlyRate || w.hourlyRate) > 0 && (
-                                                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                                                                    {new Intl.NumberFormat('vi-VN').format((rec.hoursWorked / 8) * (rec.worker?.hourlyRate || w.hourlyRate))}đ
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                                        {rec ? (
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                                <span style={{ padding: '2px 10px', borderRadius: 20, background: '#dcfce7', color: '#15803d', fontSize: 12, fontWeight: 700 }}>
+                                                                    ✓ {rec.hoursWorked}h
                                                                 </span>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        w.status === 'Hoạt động'
-                                                            ? <span style={{ color: '#dc2626', fontSize: 12 }}>Chưa chấm</span>
-                                                            : <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
-                                                    )}
+                                                                {(rec.worker?.hourlyRate || w.hourlyRate) > 0 && (
+                                                                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                                                        {new Intl.NumberFormat('vi-VN').format((rec.hoursWorked / 8) * (rec.worker?.hourlyRate || w.hourlyRate))}đ
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            w.status === 'Hoạt động'
+                                                                ? <span style={{ color: '#dc2626', fontSize: 12 }}>Chưa chấm</span>
+                                                                : <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
+                                                        )}
+                                                        {(() => {
+                                                            const wOTs = overtimes.filter(o => o.workerId === w.id);
+                                                            if (!wOTs.length) return null;
+                                                            const totalH = wOTs.reduce((s, o) => s + o.hours, 0);
+                                                            return (
+                                                                <span style={{ padding: '2px 8px', borderRadius: 20, background: '#fef3c7', color: '#d97706', fontSize: 11, fontWeight: 700, width: 'fit-content' }}>
+                                                                    ⏰ +{totalH}h OT
+                                                                </span>
+                                                            );
+                                                        })()}
+                                                    </div>
                                                 </td>
                                                 <td>
                                                     <span style={{ padding: '3px 9px', borderRadius: 20, background: STATUS_BG[w.status] || '#f3f4f6', color: STATUS_COLOR[w.status] || '#6b7280', fontSize: 12, fontWeight: 600 }}>
@@ -419,6 +510,11 @@ export default function WorkersPage() {
                                                         {w.status === 'Hoạt động' && (
                                                             <button className="btn btn-sm" style={{ background: rec ? '#dcfce7' : '#dbeafe', color: rec ? '#15803d' : '#1d4ed8', border: 'none', fontWeight: 600 }} onClick={() => openAttend(w)}>
                                                                 {rec ? '✓ Sửa' : '+ Chấm'}
+                                                            </button>
+                                                        )}
+                                                        {w.status === 'Hoạt động' && (
+                                                            <button className="btn btn-sm" style={{ background: '#fef3c7', color: '#d97706', border: 'none', fontWeight: 600 }} onClick={() => openOvertime(w)} title="Ghi tăng ca">
+                                                                ⏰ OT
                                                             </button>
                                                         )}
                                                         <button className="btn btn-ghost btn-sm" onClick={() => openEdit(w)}>✏️</button>
@@ -476,14 +572,21 @@ export default function WorkersPage() {
                 )}
             </div>
 
-            {/* Nút toggle bảng tổng hợp */}
-            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            {/* Nút toggle */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
                     className={`btn btn-sm ${showSummary ? 'btn-primary' : 'btn-ghost'}`}
                     style={{ fontWeight: 600 }}
                     onClick={() => setShowSummary(v => !v)}
                 >
                     📊 {showSummary ? 'Ẩn' : 'Xem'} bảng tổng hợp tháng
+                </button>
+                <button
+                    className={`btn btn-sm ${showOvertimeList ? 'btn-primary' : 'btn-ghost'}`}
+                    style={{ fontWeight: 600, ...(showOvertimeList ? { background: '#f59e0b', borderColor: '#f59e0b' } : {}) }}
+                    onClick={() => setShowOvertimeList(v => !v)}
+                >
+                    ⏰ {showOvertimeList ? 'Ẩn' : 'Xem'} danh sách tăng ca
                 </button>
             </div>
 
@@ -499,6 +602,14 @@ export default function WorkersPage() {
                     if (!byWorkerDay[a.workerId]) byWorkerDay[a.workerId] = {};
                     const day = new Date(a.date).getUTCDate();
                     byWorkerDay[a.workerId][day] = a.hoursWorked;
+                });
+
+                // overtime lookup: {workerId: {day: totalOTHours}}
+                const byWorkerDayOT = {};
+                summaryOvertimes.forEach(o => {
+                    if (!byWorkerDayOT[o.workerId]) byWorkerDayOT[o.workerId] = {};
+                    const day = new Date(o.date).getUTCDate();
+                    byWorkerDayOT[o.workerId][day] = (byWorkerDayOT[o.workerId][day] || 0) + o.hours;
                 });
 
                 // Only show workers who have any attendance OR are active
@@ -536,6 +647,13 @@ export default function WorkersPage() {
                     return { totalH, totalCong, cost };
                 };
 
+                const workerOTTotal = (w) => {
+                    const wOTs = summaryOvertimes.filter(o => o.workerId === w.id);
+                    const totalH = wOTs.reduce((s, o) => s + o.hours, 0);
+                    const cost = wOTs.reduce((s, o) => s + o.totalPay, 0);
+                    return { totalH, cost };
+                };
+
                 // total per day (all workers)
                 const dayTotal = (day) => {
                     let total = 0;
@@ -546,10 +664,17 @@ export default function WorkersPage() {
                     return total;
                 };
 
+                const dayOTTotal = (day) => summaryWorkers.reduce((s, w) => s + (byWorkerDayOT[w.id]?.[day] || 0), 0);
+
                 const grandTotal = summaryWorkers.reduce((s, w) => {
                     const { totalCong, totalH, cost } = workerTotal(w);
                     return { cong: s.cong + totalCong, hours: s.hours + totalH, cost: s.cost + cost };
                 }, { cong: 0, hours: 0, cost: 0 });
+
+                const grandOTTotal = summaryWorkers.reduce((s, w) => {
+                    const { totalH, cost } = workerOTTotal(w);
+                    return { hours: s.hours + totalH, cost: s.cost + cost };
+                }, { hours: 0, cost: 0 });
 
                 const prevMonth = () => {
                     const d = new Date(y, m - 2, 1);
@@ -604,7 +729,10 @@ export default function WorkersPage() {
                                             ))}
                                             <th style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '2px solid var(--border)', borderLeft: '2px solid var(--border)', whiteSpace: 'nowrap', color: '#16a34a', background: 'var(--bg-secondary)' }}>Tổng công</th>
                                             <th style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap', color: '#2563eb', background: 'var(--bg-secondary)' }}>Giờ làm</th>
+                                            <th style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap', color: '#d97706', background: 'var(--bg-secondary)' }}>Giờ OT</th>
                                             <th style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap', color: '#8b5cf6', background: 'var(--bg-secondary)' }}>Thành tiền</th>
+                                            <th style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap', color: '#ea580c', background: 'var(--bg-secondary)' }}>Tiền OT</th>
+                                            <th style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap', color: '#0f172a', fontWeight: 800, background: '#f0fdf4' }}>Tổng nhận</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -623,15 +751,18 @@ export default function WorkersPage() {
                                                     </td>
                                                     {days.map(d => {
                                                         const h = byWorkerDay[w.id]?.[d];
+                                                        const otH = byWorkerDayOT[w.id]?.[d];
                                                         return (
                                                             <td key={d} style={{
-                                                                padding: '4px 2px', textAlign: 'center',
+                                                                padding: '3px 2px', textAlign: 'center',
                                                                 background: h ? cellBg(h) : (isWeekend(d) ? '#fff5f5' : 'transparent'),
                                                                 fontWeight: h ? 700 : 400,
                                                                 color: h ? cellColor(h) : '#d1d5db',
                                                                 borderRight: '1px solid var(--border-light)',
+                                                                lineHeight: 1.2,
                                                             }}>
                                                                 {h ? fmtCong(h) : '—'}
+                                                                {otH ? <div style={{ fontSize: 9, color: '#d97706', fontWeight: 700 }}>+{otH}h</div> : null}
                                                             </td>
                                                         );
                                                     })}
@@ -641,9 +772,22 @@ export default function WorkersPage() {
                                                     <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 600, color: '#2563eb', whiteSpace: 'nowrap' }}>
                                                         {totalH > 0 ? `${totalH}h` : '—'}
                                                     </td>
-                                                    <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700, color: '#8b5cf6', whiteSpace: 'nowrap' }}>
-                                                        {cost > 0 ? `${new Intl.NumberFormat('vi-VN').format(Math.round(cost / 1000))}k` : '—'}
-                                                    </td>
+                                                    {(() => { const ot = workerOTTotal(w); return (
+                                                        <>
+                                                        <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700, color: '#d97706', whiteSpace: 'nowrap' }}>
+                                                            {ot.totalH > 0 ? `${ot.totalH}h` : '—'}
+                                                        </td>
+                                                        <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700, color: '#8b5cf6', whiteSpace: 'nowrap' }}>
+                                                            {cost > 0 ? `${new Intl.NumberFormat('vi-VN').format(Math.round(cost / 1000))}k` : '—'}
+                                                        </td>
+                                                        <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700, color: '#ea580c', whiteSpace: 'nowrap' }}>
+                                                            {ot.cost > 0 ? `${new Intl.NumberFormat('vi-VN').format(Math.round(ot.cost / 1000))}k` : '—'}
+                                                        </td>
+                                                        <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 800, color: '#15803d', whiteSpace: 'nowrap', background: '#f0fdf4' }}>
+                                                            {(cost + ot.cost) > 0 ? `${new Intl.NumberFormat('vi-VN').format(Math.round((cost + ot.cost) / 1000))}k` : '—'}
+                                                        </td>
+                                                        </>
+                                                    ); })()}
                                                 </tr>
                                             );
                                         })}
@@ -657,15 +801,18 @@ export default function WorkersPage() {
                                             }}>Tổng / ngày</td>
                                             {days.map(d => {
                                                 const total = dayTotal(d);
+                                                const otTotal = dayOTTotal(d);
                                                 return (
                                                     <td key={d} style={{
-                                                        padding: '6px 2px', textAlign: 'center', fontSize: 11,
+                                                        padding: '5px 2px', textAlign: 'center', fontSize: 11,
                                                         fontWeight: total > 0 ? 700 : 400,
                                                         color: total > 0 ? '#1d4ed8' : '#d1d5db',
                                                         background: isWeekend(d) ? '#e9f0ff' : '#f1f5f9',
                                                         borderRight: '1px solid var(--border-light)',
+                                                        lineHeight: 1.2,
                                                     }}>
                                                         {total > 0 ? (total % 1 === 0 ? total : total.toFixed(1)) : '—'}
+                                                        {otTotal > 0 ? <div style={{ fontSize: 9, color: '#d97706', fontWeight: 700 }}>+{otTotal}h</div> : null}
                                                     </td>
                                                 );
                                             })}
@@ -675,8 +822,17 @@ export default function WorkersPage() {
                                             <td style={{ padding: '8px 10px', textAlign: 'right', color: '#2563eb', whiteSpace: 'nowrap', fontSize: 13 }}>
                                                 {grandTotal.hours > 0 ? `${grandTotal.hours}h` : '—'}
                                             </td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'right', color: '#d97706', whiteSpace: 'nowrap', fontSize: 13, fontWeight: 700 }}>
+                                                {grandOTTotal.hours > 0 ? `${grandOTTotal.hours}h` : '—'}
+                                            </td>
                                             <td style={{ padding: '8px 10px', textAlign: 'right', color: '#8b5cf6', whiteSpace: 'nowrap', fontSize: 13 }}>
                                                 {grandTotal.cost > 0 ? `${new Intl.NumberFormat('vi-VN').format(Math.round(grandTotal.cost / 1000))}k` : '—'}
+                                            </td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'right', color: '#ea580c', whiteSpace: 'nowrap', fontSize: 13, fontWeight: 700 }}>
+                                                {grandOTTotal.cost > 0 ? `${new Intl.NumberFormat('vi-VN').format(Math.round(grandOTTotal.cost / 1000))}k` : '—'}
+                                            </td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'right', color: '#15803d', whiteSpace: 'nowrap', fontSize: 13, fontWeight: 800, background: '#f0fdf4' }}>
+                                                {(grandTotal.cost + grandOTTotal.cost) > 0 ? `${new Intl.NumberFormat('vi-VN').format(Math.round((grandTotal.cost + grandOTTotal.cost) / 1000))}k` : '—'}
                                             </td>
                                         </tr>
                                     </tfoot>
@@ -696,6 +852,74 @@ export default function WorkersPage() {
                             <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 3, background: '#fee2e2', marginRight: 4, verticalAlign: 'middle' }}></span>Dưới nửa công</span>
                             <span style={{ color: '#dc2626', fontWeight: 600 }}>Đỏ = Cuối tuần</span>
                         </div>
+                    </div>
+                );
+            })()}
+
+            {/* Danh sách tăng ca */}
+            {showOvertimeList && (() => {
+                const [oy, om] = overtimeMonth.split('-').map(Number);
+                const prevOTMonth = () => { const d = new Date(oy, om - 2, 1); setOvertimeMonth(d.toISOString().slice(0, 7)); };
+                const nextOTMonth = () => { const d = new Date(oy, om, 1); setOvertimeMonth(d.toISOString().slice(0, 7)); };
+                const totalOTPay = monthlyOvertimes.reduce((s, o) => s + o.totalPay, 0);
+                return (
+                    <div className="card">
+                        <div className="card-header" style={{ flexWrap: 'wrap', gap: 8 }}>
+                            <h3 style={{ margin: 0 }}>⏰ Danh sách tăng ca</h3>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <button className="btn btn-ghost btn-sm" onClick={prevOTMonth}>◀</button>
+                                <input type="month" value={overtimeMonth} onChange={e => setOvertimeMonth(e.target.value)}
+                                    style={{ padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 600 }} />
+                                <button className="btn btn-ghost btn-sm" onClick={nextOTMonth}>▶</button>
+                            </div>
+                        </div>
+
+                        {loadingOT ? (
+                            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
+                        ) : monthlyOvertimes.length === 0 ? (
+                            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Không có tăng ca trong tháng này</div>
+                        ) : (
+                            <>
+                            <div className="table-container">
+                                <table className="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Nhân công</th>
+                                            <th>Ngày</th>
+                                            <th>Giờ OT</th>
+                                            <th>Hệ số</th>
+                                            <th>Thành tiền</th>
+                                            <th>Lý do</th>
+                                            <th style={{ textAlign: 'right' }}>Thao tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {monthlyOvertimes.map(ot => (
+                                            <tr key={ot.id}>
+                                                <td style={{ fontWeight: 600, fontSize: 13 }}>{ot.worker?.name || '—'}</td>
+                                                <td style={{ fontSize: 12 }}>{new Date(ot.date).toLocaleDateString('vi-VN')}</td>
+                                                <td style={{ fontWeight: 700, color: '#d97706' }}>{ot.hours}h</td>
+                                                <td style={{ fontSize: 12 }}>×{ot.rateMultiplier}</td>
+                                                <td style={{ fontWeight: 700, color: '#8b5cf6' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(ot.totalPay))}đ</td>
+                                                <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{ot.reason || '—'}</td>
+                                                <td>
+                                                    <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                                                        <button className="btn btn-ghost btn-sm" onClick={() => openOvertimeEdit(ot)}>✏️</button>
+                                                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--status-danger)' }} onClick={() => handleDeleteOT(ot.id)}>🗑️</button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border-light)', display: 'flex', gap: 20, fontSize: 13, flexWrap: 'wrap' }}>
+                                <span>Tổng: <strong>{monthlyOvertimes.length}</strong> bản ghi</span>
+                                <span style={{ color: '#d97706' }}>Tổng giờ OT: <strong>{monthlyOvertimes.reduce((s, o) => s + o.hours, 0)}h</strong></span>
+                                <span style={{ color: '#8b5cf6' }}>Tổng tiền OT: <strong>{new Intl.NumberFormat('vi-VN').format(Math.round(totalOTPay / 1000))}k</strong></span>
+                            </div>
+                            </>
+                        )}
                     </div>
                 );
             })()}
@@ -857,6 +1081,75 @@ export default function WorkersPage() {
                             <button className="btn btn-ghost" onClick={() => setAttendTarget(null)}>Hủy</button>
                             <button className={`btn ${attendForm.hoursWorked === 0 ? 'btn-danger' : 'btn-primary'}`} onClick={handleAttend}>
                                 {attendForm.hoursWorked === 0 ? '🗑️ Xóa chấm công' : '✅ Xác nhận chấm công'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal tăng ca */}
+            {overtimeTarget && (
+                <div className="modal-overlay" onClick={() => setOvertimeTarget(null)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+                        <div className="modal-header">
+                            <h3>⏰ {overtimeEditId ? 'Sửa tăng ca' : 'Tăng ca'} — {overtimeTarget.name}</h3>
+                            <button className="modal-close" onClick={() => { setOvertimeTarget(null); setOvertimeEditId(null); }}>×</button>
+                        </div>
+                        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            <div style={{ padding: '8px 12px', borderRadius: 8, background: '#eff6ff', fontSize: 13, fontWeight: 600, color: '#1d4ed8' }}>
+                                📅 {fmtDateVN(selectedDate)}
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Số giờ tăng ca</label>
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                                    {[1, 2, 3, 4, 5].map(h => (
+                                        <button key={h} type="button" onClick={() => setOvertimeForm(f => ({ ...f, hours: h }))}
+                                            style={{ padding: '6px 16px', borderRadius: 8, border: '2px solid', cursor: 'pointer', fontWeight: 600,
+                                                borderColor: overtimeForm.hours === h ? '#f59e0b' : 'var(--border)',
+                                                background: overtimeForm.hours === h ? '#f59e0b' : 'transparent',
+                                                color: overtimeForm.hours === h ? '#fff' : 'inherit' }}>
+                                            {h}h
+                                        </button>
+                                    ))}
+                                    <input type="number" min={0.5} max={12} step={0.5} value={overtimeForm.hours}
+                                        onChange={e => setOvertimeForm(f => ({ ...f, hours: Number(e.target.value) }))}
+                                        style={{ width: 70, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13 }} />
+                                </div>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Hệ số tăng ca</label>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    {[{ v: 1.5, label: '×1.5 Thường' }, { v: 2, label: '×2 Ngày lễ' }, { v: 3, label: '×3 Tết' }].map(({ v, label }) => (
+                                        <button key={v} type="button" onClick={() => setOvertimeForm(f => ({ ...f, rateMultiplier: v }))}
+                                            style={{ flex: 1, padding: '7px 0', borderRadius: 8, border: `2px solid ${overtimeForm.rateMultiplier === v ? '#f59e0b' : 'var(--border)'}`, background: overtimeForm.rateMultiplier === v ? '#fef3c7' : 'var(--bg-card)', color: overtimeForm.rateMultiplier === v ? '#92400e' : 'var(--text-muted)', fontWeight: overtimeForm.rateMultiplier === v ? 700 : 400, fontSize: 12, cursor: 'pointer' }}>
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            {overtimeTarget.hourlyRate > 0 && overtimeForm.hours > 0 && (
+                                <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fef9c3', border: '1px solid #fde68a' }}>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#92400e' }}>
+                                        💰 {new Intl.NumberFormat('vi-VN').format(Math.round(overtimeForm.hours * (overtimeTarget.hourlyRate / 8) * overtimeForm.rateMultiplier))}đ
+                                    </div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>
+                                        {overtimeForm.hours}h × {new Intl.NumberFormat('vi-VN').format(Math.round(overtimeTarget.hourlyRate / 8))}đ/h × {overtimeForm.rateMultiplier}
+                                    </div>
+                                </div>
+                            )}
+                            <div className="form-group">
+                                <label className="form-label">Lý do tăng ca</label>
+                                <input className="form-input" value={overtimeForm.reason} onChange={e => setOvertimeForm(f => ({ ...f, reason: e.target.value }))} placeholder="VD: Rush deadline, giao hàng gấp..." />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Ghi chú</label>
+                                <input className="form-input" value={overtimeForm.notes} onChange={e => setOvertimeForm(f => ({ ...f, notes: e.target.value }))} />
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => { setOvertimeTarget(null); setOvertimeEditId(null); }}>Hủy</button>
+                            <button className="btn btn-primary" style={{ background: '#f59e0b', borderColor: '#f59e0b' }} onClick={handleSaveOvertime} disabled={savingOT || !overtimeForm.hours}>
+                                {savingOT ? 'Đang lưu...' : overtimeEditId ? '💾 Cập nhật' : '⏰ Ghi tăng ca'}
                             </button>
                         </div>
                     </div>

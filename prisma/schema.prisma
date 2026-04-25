@@ -1042,6 +1042,7 @@ model WorkshopWorker {
   updatedAt   DateTime @updatedAt
   tasks       WorkshopTaskWorker[]
   attendances WorkshopAttendance[]
+  overtimes   WorkerOvertime[]
 }
 
 model WorkshopTask {
@@ -1135,6 +1136,27 @@ model WorkshopAttendance {
   createdAt   DateTime       @default(now())
   @@index([workerId])
   @@unique([workerId, date])
+}
+
+model WorkerOvertime {
+  id             String         @id @default(cuid())
+  workerId       String
+  worker         WorkshopWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  date           DateTime
+  hours          Float          @default(0)
+  rateMultiplier Float          @default(1.5)
+  totalPay       Float          @default(0)
+  reason         String         @default("")
+  status         String         @default("Chờ duyệt")
+  approvedBy     String         @default("")
+  approvedAt     DateTime?
+  createdBy      String         @default("")
+  notes          String         @default("")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  @@index([workerId])
+  @@index([date])
+  @@index([status])
 }
 
 // ============ TÁC VỤ NỘI BỘ ============
