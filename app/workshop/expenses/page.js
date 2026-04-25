@@ -36,6 +36,8 @@ const THU_STATUS_STYLE = {
 export default function WorkshopFinancePage() {
     const { data: session } = useSession();
     const userName = session?.user?.name || '';
+    const userRole = session?.user?.role || '';
+    const canApprove = ['giam_doc', 'pho_gd', 'ban_gd', 'ke_toan', 'hanh_chinh_kt'].includes(userRole);
 
     /* ── Main tab ── */
     const [mainTab, setMainTab] = useState('chi_phi');
@@ -727,13 +729,14 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                                                         </td>
                                                         <td>
                                                             <div style={{ display: 'flex', gap: 4 }}>
-                                                                {inc.status === 'Chờ duyệt' && (
-                                                                    <button className="btn btn-sm" style={{ background: '#16a34a', color: '#fff', fontSize: 11, padding: '4px 8px' }}
+                                                                {inc.status === 'Chờ duyệt' && (canApprove
+                                                                    ? <button className="btn btn-sm" style={{ background: '#16a34a', color: '#fff', fontSize: 11, padding: '4px 8px' }}
                                                                         onClick={() => fetch('/api/project-expenses', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: inc.id, status: 'Đã duyệt', approvedBy: userName }) }).then(fetchPayments)}>
                                                                         ✓ Duyệt
-                                                                    </button>
+                                                                      </button>
+                                                                    : <span style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>Chờ duyệt</span>
                                                                 )}
-                                                                {inc.status === 'Đã duyệt' && (
+                                                                {inc.status === 'Đã duyệt' && canApprove && (
                                                                     <button className="btn btn-sm btn-primary" style={{ fontSize: 11, padding: '4px 8px' }}
                                                                         onClick={() => fetch('/api/project-expenses', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: inc.id, status: 'Đã chi' }) }).then(fetchPayments)}>
                                                                         ✅ Đã thu
@@ -1015,10 +1018,10 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                                                     </td>
                                                     <td>
                                                         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-                                                            {e.status === 'Chờ duyệt' && (<>
+                                                            {e.status === 'Chờ duyệt' && (canApprove ? (<>
                                                                 <button className="btn btn-sm" style={{ background: '#16a34a', color: '#fff', fontSize: 11, padding: '4px 8px' }} onClick={() => updateStatus(e.id, 'Đã duyệt', { approvedBy: userName })}>✓ Duyệt</button>
                                                                 <button className="btn btn-sm" style={{ background: '#ef4444', color: '#fff', fontSize: 11, padding: '4px 8px' }} onClick={() => updateStatus(e.id, 'Từ chối')}>✗</button>
-                                                            </>)}
+                                                            </>) : <span style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>Chờ duyệt</span>)}
                                                             {e.status === 'Đã duyệt' && <button className="btn btn-sm btn-primary" style={{ fontSize: 11, padding: '4px 8px' }} onClick={() => openProofModal(e)}>💸 Chi</button>}
                                                             {e.status === 'Đã chi' && <button className="btn btn-sm" style={{ background: '#10b981', color: '#fff', fontSize: 11, padding: '4px 8px' }} onClick={() => updateStatus(e.id, 'Hoàn thành')}>✅</button>}
                                                             {e.status === 'Từ chối' && <button className="btn btn-sm" style={{ background: '#f59e0b', color: '#fff', fontSize: 11, padding: '4px 8px' }} onClick={() => updateStatus(e.id, 'Chờ duyệt')}>↩</button>}
