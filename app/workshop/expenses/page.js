@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import { useSession } from 'next-auth/react';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
@@ -33,6 +34,9 @@ const THU_STATUS_STYLE = {
 };
 
 export default function WorkshopFinancePage() {
+    const { data: session } = useSession();
+    const userName = session?.user?.name || '';
+
     /* ── Main tab ── */
     const [mainTab, setMainTab] = useState('chi_phi');
 
@@ -695,7 +699,7 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                                 <div style={{ overflowX: 'auto' }}>
                                     <table className="data-table" style={{ margin: 0 }}>
                                         <thead>
-                                            <tr><th>Mã</th><th>Nội dung</th><th>Hạng mục</th><th>Số tiền</th><th>Ngày</th><th>Trạng thái</th><th>Thao tác</th></tr>
+                                            <tr><th>Mã</th><th>Nội dung</th><th>Hạng mục</th><th>Số tiền</th><th>Ngày</th><th>Trạng thái</th><th>Người duyệt</th><th>Thao tác</th></tr>
                                         </thead>
                                         <tbody>
                                             {standaloneIncomes.map(inc => {
@@ -711,11 +715,21 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                                                         <td style={{ fontWeight: 700, fontSize: 13 }}>{fmt(inc.amount)}</td>
                                                         <td style={{ fontSize: 12 }}>{fmtDate(inc.date)}</td>
                                                         <td><span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 12, background: st.bg, color: st.color }}>{inc.status}</span></td>
+                                                        <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                                                            {inc.approvedBy ? (
+                                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                                    <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#dbeafe', color: '#1e40af', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                        {inc.approvedBy.charAt(0).toUpperCase()}
+                                                                    </span>
+                                                                    <span style={{ color: 'var(--text-primary)' }}>{inc.approvedBy}</span>
+                                                                </span>
+                                                            ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                                                        </td>
                                                         <td>
                                                             <div style={{ display: 'flex', gap: 4 }}>
                                                                 {inc.status === 'Chờ duyệt' && (
                                                                     <button className="btn btn-sm" style={{ background: '#16a34a', color: '#fff', fontSize: 11, padding: '4px 8px' }}
-                                                                        onClick={() => fetch('/api/project-expenses', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: inc.id, status: 'Đã duyệt' }) }).then(fetchPayments)}>
+                                                                        onClick={() => fetch('/api/project-expenses', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: inc.id, status: 'Đã duyệt', approvedBy: userName }) }).then(fetchPayments)}>
                                                                         ✓ Duyệt
                                                                     </button>
                                                                 )}
@@ -959,7 +973,7 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                             <div style={{ overflowX: 'auto' }}>
                                 <table className="data-table" style={{ margin: 0 }}>
                                     <thead>
-                                        <tr><th>Mã</th><th>Mô tả</th><th>Dự án / Người nhận</th><th>Hạng mục</th><th>Số tiền</th><th>Ngày</th><th>Trạng thái</th><th style={{ minWidth: 180 }}>Thao tác</th></tr>
+                                        <tr><th>Mã</th><th>Mô tả</th><th>Dự án / Người nhận</th><th>Hạng mục</th><th>Số tiền</th><th>Ngày</th><th>Trạng thái</th><th>Người duyệt</th><th style={{ minWidth: 180 }}>Thao tác</th></tr>
                                     </thead>
                                     <tbody>
                                         {filteredExp.map(e => {
@@ -989,10 +1003,20 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                                                     </td>
                                                     <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(e.date)}</td>
                                                     <td><span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 12, background: st.bg, color: st.color }}>{e.status}</span></td>
+                                                    <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                                                        {e.approvedBy ? (
+                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                                <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#dbeafe', color: '#1e40af', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    {e.approvedBy.charAt(0).toUpperCase()}
+                                                                </span>
+                                                                <span style={{ color: 'var(--text-primary)' }}>{e.approvedBy}</span>
+                                                            </span>
+                                                        ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                                                    </td>
                                                     <td>
                                                         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
                                                             {e.status === 'Chờ duyệt' && (<>
-                                                                <button className="btn btn-sm" style={{ background: '#16a34a', color: '#fff', fontSize: 11, padding: '4px 8px' }} onClick={() => updateStatus(e.id, 'Đã duyệt')}>✓ Duyệt</button>
+                                                                <button className="btn btn-sm" style={{ background: '#16a34a', color: '#fff', fontSize: 11, padding: '4px 8px' }} onClick={() => updateStatus(e.id, 'Đã duyệt', { approvedBy: userName })}>✓ Duyệt</button>
                                                                 <button className="btn btn-sm" style={{ background: '#ef4444', color: '#fff', fontSize: 11, padding: '4px 8px' }} onClick={() => updateStatus(e.id, 'Từ chối')}>✗</button>
                                                             </>)}
                                                             {e.status === 'Đã duyệt' && <button className="btn btn-sm btn-primary" style={{ fontSize: 11, padding: '4px 8px' }} onClick={() => openProofModal(e)}>💸 Chi</button>}
