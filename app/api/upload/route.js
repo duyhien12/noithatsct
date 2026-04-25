@@ -117,27 +117,42 @@ export const POST = withAuth(async (request) => {
             thumbnailUrl = await uploadToR2(thumbBuffer, `${type}/thumbnails/${thumbFilename}`, 'image/jpeg');
         }
     } else if (forwardUrl && forwardKey) {
-        // Forward lên production server
-        const fd = new FormData();
-        fd.append('file', new Blob([fileBuffer], { type: fileMime }), filename);
-        fd.append('type', type);
-        fd.append('filename', filename);
-        if (thumbBuffer && thumbFilename) {
-            fd.append('thumbnail', new Blob([thumbBuffer], { type: 'image/jpeg' }), thumbFilename);
-            fd.append('thumbnailFilename', thumbFilename);
+        // Forward lên production server, fallback về local nếu không kết nối được
+        let forwarded = false;
+        try {
+            const fd = new FormData();
+            fd.append('file', new Blob([fileBuffer], { type: fileMime }), filename);
+            fd.append('type', type);
+            fd.append('filename', filename);
+            if (thumbBuffer && thumbFilename) {
+                fd.append('thumbnail', new Blob([thumbBuffer], { type: 'image/jpeg' }), thumbFilename);
+                fd.append('thumbnailFilename', thumbFilename);
+            }
+            const res = await fetch(`${forwardUrl}/api/upload-direct`, {
+                method: 'POST',
+                headers: { 'x-upload-service-key': forwardKey },
+                body: fd,
+                signal: AbortSignal.timeout(15000),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || `Forward upload failed: ${res.status}`);
+            }
+            const result = await res.json();
+            url = result.url || '';
+            thumbnailUrl = result.thumbnailUrl || '';
+            forwarded = true;
+        } catch (err) {
+            console.warn('[upload] Forward thất bại, dùng local storage:', err.message);
         }
-        const res = await fetch(`${forwardUrl}/api/upload-direct`, {
-            method: 'POST',
-            headers: { 'x-upload-service-key': forwardKey },
-            body: fd,
-        });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || `Forward upload failed: ${res.status}`);
+        if (!forwarded) {
+            // Fallback: lưu local, URL dùng localhost
+            const localBase = process.env.NEXT_PUBLIC_LOCAL_BASE_URL || 'http://localhost:3000';
+            const uploadDir = path.join(process.cwd(), 'public', 'uploads', type);
+            await mkdir(uploadDir, { recursive: true });
+            await writeFile(path.join(uploadDir, filename), fileBuffer);
+            url = `${localBase}/uploads/${type}/${filename}`;
         }
-        const result = await res.json();
-        url = result.url || '';
-        thumbnailUrl = result.thumbnailUrl || '';
     } else {
         // Local storage (fallback)
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
