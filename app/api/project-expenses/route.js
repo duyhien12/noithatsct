@@ -51,7 +51,13 @@ export const PUT = withAuth(async (request) => {
     const body = await request.json();
     const { id, ...raw } = body;
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
-    const data = expenseUpdateSchema.parse(raw);
+    const parsed = expenseUpdateSchema.parse(raw);
+    // Only update fields that were actually sent — don't let schema defaults overwrite existing data
+    const data = Object.fromEntries(
+        Object.keys(raw)
+            .filter(k => k in parsed && parsed[k] !== null && parsed[k] !== undefined)
+            .map(k => [k, parsed[k]])
+    );
     const expense = await prisma.projectExpense.update({ where: { id }, data });
     return NextResponse.json(expense);
 });
