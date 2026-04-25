@@ -495,9 +495,14 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
 
             {/* ── Dashboard tổng quan ── */}
             {(() => {
-                const totalIncome = payReceived + standaloneIncomes.filter(i => ['Đã duyệt', 'Đã chi'].includes(i.status)).reduce((s, i) => s + (i.amount || 0), 0);
-                const totalChi = expPaid + payrollGrandTotal;
-                const canDoi = totalIncome - totalChi;
+                const siTotal    = standaloneIncomes.reduce((s, i) => s + (i.amount || 0), 0);
+                const siReceived = standaloneIncomes.filter(i => i.status === 'Đã chi').reduce((s, i) => s + (i.amount || 0), 0);
+                const siRemain   = siTotal - siReceived;
+                const totalThuPhai   = payTotal + siTotal;
+                const totalThuDuoc   = payReceived + siReceived;
+                const totalThuConLai = payRemain + siRemain;
+                const totalChi  = expPaid + payrollGrandTotal;
+                const canDoi    = totalThuDuoc - totalChi;
                 const monthLabel = new Date(payrollMonth + '-01').toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' });
                 return (
                     <div className="card" style={{ marginBottom: 16, padding: '16px 20px' }}>
@@ -509,10 +514,10 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                             {/* Thu tiền */}
                             <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '14px 16px', borderLeft: '4px solid #16a34a' }}>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: '#15803d', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>💰 Thu tiền</div>
-                                <div style={{ fontSize: 18, fontWeight: 800, color: '#15803d', marginBottom: 6 }}>{fmt(payReceived)}</div>
+                                <div style={{ fontSize: 18, fontWeight: 800, color: '#15803d', marginBottom: 6 }}>{fmt(totalThuDuoc)}</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                    <div style={{ fontSize: 11, color: '#374151' }}>Phải thu: <strong>{fmt(payTotal)}</strong></div>
-                                    <div style={{ fontSize: 11, color: '#dc2626' }}>Còn lại: <strong>{fmt(payRemain)}</strong></div>
+                                    <div style={{ fontSize: 11, color: '#374151' }}>Phải thu: <strong>{fmt(totalThuPhai)}</strong></div>
+                                    <div style={{ fontSize: 11, color: '#dc2626' }}>Còn lại: <strong>{fmt(totalThuConLai)}</strong></div>
                                 </div>
                             </div>
                             {/* Chi phí */}
@@ -538,7 +543,7 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                                 <div style={{ fontSize: 11, fontWeight: 700, color: canDoi >= 0 ? '#15803d' : '#b91c1c', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>💵 Cân đối</div>
                                 <div style={{ fontSize: 18, fontWeight: 800, color: canDoi >= 0 ? '#15803d' : '#b91c1c', marginBottom: 6 }}>{canDoi >= 0 ? '+' : ''}{fmt(canDoi)}</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                    <div style={{ fontSize: 11, color: '#374151' }}>Đã thu: <strong>{fmt(totalIncome)}</strong></div>
+                                    <div style={{ fontSize: 11, color: '#374151' }}>Đã thu: <strong>{fmt(totalThuDuoc)}</strong></div>
                                     <div style={{ fontSize: 11, color: '#374151' }}>Đã chi + lương: <strong>{fmt(totalChi)}</strong></div>
                                 </div>
                             </div>
