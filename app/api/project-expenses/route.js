@@ -14,10 +14,12 @@ export const GET = withAuth(async (request) => {
     const search = searchParams.get('search');
     const projectId = searchParams.get('projectId');
 
+    const department = searchParams.get('department');
     const where = {};
     if (status) where.status = status;
     if (expenseType) where.expenseType = expenseType;
     if (projectId) where.projectId = projectId;
+    if (department) where.department = department;
     if (search) where.description = { contains: search };
 
     const [data, total] = await Promise.all([

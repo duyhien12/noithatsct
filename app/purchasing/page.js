@@ -62,7 +62,7 @@ function PurchasingContent() {
 
     const fetchOrders = () => {
         setLoading(true);
-        fetch('/api/purchase-orders?limit=1000').then(r => r.json()).then(d => { setOrders(d.data || []); setLoading(false); });
+        fetch('/api/purchase-orders?limit=1000&excludeRole=xay_dung').then(r => r.json()).then(d => { setOrders(d.data || []); setLoading(false); });
     };
 
     useEffect(() => {

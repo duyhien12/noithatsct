@@ -6,7 +6,7 @@ import {
     LayoutDashboard, GitBranch, Users, Building2, FileText,
     Package, ClipboardList, Wrench, CreditCard, Receipt,
     ShoppingCart, Truck, Warehouse, Wallet, UserCog,
-    BarChart3, ChevronRight, Shield, X, CalendarDays, HardHat
+    BarChart3, ChevronRight, Shield, X, CalendarDays, HardHat, Banknote
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useSession } from 'next-auth/react';
@@ -91,11 +91,12 @@ const menuItems = [
     },
     {
         section: 'Xưởng nội thất',
-        sectionRoles: [...BAN_GD, ...VIEWER],
+        sectionRoles: [...BAN_GD, ...VIEWER, 'xuong'],
         items: [
-            { href: '/workshop', icon: LayoutDashboard, label: 'Dashboard xưởng', roles: [...BAN_GD, ...VIEWER] },
-            { href: '/workshop/tasks', icon: Wrench, label: 'Việc xưởng', roles: [...BAN_GD, ...VIEWER] },
-            { href: '/workshop/workers', icon: HardHat, label: 'Thợ xưởng', roles: [...BAN_GD, ...VIEWER] },
+            { href: '/workshop', icon: LayoutDashboard, label: 'Dashboard xưởng', roles: [...BAN_GD, ...VIEWER, 'xuong'] },
+            { href: '/workshop/tasks', icon: Wrench, label: 'Việc xưởng', roles: [...BAN_GD, ...VIEWER, 'xuong'] },
+            { href: '/workshop/workers', icon: HardHat, label: 'Thợ xưởng', roles: [...BAN_GD, ...VIEWER, 'xuong'] },
+            { href: '/workshop/expenses', icon: Banknote, label: 'Chi phí xưởng', roles: [...BAN_GD, ...VIEWER, 'xuong', 'ke_toan', 'hanh_chinh_kt'] },
         ]
     },
     {

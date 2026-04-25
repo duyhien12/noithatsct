@@ -641,10 +641,12 @@ model PurchaseOrder {
   supplierRel     Supplier? @relation(fields: [supplierId], references: [id])
   items           PurchaseOrderItem[]
   requisitions    MaterialRequisition[]
+  createdByRole   String   @default("")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   @@index([projectId])
   @@index([supplierId])
+  @@index([createdByRole])
 }
 
 model PurchaseOrderItem {
@@ -670,6 +672,7 @@ model ProjectExpense {
   id            String   @id @default(cuid())
   code          String   @unique
   expenseType   String   @default("Dự án")
+  department    String   @default("")
   description   String   @db.Text
   amount        Float    @default(0)
   paidAmount    Float    @default(0)
@@ -689,6 +692,7 @@ model ProjectExpense {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   @@index([projectId])
+  @@index([department])
 }
 
 model TrackingLog {

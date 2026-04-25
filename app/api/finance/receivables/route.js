@@ -4,13 +4,22 @@ import { NextResponse } from 'next/server';
 
 // List all payment phases from all contracts (for finance receivables tab)
 export const GET = withAuth(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const projectType = searchParams.get('projectType');
+
+    const where = {};
+    if (projectType) {
+        where.contract = { project: { type: projectType } };
+    }
+
     const payments = await prisma.contractPayment.findMany({
+        where,
         include: {
             contract: {
                 select: {
                     id: true, code: true, name: true, type: true, contractValue: true,
                     customer: { select: { id: true, name: true } },
-                    project: { select: { id: true, name: true } },
+                    project: { select: { id: true, name: true, type: true } },
                 },
             },
         },

@@ -10,6 +10,7 @@ export const GET = withAuth(async (request) => {
     const { page, limit, skip } = parsePagination(searchParams);
     const search = searchParams.get('search') || '';
 
+    const excludeRole = searchParams.get('excludeRole');
     const where = {};
     if (search) {
         where.OR = [
@@ -17,6 +18,9 @@ export const GET = withAuth(async (request) => {
             { supplier: { contains: search } },
             { project: { name: { contains: search } } },
         ];
+    }
+    if (excludeRole) {
+        where.NOT = { createdByRole: excludeRole };
     }
 
     const [orders, total] = await Promise.all([
@@ -36,7 +40,7 @@ export const GET = withAuth(async (request) => {
     return NextResponse.json(paginatedResponse(orders, total, { page, limit }));
 });
 
-export const POST = withAuth(async (request) => {
+export const POST = withAuth(async (request, context, session) => {
     const body = await request.json();
     const { items, ...poData } = purchaseOrderCreateSchema.parse(body);
     const warnings = [];
@@ -92,6 +96,7 @@ export const POST = withAuth(async (request) => {
             orderDate: poData.orderDate || new Date(),
             deliveryDate: poData.deliveryDate || null,
             receivedDate: poData.receivedDate || null,
+            createdByRole: session?.user?.role || '',
             items: items ? { create: items } : undefined,
         },
         include: { items: true, project: { select: { name: true, code: true } } },
