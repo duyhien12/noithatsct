@@ -1224,3 +1224,33 @@ model Setting {
   value     String   @db.Text
   updatedAt DateTime @updatedAt
 }
+
+// ============ CHẤM CÔNG PHÒNG KINH DOANH ============
+
+model SalesWorker {
+  id          String    @id @default(cuid())
+  name        String
+  workerType  String    @default("Nhân viên KD")
+  position    String    @default("")
+  phone       String    @default("")
+  birthdate   DateTime?
+  dailyRate   Float     @default(0)
+  status      String    @default("Hoạt động")
+  notes       String    @default("") @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  attendances SalesAttendance[]
+  @@index([status])
+}
+
+model SalesAttendance {
+  id          String      @id @default(cuid())
+  workerId    String
+  worker      SalesWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  date        DateTime
+  hoursWorked Float       @default(8)
+  notes       String      @default("")
+  createdAt   DateTime    @default(now())
+  @@unique([workerId, date])
+  @@index([workerId])
+}

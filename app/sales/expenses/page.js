@@ -32,6 +32,15 @@ const EXP_TABS = [
     { key: 'Hoàn thành', label: 'Hoàn thành' }, { key: 'Từ chối', label: 'Từ chối' },
 ];
 
+const todayStr = () => new Date().toISOString().split('T')[0];
+const fmtDateVN = (str) => { if (!str) return ''; const d = new Date(str); return d.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }); };
+const SW_TYPES = ['Nhân viên KD', 'Quản lý'];
+const SW_TYPE_BG = { 'Nhân viên KD': '#dbeafe', 'Quản lý': '#d1fae5' };
+const SW_TYPE_COLOR = { 'Nhân viên KD': '#1d4ed8', 'Quản lý': '#065f46' };
+const SW_STATUS_BG = { 'Hoạt động': '#dcfce7', 'Tạm nghỉ': '#fef3c7', 'Nghỉ việc': '#f3f4f6' };
+const SW_STATUS_COLOR = { 'Hoạt động': '#16a34a', 'Tạm nghỉ': '#d97706', 'Nghỉ việc': '#6b7280' };
+const EMPTY_CC_FORM = { name: '', workerType: 'Nhân viên KD', position: '', phone: '', birthdate: '', dailyRate: '', status: 'Hoạt động', notes: '' };
+
 const emptyForm = {
     description: '', amount: '', category: 'Marketing & Quảng cáo',
     submittedBy: '', date: new Date().toISOString().split('T')[0],
@@ -83,6 +92,27 @@ export default function SalesExpensesPage() {
     const [collectUploading, setCollectUploading] = useState(false);
     const collectRef = useRef();
 
+    /* ── Chấm công state ── */
+    const [ccWorkers, setCcWorkers] = useState([]);
+    const [ccAttendance, setCcAttendance] = useState([]);
+    const [ccLoading, setCcLoading] = useState(false);
+    const [ccDate, setCcDate] = useState(() => todayStr());
+    const [ccSearch, setCcSearch] = useState('');
+    const [ccShowModal, setCcShowModal] = useState(false);
+    const [ccEditing, setCcEditing] = useState(null);
+    const [ccForm, setCcForm] = useState(EMPTY_CC_FORM);
+    const [ccSaving, setCcSaving] = useState(false);
+    const [ccDeleteTarget, setCcDeleteTarget] = useState(null);
+    const [ccAttendTarget, setCcAttendTarget] = useState(null);
+    const [ccAttendForm, setCcAttendForm] = useState({ hoursWorked: 8, notes: '' });
+    const [ccShowSummary, setCcShowSummary] = useState(false);
+    const [ccSummaryMonth, setCcSummaryMonth] = useState(() => new Date().toISOString().slice(0, 7));
+    const [ccSummaryData, setCcSummaryData] = useState([]);
+    const [ccLoadingSummary, setCcLoadingSummary] = useState(false);
+    const [ccUserList, setCcUserList] = useState([]);
+    const [ccSuggest, setCcSuggest] = useState([]);
+    const [ccShowSuggest, setCcShowSuggest] = useState(false);
+
     /* ── Fetch ── */
     const fetchExpenses = async () => {
         setLoadingExp(true);
@@ -108,6 +138,106 @@ export default function SalesExpensesPage() {
     };
 
     useEffect(() => { fetchExpenses(); fetchPayments(); }, []);
+
+    /* ── Chấm công fetch ── */
+    const fetchCcWorkers = async () => {
+        setCcLoading(true);
+        const [wRes, aRes] = await Promise.all([
+            fetch('/api/sales/workers').then(r => r.json()).catch(() => []),
+            fetch(`/api/sales/attendance?date=${ccDate}`).then(r => r.json()).catch(() => []),
+        ]);
+        setCcWorkers(Array.isArray(wRes) ? wRes : []);
+        setCcAttendance(Array.isArray(aRes) ? aRes : []);
+        setCcLoading(false);
+    };
+    const fetchCcAttendance = async (date) => {
+        const data = await fetch(`/api/sales/attendance?date=${date}`).then(r => r.json()).catch(() => []);
+        setCcAttendance(Array.isArray(data) ? data : []);
+    };
+    const fetchCcSummary = async (month) => {
+        setCcLoadingSummary(true);
+        const data = await fetch(`/api/sales/attendance?month=${month}`).then(r => r.json()).catch(() => []);
+        setCcSummaryData(Array.isArray(data) ? data : []);
+        setCcLoadingSummary(false);
+    };
+    useEffect(() => {
+        fetch('/api/users').then(r => r.json()).then(d => {
+            const list = Array.isArray(d) ? d.filter(u => ['kinh_doanh', 'ban_gd', 'giam_doc', 'pho_gd', 'hanh_chinh_kt'].includes(u.role)) : [];
+            setCcUserList(list);
+        }).catch(() => {});
+    }, []);
+    useEffect(() => { if (mainTab === 'cham_cong') fetchCcWorkers(); }, [mainTab]);
+    useEffect(() => { if (mainTab === 'cham_cong') fetchCcAttendance(ccDate); }, [ccDate]);
+    useEffect(() => { if (ccShowSummary) fetchCcSummary(ccSummaryMonth); }, [ccSummaryMonth, ccShowSummary]);
+
+    /* ── Chấm công actions ── */
+    const ccOnNameChange = (val) => {
+        setCcForm(f => ({ ...f, name: val }));
+        if (val.trim().length >= 1) {
+            const matches = ccUserList.filter(u => u.name.toLowerCase().includes(val.toLowerCase()));
+            setCcSuggest(matches);
+            setCcShowSuggest(matches.length > 0);
+        } else {
+            setCcShowSuggest(false);
+        }
+    };
+    const ccSelectUser = (u) => {
+        setCcForm(f => ({
+            ...f,
+            name: u.name,
+            phone: u.phone || f.phone,
+            position: u.department || f.position,
+        }));
+        setCcShowSuggest(false);
+        setCcSuggest([]);
+    };
+    const ccOpenAdd = () => { setCcEditing(null); setCcForm(EMPTY_CC_FORM); setCcShowModal(true); setCcShowSuggest(false); };
+    const ccOpenEdit = (w) => {
+        setCcEditing(w);
+        setCcForm({
+            name: w.name, workerType: w.workerType, position: w.position,
+            phone: w.phone, birthdate: w.birthdate ? new Date(w.birthdate).toISOString().split('T')[0] : '',
+            dailyRate: w.dailyRate, status: w.status, notes: w.notes,
+        });
+        setCcShowModal(true);
+        setCcShowSuggest(false);
+    };
+    const ccHandleSubmit = async () => {
+        if (!ccForm.name.trim()) return alert('Nhập tên nhân viên!');
+        setCcSaving(true);
+        const payload = { ...ccForm, dailyRate: Number(ccForm.dailyRate) || 0, birthdate: ccForm.birthdate || null };
+        if (ccEditing) {
+            await fetch(`/api/sales/workers/${ccEditing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        } else {
+            await fetch('/api/sales/workers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        }
+        setCcSaving(false); setCcShowModal(false); fetchCcWorkers();
+    };
+    const ccHandleDelete = async () => {
+        await fetch(`/api/sales/workers/${ccDeleteTarget.id}`, { method: 'DELETE' });
+        setCcDeleteTarget(null); fetchCcWorkers();
+    };
+    const ccOpenAttend = (w) => {
+        const existing = ccAttendance.find(a => a.workerId === w.id);
+        setCcAttendTarget(w);
+        setCcAttendForm({ hoursWorked: existing?.hoursWorked ?? 8, notes: existing?.notes ?? '' });
+    };
+    const ccHandleAttend = async () => {
+        await fetch('/api/sales/attendance', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ workerId: ccAttendTarget.id, date: ccDate, ...ccAttendForm }),
+        });
+        setCcAttendTarget(null); fetchCcAttendance(ccDate);
+    };
+    const ccBulkAttend = async () => {
+        const active = ccWorkers.filter(w => w.status === 'Hoạt động');
+        if (!active.length) return;
+        if (!confirm(`Chấm công ${active.length} nhân viên với 8 giờ cho ngày ${fmtDateVN(ccDate)}?`)) return;
+        await Promise.all(active.map(w =>
+            fetch('/api/sales/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workerId: w.id, date: ccDate, hoursWorked: 8, notes: '' }) })
+        ));
+        fetchCcAttendance(ccDate);
+    };
 
     /* ══ CHI PHÍ stats ══ */
     const expTotal         = expenses.length;
@@ -441,8 +571,9 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
             <div className="card" style={{ marginBottom: 20 }}>
                 <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 4px' }}>
                     {[
-                        { key: 'thu_tien', label: '📈 Thu tiền' },
-                        { key: 'chi_phi',  label: '📉 Chi phí' },
+                        { key: 'thu_tien',   label: '📈 Thu tiền' },
+                        { key: 'chi_phi',    label: '📉 Chi phí' },
+                        { key: 'cham_cong',  label: '🕐 Chấm công' },
                     ].map(t => (
                         <button key={t.key} onClick={() => setMainTab(t.key)} style={{
                             padding: '14px 22px', border: 'none', background: 'none', cursor: 'pointer',
@@ -780,6 +911,224 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                         )}
                     </div>
                 )}
+
+                {/* ════ TAB: CHẤM CÔNG ════ */}
+                {mainTab === 'cham_cong' && (() => {
+                    const ccIsToday = ccDate === todayStr();
+                    const ccActive = ccWorkers.filter(w => w.status === 'Hoạt động');
+                    const ccAttendedCount = ccAttendance.length;
+                    const ccTotalHours = ccAttendance.reduce((s, a) => s + (a.hoursWorked || 0), 0);
+                    const ccTotalCost = ccAttendance.reduce((s, a) => {
+                        const rate = a.worker?.dailyRate || ccWorkers.find(w => w.id === a.workerId)?.dailyRate || 0;
+                        return s + (a.hoursWorked / 8) * rate;
+                    }, 0);
+                    const ccMonthlyFund = ccWorkers.filter(w => w.status === 'Hoạt động').reduce((s, w) => s + (w.dailyRate || 0), 0) * 26;
+                    const ccFiltered = ccWorkers.filter(w => !ccSearch || w.name.toLowerCase().includes(ccSearch.toLowerCase()) || (w.position || '').toLowerCase().includes(ccSearch.toLowerCase()));
+
+                    return (
+                        <div style={{ padding: 20 }}>
+                            {/* KPI */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, marginBottom: 20 }}>
+                                <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #2563eb' }}>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>👤 Nhân viên hoạt động</div>
+                                    <div style={{ fontSize: 26, fontWeight: 800, color: '#2563eb' }}>{ccActive.length}</div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>/ {ccWorkers.length} tổng</div>
+                                </div>
+                                <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #16a34a' }}>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>✅ Chấm công{ccIsToday ? ' hôm nay' : ''}</div>
+                                    <div style={{ fontSize: 26, fontWeight: 800, color: '#16a34a' }}>{ccAttendedCount}</div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{ccTotalHours} giờ làm việc</div>
+                                </div>
+                                <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #f59e0b' }}>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>💵 Chi phí{ccIsToday ? ' hôm nay' : ''}</div>
+                                    <div style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(ccTotalCost / 1000))}k</div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Theo ngày × đơn giá</div>
+                                </div>
+                                <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #8b5cf6' }}>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>📅 Quỹ lương/tháng</div>
+                                    <div style={{ fontSize: 18, fontWeight: 800, color: '#8b5cf6' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(ccMonthlyFund / 1e6))}tr</div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>× 26 ngày/tháng</div>
+                                </div>
+                            </div>
+
+                            {/* Filter bar */}
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center', background: 'var(--bg-secondary)', borderRadius: 8, padding: '10px 12px' }}>
+                                <input className="form-input" placeholder="🔍 Tìm theo tên, vị trí..." value={ccSearch} onChange={e => setCcSearch(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <button className="btn btn-ghost btn-sm" onClick={() => { const d = new Date(ccDate); d.setDate(d.getDate() - 1); setCcDate(d.toISOString().split('T')[0]); }}>◀</button>
+                                    <input type="date" value={ccDate} onChange={e => setCcDate(e.target.value)} style={{ padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text-primary)', background: 'var(--bg-card)', cursor: 'pointer' }} />
+                                    <button className="btn btn-ghost btn-sm" onClick={() => { const d = new Date(ccDate); d.setDate(d.getDate() + 1); setCcDate(d.toISOString().split('T')[0]); }}>▶</button>
+                                    {!ccIsToday && <button className="btn btn-ghost btn-sm" style={{ color: '#2563eb', fontWeight: 600 }} onClick={() => setCcDate(todayStr())}>Hôm nay</button>}
+                                </div>
+                                <button className="btn btn-sm" style={{ background: '#dcfce7', color: '#15803d', border: 'none', fontWeight: 600 }} onClick={ccBulkAttend}>✅ Chấm tất cả 8h</button>
+                                <button className="btn btn-sm" style={{ background: '#ede9fe', color: '#6d28d9', border: 'none', fontWeight: 600 }} onClick={() => { setCcShowSummary(true); fetchCcSummary(ccSummaryMonth); }}>📊 Tổng hợp tháng</button>
+                                <button className="btn btn-primary btn-sm" onClick={ccOpenAdd}>+ Thêm nhân viên</button>
+                            </div>
+
+                            {/* Header ngày */}
+                            <div style={{ padding: '8px 14px', background: ccIsToday ? '#eff6ff' : '#fef9c3', border: '1px solid var(--border)', borderRadius: 6, marginBottom: 12, fontSize: 12, color: ccIsToday ? '#1d4ed8' : '#92400e', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                📅 {ccIsToday ? 'Hôm nay — ' : ''}{fmtDateVN(ccDate)}
+                                <span style={{ marginLeft: 'auto', fontWeight: 400, color: 'var(--text-muted)' }}>
+                                    {ccAttendedCount}/{ccActive.length} đã chấm · {ccTotalHours}h · {new Intl.NumberFormat('vi-VN').format(Math.round(ccTotalCost / 1000))}k
+                                </span>
+                            </div>
+
+                            {/* Table */}
+                            {ccLoading ? (
+                                <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
+                            ) : ccFiltered.length === 0 ? (
+                                <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
+                                    {ccWorkers.length === 0 ? 'Chưa có nhân viên nào. Nhấn "+ Thêm nhân viên" để bắt đầu.' : 'Không có kết quả phù hợp'}
+                                </div>
+                            ) : (
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table className="data-table" style={{ margin: 0 }}>
+                                        <thead>
+                                            <tr>
+                                                <th>Họ tên</th>
+                                                <th>Vị trí</th>
+                                                <th>SĐT · Ngày sinh</th>
+                                                <th>Đơn giá/ngày</th>
+                                                <th>Chấm công</th>
+                                                <th>Trạng thái</th>
+                                                <th style={{ textAlign: 'right' }}>Thao tác</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {ccFiltered.map(w => {
+                                                const rec = ccAttendance.find(a => a.workerId === w.id);
+                                                return (
+                                                    <tr key={w.id}>
+                                                        <td>
+                                                            <div style={{ fontWeight: 600, fontSize: 13 }}>{w.name}</div>
+                                                            <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 8, background: SW_TYPE_BG[w.workerType] || '#f3f4f6', color: SW_TYPE_COLOR[w.workerType] || '#374151', fontWeight: 600 }}>{w.workerType}</span>
+                                                        </td>
+                                                        <td style={{ fontSize: 12 }}>{w.position || '—'}</td>
+                                                        <td style={{ fontSize: 12 }}>
+                                                            <div>{w.phone || '—'}</div>
+                                                            {w.birthdate && <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>🎂 {new Date(w.birthdate).toLocaleDateString('vi-VN')}</div>}
+                                                        </td>
+                                                        <td style={{ fontWeight: 600, fontSize: 13 }}>{w.dailyRate > 0 ? `${new Intl.NumberFormat('vi-VN').format(w.dailyRate)}đ` : '—'}</td>
+                                                        <td>
+                                                            {rec ? (
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                                    <span style={{ padding: '2px 10px', borderRadius: 20, background: '#dcfce7', color: '#15803d', fontSize: 12, fontWeight: 700 }}>✓ {rec.hoursWorked}h</span>
+                                                                    {w.dailyRate > 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{new Intl.NumberFormat('vi-VN').format(Math.round((rec.hoursWorked / 8) * w.dailyRate))}đ</span>}
+                                                                </div>
+                                                            ) : (
+                                                                w.status === 'Hoạt động'
+                                                                    ? <span style={{ color: '#dc2626', fontSize: 12 }}>Chưa chấm</span>
+                                                                    : <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
+                                                            )}
+                                                        </td>
+                                                        <td>
+                                                            <span style={{ padding: '3px 9px', borderRadius: 20, background: SW_STATUS_BG[w.status] || '#f3f4f6', color: SW_STATUS_COLOR[w.status] || '#6b7280', fontSize: 12, fontWeight: 600 }}>{w.status}</span>
+                                                        </td>
+                                                        <td>
+                                                            <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                                                                {w.status === 'Hoạt động' && (
+                                                                    <button className="btn btn-sm" style={{ background: rec ? '#dcfce7' : '#dbeafe', color: rec ? '#15803d' : '#1d4ed8', border: 'none', fontWeight: 600 }} onClick={() => ccOpenAttend(w)}>
+                                                                        {rec ? '✓ Sửa' : '+ Chấm'}
+                                                                    </button>
+                                                                )}
+                                                                <button className="btn btn-ghost btn-sm" onClick={() => ccOpenEdit(w)}>✏️</button>
+                                                                <button className="btn btn-ghost btn-sm" onClick={() => setCcDeleteTarget(w)} style={{ color: 'var(--status-danger)' }}>🗑️</button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
+
+                {/* ════ MODAL Tổng hợp tháng chấm công ════ */}
+                {ccShowSummary && (() => {
+                    const [y, m] = ccSummaryMonth.split('-').map(Number);
+                    const daysInMonth = new Date(y, m, 0).getDate();
+                    const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+                    const activeWorkers = ccWorkers.filter(w => w.status !== 'Nghỉ việc');
+                    return (
+                        <div className="modal-overlay" onClick={() => setCcShowSummary(false)}>
+                            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 960, width: '95vw', maxHeight: '90vh', overflow: 'auto' }}>
+                                <div className="modal-header">
+                                    <h3>📊 Tổng hợp công tháng — Phòng Kinh Doanh</h3>
+                                    <button className="modal-close" onClick={() => setCcShowSummary(false)}>×</button>
+                                </div>
+                                <div className="modal-body">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                                        <input type="month" value={ccSummaryMonth} onChange={e => setCcSummaryMonth(e.target.value)} style={{ padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 14 }} />
+                                        {ccLoadingSummary && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Đang tải...</span>}
+                                    </div>
+                                    {!ccLoadingSummary && (
+                                        <div style={{ overflowX: 'auto' }}>
+                                            <table className="data-table" style={{ fontSize: 11, margin: 0, minWidth: 700 }}>
+                                                <thead>
+                                                    <tr>
+                                                        <th style={{ minWidth: 120 }}>Nhân viên</th>
+                                                        {days.map(d => <th key={d} style={{ minWidth: 28, textAlign: 'center', padding: '4px 2px' }}>{d}</th>)}
+                                                        <th style={{ minWidth: 60, textAlign: 'right' }}>Tổng giờ</th>
+                                                        <th style={{ minWidth: 90, textAlign: 'right' }}>Thành tiền</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {activeWorkers.map(w => {
+                                                        const wAtt = ccSummaryData.filter(a => a.workerId === w.id);
+                                                        const totalHrs = wAtt.reduce((s, a) => s + (a.hoursWorked || 0), 0);
+                                                        const totalPay = wAtt.reduce((s, a) => s + (a.hoursWorked / 8) * (w.dailyRate || 0), 0);
+                                                        return (
+                                                            <tr key={w.id}>
+                                                                <td>
+                                                                    <div style={{ fontWeight: 600 }}>{w.name}</div>
+                                                                    <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{w.position || w.workerType}</div>
+                                                                </td>
+                                                                {days.map(d => {
+                                                                    const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                                                                    const rec = wAtt.find(a => new Date(a.date).toISOString().split('T')[0] === dateStr);
+                                                                    const h = rec?.hoursWorked || 0;
+                                                                    const bg = h === 0 ? 'transparent' : h >= 8 ? '#dcfce7' : h >= 4 ? '#fef3c7' : '#fee2e2';
+                                                                    const col = h === 0 ? 'var(--text-muted)' : h >= 8 ? '#15803d' : h >= 4 ? '#92400e' : '#991b1b';
+                                                                    return (
+                                                                        <td key={d} style={{ textAlign: 'center', padding: '3px 2px' }}>
+                                                                            {h > 0 && <span style={{ display: 'inline-block', minWidth: 22, padding: '1px 2px', borderRadius: 4, background: bg, color: col, fontWeight: 700, fontSize: 10 }}>{h}</span>}
+                                                                        </td>
+                                                                    );
+                                                                })}
+                                                                <td style={{ textAlign: 'right', fontWeight: 700 }}>{totalHrs}h</td>
+                                                                <td style={{ textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalPay / 1000))}k</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                                <tfoot>
+                                                    <tr style={{ fontWeight: 700, background: 'var(--bg-secondary)' }}>
+                                                        <td>Tổng ngày</td>
+                                                        {days.map(d => {
+                                                            const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                                                            const cnt = ccSummaryData.filter(a => new Date(a.date).toISOString().split('T')[0] === dateStr).length;
+                                                            return <td key={d} style={{ textAlign: 'center', fontSize: 10, color: cnt > 0 ? '#2563eb' : 'var(--text-muted)' }}>{cnt > 0 ? cnt : ''}</td>;
+                                                        })}
+                                                        <td style={{ textAlign: 'right' }}>{ccSummaryData.reduce((s, a) => s + (a.hoursWorked || 0), 0)}h</td>
+                                                        <td style={{ textAlign: 'right', color: '#16a34a' }}>
+                                                            {new Intl.NumberFormat('vi-VN').format(Math.round(ccSummaryData.reduce((s, a) => {
+                                                                const w = ccWorkers.find(w => w.id === a.workerId);
+                                                                return s + (a.hoursWorked / 8) * (w?.dailyRate || 0);
+                                                            }, 0) / 1000))}k
+                                                        </td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
             </div>
 
             {/* ════════ Modal tạo lệnh thu ════════ */}
@@ -987,6 +1336,142 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                         <div className="modal-footer">
                             <button className="btn btn-ghost" onClick={() => setProofModal(null)} disabled={uploading}>Hủy</button>
                             <button className="btn btn-primary" onClick={confirmPay} disabled={uploading || !proofFile}>{uploading ? '⏳ Đang xử lý...' : '💸 Xác nhận chi tiền'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ════════ Modal thêm/sửa nhân viên chấm công ════════ */}
+            {ccShowModal && (
+                <div className="modal-overlay" onClick={() => !ccSaving && setCcShowModal(false)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="modal-header">
+                            <h3>{ccEditing ? '✏️ Sửa nhân viên' : '+ Thêm nhân viên chấm công'}</h3>
+                            <button className="modal-close" onClick={() => setCcShowModal(false)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            {/* Name with autocomplete */}
+                            <div className="form-group" style={{ position: 'relative' }}>
+                                <label className="form-label">Họ tên *</label>
+                                <input className="form-input" value={ccForm.name}
+                                    onChange={e => ccOnNameChange(e.target.value)}
+                                    onBlur={() => setTimeout(() => setCcShowSuggest(false), 150)}
+                                    placeholder="Nhập tên hoặc chọn từ nhân viên KD..." autoFocus />
+                                {ccShowSuggest && ccSuggest.length > 0 && (
+                                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', maxHeight: 220, overflowY: 'auto' }}>
+                                        {ccSuggest.map(u => (
+                                            <div key={u.id} onMouseDown={() => ccSelectUser(u)}
+                                                style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border-light)', display: 'flex', flexDirection: 'column', gap: 2 }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                <div style={{ fontWeight: 600, fontSize: 13 }}>{u.name}</div>
+                                                <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 8 }}>
+                                                    {u.phone && <span>📞 {u.phone}</span>}
+                                                    {u.department && <span>🏢 {u.department}</span>}
+                                                    {u.email && <span>✉️ {u.email}</span>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Loại</label>
+                                    <select className="form-select" value={ccForm.workerType} onChange={e => setCcForm({ ...ccForm, workerType: e.target.value })}>
+                                        {SW_TYPES.map(t => <option key={t}>{t}</option>)}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Trạng thái</label>
+                                    <select className="form-select" value={ccForm.status} onChange={e => setCcForm({ ...ccForm, status: e.target.value })}>
+                                        <option>Hoạt động</option>
+                                        <option>Tạm nghỉ</option>
+                                        <option>Nghỉ việc</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Vị trí / Phòng ban</label>
+                                    <input className="form-input" value={ccForm.position} onChange={e => setCcForm({ ...ccForm, position: e.target.value })} placeholder="VD: Kinh doanh, Thiết kế..." />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Số điện thoại</label>
+                                    <input className="form-input" value={ccForm.phone} onChange={e => setCcForm({ ...ccForm, phone: e.target.value })} placeholder="09xx..." />
+                                </div>
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Ngày sinh</label>
+                                    <input className="form-input" type="date" value={ccForm.birthdate} onChange={e => setCcForm({ ...ccForm, birthdate: e.target.value })} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Đơn giá / ngày (đ)</label>
+                                    <input className="form-input" type="number" value={ccForm.dailyRate} onChange={e => setCcForm({ ...ccForm, dailyRate: e.target.value })} placeholder="0" />
+                                    {Number(ccForm.dailyRate) > 0 && <div style={{ fontSize: 12, color: 'var(--accent-primary)', marginTop: 4, fontWeight: 600 }}>{fmt(Number(ccForm.dailyRate))}/ngày</div>}
+                                </div>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Ghi chú</label>
+                                <textarea className="form-input" rows={2} value={ccForm.notes} onChange={e => setCcForm({ ...ccForm, notes: e.target.value })} placeholder="Ghi chú thêm..." />
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setCcShowModal(false)} disabled={ccSaving}>Hủy</button>
+                            <button className="btn btn-primary" onClick={ccHandleSubmit} disabled={ccSaving}>{ccSaving ? 'Đang lưu...' : ccEditing ? 'Cập nhật' : 'Thêm nhân viên'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ════════ Modal chấm công ════════ */}
+            {ccAttendTarget && (
+                <div className="modal-overlay" onClick={() => setCcAttendTarget(null)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
+                        <div className="modal-header">
+                            <h3>✅ Chấm công — {ccAttendTarget.name}</h3>
+                            <button className="modal-close" onClick={() => setCcAttendTarget(null)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>📅 Ngày: <strong>{fmtDateVN(ccDate)}</strong></div>
+                            <div className="form-group">
+                                <label className="form-label">Số giờ làm việc</label>
+                                <input className="form-input" type="number" min="0" max="24" step="0.5" value={ccAttendForm.hoursWorked} onChange={e => setCcAttendForm({ ...ccAttendForm, hoursWorked: Number(e.target.value) })} autoFocus />
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Nhập 0 để xóa chấm công</div>
+                            </div>
+                            {ccAttendTarget.dailyRate > 0 && ccAttendForm.hoursWorked > 0 && (
+                                <div style={{ background: '#dcfce7', borderRadius: 6, padding: '8px 12px', fontSize: 13, color: '#15803d', fontWeight: 600 }}>
+                                    💵 Thành tiền: {fmt(Math.round((ccAttendForm.hoursWorked / 8) * ccAttendTarget.dailyRate))}
+                                </div>
+                            )}
+                            <div className="form-group" style={{ marginTop: 10 }}>
+                                <label className="form-label">Ghi chú</label>
+                                <input className="form-input" value={ccAttendForm.notes} onChange={e => setCcAttendForm({ ...ccAttendForm, notes: e.target.value })} placeholder="VD: Về sớm, đi muộn..." />
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setCcAttendTarget(null)}>Hủy</button>
+                            <button className="btn btn-primary" onClick={ccHandleAttend}>Lưu chấm công</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ════════ Modal xác nhận xóa nhân viên ════════ */}
+            {ccDeleteTarget && (
+                <div className="modal-overlay" onClick={() => setCcDeleteTarget(null)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
+                        <div className="modal-header">
+                            <h3 style={{ color: 'var(--status-danger)' }}>🗑️ Xóa nhân viên</h3>
+                            <button className="modal-close" onClick={() => setCcDeleteTarget(null)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <p>Xóa nhân viên <strong>{ccDeleteTarget.name}</strong>? Toàn bộ lịch sử chấm công cũng sẽ bị xóa.</p>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setCcDeleteTarget(null)}>Hủy</button>
+                            <button className="btn btn-danger" onClick={ccHandleDelete}>Xóa</button>
                         </div>
                     </div>
                 </div>
