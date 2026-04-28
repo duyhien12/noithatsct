@@ -42,7 +42,7 @@ const menuItems = [
         section: 'Vận hành',
         items: [
             { href: '/payments', icon: CreditCard, label: 'Thu tiền' },
-            { href: '/expenses', icon: Receipt, label: 'Chi phí' },
+            { href: '/sales/expenses', icon: Receipt, label: 'Chi phí' },
             { href: '/purchasing', icon: ShoppingCart, label: 'Mua sắm VT' },
             { href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho' },
         ],
