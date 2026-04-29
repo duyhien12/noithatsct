@@ -381,7 +381,7 @@ export default function CustomersPage() {
                                     <div>
                                         <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Loại khách hàng</label>
                                         <select className="form-select" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
-                                            <option>Cá nhân</option><option>Doanh nghiệp</option>
+                                            <option>Cá nhân</option><option>Doanh nghiệp</option><option>Nhà nước</option>
                                         </select>
                                     </div>
                                     <div style={{ gridColumn: '1 / -1' }}>
