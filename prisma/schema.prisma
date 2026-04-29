@@ -1176,8 +1176,12 @@ model Task {
   createdBy   String    @default("")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  parentId    String?
+  parent      Task?     @relation("SubTasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subTasks    Task[]    @relation("SubTasks")
   @@index([status])
   @@index([assignee])
+  @@index([parentId])
 }
 
 // ============ LARK BASE INTEGRATION ============

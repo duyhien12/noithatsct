@@ -6,9 +6,9 @@ export const GET = withAuth(async (request) => {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const assignee = searchParams.get('assignee');
-    const dept = searchParams.get('dept'); // role group, dùng cho trưởng phòng/quản lý
+    const dept = searchParams.get('dept');
 
-    const where = {};
+    const where = { parentId: null };
     if (status) where.status = status;
 
     if (assignee) {
@@ -17,7 +17,6 @@ export const GET = withAuth(async (request) => {
             { createdBy: assignee },
         ];
     } else if (dept) {
-        // Lấy tên tất cả nhân viên trong phòng ban (cùng role)
         const deptUsers = await prisma.user.findMany({
             where: { role: dept, active: true },
             select: { name: true },
@@ -33,6 +32,7 @@ export const GET = withAuth(async (request) => {
 
     const tasks = await prisma.task.findMany({
         where,
+        include: { subTasks: { orderBy: { createdAt: 'asc' } } },
         orderBy: { createdAt: 'desc' },
     });
 
@@ -41,7 +41,7 @@ export const GET = withAuth(async (request) => {
 
 export const POST = withAuth(async (request, _ctx, session) => {
     const body = await request.json();
-    const { title, description, status, priority, assignee, dueDate } = body;
+    const { title, description, status, priority, assignee, dueDate, parentId } = body;
     if (!title?.trim()) return NextResponse.json({ error: 'Thiếu tiêu đề' }, { status: 400 });
 
     const task = await prisma.task.create({
@@ -53,6 +53,7 @@ export const POST = withAuth(async (request, _ctx, session) => {
             assignee: assignee || '',
             dueDate: dueDate ? new Date(dueDate) : null,
             createdBy: session?.user?.name || '',
+            parentId: parentId || null,
         },
     });
 

@@ -2,6 +2,16 @@ import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 
+export const GET = withAuth(async (request, { params }) => {
+    const { id } = await params;
+    const task = await prisma.task.findUnique({
+        where: { id },
+        include: { subTasks: { orderBy: { createdAt: 'asc' } } },
+    });
+    if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json(task);
+});
+
 export const PATCH = withAuth(async (request, { params }) => {
     const { id } = await params;
     const body = await request.json();

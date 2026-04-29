@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
@@ -9,8 +10,21 @@ export default function FinancePage() {
     return <Suspense><FinanceContent /></Suspense>;
 }
 
+const DEPT_LABEL = { xuong: 'Xưởng', kinh_doanh: 'Kinh doanh' };
+const DEPT_BADGE = { xuong: { bg: '#fef3c7', color: '#92400e' }, kinh_doanh: { bg: '#dbeafe', color: '#1e40af' } };
+const EXP_STATUS_STYLE = {
+    'Chờ duyệt': { bg: '#fef3c7', color: '#92400e' },
+    'Đã duyệt':  { bg: '#dbeafe', color: '#1e40af' },
+    'Đã chi':    { bg: '#dcfce7', color: '#166534' },
+    'Hoàn thành':{ bg: '#d1fae5', color: '#065f46' },
+    'Từ chối':   { bg: '#fee2e2', color: '#991b1b' },
+};
+
 function FinanceContent() {
     const searchParams = useSearchParams();
+    const { data: session } = useSession();
+    const userRole = session?.user?.role || '';
+    const canApprove = ['giam_doc', 'pho_gd', 'ban_gd', 'ke_toan', 'hanh_chinh_kt'].includes(userRole);
     const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
     const [summary, setSummary] = useState({});
     const [receivables, setReceivables] = useState({ payments: [], summary: {} });
@@ -27,6 +41,14 @@ function FinanceContent() {
     const [confirmModal, setConfirmModal] = useState(null); // { payment, file }
     const [uploading, setUploading] = useState(false);
     const proofRef = useRef();
+
+    /* ── Chi phí bộ phận state ── */
+    const [deptExpenses, setDeptExpenses] = useState([]);
+    const [deptLoading, setDeptLoading] = useState(false);
+    const [deptFetched, setDeptFetched] = useState(false);
+    const [deptFilterDept, setDeptFilterDept] = useState('');
+    const [deptFilterStatus, setDeptFilterStatus] = useState('');
+    const [deptFilterMonth, setDeptFilterMonth] = useState('');
 
     const fetchAll = async () => {
         setLoading(true);
@@ -45,6 +67,31 @@ function FinanceContent() {
     };
 
     useEffect(() => { fetchAll(); }, []);
+
+    const fetchDeptExpenses = async () => {
+        setDeptLoading(true);
+        const [xuongRes, kdRes] = await Promise.all([
+            fetch('/api/project-expenses?limit=2000&department=xuong').then(r => r.json()).then(d => d.data || []).catch(() => []),
+            fetch('/api/project-expenses?limit=2000&department=kinh_doanh').then(r => r.json()).then(d => d.data || []).catch(() => []),
+        ]);
+        const merged = [...xuongRes, ...kdRes].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setDeptExpenses(merged);
+        setDeptFetched(true);
+        setDeptLoading(false);
+    };
+
+    useEffect(() => {
+        if (activeTab === 'dept_expenses' && !deptFetched) fetchDeptExpenses();
+    }, [activeTab]);
+
+    const approveDeptExpense = async (expense, newStatus) => {
+        await fetch('/api/project-expenses', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: expense.id, status: newStatus, approvedBy: session?.user?.name || '' }),
+        });
+        fetchDeptExpenses();
+    };
 
     // === Thu tiền — bắt buộc upload proof ===
     const startCollect = (payment) => {
@@ -235,6 +282,7 @@ ${[1, 2].map(copy => `
         { key: 'payables', label: '📉 Công nợ phải trả', icon: '' },
         { key: 'transactions', label: '💳 Thu chi khác', icon: '' },
         { key: 'lark', label: '📒 Nhật ký Lark', icon: '' },
+        { key: 'dept_expenses', label: '🏢 Chi phí bộ phận', icon: '' },
     ];
 
     const DEPTS = [...new Set(larkEntries.map(e => e.department).filter(Boolean))];
@@ -544,6 +592,124 @@ ${[1, 2].map(copy => `
                         )}
                     </>
                 )}
+                {/* TAB: Chi phí bộ phận */}
+                {activeTab === 'dept_expenses' && (() => {
+                    const xuong = deptExpenses.filter(e => e.department === 'xuong');
+                    const kd = deptExpenses.filter(e => e.department === 'kinh_doanh');
+                    const sumAmt = (arr) => arr.reduce((s, e) => s + (e.amount || 0), 0);
+                    const pending = deptExpenses.filter(e => e.status === 'Chờ duyệt');
+                    const paid = deptExpenses.filter(e => e.status === 'Đã chi' || e.status === 'Hoàn thành');
+
+                    const filtered = deptExpenses.filter(e => {
+                        if (deptFilterDept && e.department !== deptFilterDept) return false;
+                        if (deptFilterStatus && e.status !== deptFilterStatus) return false;
+                        if (deptFilterMonth) {
+                            const m = new Date(e.date).toISOString().slice(0, 7);
+                            if (m !== deptFilterMonth) return false;
+                        }
+                        return true;
+                    });
+
+                    return (
+                        <>
+                            {/* Summary */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                                {[
+                                    { label: 'Xưởng', value: sumAmt(xuong), color: '#92400e', bg: '#fef3c7' },
+                                    { label: 'Kinh doanh', value: sumAmt(kd), color: '#1e40af', bg: '#dbeafe' },
+                                    { label: 'Chờ duyệt', value: sumAmt(pending), color: '#92400e', bg: '#fff7ed', count: pending.length },
+                                    { label: 'Đã chi', value: sumAmt(paid), color: '#166534', bg: '#dcfce7', count: paid.length },
+                                ].map(s => (
+                                    <div key={s.label} style={{ background: s.bg, borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
+                                        <div style={{ fontSize: 11, color: s.color, marginBottom: 4, fontWeight: 600 }}>
+                                            {s.label}{s.count !== undefined ? ` (${s.count})` : ''}
+                                        </div>
+                                        <div style={{ fontWeight: 700, fontSize: 13, color: s.color }}>{fmt(s.value)}</div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Filters */}
+                            <div style={{ display: 'flex', gap: 8, padding: '8px 16px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', alignItems: 'center' }}>
+                                <button className="btn btn-ghost btn-sm" onClick={fetchDeptExpenses}>🔄 Làm mới</button>
+                                <select className="form-select" style={{ maxWidth: 150 }} value={deptFilterDept} onChange={e => setDeptFilterDept(e.target.value)}>
+                                    <option value="">Tất cả phòng ban</option>
+                                    <option value="xuong">Xưởng</option>
+                                    <option value="kinh_doanh">Kinh doanh</option>
+                                </select>
+                                <select className="form-select" style={{ maxWidth: 140 }} value={deptFilterStatus} onChange={e => setDeptFilterStatus(e.target.value)}>
+                                    <option value="">Tất cả TT</option>
+                                    <option>Chờ duyệt</option>
+                                    <option>Đã duyệt</option>
+                                    <option>Đã chi</option>
+                                    <option>Hoàn thành</option>
+                                    <option>Từ chối</option>
+                                </select>
+                                <input className="form-input" type="month" style={{ maxWidth: 150 }} value={deptFilterMonth} onChange={e => setDeptFilterMonth(e.target.value)} />
+                                <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto' }}>{filtered.length} lệnh</span>
+                            </div>
+
+                            {/* Table */}
+                            {deptLoading ? (
+                                <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
+                            ) : filtered.length === 0 ? (
+                                <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Không có chi phí</div>
+                            ) : (
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                                        <thead>
+                                            <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+                                                {['Mã', 'Phòng ban', 'Mô tả', 'Hạng mục', 'Dự án', 'Số tiền', 'Ngày', 'Trạng thái', canApprove ? 'Thao tác' : ''].filter(Boolean).map(h => (
+                                                    <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filtered.map(e => {
+                                                const st = EXP_STATUS_STYLE[e.status] || { bg: '#f3f4f6', color: '#374151' };
+                                                const dept = DEPT_BADGE[e.department] || { bg: '#f3f4f6', color: '#374151' };
+                                                return (
+                                                    <tr key={e.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                                        <td style={{ padding: '8px 12px', whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--accent-primary)' }}>{e.code}</td>
+                                                        <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+                                                            <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: dept.bg, color: dept.color }}>
+                                                                {DEPT_LABEL[e.department] || e.department}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '8px 12px', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.description}</td>
+                                                        <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+                                                            <span className="badge muted" style={{ fontSize: 11 }}>{e.category}</span>
+                                                        </td>
+                                                        <td style={{ padding: '8px 12px', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--text-muted)' }}>{e.project?.name || '—'}</td>
+                                                        <td style={{ padding: '8px 12px', whiteSpace: 'nowrap', fontWeight: 700, color: 'var(--status-danger)' }}>{fmt(e.amount)}</td>
+                                                        <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{fmtDate(e.date)}</td>
+                                                        <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+                                                            <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: st.bg, color: st.color }}>{e.status}</span>
+                                                        </td>
+                                                        {canApprove && (
+                                                            <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+                                                                {e.status === 'Chờ duyệt' && (
+                                                                    <button className="btn btn-primary btn-sm" style={{ fontSize: 11 }} onClick={() => approveDeptExpense(e, 'Đã duyệt')}>✅ Duyệt</button>
+                                                                )}
+                                                                {e.status === 'Đã duyệt' && (
+                                                                    <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => approveDeptExpense(e, 'Đã chi')}>💸 Đã chi</button>
+                                                                )}
+                                                                {e.proofUrl && (
+                                                                    <a href={e.proofUrl} target="_blank" rel="noreferrer" style={{ marginLeft: 6 }}>📸</a>
+                                                                )}
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </>
+                    );
+                })()}
+
                 {/* TAB: Nhật ký Lark */}
                 {activeTab === 'lark' && (
                     <>
