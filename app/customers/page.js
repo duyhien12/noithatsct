@@ -15,7 +15,7 @@ const PIPELINE = [
     { key: 'Tư vấn', label: 'Khách chăm sóc', color: '#3b82f6', bg: '#dbeafe' },
     { key: 'Báo giá', label: 'Khách ưu tiên', color: '#8b5cf6', bg: '#ede9fe' },
     { key: 'Thi công', label: 'Khách hợp đồng', color: '#f97316', bg: '#ffedd5' },
-    { key: 'Khách huỷ', label: 'Khách huỷ', color: '#6b7280', bg: '#f3f4f6' },
+    { key: 'Khách huỷ', label: 'Khách hoàn thành', color: '#6b7280', bg: '#f3f4f6' },
 ];
 
 const SOURCES = ['Facebook', 'Zalo', 'Website', 'Instagram', 'Giới thiệu', 'Đối tác'];
