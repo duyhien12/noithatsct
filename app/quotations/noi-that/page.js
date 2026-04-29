@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/fetchClient';
 import { useToast } from '@/components/ui/Toast';
+import ProductPickerDropdown from './ProductPickerDropdown';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmtN = (n) => n ? new Intl.NumberFormat('vi-VN').format(Math.round(n)) : '';
@@ -79,6 +80,8 @@ export default function QuotationNoiThatPage() {
     const cellRefs = useRef({});
     const dragRef = useRef(null); // { sIdx, rmIdx, rIdx }
     const [dragOver, setDragOver] = useState(null); // { sIdx, rmIdx, rIdx }
+    const [inlinePicker, setInlinePicker] = useState(null); // { sIdx, rmIdx, rIdx } — type-to-search
+    const inlineBlurTimer = useRef(null);
 
     const handleDragStart = useCallback((e, sIdx, rmIdx, rIdx) => {
         dragRef.current = { sIdx, rmIdx, rIdx };
@@ -264,6 +267,57 @@ export default function QuotationNoiThatPage() {
         }));
     }, []);
 
+    // ── Product picker ────────────────────────────────────────────────────────
+    const handleSelectProduct = useCallback((product) => {
+        const target = inlinePicker;
+        if (!target) return;
+        clearTimeout(inlineBlurTimer.current);
+        const { sIdx, rmIdx, rIdx } = target;
+        const parts = [product.name];
+        if (product.material) parts.push(product.material);
+        const chatLieu = parts.join('\n').trim();
+        setSections(prev => prev.map((sec, si) => si !== sIdx ? sec : {
+            ...sec,
+            rooms: sec.rooms.map((rm, ri) => ri !== rmIdx ? rm : {
+                ...rm,
+                rows: rm.rows.map((row, rii) => {
+                    if (rii !== rIdx) return row;
+                    return {
+                        ...row,
+                        chatLieu,
+                        ...(product.salePrice > 0 ? { donGia: String(product.salePrice) } : {}),
+                        ...(product.unit ? { dvt: product.unit } : {}),
+                    };
+                }),
+            }),
+        }));
+        setInlinePicker(null);
+    }, [inlinePicker]);
+
+    // Inline search helpers
+    const isInlineSearchable = (val) => val && !val.includes('\n') && val.trim().length > 0;
+
+    const handleChatLieuFocus = useCallback((val, sIdx, rmIdx, rIdx) => {
+        clearTimeout(inlineBlurTimer.current);
+        if (isInlineSearchable(val)) setInlinePicker({ sIdx, rmIdx, rIdx });
+    }, []);
+
+    const handleChatLieuBlur = useCallback(() => {
+        inlineBlurTimer.current = setTimeout(() => setInlinePicker(null), 180);
+    }, []);
+
+    const handleChatLieuChange = useCallback((e, sIdx, rmIdx, rIdx) => {
+        const val = e.target.value;
+        updateRow(sIdx, rmIdx, rIdx, 'chatLieu', val);
+        e.target.style.height = 'auto';
+        e.target.style.height = e.target.scrollHeight + 'px';
+        if (isInlineSearchable(val)) {
+            setInlinePicker({ sIdx, rmIdx, rIdx });
+        } else {
+            setInlinePicker(null);
+        }
+    }, [updateRow]);
+
     // ── Keyboard navigation ───────────────────────────────────────────────────
     const navigateTab = useCallback((refKey, shiftKey) => {
         const cells = flatCells();
@@ -338,8 +392,36 @@ export default function QuotationNoiThatPage() {
         toast.success(`Đã dán ${lines.length} dòng`);
     }, [toast]);
 
-    // ── Totals ────────────────────────────────────────────────────────────────
-    const roomTotals = sections.map(sec => sec.rooms.map(rm => rm.rows.reduce((s, r) => s + calcTT(r), 0)));
+    // ── Totals (group-aware: parent KL = parent KL - sub-rows KL) ─────────────
+    // Build merged groups from a room's rows
+    function buildGroups(rows) {
+        const groups = [];
+        rows.forEach((row, i) => {
+            if (i > 0 && row.mergedWithPrev) groups[groups.length - 1].push(i);
+            else groups.push([i]);
+        });
+        return groups;
+    }
+    // Effective KL for a row given its position in a group
+    // Deduction only applies when the PARENT row's chatLieu contains "trừ"
+    const isTruParent = (row) => /trừ/i.test(row.chatLieu || '');
+    function effectiveKL(rows, group, ri) {
+        const row = rows[group[ri]];
+        const baseKL = calcKL(row);
+        if (ri !== 0 || group.length === 1) return baseKL;
+        if (!isTruParent(row)) return baseKL;
+        const firstSubKL = calcKL(rows[group[1]]);
+        return Math.round((baseKL - firstSubKL) * 1000) / 1000;
+    }
+    function calcRoomTotal(rm) {
+        return buildGroups(rm.rows).reduce((total, group) =>
+            total + group.reduce((s, rIdx, ri) => {
+                const kl = effectiveKL(rm.rows, group, ri);
+                return s + Math.round(kl * (parseFloat(rm.rows[rIdx].donGia) || 0));
+            }, 0)
+        , 0);
+    }
+    const roomTotals = sections.map(sec => sec.rooms.map(rm => calcRoomTotal(rm)));
     const secTotals = roomTotals.map(rts => rts.reduce((a, b) => a + b, 0));
     const rawTotal = secTotals.reduce((a, b) => a + b, 0);
     const afterDiscount = rawTotal * (1 - (form.discount || 0) / 100);
@@ -351,22 +433,31 @@ export default function QuotationNoiThatPage() {
         const categories = [];
         sections.forEach((sec, si) => {
             sec.rooms.forEach((rm, ri) => {
-                const items = rm.rows
+                const allRows = rm.rows;
+                const groups = buildGroups(allRows);
+                // Map rIdx → group position for effectiveKL lookup
+                const groupMap = new Map();
+                groups.forEach(group => group.forEach((rIdx, ri) => groupMap.set(rIdx, { group, ri })));
+                const items = allRows
                     .filter(r => r.hangMuc || r.chatLieu || r.donGia)
-                    .map((row, idx) => ({
-                        name: row.hangMuc || '(Hạng mục)',
-                        description: row.chatLieu || '',
-                        unit: row.dvt || 'm²',
-                        length: parseFloat(row.dai) || 0,
-                        width: parseFloat(row.sau) || 0,
-                        height: parseFloat(row.cao) || 0,
-                        quantity: parseFloat(row.slCai) || 1,
-                        volume: calcKL(row),
-                        unitPrice: parseFloat(row.donGia) || 0,
-                        amount: calcTT(row),
-                        mergedWithPrev: row.mergedWithPrev || false,
-                        order: idx,
-                    }));
+                    .map((row, idx) => {
+                        const gInfo = groupMap.get(idx);
+                        const kl = gInfo ? effectiveKL(allRows, gInfo.group, gInfo.ri) : calcKL(row);
+                        return {
+                            name: row.hangMuc || '(Hạng mục)',
+                            description: row.chatLieu || '',
+                            unit: row.dvt || 'm²',
+                            length: parseFloat(row.dai) || 0,
+                            width: parseFloat(row.sau) || 0,
+                            height: parseFloat(row.cao) || 0,
+                            quantity: parseFloat(row.slCai) || 1,
+                            volume: kl,
+                            unitPrice: parseFloat(row.donGia) || 0,
+                            amount: Math.round(kl * (parseFloat(row.donGia) || 0)),
+                            mergedWithPrev: row.mergedWithPrev || false,
+                            order: idx,
+                        };
+                    });
                 if (items.length) {
                     categories.push({
                         group: sec.name || `Tầng ${si + 1}`,
@@ -602,6 +693,7 @@ export default function QuotationNoiThatPage() {
                 <span>✕ <b>Ctrl+Del</b> xóa dòng</span>
                 <span>📋 <b>Ctrl+V</b> paste từ Excel</span>
                 <span style={{ color: '#7c3aed' }}>💬 Chất liệu: <b>Enter</b> = xuống dòng, <b>Ctrl+Enter</b> = ô tiếp</span>
+                <span style={{ color: '#0369a1' }}>📦 Chất liệu: gõ tên/mã SP → chọn từ danh sách gợi ý</span>
                 <span>KL: Dài×Cao×SL (m²) | Dài×SL (md)</span>
                 <span style={{ color: '#0369a1' }}>⊞ Gộp ô / ⊟ Bỏ gộp (nút cuối dòng)</span>
             </div>
@@ -691,7 +783,8 @@ export default function QuotationNoiThatPage() {
                                                     const row = rm.rows[rIdx];
                                                     const isFirst = ri === 0;
                                                     const span = group.length;
-                                                    const tt = calcTT(row);
+                                                    const kl = effectiveKL(rm.rows, group, ri);
+                                                    const tt = Math.round(kl * (parseFloat(row.donGia) || 0));
                                                     const evenBg = gi % 2 === 1 ? '#f9fafb' : '#fff';
                                                     const autoBg = evenBg === '#fff' ? '#eef2f7' : '#e8ecf2';
                                                     const isDragTarget = dragOver && dragOver.sIdx === sIdx && dragOver.rmIdx === rmIdx && dragOver.rIdx === rIdx;
@@ -721,21 +814,31 @@ export default function QuotationNoiThatPage() {
                                                                         rowSpan={col.key === 'hangMuc' ? span : 1}
                                                                         style={{ ...TD, background: evenBg, verticalAlign: col.textarea ? 'top' : 'middle' }}>
                                                                         {col.textarea ? (
+                                                                            <div style={{ position: 'relative' }}>
                                                                             <textarea
                                                                                 ref={el => { cellRefs.current[refKey] = el; }}
                                                                                 style={{ ...INPUT_S, resize: 'none', minHeight: 30, overflowY: 'hidden', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}
                                                                                 value={row[col.key] || ''}
                                                                                 rows={Math.max(1, (row[col.key] || '').split('\n').length)}
-                                                                                onChange={e => {
-                                                                                    updateRow(sIdx, rmIdx, rIdx, col.key, e.target.value);
-                                                                                    e.target.style.height = 'auto';
-                                                                                    e.target.style.height = e.target.scrollHeight + 'px';
+                                                                                onChange={e => handleChatLieuChange(e, sIdx, rmIdx, rIdx)}
+                                                                                onFocus={() => handleChatLieuFocus(row[col.key], sIdx, rmIdx, rIdx)}
+                                                                                onBlur={handleChatLieuBlur}
+                                                                                onKeyDown={e => {
+                                                                                    if (e.key === 'Escape') setInlinePicker(null);
+                                                                                    handleTextareaKey(e, sIdx, rmIdx, rIdx, cIdx);
                                                                                 }}
-                                                                                onKeyDown={e => handleTextareaKey(e, sIdx, rmIdx, rIdx, cIdx)}
                                                                                 onPaste={e => handlePaste(e, sIdx, rmIdx, rIdx, cIdx)}
-                                                                                placeholder="Mô tả chất liệu..."
+                                                                                placeholder="Mô tả chất liệu... (gõ để tìm SP)"
                                                                                 tabIndex={0}
                                                                             />
+                                                                            {inlinePicker?.sIdx === sIdx && inlinePicker?.rmIdx === rmIdx && inlinePicker?.rIdx === rIdx && (
+                                                                                <ProductPickerDropdown
+                                                                                    externalQuery={row[col.key]}
+                                                                                    onSelect={handleSelectProduct}
+                                                                                    onClose={() => setInlinePicker(null)}
+                                                                                />
+                                                                            )}
+                                                                            </div>
                                                                         ) : col.key === 'khoiLuong' ? (
                                                                             <input
                                                                                 ref={el => { cellRefs.current[refKey] = el; }}
@@ -744,7 +847,15 @@ export default function QuotationNoiThatPage() {
                                                                                 onChange={e => updateRow(sIdx, rmIdx, rIdx, 'khoiLuong', e.target.value)}
                                                                                 onKeyDown={e => handleKeyDown(e, sIdx, rmIdx, rIdx, cIdx)}
                                                                                 onPaste={e => handlePaste(e, sIdx, rmIdx, rIdx, cIdx)}
-                                                                                placeholder={calcKLAuto(row) || ''}
+                                                                                placeholder={isFirst && group.length > 1 && isTruParent(row)
+                                                                                    ? (() => {
+                                                                                        const autoKL = calcKLAuto(row);
+                                                                                        const firstSubKL = calcKL(rm.rows[group[1]]);
+                                                                                        if (!autoKL) return '';
+                                                                                        const net = Math.round((autoKL - firstSubKL) * 1000) / 1000;
+                                                                                        return `${autoKL}-${firstSubKL}=${net}`;
+                                                                                    })()
+                                                                                    : (calcKLAuto(row) || '')}
                                                                                 tabIndex={0}
                                                                             />
                                                                         ) : (
