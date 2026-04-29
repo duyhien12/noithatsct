@@ -1,6 +1,7 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
@@ -28,6 +29,17 @@ const PIPELINE = [
 
 const LOG_ICONS = { 'Điện thoại': '📞', 'Gặp mặt': '🤝', 'Email': '📧', 'Zalo': '💬', 'Khác': '📝' };
 
+function Avatar({ name, size = 32 }) {
+    const initials = (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f97316', '#ec4899', '#06b6d4'];
+    const color = colors[(name || '').charCodeAt(0) % colors.length] || '#6b7280';
+    return (
+        <div style={{ width: size, height: size, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: size * 0.38, flexShrink: 0 }}>
+            {initials}
+        </div>
+    );
+}
+
 const PROCESS_STEP_DEFS = [
     { key: 'tuvan',   label: 'Tư vấn',             icon: '📞', color: '#3b82f6', bg: '#dbeafe', desc: 'Tiếp nhận & tư vấn nhu cầu khách hàng' },
     { key: 'baogía',  label: 'Báo giá',             icon: '📄', color: '#8b5cf6', bg: '#ede9fe', desc: 'Lập và gửi báo giá cho khách' },
@@ -50,6 +62,7 @@ function defaultProcess() {
 export default function CustomerDetailPage() {
     const { id } = useParams();
     const router = useRouter();
+    const { data: session } = useSession();
     const [data, setData] = useState(null);
     const [tab, setTab] = useState('overview');
     const [loading, setLoading] = useState(true);
@@ -61,6 +74,12 @@ export default function CustomerDetailPage() {
     const [expandedStep, setExpandedStep] = useState(null);
     const [savingProcess, setSavingProcess] = useState(false);
 
+    // Comments
+    const [comments, setComments] = useState([]);
+    const [newComment, setNewComment] = useState('');
+    const [sendingComment, setSendingComment] = useState(false);
+    const commentsEndRef = useRef(null);
+
     const fetchData = () => {
         fetch(`/api/customers/${id}`).then(r => r.ok ? r.json() : null).then(d => {
             setData(d);
@@ -71,6 +90,34 @@ export default function CustomerDetailPage() {
         });
     };
     useEffect(fetchData, [id]);
+
+    useEffect(() => {
+        fetch(`/api/customers/${id}/comments`)
+            .then(r => r.json())
+            .then(d => { if (Array.isArray(d)) setComments(d); });
+    }, [id]);
+
+    const sendComment = async () => {
+        if (!newComment.trim()) return;
+        setSendingComment(true);
+        const res = await fetch(`/api/customers/${id}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: newComment.trim() }),
+        });
+        const data = await res.json();
+        setSendingComment(false);
+        if (res.ok) {
+            setComments(prev => [...prev, data]);
+            setNewComment('');
+            setTimeout(() => commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+        }
+    };
+
+    const deleteComment = async (commentId) => {
+        setComments(prev => prev.filter(c => c.id !== commentId));
+        await fetch(`/api/customers/${id}/comments/${commentId}`, { method: 'DELETE' });
+    };
 
     const addTrackingLog = async () => {
         if (!logForm.content.trim()) return alert('Nhập nội dung');
@@ -125,6 +172,7 @@ export default function CustomerDetailPage() {
         { key: 'timeline', label: 'Timeline', icon: '🕐', count: c.trackingLogs?.length },
         { key: 'transactions', label: 'Giao dịch', icon: '💰', count: c.transactions?.length },
         { key: 'process', label: 'Quy trình', icon: '🔄' },
+        { key: 'comments', label: 'Nhận xét', icon: '💬', count: comments.length || undefined },
     ];
 
     const saveProcess = async () => {
@@ -600,6 +648,66 @@ export default function CustomerDetailPage() {
                             <div style={{ fontSize: 18, fontWeight: 700, color: s.totalDebt > 0 ? '#ef4444' : '#94a3b8' }}>{fmt(s.totalDebt)}</div>
                             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Còn nợ</div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* TAB: Nhận xét */}
+            {tab === 'comments' && (
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', height: 560 }}>
+                    <div className="card-header">
+                        <span className="card-title">💬 Nhận xét</span>
+                        {comments.length > 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{comments.length} tin nhắn</span>}
+                    </div>
+                    {/* Messages list */}
+                    <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        {comments.length === 0 && (
+                            <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: '40px 0' }}>
+                                Chưa có nhận xét nào. Hãy bắt đầu cuộc trò chuyện!
+                            </div>
+                        )}
+                        {comments.map(cm => {
+                            const isMe = cm.author === session?.user?.name;
+                            return (
+                                <div key={cm.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row' }}>
+                                    <Avatar name={cm.author || '?'} size={32} />
+                                    <div style={{ maxWidth: '75%' }}>
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3, textAlign: isMe ? 'right' : 'left' }}>
+                                            {cm.author || 'Ẩn danh'} · {timeAgo(cm.createdAt)}
+                                        </div>
+                                        <div style={{
+                                            background: isMe ? 'var(--primary)' : 'var(--bg-secondary)',
+                                            color: isMe ? '#fff' : 'var(--text-primary)',
+                                            padding: '8px 12px', borderRadius: isMe ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
+                                            fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                                            border: isMe ? 'none' : '1px solid var(--border-light)',
+                                        }}>
+                                            {cm.content}
+                                        </div>
+                                    </div>
+                                    {isMe && (
+                                        <button onClick={() => deleteComment(cm.id)} title="Xóa" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 14, padding: '4px', alignSelf: 'center', flexShrink: 0 }}>×</button>
+                                    )}
+                                </div>
+                            );
+                        })}
+                        <div ref={commentsEndRef} />
+                    </div>
+                    {/* Input area */}
+                    <div style={{ borderTop: '1px solid var(--border-light)', padding: '12px 16px', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                        <Avatar name={session?.user?.name || '?'} size={30} />
+                        <textarea
+                            className="form-input"
+                            value={newComment}
+                            onChange={e => setNewComment(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendComment(); } }}
+                            placeholder="Viết nhận xét... (Ctrl+Enter để gửi)"
+                            rows={2}
+                            style={{ flex: 1, fontSize: 13, resize: 'none' }}
+                        />
+                        <button className="btn btn-primary" onClick={sendComment} disabled={sendingComment || !newComment.trim()} style={{ fontSize: 13, padding: '8px 16px', flexShrink: 0 }}>
+                            {sendingComment ? '...' : 'Gửi'}
+                        </button>
                     </div>
                 </div>
             )}
