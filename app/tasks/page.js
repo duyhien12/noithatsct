@@ -596,6 +596,11 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
         await fetch(`/api/tasks/${subId}`, { method: 'DELETE' });
     };
 
+    const updateSubTaskDueDate = async (sub, dueDate) => {
+        setSubTasks(prev => prev.map(s => s.id === sub.id ? { ...s, dueDate: dueDate || null } : s));
+        await fetch(`/api/tasks/${sub.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dueDate: dueDate || null }) });
+    };
+
     const doneCount = subTasks.filter(s => s.status === 'Hoàn thành').length;
     const totalCount = subTasks.length;
     const progressPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
@@ -650,12 +655,19 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
                     {subTasks.map(sub => (
-                        <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: 8, background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                        <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: '#f9fafb', border: '1px solid #e5e7eb' }}>
                             <input type="checkbox" checked={sub.status === 'Hoàn thành'} onChange={() => toggleSubTask(sub)}
                                 style={{ cursor: 'pointer', width: 16, height: 16, flexShrink: 0, accentColor: '#16a34a' }} />
                             <span style={{ flex: 1, fontSize: 13, color: sub.status === 'Hoàn thành' ? '#9ca3af' : 'var(--text-primary)', textDecoration: sub.status === 'Hoàn thành' ? 'line-through' : 'none' }}>
                                 {sub.title}
                             </span>
+                            <input
+                                type="date"
+                                value={fmtDateInput(sub.dueDate)}
+                                onChange={e => updateSubTaskDueDate(sub, e.target.value)}
+                                title="Hạn hoàn thành"
+                                style={{ fontSize: 11, border: '1px solid #e5e7eb', borderRadius: 4, padding: '2px 4px', color: sub.dueDate ? (new Date(sub.dueDate) < new Date() && sub.status !== 'Hoàn thành' ? '#dc2626' : '#6b7280') : '#9ca3af', background: 'transparent', flexShrink: 0, cursor: 'pointer', width: 120 }}
+                            />
                             <button onClick={() => deleteSubTask(sub.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 18, lineHeight: 1, padding: '0 4px', flexShrink: 0 }}>×</button>
                         </div>
                     ))}
