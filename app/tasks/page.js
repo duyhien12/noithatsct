@@ -343,6 +343,7 @@ export default function TasksPage() {
                     users={visibleUsers}
                     columns={COLUMNS}
                     priorities={PRIORITIES}
+                    currentUserName={currentUserName}
                     onClose={() => setEditingTask(null)}
                     onSave={handleTaskSaved}
                     onDelete={(taskId) => { deleteTask(taskId); setEditingTask(null); }}
@@ -479,7 +480,34 @@ function TaskCard({ task, col, dragging, columns, onDragStart, onDragEnd, onStat
     );
 }
 
-function TaskDetailModal({ task, users, columns, priorities, onClose, onSave, onDelete, isMobile }) {
+function avatarColor(name) {
+    const colors = ['#f97316','#8b5cf6','#06b6d4','#10b981','#ef4444','#3b82f6','#ec4899','#84cc16'];
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+    return colors[Math.abs(h) % colors.length];
+}
+
+function Avatar({ name, size = 32 }) {
+    const initials = name.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase();
+    return (
+        <div style={{ width: size, height: size, borderRadius: '50%', background: avatarColor(name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.38, fontWeight: 700, flexShrink: 0 }}>
+            {initials}
+        </div>
+    );
+}
+
+function fmtCommentTime(d) {
+    if (!d) return '';
+    const dt = new Date(d);
+    const now = new Date();
+    const diff = (now - dt) / 1000;
+    if (diff < 60) return 'Vừa xong';
+    if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
+    return dt.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function TaskDetailModal({ task, users, columns, priorities, currentUserName, onClose, onSave, onDelete, isMobile }) {
     const [form, setForm] = useState({
         title: task.title || '',
         description: task.description || '',
@@ -494,6 +522,40 @@ function TaskDetailModal({ task, users, columns, priorities, onClose, onSave, on
     const [addingSubTask, setAddingSubTask] = useState(false);
     const [error, setError] = useState('');
     const newSubRef = useRef(null);
+
+    // Comments
+    const [comments, setComments] = useState([]);
+    const [newComment, setNewComment] = useState('');
+    const [sendingComment, setSendingComment] = useState(false);
+    const commentsEndRef = useRef(null);
+
+    useEffect(() => {
+        fetch(`/api/tasks/${task.id}/comments`)
+            .then(r => r.json())
+            .then(d => { if (Array.isArray(d)) setComments(d); });
+    }, [task.id]);
+
+    const sendComment = async () => {
+        if (!newComment.trim()) return;
+        setSendingComment(true);
+        const res = await fetch(`/api/tasks/${task.id}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: newComment.trim() }),
+        });
+        const data = await res.json();
+        setSendingComment(false);
+        if (res.ok) {
+            setComments(prev => [...prev, data]);
+            setNewComment('');
+            setTimeout(() => commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+        }
+    };
+
+    const deleteComment = async (commentId) => {
+        setComments(prev => prev.filter(c => c.id !== commentId));
+        await fetch(`/api/tasks/${task.id}/comments/${commentId}`, { method: 'DELETE' });
+    };
 
     const save = async () => {
         if (!form.title.trim()) { setError('Vui lòng nhập tiêu đề'); return; }
@@ -538,146 +600,208 @@ function TaskDetailModal({ task, users, columns, priorities, onClose, onSave, on
     const totalCount = subTasks.length;
     const progressPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
-    const modalStyle = isMobile
-        ? { position: 'fixed', inset: 0, background: '#fff', zIndex: 1000, display: 'flex', flexDirection: 'column', overflowY: 'auto' }
-        : { background: '#fff', borderRadius: 14, width: '100%', maxWidth: 560, boxShadow: '0 12px 40px rgba(0,0,0,0.22)', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 80px)', overflow: 'hidden' };
-
-    const overlayStyle = isMobile
-        ? { position: 'fixed', inset: 0, zIndex: 1000, display: 'flex' }
-        : { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 16px', overflowY: 'auto' };
-
-    return (
-        <div style={overlayStyle} onClick={e => { if (!isMobile && e.target === e.currentTarget) onClose(); }}>
-            <div style={modalStyle}>
-                {/* Header */}
-                <div style={{ padding: isMobile ? '14px 16px 10px' : '16px 20px 12px', borderBottom: '1px solid var(--border-color)', flexShrink: 0, background: isMobile ? '#fff' : undefined, position: isMobile ? 'sticky' : undefined, top: 0, zIndex: 10 }}>
-                    {isMobile && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                            <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 14, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}>
-                                ← Quay lại
-                            </button>
-                            <button className="btn btn-primary" onClick={save} disabled={saving} style={{ fontSize: 13, padding: '6px 16px' }}>
-                                {saving ? 'Đang lưu...' : 'Lưu'}
-                            </button>
-                        </div>
-                    )}
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <input
-                            className="form-input"
-                            value={form.title}
-                            onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                            style={{ flex: 1, fontSize: isMobile ? 16 : 15, fontWeight: 700, padding: '8px 10px' }}
-                            placeholder="Tiêu đề tác vụ..."
-                        />
-                        {!isMobile && <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--text-muted)', lineHeight: 1, padding: '4px 6px', flexShrink: 0 }}>×</button>}
-                    </div>
+    /* ---- LEFT PANEL content (shared mobile/desktop) ---- */
+    const leftContent = (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1 }}>
+            {error && <div style={{ color: '#dc2626', fontSize: 13 }}>{error}</div>}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                    <label style={labelStyle}>Trạng thái</label>
+                    <select className="form-select" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={{ width: '100%', fontSize: 13 }}>
+                        {columns.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                    </select>
                 </div>
-
-                {/* Body */}
-                <div style={{ padding: isMobile ? '14px 16px' : '16px 20px', overflowY: isMobile ? undefined : 'auto', display: 'flex', flexDirection: 'column', gap: 14, flex: 1 }}>
-                    {error && <div style={{ color: '#dc2626', fontSize: 13 }}>{error}</div>}
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                        <div>
-                            <label style={{ fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 4, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Trạng thái</label>
-                            <select className="form-select" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={{ width: '100%', fontSize: 13 }}>
-                                {columns.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 4, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Ưu tiên</label>
-                            <select className="form-select" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} style={{ width: '100%', fontSize: 13 }}>
-                                {priorities.map(p => <option key={p}>{p}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 4, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Người nhận</label>
-                            <select className="form-select" value={form.assignee} onChange={e => setForm(f => ({ ...f, assignee: e.target.value }))} style={{ width: '100%', fontSize: 13 }}>
-                                <option value="">-- Chọn người --</option>
-                                {users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 4, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Hạn</label>
-                            <input type="date" className="form-input" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} style={{ width: '100%', fontSize: 13 }} />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label style={{ fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 4, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Mô tả</label>
-                        <textarea className="form-input" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                            placeholder="Thêm mô tả chi tiết..." rows={3} style={{ width: '100%', resize: 'vertical', fontSize: 13 }} />
-                    </div>
-
-                    {/* Subtasks */}
-                    <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Tác vụ con</label>
-                            {totalCount > 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{doneCount}/{totalCount}</span>}
-                        </div>
-
-                        {totalCount > 0 && (
-                            <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 32, textAlign: 'right' }}>{progressPct}%</span>
-                                <div style={{ flex: 1, height: 6, background: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}>
-                                    <div style={{ width: `${progressPct}%`, height: '100%', background: '#16a34a', borderRadius: 3, transition: 'width 0.3s' }} />
-                                </div>
-                            </div>
-                        )}
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
-                            {subTasks.map(sub => (
-                                <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: isMobile ? '8px 12px' : '6px 10px', borderRadius: 8, background: '#f9fafb', border: '1px solid #e5e7eb' }}>
-                                    <input type="checkbox" checked={sub.status === 'Hoàn thành'} onChange={() => toggleSubTask(sub)}
-                                        style={{ cursor: 'pointer', width: 17, height: 17, flexShrink: 0, accentColor: '#16a34a' }} />
-                                    <span style={{ flex: 1, fontSize: isMobile ? 14 : 13, color: sub.status === 'Hoàn thành' ? '#9ca3af' : 'var(--text-primary)', textDecoration: sub.status === 'Hoàn thành' ? 'line-through' : 'none' }}>
-                                        {sub.title}
-                                    </span>
-                                    <button onClick={() => deleteSubTask(sub.id)}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 18, lineHeight: 1, padding: '0 4px', flexShrink: 0 }}>×</button>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div style={{ display: 'flex', gap: 6 }}>
-                            <input ref={newSubRef} className="form-input" value={newSubTask} onChange={e => setNewSubTask(e.target.value)}
-                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSubTask(); } }}
-                                placeholder="Thêm tác vụ con... (Enter để thêm)"
-                                style={{ flex: 1, fontSize: isMobile ? 14 : 12 }} disabled={addingSubTask} />
-                            <button className="btn btn-secondary" onClick={addSubTask} disabled={addingSubTask || !newSubTask.trim()} style={{ fontSize: 13, padding: '6px 14px', flexShrink: 0 }}>
-                                {addingSubTask ? '...' : '+ Thêm'}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Delete on mobile - bottom of body */}
-                    {isMobile && (
-                        <div style={{ paddingTop: 8, borderTop: '1px solid var(--border-color)', marginTop: 4 }}>
-                            <button className="btn btn-danger" onClick={() => { if (confirm('Xóa tác vụ này và tất cả tác vụ con?')) onDelete(task.id); }} style={{ width: '100%', fontSize: 14, padding: '10px' }}>
-                                Xóa tác vụ
-                            </button>
-                        </div>
-                    )}
+                <div>
+                    <label style={labelStyle}>Ưu tiên</label>
+                    <select className="form-select" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} style={{ width: '100%', fontSize: 13 }}>
+                        {priorities.map(p => <option key={p}>{p}</option>)}
+                    </select>
                 </div>
-
-                {/* Desktop footer */}
-                {!isMobile && (
-                    <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, background: '#fafafa' }}>
-                        <button className="btn btn-danger" onClick={() => { if (confirm('Xóa tác vụ này và tất cả tác vụ con?')) onDelete(task.id); }} style={{ fontSize: 12 }}>
-                            Xóa tác vụ
-                        </button>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <button className="btn btn-secondary" onClick={onClose} style={{ fontSize: 12 }}>Hủy</button>
-                            <button className="btn btn-primary" onClick={save} disabled={saving} style={{ fontSize: 12 }}>
-                                {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
-                            </button>
+                <div>
+                    <label style={labelStyle}>Người nhận</label>
+                    <select className="form-select" value={form.assignee} onChange={e => setForm(f => ({ ...f, assignee: e.target.value }))} style={{ width: '100%', fontSize: 13 }}>
+                        <option value="">-- Chọn người --</option>
+                        {users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label style={labelStyle}>Hạn</label>
+                    <input type="date" className="form-input" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} style={{ width: '100%', fontSize: 13 }} />
+                </div>
+            </div>
+            <div>
+                <label style={labelStyle}>Mô tả</label>
+                <textarea className="form-input" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                    placeholder="Thêm mô tả chi tiết..." rows={3} style={{ width: '100%', resize: 'vertical', fontSize: 13 }} />
+            </div>
+            {/* Subtasks */}
+            <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <label style={labelStyle}>Tác vụ con</label>
+                    {totalCount > 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{doneCount}/{totalCount}</span>}
+                </div>
+                {totalCount > 0 && (
+                    <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 32, textAlign: 'right' }}>{progressPct}%</span>
+                        <div style={{ flex: 1, height: 6, background: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}>
+                            <div style={{ width: `${progressPct}%`, height: '100%', background: '#16a34a', borderRadius: 3, transition: 'width 0.3s' }} />
                         </div>
                     </div>
                 )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                    {subTasks.map(sub => (
+                        <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: 8, background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                            <input type="checkbox" checked={sub.status === 'Hoàn thành'} onChange={() => toggleSubTask(sub)}
+                                style={{ cursor: 'pointer', width: 16, height: 16, flexShrink: 0, accentColor: '#16a34a' }} />
+                            <span style={{ flex: 1, fontSize: 13, color: sub.status === 'Hoàn thành' ? '#9ca3af' : 'var(--text-primary)', textDecoration: sub.status === 'Hoàn thành' ? 'line-through' : 'none' }}>
+                                {sub.title}
+                            </span>
+                            <button onClick={() => deleteSubTask(sub.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 18, lineHeight: 1, padding: '0 4px', flexShrink: 0 }}>×</button>
+                        </div>
+                    ))}
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                    <input ref={newSubRef} className="form-input" value={newSubTask} onChange={e => setNewSubTask(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSubTask(); } }}
+                        placeholder="Thêm tác vụ con... (Enter để thêm)"
+                        style={{ flex: 1, fontSize: 12 }} disabled={addingSubTask} />
+                    <button className="btn btn-secondary" onClick={addSubTask} disabled={addingSubTask || !newSubTask.trim()} style={{ fontSize: 12, padding: '5px 12px', flexShrink: 0 }}>
+                        {addingSubTask ? '...' : '+ Thêm'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    /* ---- RIGHT PANEL: comments ---- */
+    const commentsPanel = (
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                💬 Nhận xét
+                {comments.length > 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>({comments.length})</span>}
+            </div>
+            {/* Comment input */}
+            <div style={{ marginBottom: 14 }}>
+                {currentUserName && (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 8 }}>
+                        <Avatar name={currentUserName} size={28} />
+                        <textarea
+                            className="form-input"
+                            value={newComment}
+                            onChange={e => setNewComment(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendComment(); } }}
+                            placeholder="Viết nhận xét... (Ctrl+Enter để gửi)"
+                            rows={2}
+                            style={{ flex: 1, fontSize: 13, resize: 'none' }}
+                        />
+                    </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <button className="btn btn-primary" onClick={sendComment} disabled={sendingComment || !newComment.trim()} style={{ fontSize: 12, padding: '5px 16px' }}>
+                        {sendingComment ? '...' : 'Gửi'}
+                    </button>
+                </div>
+            </div>
+            {/* Comments list */}
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {comments.length === 0 && (
+                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, padding: '20px 0' }}>
+                        Chưa có nhận xét nào
+                    </div>
+                )}
+                {comments.map(c => (
+                    <div key={c.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                        <Avatar name={c.author || '?'} size={30} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                                <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{c.author}</span>
+                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{fmtCommentTime(c.createdAt)}</span>
+                                {(c.author === currentUserName) && (
+                                    <button onClick={() => deleteComment(c.id)}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 11, padding: 0, marginLeft: 'auto' }}
+                                        title="Xóa nhận xét">Xóa</button>
+                                )}
+                            </div>
+                            <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 3, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: '#f3f4f6', padding: '7px 10px', borderRadius: '0 8px 8px 8px' }}>
+                                {c.content}
+                            </div>
+                        </div>
+                    </div>
+                ))}
+                <div ref={commentsEndRef} />
+            </div>
+        </div>
+    );
+
+    /* ---- MOBILE ---- */
+    if (isMobile) {
+        return (
+            <div style={{ position: 'fixed', inset: 0, background: '#fff', zIndex: 1000, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+                <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid var(--border-color)', position: 'sticky', top: 0, background: '#fff', zIndex: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 14, cursor: 'pointer', color: 'var(--text-muted)', padding: 0 }}>← Quay lại</button>
+                        <button className="btn btn-primary" onClick={save} disabled={saving} style={{ fontSize: 13, padding: '6px 16px' }}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
+                    </div>
+                    <input className="form-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                        style={{ width: '100%', fontSize: 16, fontWeight: 700, padding: '8px 10px' }} placeholder="Tiêu đề tác vụ..." />
+                </div>
+                <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {leftContent}
+                    <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: 14 }}>
+                        {commentsPanel}
+                    </div>
+                    <div style={{ paddingTop: 8, borderTop: '1px solid var(--border-color)' }}>
+                        <button className="btn btn-danger" onClick={() => { if (confirm('Xóa tác vụ này và tất cả tác vụ con?')) onDelete(task.id); }} style={{ width: '100%', fontSize: 14, padding: '10px' }}>
+                            Xóa tác vụ
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    /* ---- DESKTOP: 2-column ---- */
+    return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 16px', overflowY: 'auto' }}
+            onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+            <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 860, boxShadow: '0 12px 40px rgba(0,0,0,0.22)', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 64px)', overflow: 'hidden' }}>
+                {/* Header */}
+                <div style={{ padding: '14px 20px 12px', borderBottom: '1px solid var(--border-color)', flexShrink: 0, display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input className="form-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                        style={{ flex: 1, fontSize: 16, fontWeight: 700, padding: '7px 10px' }} placeholder="Tiêu đề tác vụ..." />
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--text-muted)', lineHeight: 1, padding: '4px 6px', flexShrink: 0 }}>×</button>
+                </div>
+
+                {/* 2-column body */}
+                <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+                    {/* Left: task details */}
+                    <div style={{ flex: '0 0 55%', padding: '16px 20px', overflowY: 'auto', borderRight: '1px solid var(--border-color)' }}>
+                        {leftContent}
+                    </div>
+                    {/* Right: comments */}
+                    <div style={{ flex: '0 0 45%', padding: '16px 20px', overflowY: 'auto', background: '#fafafa', display: 'flex', flexDirection: 'column' }}>
+                        {commentsPanel}
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div style={{ padding: '10px 20px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, background: '#f9fafb' }}>
+                    <button className="btn btn-danger" onClick={() => { if (confirm('Xóa tác vụ này và tất cả tác vụ con?')) onDelete(task.id); }} style={{ fontSize: 12 }}>
+                        Xóa tác vụ
+                    </button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <button className="btn btn-secondary" onClick={onClose} style={{ fontSize: 12 }}>Hủy</button>
+                        <button className="btn btn-primary" onClick={save} disabled={saving} style={{ fontSize: 12 }}>
+                            {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );
 }
+
+const labelStyle = { fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 4, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 };
 
 function CreateTaskModal({ users, currentUserName, onClose, onCreate, isMobile }) {
     const [form, setForm] = useState({ title: '', description: '', status: 'Việc sẽ làm', priority: 'Trung bình', assignee: currentUserName || '', dueDate: '' });

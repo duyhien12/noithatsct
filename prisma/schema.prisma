@@ -1184,6 +1184,15 @@ model Task {
   @@index([parentId])
 }
 
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  content   String   @db.Text
+  author    String   @default("")
+  createdAt DateTime @default(now())
+  @@index([taskId])
+}
+
 // ============ LARK BASE INTEGRATION ============
 
 model LarkJournalEntry {
