@@ -137,7 +137,7 @@ export default function SalesExpensesPage() {
         setLoadingPay(false);
     };
 
-    useEffect(() => { fetchExpenses(); fetchPayments(); }, []);
+    useEffect(() => { fetchExpenses(); fetchPayments(); fetchCcSummary(ccSummaryMonth); }, []);
 
     /* ── Chấm công fetch ── */
     const fetchCcWorkers = async () => {
@@ -528,11 +528,18 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                 const totalThuPhai   = payTotal + siTotal;
                 const totalThuDuoc   = payReceived + siReceived;
                 const totalThuConLai = totalThuPhai - totalThuDuoc;
-                const canDoi = totalThuDuoc - expPaid;
+                const salaryTotal    = ccSummaryData.reduce((s, a) => s + (a.hoursWorked / 8) * (a.worker?.dailyRate || 0), 0);
+                const totalChi       = expPaid + salaryTotal;
+                const canDoi         = totalThuDuoc - totalChi;
+                const monthLabel     = new Date(ccSummaryMonth + '-01').toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' });
                 return (
                     <div className="card" style={{ marginBottom: 16, padding: '16px 20px' }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 14 }}>Tổng quan tài chính kinh doanh</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Tổng quan tài chính kinh doanh</span>
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Lương: {monthLabel}</span>
+                        </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                            {/* Thu tiền */}
                             <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '14px 16px', borderLeft: '4px solid #16a34a' }}>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: '#15803d', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>💰 Thu tiền</div>
                                 <div style={{ fontSize: 18, fontWeight: 800, color: '#15803d', marginBottom: 6 }}>{fmt(totalThuDuoc)}</div>
@@ -541,6 +548,7 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                                     <div style={{ fontSize: 11, color: '#dc2626' }}>Còn lại: <strong>{fmt(totalThuConLai)}</strong></div>
                                 </div>
                             </div>
+                            {/* Chi phí */}
                             <div style={{ background: '#fff7ed', borderRadius: 10, padding: '14px 16px', borderLeft: '4px solid #ea580c' }}>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: '#c2410c', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>📉 Chi phí</div>
                                 <div style={{ fontSize: 18, fontWeight: 800, color: '#c2410c', marginBottom: 6 }}>{fmt(expPaid)}</div>
@@ -549,17 +557,22 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                                     <div style={{ fontSize: 11, color: '#92400e' }}>Chờ duyệt: <strong>{expPendingCount} lệnh</strong></div>
                                 </div>
                             </div>
-                            <div style={{ background: '#fdf4ff', borderRadius: 10, padding: '14px 16px', borderLeft: '4px solid #8e44ad' }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: '#7e22ce', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>📋 Lệnh thu thủ công</div>
-                                <div style={{ fontSize: 18, fontWeight: 800, color: '#7e22ce', marginBottom: 6 }}>{fmt(siTotal)}</div>
-                                <div style={{ fontSize: 11, color: '#374151' }}>Đã thu: <strong>{fmt(siReceived)}</strong></div>
+                            {/* Lương tháng */}
+                            <div style={{ background: '#eff6ff', borderRadius: 10, padding: '14px 16px', borderLeft: '4px solid #2563eb' }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>👤 Lương tháng</div>
+                                <div style={{ fontSize: 18, fontWeight: 800, color: '#1d4ed8', marginBottom: 6 }}>{fmt(salaryTotal)}</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                    <div style={{ fontSize: 11, color: '#374151' }}>Nhân viên KD: <strong>{ccSummaryData.filter((a, i, arr) => arr.findIndex(x => x.workerId === a.workerId) === i).length} người</strong></div>
+                                    <div style={{ fontSize: 11, color: '#374151' }}>Số công: <strong>{ccSummaryData.reduce((s, a) => s + (a.hoursWorked / 8), 0).toFixed(1)} ngày</strong></div>
+                                </div>
                             </div>
+                            {/* Cân đối */}
                             <div style={{ background: canDoi >= 0 ? '#f0fdf4' : '#fef2f2', borderRadius: 10, padding: '14px 16px', borderLeft: `4px solid ${canDoi >= 0 ? '#16a34a' : '#dc2626'}` }}>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: canDoi >= 0 ? '#15803d' : '#b91c1c', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>💵 Cân đối</div>
                                 <div style={{ fontSize: 18, fontWeight: 800, color: canDoi >= 0 ? '#15803d' : '#b91c1c', marginBottom: 6 }}>{canDoi >= 0 ? '+' : ''}{fmt(canDoi)}</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                                     <div style={{ fontSize: 11, color: '#374151' }}>Đã thu: <strong>{fmt(totalThuDuoc)}</strong></div>
-                                    <div style={{ fontSize: 11, color: '#374151' }}>Đã chi: <strong>{fmt(expPaid)}</strong></div>
+                                    <div style={{ fontSize: 11, color: '#374151' }}>Đã chi + lương: <strong>{fmt(totalChi)}</strong></div>
                                 </div>
                             </div>
                         </div>
