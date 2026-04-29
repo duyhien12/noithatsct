@@ -1194,11 +1194,12 @@ model TaskComment {
 }
 
 model CustomerComment {
-  id         String   @id @default(cuid())
-  customerId String
-  content    String   @db.Text
-  author     String   @default("")
-  createdAt  DateTime @default(now())
+  id          String   @id @default(cuid())
+  customerId  String
+  content     String   @db.Text
+  author      String   @default("")
+  attachments String?  @db.Text
+  createdAt   DateTime @default(now())
   @@index([customerId])
 }
 

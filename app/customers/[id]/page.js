@@ -78,7 +78,10 @@ export default function CustomerDetailPage() {
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
     const [sendingComment, setSendingComment] = useState(false);
+    const [pendingAttachments, setPendingAttachments] = useState([]);
+    const [uploadingFile, setUploadingFile] = useState(false);
     const commentsEndRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     const fetchData = () => {
         fetch(`/api/customers/${id}`).then(r => r.ok ? r.json() : null).then(d => {
@@ -97,19 +100,39 @@ export default function CustomerDetailPage() {
             .then(d => { if (Array.isArray(d)) setComments(d); });
     }, [id]);
 
+    const handleFileSelect = async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (!files.length) return;
+        setUploadingFile(true);
+        for (const file of files) {
+            const isImage = file.type.startsWith('image/');
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('type', isImage ? 'proofs' : 'documents');
+            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            if (res.ok) {
+                const result = await res.json();
+                setPendingAttachments(prev => [...prev, { url: result.url, name: file.name, type: file.type }]);
+            }
+        }
+        setUploadingFile(false);
+        e.target.value = '';
+    };
+
     const sendComment = async () => {
-        if (!newComment.trim()) return;
+        if (!newComment.trim() && pendingAttachments.length === 0) return;
         setSendingComment(true);
         const res = await fetch(`/api/customers/${id}/comments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: newComment.trim() }),
+            body: JSON.stringify({ content: newComment.trim(), attachments: pendingAttachments }),
         });
         const data = await res.json();
         setSendingComment(false);
         if (res.ok) {
             setComments(prev => [...prev, data]);
             setNewComment('');
+            setPendingAttachments([]);
             setTimeout(() => commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
         }
     };
@@ -668,22 +691,51 @@ export default function CustomerDetailPage() {
                         )}
                         {comments.map(cm => {
                             const isMe = cm.author === session?.user?.name;
+                            let attachList = [];
+                            try { attachList = cm.attachments ? JSON.parse(cm.attachments) : []; } catch {}
+                            const hasContent = cm.content?.trim();
                             return (
                                 <div key={cm.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row' }}>
                                     <Avatar name={cm.author || '?'} size={32} />
-                                    <div style={{ maxWidth: '75%' }}>
+                                    <div style={{ maxWidth: '80%' }}>
                                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3, textAlign: isMe ? 'right' : 'left' }}>
                                             {cm.author || 'Ẩn danh'} · {timeAgo(cm.createdAt)}
                                         </div>
-                                        <div style={{
-                                            background: isMe ? 'var(--primary)' : 'var(--bg-secondary)',
-                                            color: isMe ? '#fff' : 'var(--text-primary)',
-                                            padding: '8px 12px', borderRadius: isMe ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
-                                            fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                                            border: isMe ? 'none' : '1px solid var(--border-light)',
-                                        }}>
-                                            {cm.content}
-                                        </div>
+                                        {hasContent && (
+                                            <div style={{
+                                                background: isMe ? 'var(--primary)' : 'var(--bg-secondary)',
+                                                color: isMe ? '#fff' : 'var(--text-primary)',
+                                                padding: '8px 12px', borderRadius: isMe ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
+                                                fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                                                border: isMe ? 'none' : '1px solid var(--border-light)',
+                                                marginBottom: attachList.length ? 6 : 0,
+                                            }}>
+                                                {cm.content}
+                                            </div>
+                                        )}
+                                        {attachList.length > 0 && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                {attachList.map((att, i) => {
+                                                    const isImg = att.type?.startsWith('image/');
+                                                    return isImg ? (
+                                                        <a key={i} href={att.url} target="_blank" rel="noreferrer" style={{ display: 'block', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border-light)', maxWidth: 220 }}>
+                                                            <img src={att.url} alt={att.name} style={{ width: '100%', display: 'block', objectFit: 'cover' }} />
+                                                        </a>
+                                                    ) : (
+                                                        <a key={i} href={att.url} target="_blank" rel="noreferrer" style={{
+                                                            display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
+                                                            borderRadius: 10, background: isMe ? 'var(--primary)' : 'var(--bg-secondary)',
+                                                            border: isMe ? 'none' : '1px solid var(--border-light)',
+                                                            color: isMe ? '#fff' : 'var(--text-primary)',
+                                                            fontSize: 12, textDecoration: 'none', wordBreak: 'break-all',
+                                                        }}>
+                                                            <span style={{ fontSize: 18, flexShrink: 0 }}>📎</span>
+                                                            <span>{att.name}</span>
+                                                        </a>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
                                     {isMe && (
                                         <button onClick={() => deleteComment(cm.id)} title="Xóa" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 14, padding: '4px', alignSelf: 'center', flexShrink: 0 }}>×</button>
@@ -693,19 +745,46 @@ export default function CustomerDetailPage() {
                         })}
                         <div ref={commentsEndRef} />
                     </div>
+                    {/* Pending attachments preview */}
+                    {pendingAttachments.length > 0 && (
+                        <div style={{ padding: '8px 16px 0', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                            {pendingAttachments.map((att, i) => {
+                                const isImg = att.type?.startsWith('image/');
+                                return (
+                                    <div key={i} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6, padding: isImg ? 0 : '5px 10px', borderRadius: 8, border: '1px solid var(--border-light)', background: 'var(--bg-secondary)', overflow: isImg ? 'hidden' : undefined, maxWidth: isImg ? 80 : 200 }}>
+                                        {isImg ? (
+                                            <img src={att.url} alt={att.name} style={{ width: 72, height: 72, objectFit: 'cover', display: 'block' }} />
+                                        ) : (
+                                            <><span style={{ fontSize: 16 }}>📎</span><span style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>{att.name}</span></>
+                                        )}
+                                        <button onClick={() => setPendingAttachments(prev => prev.filter((_, j) => j !== i))} style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: 18, height: 18, cursor: 'pointer', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0 }}>×</button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                     {/* Input area */}
                     <div style={{ borderTop: '1px solid var(--border-light)', padding: '12px 16px', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                         <Avatar name={session?.user?.name || '?'} size={30} />
-                        <textarea
-                            className="form-input"
-                            value={newComment}
-                            onChange={e => setNewComment(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendComment(); } }}
-                            placeholder="Viết nhận xét... (Ctrl+Enter để gửi)"
-                            rows={2}
-                            style={{ flex: 1, fontSize: 13, resize: 'none' }}
-                        />
-                        <button className="btn btn-primary" onClick={sendComment} disabled={sendingComment || !newComment.trim()} style={{ fontSize: 13, padding: '8px 16px', flexShrink: 0 }}>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0 }}>
+                            <textarea
+                                className="form-input"
+                                value={newComment}
+                                onChange={e => setNewComment(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendComment(); } }}
+                                placeholder="Viết nhận xét... (Ctrl+Enter để gửi)"
+                                rows={2}
+                                style={{ fontSize: 13, resize: 'none', borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottom: 'none' }}
+                            />
+                            <div style={{ display: 'flex', alignItems: 'center', padding: '5px 8px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderTop: 'none', borderBottomLeftRadius: 8, borderBottomRightRadius: 8, gap: 4 }}>
+                                <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" style={{ display: 'none' }} onChange={handleFileSelect} />
+                                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingFile} title="Đính kèm ảnh / tài liệu" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '3px 6px', borderRadius: 6, fontSize: 16, color: 'var(--text-muted)', lineHeight: 1 }}>
+                                    {uploadingFile ? '⏳' : '📎'}
+                                </button>
+                                <span style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1 }}>Ảnh, PDF, Word, Excel...</span>
+                            </div>
+                        </div>
+                        <button className="btn btn-primary" onClick={sendComment} disabled={sendingComment || uploadingFile || (!newComment.trim() && pendingAttachments.length === 0)} style={{ fontSize: 13, padding: '8px 16px', flexShrink: 0 }}>
                             {sendingComment ? '...' : 'Gửi'}
                         </button>
                     </div>

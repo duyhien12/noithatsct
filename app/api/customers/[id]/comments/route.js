@@ -8,7 +8,7 @@ const cuid = () => randomBytes(12).toString('base64url').replace(/[^a-z0-9]/gi, 
 export const GET = withAuth(async (request, { params }) => {
     const { id } = await params;
     const comments = await prisma.$queryRaw`
-        SELECT id, "customerId", content, author, "createdAt"
+        SELECT id, "customerId", content, author, attachments, "createdAt"
         FROM "CustomerComment"
         WHERE "customerId" = ${id}
         ORDER BY "createdAt" ASC
@@ -18,17 +18,27 @@ export const GET = withAuth(async (request, { params }) => {
 
 export const POST = withAuth(async (request, { params }, session) => {
     const { id } = await params;
-    const { content } = await request.json();
-    if (!content?.trim()) return NextResponse.json({ error: 'Thiếu nội dung' }, { status: 400 });
+    const { content, attachments } = await request.json();
+    if (!content?.trim() && (!attachments || attachments.length === 0)) {
+        return NextResponse.json({ error: 'Thiếu nội dung' }, { status: 400 });
+    }
 
     const newId = cuid();
     const author = session?.user?.name || '';
     const now = new Date();
+    const attachmentsJson = attachments?.length ? JSON.stringify(attachments) : null;
 
     await prisma.$executeRaw`
-        INSERT INTO "CustomerComment" (id, "customerId", content, author, "createdAt")
-        VALUES (${newId}, ${id}, ${content.trim()}, ${author}, ${now})
+        INSERT INTO "CustomerComment" (id, "customerId", content, author, attachments, "createdAt")
+        VALUES (${newId}, ${id}, ${(content || '').trim()}, ${author}, ${attachmentsJson}, ${now})
     `;
 
-    return NextResponse.json({ id: newId, customerId: id, content: content.trim(), author, createdAt: now }, { status: 201 });
+    return NextResponse.json({
+        id: newId,
+        customerId: id,
+        content: (content || '').trim(),
+        author,
+        attachments: attachmentsJson,
+        createdAt: now,
+    }, { status: 201 });
 });
