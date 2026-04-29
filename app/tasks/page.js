@@ -15,14 +15,25 @@ const fmtDateInput = (d) => {
 };
 
 const COLUMNS = [
-    { key: 'Việc sẽ làm',    label: 'VIỆC SẼ LÀM',   color: '#6b7280', bg: '#f3f4f6' },
-    { key: 'Việc cần làm',   label: 'VIỆC CẦN LÀM',  color: '#d97706', bg: '#fffbeb' },
-    { key: 'Đang thực hiện', label: 'VIỆC ĐANG LÀM', color: '#2563eb', bg: '#eff6ff' },
-    { key: 'Hoàn thành',     label: 'HOÀN THÀNH',     color: '#16a34a', bg: '#f0fdf4' },
-    { key: 'Đã hủy',         label: 'VIỆC HỦY',       color: '#dc2626', bg: '#fef2f2' },
+    { key: 'Việc sẽ làm',    label: 'SẼ LÀM',   fullLabel: 'VIỆC SẼ LÀM',   color: '#6b7280', bg: '#f3f4f6' },
+    { key: 'Việc cần làm',   label: 'CẦN LÀM',  fullLabel: 'VIỆC CẦN LÀM',  color: '#d97706', bg: '#fffbeb' },
+    { key: 'Đang thực hiện', label: 'ĐANG LÀM', fullLabel: 'VIỆC ĐANG LÀM', color: '#2563eb', bg: '#eff6ff' },
+    { key: 'Hoàn thành',     label: 'HOÀN THÀNH', fullLabel: 'HOÀN THÀNH',   color: '#16a34a', bg: '#f0fdf4' },
+    { key: 'Đã hủy',         label: 'ĐÃ HỦY',   fullLabel: 'VIỆC HỦY',      color: '#dc2626', bg: '#fef2f2' },
 ];
 
 const PRIORITIES = ['Cao', 'Trung bình', 'Thấp'];
+
+function useIsMobile() {
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        const check = () => setIsMobile(window.innerWidth < 640);
+        check();
+        window.addEventListener('resize', check);
+        return () => window.removeEventListener('resize', check);
+    }, []);
+    return isMobile;
+}
 
 export default function TasksPage() {
     const { data: session, status } = useSession();
@@ -33,9 +44,11 @@ export default function TasksPage() {
     const [filterUser, setFilterUser] = useState('');
     const [showCreate, setShowCreate] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
+    const [activeCol, setActiveCol] = useState(COLUMNS[0].key);
     const [dragging, setDragging] = useState(null);
     const [dragOver, setDragOver] = useState(null);
     const dragTask = useRef(null);
+    const isMobile = useIsMobile();
 
     const isAdmin = BAN_GD.includes(session?.user?.role);
     const currentUserName = session?.user?.name || '';
@@ -68,10 +81,7 @@ export default function TasksPage() {
         }
         fetch(`/api/tasks?${params}`)
             .then(r => r.json())
-            .then(d => {
-                if (d.data) setTasks(d.data);
-                setLoading(false);
-            })
+            .then(d => { if (d.data) setTasks(d.data); setLoading(false); })
             .catch(() => setLoading(false));
     };
 
@@ -135,44 +145,136 @@ export default function TasksPage() {
     };
 
     const visibleUsers = isAdmin ? users : isManager ? teamUsers : users;
+    const activeColObj = COLUMNS.find(c => c.key === activeCol);
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 8 : 12 }}>
+            {/* Toolbar */}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <input
                     type="text"
                     className="form-input"
                     placeholder="🔍 Tìm kiếm..."
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    style={{ flex: 1, minWidth: 180 }}
+                    style={{ flex: 1, minWidth: isMobile ? 0 : 180, fontSize: isMobile ? 14 : undefined }}
                 />
-                {isAdmin ? (
-                    <select className="form-select" value={filterUser} onChange={e => setFilterUser(e.target.value)} style={{ minWidth: 180 }}>
-                        <option value="">Tất cả người dùng</option>
-                        {users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-                    </select>
-                ) : isManager ? (
-                    <select className="form-select" value={filterUser} onChange={e => setFilterUser(e.target.value)} style={{ minWidth: 180 }}>
-                        <option value="">Tất cả phòng ({teamUsers.length} người)</option>
-                        {teamUsers.map(u => <option key={u.id} value={u.name}>{u.name}{u.department ? ` · ${u.department}` : ''}</option>)}
-                    </select>
-                ) : isPeerGroup ? (
-                    <select className="form-select" value={filterUser} onChange={e => setFilterUser(e.target.value)} style={{ minWidth: 180 }}>
-                        <option value="">Tất cả nhóm</option>
-                        {peerGroupUsers.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-                    </select>
-                ) : (
-                    <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '6px 12px', background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-color)' }}>
-                        👤 {currentUserName}
-                    </div>
+                {!isMobile && (
+                    isAdmin ? (
+                        <select className="form-select" value={filterUser} onChange={e => setFilterUser(e.target.value)} style={{ minWidth: 180 }}>
+                            <option value="">Tất cả người dùng</option>
+                            {users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                        </select>
+                    ) : isManager ? (
+                        <select className="form-select" value={filterUser} onChange={e => setFilterUser(e.target.value)} style={{ minWidth: 180 }}>
+                            <option value="">Tất cả phòng ({teamUsers.length} người)</option>
+                            {teamUsers.map(u => <option key={u.id} value={u.name}>{u.name}{u.department ? ` · ${u.department}` : ''}</option>)}
+                        </select>
+                    ) : isPeerGroup ? (
+                        <select className="form-select" value={filterUser} onChange={e => setFilterUser(e.target.value)} style={{ minWidth: 180 }}>
+                            <option value="">Tất cả nhóm</option>
+                            {peerGroupUsers.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                        </select>
+                    ) : (
+                        <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '6px 12px', background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-color)' }}>
+                            👤 {currentUserName}
+                        </div>
+                    )
                 )}
-                <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ Tạo việc</button>
+                <button className="btn btn-primary" onClick={() => setShowCreate(true)} style={{ fontSize: isMobile ? 13 : undefined, padding: isMobile ? '8px 14px' : undefined }}>+ Tạo việc</button>
             </div>
+
+            {/* Mobile: user filter below toolbar */}
+            {isMobile && (isAdmin || isManager || isPeerGroup) && (
+                <select className="form-select" value={filterUser} onChange={e => setFilterUser(e.target.value)} style={{ width: '100%', fontSize: 13 }}>
+                    {isAdmin && <><option value="">Tất cả người dùng</option>{users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}</>}
+                    {isManager && <><option value="">Tất cả phòng ({teamUsers.length} người)</option>{teamUsers.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}</>}
+                    {isPeerGroup && <><option value="">Tất cả nhóm</option>{peerGroupUsers.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}</>}
+                </select>
+            )}
 
             {loading ? (
                 <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
+            ) : isMobile ? (
+                /* ===== MOBILE LAYOUT: TAB + SINGLE COLUMN ===== */
+                <div>
+                    {/* Column tabs */}
+                    <div style={{ display: 'flex', overflowX: 'auto', borderBottom: '2px solid var(--border-color)', marginBottom: 0, scrollbarWidth: 'none' }}>
+                        {COLUMNS.map(col => {
+                            const count = byColumn(col.key).length;
+                            const isActive = activeCol === col.key;
+                            return (
+                                <button
+                                    key={col.key}
+                                    onClick={() => setActiveCol(col.key)}
+                                    style={{
+                                        flex: '0 0 auto',
+                                        padding: '10px 14px',
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        border: 'none',
+                                        borderBottom: isActive ? `3px solid ${col.color}` : '3px solid transparent',
+                                        background: isActive ? `${col.color}12` : 'transparent',
+                                        color: isActive ? col.color : 'var(--text-muted)',
+                                        cursor: 'pointer',
+                                        whiteSpace: 'nowrap',
+                                        letterSpacing: 0.3,
+                                        transition: 'all 0.15s',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 5,
+                                    }}
+                                >
+                                    {col.label}
+                                    <span style={{
+                                        background: isActive ? col.color : '#e5e7eb',
+                                        color: isActive ? '#fff' : '#6b7280',
+                                        borderRadius: 10,
+                                        padding: '1px 7px',
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        minWidth: 20,
+                                        textAlign: 'center',
+                                    }}>{count}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Active column header */}
+                    <div style={{ background: activeColObj.color, padding: '8px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#fff', fontWeight: 700, fontSize: 12, letterSpacing: 0.5 }}>{activeColObj.fullLabel}</span>
+                        <span style={{ background: 'rgba(255,255,255,0.25)', color: '#fff', borderRadius: 10, padding: '1px 9px', fontSize: 12, fontWeight: 700 }}>
+                            {byColumn(activeCol).length}
+                        </span>
+                    </div>
+
+                    {/* Cards */}
+                    <div style={{ padding: '10px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {byColumn(activeCol).length === 0 && (
+                            <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: '40px 0', border: '1.5px dashed var(--border-color)', borderRadius: 10, margin: '0 4px' }}>
+                                Không có tác vụ nào
+                            </div>
+                        )}
+                        {byColumn(activeCol).map(task => (
+                            <TaskCard
+                                key={task.id}
+                                task={task}
+                                col={activeColObj}
+                                dragging={false}
+                                columns={COLUMNS}
+                                onDragStart={() => {}}
+                                onDragEnd={() => {}}
+                                onStatusChange={updateStatus}
+                                onDelete={deleteTask}
+                                onEdit={setEditingTask}
+                                isMobile={true}
+                            />
+                        ))}
+                    </div>
+                </div>
             ) : (
+                /* ===== DESKTOP LAYOUT: KANBAN BOARD ===== */
                 <div style={{ display: 'flex', gap: 12, overflowX: 'auto', alignItems: 'flex-start', paddingBottom: 16 }}>
                     {COLUMNS.map(col => (
                         <div
@@ -180,28 +282,17 @@ export default function TasksPage() {
                             onDragOver={e => onDragOver(e, col.key)}
                             onDrop={e => onDrop(e, col.key)}
                             style={{
-                                minWidth: 252,
-                                width: 252,
-                                flexShrink: 0,
+                                minWidth: 252, width: 252, flexShrink: 0,
                                 background: dragOver === col.key ? col.bg : 'var(--bg-secondary, #f8f9fa)',
                                 borderRadius: 10,
                                 border: dragOver === col.key ? `2px dashed ${col.color}` : '2px solid transparent',
                                 transition: 'border 0.15s, background 0.15s',
-                                display: 'flex',
-                                flexDirection: 'column',
+                                display: 'flex', flexDirection: 'column',
                                 maxHeight: 'calc(100vh - 160px)',
                             }}
                         >
-                            <div style={{
-                                padding: '10px 14px',
-                                borderRadius: '8px 8px 0 0',
-                                background: col.color,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                flexShrink: 0,
-                            }}>
-                                <span style={{ color: '#fff', fontWeight: 700, fontSize: 12, letterSpacing: 0.5 }}>{col.label}</span>
+                            <div style={{ padding: '10px 14px', borderRadius: '8px 8px 0 0', background: col.color, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+                                <span style={{ color: '#fff', fontWeight: 700, fontSize: 12, letterSpacing: 0.5 }}>{col.fullLabel}</span>
                                 <span style={{ background: 'rgba(255,255,255,0.25)', color: '#fff', borderRadius: 12, padding: '1px 9px', fontSize: 12, fontWeight: 700 }}>
                                     {byColumn(col.key).length}
                                 </span>
@@ -224,6 +315,7 @@ export default function TasksPage() {
                                         onStatusChange={updateStatus}
                                         onDelete={deleteTask}
                                         onEdit={setEditingTask}
+                                        isMobile={false}
                                     />
                                 ))}
                             </div>
@@ -241,6 +333,7 @@ export default function TasksPage() {
                         setTasks(prev => [{ ...task, subTasks: [] }, ...prev]);
                         setShowCreate(false);
                     }}
+                    isMobile={isMobile}
                 />
             )}
 
@@ -252,17 +345,15 @@ export default function TasksPage() {
                     priorities={PRIORITIES}
                     onClose={() => setEditingTask(null)}
                     onSave={handleTaskSaved}
-                    onDelete={(taskId) => {
-                        deleteTask(taskId);
-                        setEditingTask(null);
-                    }}
+                    onDelete={(taskId) => { deleteTask(taskId); setEditingTask(null); }}
+                    isMobile={isMobile}
                 />
             )}
         </div>
     );
 }
 
-function TaskCard({ task, col, dragging, columns, onDragStart, onDragEnd, onStatusChange, onDelete, onEdit }) {
+function TaskCard({ task, col, dragging, columns, onDragStart, onDragEnd, onStatusChange, onDelete, onEdit, isMobile }) {
     const [showMenu, setShowMenu] = useState(false);
     const menuRef = useRef(null);
     const isDraggingRef = useRef(false);
@@ -280,7 +371,7 @@ function TaskCard({ task, col, dragging, columns, onDragStart, onDragEnd, onStat
 
     return (
         <div
-            draggable
+            draggable={!isMobile}
             onDragStart={e => { isDraggingRef.current = true; onDragStart(e, task); }}
             onDragEnd={e => { isDraggingRef.current = false; onDragEnd(e); }}
             onClick={(e) => {
@@ -290,8 +381,8 @@ function TaskCard({ task, col, dragging, columns, onDragStart, onDragEnd, onStat
             }}
             style={{
                 background: '#fff',
-                borderRadius: 8,
-                padding: '10px 11px',
+                borderRadius: isMobile ? 10 : 8,
+                padding: isMobile ? '12px 14px' : '10px 11px',
                 boxShadow: dragging ? '0 4px 16px rgba(0,0,0,0.18)' : '0 1px 4px rgba(0,0,0,0.08)',
                 opacity: dragging ? 0.5 : 1,
                 cursor: 'pointer',
@@ -299,26 +390,27 @@ function TaskCard({ task, col, dragging, columns, onDragStart, onDragEnd, onStat
                 userSelect: 'none',
                 position: 'relative',
                 transition: 'box-shadow 0.15s',
+                borderLeft: isMobile ? `4px solid ${col.color}` : `1px solid ${col.color}22`,
             }}
         >
             <div data-no-open style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                <span style={{ fontSize: 10, fontWeight: 600, color: priorityColor, background: `${priorityColor}18`, borderRadius: 4, padding: '1px 7px' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: priorityColor, background: `${priorityColor}18`, borderRadius: 4, padding: '2px 8px' }}>
                     {task.priority}
                 </span>
                 <button
                     data-no-open
                     onClick={(e) => { e.stopPropagation(); if (confirm('Xóa tác vụ này?')) onDelete(task.id); }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 14, lineHeight: 1, padding: '0 2px' }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 18, lineHeight: 1, padding: '0 4px' }}
                     title="Xóa"
                 >×</button>
             </div>
 
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 7, lineHeight: 1.4 }}>
+            <div style={{ fontSize: isMobile ? 14 : 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6, lineHeight: 1.4 }}>
                 {task.title}
             </div>
 
             {task.description && (
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                <div style={{ fontSize: isMobile ? 12 : 11, color: 'var(--text-muted)', marginBottom: 6, lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                     {task.description}
                 </div>
             )}
@@ -329,45 +421,65 @@ function TaskCard({ task, col, dragging, columns, onDragStart, onDragEnd, onStat
                         <div style={{ flex: 1, height: 4, background: '#e5e7eb', borderRadius: 2, overflow: 'hidden' }}>
                             <div style={{ width: `${(doneSubTasks / subTasks.length) * 100}%`, height: '100%', background: '#16a34a', transition: 'width 0.3s' }} />
                         </div>
-                        <span style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>✓ {doneSubTasks}/{subTasks.length}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>✓ {doneSubTasks}/{subTasks.length}</span>
                     </div>
                 </div>
             )}
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {task.assignee && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>👤 {task.assignee}</span>}
-                    {fmtDate(task.dueDate) && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>📅 {fmtDate(task.dueDate)}</span>}
+                    {task.assignee && <span style={{ fontSize: isMobile ? 12 : 11, color: 'var(--text-muted)' }}>👤 {task.assignee}</span>}
+                    {fmtDate(task.dueDate) && <span style={{ fontSize: isMobile ? 11 : 10, color: 'var(--text-muted)' }}>📅 {fmtDate(task.dueDate)}</span>}
                 </div>
-            </div>
-
-            <div data-no-open style={{ marginTop: 8, position: 'relative' }} ref={menuRef}>
-                <button
-                    data-no-open
-                    onClick={e => { e.stopPropagation(); setShowMenu(v => !v); }}
-                    style={{ background: col.bg || '#f3f4f6', border: `1px solid ${col.color}44`, borderRadius: 5, padding: '3px 10px', fontSize: 11, color: col.color, cursor: 'pointer', fontWeight: 600, width: '100%' }}
-                >
-                    Chuyển cột ▾
-                </button>
-                {showMenu && (
-                    <div style={{ position: 'absolute', bottom: '110%', left: 0, right: 0, background: '#fff', border: '1px solid var(--border-color)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.13)', zIndex: 100, overflow: 'hidden' }}>
-                        {columns.map(c => (
-                            <button
-                                key={c.key}
-                                onClick={e => { e.stopPropagation(); onStatusChange(task.id, c.key); setShowMenu(false); }}
-                                style={{ display: 'block', width: '100%', padding: '8px 12px', textAlign: 'left', background: c.key === task.status ? c.bg : 'transparent', border: 'none', borderBottom: '1px solid var(--border-color)', cursor: 'pointer', fontSize: 12, fontWeight: c.key === task.status ? 700 : 400, color: c.color }}
-                            >
-                                {c.label}
-                            </button>
-                        ))}
+                {isMobile && (
+                    <div data-no-open style={{ position: 'relative' }} ref={menuRef}>
+                        <button
+                            data-no-open
+                            onClick={e => { e.stopPropagation(); setShowMenu(v => !v); }}
+                            style={{ background: col.bg, border: `1px solid ${col.color}44`, borderRadius: 6, padding: '5px 10px', fontSize: 11, color: col.color, cursor: 'pointer', fontWeight: 600 }}
+                        >
+                            Chuyển ▾
+                        </button>
+                        {showMenu && (
+                            <div style={{ position: 'absolute', right: 0, bottom: '110%', background: '#fff', border: '1px solid var(--border-color)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.15)', zIndex: 200, minWidth: 160, overflow: 'hidden' }}>
+                                {columns.map(c => (
+                                    <button key={c.key} onClick={e => { e.stopPropagation(); onStatusChange(task.id, c.key); setShowMenu(false); }}
+                                        style={{ display: 'block', width: '100%', padding: '10px 14px', textAlign: 'left', background: c.key === task.status ? c.bg : 'transparent', border: 'none', borderBottom: '1px solid var(--border-color)', cursor: 'pointer', fontSize: 13, fontWeight: c.key === task.status ? 700 : 400, color: c.color }}>
+                                        {c.fullLabel}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
+
+            {!isMobile && (
+                <div data-no-open style={{ marginTop: 8, position: 'relative' }} ref={menuRef}>
+                    <button
+                        data-no-open
+                        onClick={e => { e.stopPropagation(); setShowMenu(v => !v); }}
+                        style={{ background: col.bg || '#f3f4f6', border: `1px solid ${col.color}44`, borderRadius: 5, padding: '3px 10px', fontSize: 11, color: col.color, cursor: 'pointer', fontWeight: 600, width: '100%' }}
+                    >
+                        Chuyển cột ▾
+                    </button>
+                    {showMenu && (
+                        <div style={{ position: 'absolute', bottom: '110%', left: 0, right: 0, background: '#fff', border: '1px solid var(--border-color)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.13)', zIndex: 100, overflow: 'hidden' }}>
+                            {columns.map(c => (
+                                <button key={c.key} onClick={e => { e.stopPropagation(); onStatusChange(task.id, c.key); setShowMenu(false); }}
+                                    style={{ display: 'block', width: '100%', padding: '8px 12px', textAlign: 'left', background: c.key === task.status ? c.bg : 'transparent', border: 'none', borderBottom: '1px solid var(--border-color)', cursor: 'pointer', fontSize: 12, fontWeight: c.key === task.status ? 700 : 400, color: c.color }}>
+                                    {c.fullLabel}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
 
-function TaskDetailModal({ task, users, columns, priorities, onClose, onSave, onDelete }) {
+function TaskDetailModal({ task, users, columns, priorities, onClose, onSave, onDelete, isMobile }) {
     const [form, setForm] = useState({
         title: task.title || '',
         description: task.description || '',
@@ -385,19 +497,11 @@ function TaskDetailModal({ task, users, columns, priorities, onClose, onSave, on
 
     const save = async () => {
         if (!form.title.trim()) { setError('Vui lòng nhập tiêu đề'); return; }
-        setSaving(true);
-        setError('');
+        setSaving(true); setError('');
         const res = await fetch(`/api/tasks/${task.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                title: form.title.trim(),
-                description: form.description.trim(),
-                status: form.status,
-                priority: form.priority,
-                assignee: form.assignee,
-                dueDate: form.dueDate || null,
-            }),
+            body: JSON.stringify({ title: form.title.trim(), description: form.description.trim(), status: form.status, priority: form.priority, assignee: form.assignee, dueDate: form.dueDate || null }),
         });
         const data = await res.json();
         setSaving(false);
@@ -411,34 +515,18 @@ function TaskDetailModal({ task, users, columns, priorities, onClose, onSave, on
         const res = await fetch('/api/tasks', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                title: newSubTask.trim(),
-                parentId: task.id,
-                status: 'Việc sẽ làm',
-                priority: 'Trung bình',
-                assignee: '',
-            }),
+            body: JSON.stringify({ title: newSubTask.trim(), parentId: task.id, status: 'Việc sẽ làm', priority: 'Trung bình', assignee: '' }),
         });
         const data = await res.json();
         setAddingSubTask(false);
-        if (res.ok) {
-            setSubTasks(prev => [...prev, data]);
-            setNewSubTask('');
-            newSubRef.current?.focus();
-        }
+        if (res.ok) { setSubTasks(prev => [...prev, data]); setNewSubTask(''); newSubRef.current?.focus(); }
     };
 
     const toggleSubTask = async (sub) => {
         const newStatus = sub.status === 'Hoàn thành' ? 'Việc sẽ làm' : 'Hoàn thành';
         setSubTasks(prev => prev.map(s => s.id === sub.id ? { ...s, status: newStatus } : s));
-        const res = await fetch(`/api/tasks/${sub.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: newStatus }),
-        });
-        if (!res.ok) {
-            setSubTasks(prev => prev.map(s => s.id === sub.id ? { ...s, status: sub.status } : s));
-        }
+        const res = await fetch(`/api/tasks/${sub.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) });
+        if (!res.ok) setSubTasks(prev => prev.map(s => s.id === sub.id ? { ...s, status: sub.status } : s));
     };
 
     const deleteSubTask = async (subId) => {
@@ -450,82 +538,87 @@ function TaskDetailModal({ task, users, columns, priorities, onClose, onSave, on
     const totalCount = subTasks.length;
     const progressPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
+    const modalStyle = isMobile
+        ? { position: 'fixed', inset: 0, background: '#fff', zIndex: 1000, display: 'flex', flexDirection: 'column', overflowY: 'auto' }
+        : { background: '#fff', borderRadius: 14, width: '100%', maxWidth: 560, boxShadow: '0 12px 40px rgba(0,0,0,0.22)', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 80px)', overflow: 'hidden' };
+
+    const overlayStyle = isMobile
+        ? { position: 'fixed', inset: 0, zIndex: 1000, display: 'flex' }
+        : { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 16px', overflowY: 'auto' };
+
     return (
-        <div
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 16px', overflowY: 'auto' }}
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-        >
-            <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 560, boxShadow: '0 12px 40px rgba(0,0,0,0.22)', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 80px)', overflow: 'hidden' }}>
+        <div style={overlayStyle} onClick={e => { if (!isMobile && e.target === e.currentTarget) onClose(); }}>
+            <div style={modalStyle}>
                 {/* Header */}
-                <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid var(--border-color)', flexShrink: 0 }}>
+                <div style={{ padding: isMobile ? '14px 16px 10px' : '16px 20px 12px', borderBottom: '1px solid var(--border-color)', flexShrink: 0, background: isMobile ? '#fff' : undefined, position: isMobile ? 'sticky' : undefined, top: 0, zIndex: 10 }}>
+                    {isMobile && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                            <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 14, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}>
+                                ← Quay lại
+                            </button>
+                            <button className="btn btn-primary" onClick={save} disabled={saving} style={{ fontSize: 13, padding: '6px 16px' }}>
+                                {saving ? 'Đang lưu...' : 'Lưu'}
+                            </button>
+                        </div>
+                    )}
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         <input
                             className="form-input"
                             value={form.title}
                             onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                            style={{ flex: 1, fontSize: 15, fontWeight: 700, padding: '6px 10px' }}
+                            style={{ flex: 1, fontSize: isMobile ? 16 : 15, fontWeight: 700, padding: '8px 10px' }}
                             placeholder="Tiêu đề tác vụ..."
                         />
-                        <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--text-muted)', lineHeight: 1, padding: '4px 6px', flexShrink: 0 }}>×</button>
+                        {!isMobile && <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--text-muted)', lineHeight: 1, padding: '4px 6px', flexShrink: 0 }}>×</button>}
                     </div>
                 </div>
 
                 {/* Body */}
-                <div style={{ padding: '16px 20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14, flex: 1 }}>
+                <div style={{ padding: isMobile ? '14px 16px' : '16px 20px', overflowY: isMobile ? undefined : 'auto', display: 'flex', flexDirection: 'column', gap: 14, flex: 1 }}>
                     {error && <div style={{ color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                         <div>
                             <label style={{ fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 4, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Trạng thái</label>
-                            <select className="form-select" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={{ width: '100%', fontSize: 12 }}>
+                            <select className="form-select" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={{ width: '100%', fontSize: 13 }}>
                                 {columns.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                             </select>
                         </div>
                         <div>
                             <label style={{ fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 4, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Ưu tiên</label>
-                            <select className="form-select" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} style={{ width: '100%', fontSize: 12 }}>
+                            <select className="form-select" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} style={{ width: '100%', fontSize: 13 }}>
                                 {priorities.map(p => <option key={p}>{p}</option>)}
                             </select>
                         </div>
                         <div>
                             <label style={{ fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 4, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Người nhận</label>
-                            <select className="form-select" value={form.assignee} onChange={e => setForm(f => ({ ...f, assignee: e.target.value }))} style={{ width: '100%', fontSize: 12 }}>
+                            <select className="form-select" value={form.assignee} onChange={e => setForm(f => ({ ...f, assignee: e.target.value }))} style={{ width: '100%', fontSize: 13 }}>
                                 <option value="">-- Chọn người --</option>
                                 {users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
                             </select>
                         </div>
                         <div>
                             <label style={{ fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 4, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Hạn</label>
-                            <input type="date" className="form-input" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} style={{ width: '100%', fontSize: 12 }} />
+                            <input type="date" className="form-input" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} style={{ width: '100%', fontSize: 13 }} />
                         </div>
                     </div>
 
                     <div>
                         <label style={{ fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 4, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Mô tả</label>
-                        <textarea
-                            className="form-input"
-                            value={form.description}
-                            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                            placeholder="Thêm mô tả chi tiết..."
-                            rows={3}
-                            style={{ width: '100%', resize: 'vertical', fontSize: 13 }}
-                        />
+                        <textarea className="form-input" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                            placeholder="Thêm mô tả chi tiết..." rows={3} style={{ width: '100%', resize: 'vertical', fontSize: 13 }} />
                     </div>
 
-                    {/* Subtasks / Checklist */}
+                    {/* Subtasks */}
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                Tác vụ con
-                            </label>
-                            {totalCount > 0 && (
-                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{doneCount}/{totalCount}</span>
-                            )}
+                            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Tác vụ con</label>
+                            {totalCount > 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{doneCount}/{totalCount}</span>}
                         </div>
 
                         {totalCount > 0 && (
                             <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ fontSize: 10, color: 'var(--text-muted)', minWidth: 30, textAlign: 'right' }}>{progressPct}%</span>
+                                <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 32, textAlign: 'right' }}>{progressPct}%</span>
                                 <div style={{ flex: 1, height: 6, background: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}>
                                     <div style={{ width: `${progressPct}%`, height: '100%', background: '#16a34a', borderRadius: 3, transition: 'width 0.3s' }} />
                                 </div>
@@ -534,75 +627,59 @@ function TaskDetailModal({ task, users, columns, priorities, onClose, onSave, on
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
                             {subTasks.map(sub => (
-                                <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 6, background: '#f9fafb', border: '1px solid #e5e7eb' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={sub.status === 'Hoàn thành'}
-                                        onChange={() => toggleSubTask(sub)}
-                                        style={{ cursor: 'pointer', width: 15, height: 15, flexShrink: 0, accentColor: '#16a34a' }}
-                                    />
-                                    <span style={{
-                                        flex: 1,
-                                        fontSize: 13,
-                                        color: sub.status === 'Hoàn thành' ? '#9ca3af' : 'var(--text-primary)',
-                                        textDecoration: sub.status === 'Hoàn thành' ? 'line-through' : 'none',
-                                    }}>
+                                <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: isMobile ? '8px 12px' : '6px 10px', borderRadius: 8, background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                                    <input type="checkbox" checked={sub.status === 'Hoàn thành'} onChange={() => toggleSubTask(sub)}
+                                        style={{ cursor: 'pointer', width: 17, height: 17, flexShrink: 0, accentColor: '#16a34a' }} />
+                                    <span style={{ flex: 1, fontSize: isMobile ? 14 : 13, color: sub.status === 'Hoàn thành' ? '#9ca3af' : 'var(--text-primary)', textDecoration: sub.status === 'Hoàn thành' ? 'line-through' : 'none' }}>
                                         {sub.title}
                                     </span>
-                                    <button
-                                        onClick={() => deleteSubTask(sub.id)}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 16, lineHeight: 1, padding: '0 2px', flexShrink: 0 }}
-                                        title="Xóa tác vụ con"
-                                    >×</button>
+                                    <button onClick={() => deleteSubTask(sub.id)}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 18, lineHeight: 1, padding: '0 4px', flexShrink: 0 }}>×</button>
                                 </div>
                             ))}
                         </div>
 
                         <div style={{ display: 'flex', gap: 6 }}>
-                            <input
-                                ref={newSubRef}
-                                className="form-input"
-                                value={newSubTask}
-                                onChange={e => setNewSubTask(e.target.value)}
+                            <input ref={newSubRef} className="form-input" value={newSubTask} onChange={e => setNewSubTask(e.target.value)}
                                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSubTask(); } }}
                                 placeholder="Thêm tác vụ con... (Enter để thêm)"
-                                style={{ flex: 1, fontSize: 12 }}
-                                disabled={addingSubTask}
-                            />
-                            <button
-                                className="btn btn-secondary"
-                                onClick={addSubTask}
-                                disabled={addingSubTask || !newSubTask.trim()}
-                                style={{ fontSize: 12, padding: '4px 12px', flexShrink: 0 }}
-                            >
+                                style={{ flex: 1, fontSize: isMobile ? 14 : 12 }} disabled={addingSubTask} />
+                            <button className="btn btn-secondary" onClick={addSubTask} disabled={addingSubTask || !newSubTask.trim()} style={{ fontSize: 13, padding: '6px 14px', flexShrink: 0 }}>
                                 {addingSubTask ? '...' : '+ Thêm'}
                             </button>
                         </div>
                     </div>
+
+                    {/* Delete on mobile - bottom of body */}
+                    {isMobile && (
+                        <div style={{ paddingTop: 8, borderTop: '1px solid var(--border-color)', marginTop: 4 }}>
+                            <button className="btn btn-danger" onClick={() => { if (confirm('Xóa tác vụ này và tất cả tác vụ con?')) onDelete(task.id); }} style={{ width: '100%', fontSize: 14, padding: '10px' }}>
+                                Xóa tác vụ
+                            </button>
+                        </div>
+                    )}
                 </div>
 
-                {/* Footer */}
-                <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, background: '#fafafa' }}>
-                    <button
-                        className="btn btn-danger"
-                        onClick={() => { if (confirm('Xóa tác vụ này và tất cả tác vụ con?')) onDelete(task.id); }}
-                        style={{ fontSize: 12 }}
-                    >
-                        Xóa tác vụ
-                    </button>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <button className="btn btn-secondary" onClick={onClose} style={{ fontSize: 12 }}>Hủy</button>
-                        <button className="btn btn-primary" onClick={save} disabled={saving} style={{ fontSize: 12 }}>
-                            {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                {/* Desktop footer */}
+                {!isMobile && (
+                    <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, background: '#fafafa' }}>
+                        <button className="btn btn-danger" onClick={() => { if (confirm('Xóa tác vụ này và tất cả tác vụ con?')) onDelete(task.id); }} style={{ fontSize: 12 }}>
+                            Xóa tác vụ
                         </button>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button className="btn btn-secondary" onClick={onClose} style={{ fontSize: 12 }}>Hủy</button>
+                            <button className="btn btn-primary" onClick={save} disabled={saving} style={{ fontSize: 12 }}>
+                                {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );
 }
 
-function CreateTaskModal({ users, currentUserName, onClose, onCreate }) {
+function CreateTaskModal({ users, currentUserName, onClose, onCreate, isMobile }) {
     const [form, setForm] = useState({ title: '', description: '', status: 'Việc sẽ làm', priority: 'Trung bình', assignee: currentUserName || '', dueDate: '' });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -610,32 +687,48 @@ function CreateTaskModal({ users, currentUserName, onClose, onCreate }) {
     const submit = async () => {
         if (!form.title.trim()) { setError('Vui lòng nhập tiêu đề'); return; }
         setSaving(true);
-        const res = await fetch('/api/tasks', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(form),
-        });
+        const res = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
         const data = await res.json();
         if (!res.ok) { setError(data.error || 'Lỗi tạo tác vụ'); setSaving(false); return; }
         onCreate(data);
     };
 
+    const modalStyle = isMobile
+        ? { position: 'fixed', inset: 0, background: '#fff', zIndex: 1000, display: 'flex', flexDirection: 'column', overflowY: 'auto' }
+        : { background: '#fff', borderRadius: 12, width: '100%', maxWidth: 440, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', overflow: 'hidden' };
+
+    const overlayStyle = isMobile
+        ? { position: 'fixed', inset: 0, zIndex: 1000 }
+        : { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 };
+
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-            <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 440, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, fontSize: 16 }}>Tạo tác vụ mới</span>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--text-muted)' }}>×</button>
+        <div style={overlayStyle}>
+            <div style={modalStyle}>
+                <div style={{ padding: isMobile ? '14px 16px' : '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: isMobile ? 'sticky' : undefined, top: 0, background: '#fff', zIndex: 10 }}>
+                    {isMobile ? (
+                        <>
+                            <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 14, cursor: 'pointer', color: 'var(--text-muted)', padding: 0 }}>← Quay lại</button>
+                            <span style={{ fontWeight: 700, fontSize: 16 }}>Tạo tác vụ mới</span>
+                            <button className="btn btn-primary" onClick={submit} disabled={saving} style={{ fontSize: 13, padding: '6px 16px' }}>
+                                {saving ? '...' : 'Tạo'}
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <span style={{ fontWeight: 700, fontSize: 16 }}>Tạo tác vụ mới</span>
+                            <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--text-muted)' }}>×</button>
+                        </>
+                    )}
                 </div>
-                <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ padding: isMobile ? '14px 16px' : '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {error && <div style={{ color: '#dc2626', fontSize: 13 }}>{error}</div>}
                     <div>
                         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Tiêu đề *</label>
-                        <input className="form-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Nhập tiêu đề tác vụ..." style={{ width: '100%' }} />
+                        <input className="form-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Nhập tiêu đề tác vụ..." style={{ width: '100%', fontSize: isMobile ? 15 : undefined }} />
                     </div>
                     <div>
                         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Mô tả</label>
-                        <textarea className="form-input" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Mô tả chi tiết..." rows={3} style={{ width: '100%', resize: 'vertical' }} />
+                        <textarea className="form-input" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Mô tả chi tiết..." rows={3} style={{ width: '100%', resize: 'vertical', fontSize: isMobile ? 14 : undefined }} />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                         <div>
@@ -663,10 +756,12 @@ function CreateTaskModal({ users, currentUserName, onClose, onCreate }) {
                         <input type="date" className="form-input" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} style={{ width: '100%' }} />
                     </div>
                 </div>
-                <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                    <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
-                    <button className="btn btn-primary" onClick={submit} disabled={saving}>{saving ? 'Đang tạo...' : 'Tạo việc'}</button>
-                </div>
+                {!isMobile && (
+                    <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                        <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
+                        <button className="btn btn-primary" onClick={submit} disabled={saving}>{saving ? 'Đang tạo...' : 'Tạo việc'}</button>
+                    </div>
+                )}
             </div>
         </div>
     );
