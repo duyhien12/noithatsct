@@ -104,9 +104,14 @@ export default function TasksPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus }),
         });
-        if (!res.ok && prev) {
-            setTasks(t => t.map(x => x.id === taskId ? { ...x, status: prev } : x));
+        if (!res.ok) {
+            if (prev) setTasks(t => t.map(x => x.id === taskId ? { ...x, status: prev } : x));
             alert('Lỗi cập nhật trạng thái, vui lòng thử lại.');
+            return;
+        }
+        const data = await res.json();
+        if (data.newRecurringTask) {
+            setTasks(prev => [{ ...data.newRecurringTask, subTasks: [] }, ...prev]);
         }
     };
 
@@ -120,8 +125,11 @@ export default function TasksPage() {
         }
     };
 
-    const handleTaskSaved = (updatedTask) => {
+    const handleTaskSaved = (updatedTask, newRecurringTask) => {
         setTasks(prev => prev.map(t => t.id === updatedTask.id ? { ...t, ...updatedTask } : t));
+        if (newRecurringTask) {
+            setTasks(prev => [{ ...newRecurringTask, subTasks: [] }, ...prev]);
+        }
         setEditingTask(null);
     };
 
@@ -370,6 +378,14 @@ function TaskCard({ task, col, dragging, columns, onDragStart, onDragEnd, onStat
     const priorityColor = task.priority === 'Cao' ? '#dc2626' : task.priority === 'Thấp' ? '#6b7280' : '#d97706';
     const subTasks = task.subTasks || [];
     const doneSubTasks = subTasks.filter(s => s.status === 'Hoàn thành').length;
+    const DAY_LABELS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    const recurringLabel = task.recurringType === 'daily'
+        ? `Mỗi ${task.recurringInterval > 1 ? task.recurringInterval + ' ngày' : 'ngày'}`
+        : task.recurringType === 'weekly'
+            ? (() => { const days = task.recurringDays ? JSON.parse(task.recurringDays) : []; return days.length ? days.map(d => DAY_LABELS[d]).join(', ') : `Mỗi ${task.recurringInterval > 1 ? task.recurringInterval + ' tuần' : 'tuần'}`; })()
+            : task.recurringType === 'monthly'
+                ? `Mỗi ${task.recurringInterval > 1 ? task.recurringInterval + ' tháng' : 'tháng'}`
+                : null;
 
     return (
         <div
@@ -414,6 +430,12 @@ function TaskCard({ task, col, dragging, columns, onDragStart, onDragEnd, onStat
             {task.description && (
                 <div style={{ fontSize: isMobile ? 12 : 11, color: 'var(--text-muted)', marginBottom: 6, lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                     {task.description}
+                </div>
+            )}
+
+            {recurringLabel && (
+                <div style={{ fontSize: 10, color: '#7c3aed', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 4, padding: '2px 7px', marginBottom: 6, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                    🔄 {recurringLabel}
                 </div>
             )}
 
@@ -516,6 +538,10 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
         priority: task.priority || 'Trung bình',
         assignee: task.assignee || '',
         dueDate: fmtDateInput(task.dueDate),
+        recurringType: task.recurringType || '',
+        recurringDays: task.recurringDays ? JSON.parse(task.recurringDays) : [],
+        recurringInterval: task.recurringInterval || 1,
+        recurringEndDate: fmtDateInput(task.recurringEndDate),
     });
     const [subTasks, setSubTasks] = useState(task.subTasks || []);
     const [newSubTask, setNewSubTask] = useState('');
@@ -564,12 +590,23 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
         const res = await fetch(`/api/tasks/${task.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: form.title.trim(), description: form.description.trim(), status: form.status, priority: form.priority, assignee: form.assignee, dueDate: form.dueDate || null }),
+            body: JSON.stringify({
+                title: form.title.trim(),
+                description: form.description.trim(),
+                status: form.status,
+                priority: form.priority,
+                assignee: form.assignee,
+                dueDate: form.dueDate || null,
+                recurringType: form.recurringType || null,
+                recurringDays: form.recurringType === 'weekly' && form.recurringDays?.length ? JSON.stringify(form.recurringDays) : null,
+                recurringInterval: form.recurringInterval || 1,
+                recurringEndDate: form.recurringEndDate || null,
+            }),
         });
         const data = await res.json();
         setSaving(false);
         if (!res.ok) { setError(data.error || 'Lỗi lưu tác vụ'); return; }
-        onSave({ ...data, subTasks });
+        onSave({ ...data.task, subTasks }, data.newRecurringTask);
     };
 
     const addSubTask = async () => {
@@ -640,6 +677,67 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
                 <textarea className="form-input" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                     placeholder="Thêm mô tả chi tiết..." rows={3} style={{ width: '100%', resize: 'vertical', fontSize: 13 }} />
             </div>
+
+            {/* Recurring settings - chỉ hiển thị khi ở cột Việc định kỳ */}
+            {form.status === 'Việc định kỳ' && (
+                <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 8, padding: '12px 14px' }}>
+                    <label style={{ ...labelStyle, color: '#7c3aed' }}>🔄 Cài đặt lặp lại</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 6 }}>
+                        <div>
+                            <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Loại lặp</label>
+                            <select className="form-select" value={form.recurringType}
+                                onChange={e => setForm(f => ({ ...f, recurringType: e.target.value, recurringDays: [] }))}
+                                style={{ width: '100%', fontSize: 13 }}>
+                                <option value="">-- Không lặp --</option>
+                                <option value="daily">Hàng ngày</option>
+                                <option value="weekly">Hàng tuần</option>
+                                <option value="monthly">Hàng tháng</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>
+                                Mỗi {form.recurringType === 'daily' ? 'ngày' : form.recurringType === 'monthly' ? 'tháng' : 'tuần'}
+                            </label>
+                            <input type="number" className="form-input" min={1} max={99}
+                                value={form.recurringInterval}
+                                onChange={e => setForm(f => ({ ...f, recurringInterval: Math.max(1, parseInt(e.target.value) || 1) }))}
+                                style={{ width: '100%', fontSize: 13 }} disabled={!form.recurringType} />
+                        </div>
+                    </div>
+                    {form.recurringType === 'weekly' && (
+                        <div style={{ marginTop: 10 }}>
+                            <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 6, color: '#6b7280' }}>Các ngày trong tuần</label>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                {[['T2',1],['T3',2],['T4',3],['T5',4],['T6',5],['T7',6],['CN',0]].map(([label, val]) => {
+                                    const checked = form.recurringDays.includes(val);
+                                    return (
+                                        <button key={val} type="button"
+                                            onClick={() => setForm(f => ({
+                                                ...f,
+                                                recurringDays: checked ? f.recurringDays.filter(d => d !== val) : [...f.recurringDays, val]
+                                            }))}
+                                            style={{
+                                                padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: '1.5px solid',
+                                                borderColor: checked ? '#7c3aed' : '#d1d5db',
+                                                background: checked ? '#7c3aed' : '#fff',
+                                                color: checked ? '#fff' : '#374151',
+                                            }}>
+                                            {label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                    <div style={{ marginTop: 10 }}>
+                        <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Ngày kết thúc lặp (tùy chọn)</label>
+                        <input type="date" className="form-input" value={form.recurringEndDate}
+                            onChange={e => setForm(f => ({ ...f, recurringEndDate: e.target.value }))}
+                            style={{ width: '100%', fontSize: 13 }} />
+                    </div>
+                </div>
+            )}
+
             {/* Subtasks */}
             <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -817,14 +915,20 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
 const labelStyle = { fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 4, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 };
 
 function CreateTaskModal({ users, currentUserName, onClose, onCreate, isMobile }) {
-    const [form, setForm] = useState({ title: '', description: '', status: 'Việc sẽ làm', priority: 'Trung bình', assignee: currentUserName || '', dueDate: '' });
+    const [form, setForm] = useState({ title: '', description: '', status: 'Việc sẽ làm', priority: 'Trung bình', assignee: currentUserName || '', dueDate: '', recurringType: '', recurringDays: [], recurringInterval: 1, recurringEndDate: '' });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
 
     const submit = async () => {
         if (!form.title.trim()) { setError('Vui lòng nhập tiêu đề'); return; }
         setSaving(true);
-        const res = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+        const payload = {
+            ...form,
+            recurringType: form.recurringType || null,
+            recurringDays: form.recurringType === 'weekly' && form.recurringDays?.length ? JSON.stringify(form.recurringDays) : null,
+            recurringEndDate: form.recurringEndDate || null,
+        };
+        const res = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await res.json();
         if (!res.ok) { setError(data.error || 'Lỗi tạo tác vụ'); setSaving(false); return; }
         onCreate(data);
@@ -892,6 +996,59 @@ function CreateTaskModal({ users, currentUserName, onClose, onCreate, isMobile }
                         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Hạn</label>
                         <input type="date" className="form-input" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} style={{ width: '100%' }} />
                     </div>
+                    {form.status === 'Việc định kỳ' && (
+                        <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 8, padding: '12px 14px' }}>
+                            <label style={{ fontSize: 12, fontWeight: 700, display: 'block', marginBottom: 8, color: '#7c3aed' }}>🔄 Cài đặt lặp lại</label>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                                <div>
+                                    <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Loại lặp</label>
+                                    <select className="form-select" value={form.recurringType}
+                                        onChange={e => setForm(f => ({ ...f, recurringType: e.target.value, recurringDays: [] }))}
+                                        style={{ width: '100%', fontSize: 13 }}>
+                                        <option value="">-- Không lặp --</option>
+                                        <option value="daily">Hàng ngày</option>
+                                        <option value="weekly">Hàng tuần</option>
+                                        <option value="monthly">Hàng tháng</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>
+                                        Mỗi {form.recurringType === 'daily' ? 'ngày' : form.recurringType === 'monthly' ? 'tháng' : 'tuần'}
+                                    </label>
+                                    <input type="number" className="form-input" min={1} max={99}
+                                        value={form.recurringInterval}
+                                        onChange={e => setForm(f => ({ ...f, recurringInterval: Math.max(1, parseInt(e.target.value) || 1) }))}
+                                        style={{ width: '100%', fontSize: 13 }} disabled={!form.recurringType} />
+                                </div>
+                            </div>
+                            {form.recurringType === 'weekly' && (
+                                <div style={{ marginBottom: 8 }}>
+                                    <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 6, color: '#6b7280' }}>Các ngày trong tuần</label>
+                                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                                        {[['T2',1],['T3',2],['T4',3],['T5',4],['T6',5],['T7',6],['CN',0]].map(([label, val]) => {
+                                            const checked = form.recurringDays.includes(val);
+                                            return (
+                                                <button key={val} type="button"
+                                                    onClick={() => setForm(f => ({
+                                                        ...f,
+                                                        recurringDays: checked ? f.recurringDays.filter(d => d !== val) : [...f.recurringDays, val]
+                                                    }))}
+                                                    style={{ padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: '1.5px solid', borderColor: checked ? '#7c3aed' : '#d1d5db', background: checked ? '#7c3aed' : '#fff', color: checked ? '#fff' : '#374151' }}>
+                                                    {label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                            <div>
+                                <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Ngày kết thúc (tùy chọn)</label>
+                                <input type="date" className="form-input" value={form.recurringEndDate}
+                                    onChange={e => setForm(f => ({ ...f, recurringEndDate: e.target.value }))}
+                                    style={{ width: '100%', fontSize: 13 }} />
+                            </div>
+                        </div>
+                    )}
                 </div>
                 {!isMobile && (
                     <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

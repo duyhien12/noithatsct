@@ -41,7 +41,8 @@ export const GET = withAuth(async (request) => {
 
 export const POST = withAuth(async (request, _ctx, session) => {
     const body = await request.json();
-    const { title, description, status, priority, assignee, dueDate, parentId } = body;
+    const { title, description, status, priority, assignee, dueDate, parentId,
+            recurringType, recurringDays, recurringInterval, recurringEndDate } = body;
     if (!title?.trim()) return NextResponse.json({ error: 'Thiếu tiêu đề' }, { status: 400 });
 
     const task = await prisma.task.create({
@@ -54,6 +55,10 @@ export const POST = withAuth(async (request, _ctx, session) => {
             dueDate: dueDate ? new Date(dueDate) : null,
             createdBy: session?.user?.name || '',
             parentId: parentId || null,
+            recurringType: recurringType || null,
+            recurringDays: recurringDays || null,
+            recurringInterval: recurringInterval || 1,
+            recurringEndDate: recurringEndDate ? new Date(recurringEndDate) : null,
         },
     });
 

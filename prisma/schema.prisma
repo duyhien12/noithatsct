@@ -1166,19 +1166,23 @@ model WorkerOvertime {
 // ============ TÁC VỤ NỘI BỘ ============
 
 model Task {
-  id          String    @id @default(cuid())
-  title       String
-  description String    @default("") @db.Text
-  status      String    @default("Việc sẽ làm")
-  priority    String    @default("Trung bình")
-  assignee    String    @default("")
-  dueDate     DateTime?
-  createdBy   String    @default("")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  parentId    String?
-  parent      Task?     @relation("SubTasks", fields: [parentId], references: [id], onDelete: Cascade)
-  subTasks    Task[]    @relation("SubTasks")
+  id                String    @id @default(cuid())
+  title             String
+  description       String    @default("") @db.Text
+  status            String    @default("Việc sẽ làm")
+  priority          String    @default("Trung bình")
+  assignee          String    @default("")
+  dueDate           DateTime?
+  createdBy         String    @default("")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  parentId          String?
+  parent            Task?     @relation("SubTasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subTasks          Task[]    @relation("SubTasks")
+  recurringType     String?   // 'daily' | 'weekly' | 'monthly'
+  recurringDays     String?   // JSON: "[1,3,5]" cho thứ trong tuần (0=CN,1=T2...)
+  recurringInterval Int       @default(1)
+  recurringEndDate  DateTime?
   @@index([status])
   @@index([assignee])
   @@index([parentId])
