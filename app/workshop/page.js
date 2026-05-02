@@ -224,7 +224,7 @@ export default function WorkshopDashboard() {
             </div>
 
             {/* Middle row: Chart + Projects */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16 }}>
+            <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16 }}>
                 {/* Chart */}
                 <div className="card">
                     <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -291,7 +291,7 @@ export default function WorkshopDashboard() {
             </div>
 
             {/* Bottom row: Tasks + Low stock */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: 16 }}>
+            <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: 16 }}>
                 {/* Recent tasks */}
                 <div className="card">
                     <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

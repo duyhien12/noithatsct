@@ -1775,7 +1775,7 @@ export default function ProjectDetailPage() {
                         <div className="modal-body">
                             {/* Type selector */}
                             <div className="form-group"><label className="form-label">Loại hợp đồng *</label>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                     {CONTRACT_TYPES.map(t => (
                                         <button key={t} type="button" onClick={() => setTypeAndPhases(t)} className={`btn ${contractForm.type === t ? 'btn-primary' : 'btn-ghost'}`} style={{ padding: '10px 12px', fontSize: 13, justifyContent: 'flex-start', textAlign: 'left' }}>
                                             {t === 'Thiết kế' && '🎨 '}{t === 'Thi công thô' && '🧱 '}{t === 'Thi công hoàn thiện' && '🏠 '}{t === 'Nội thất' && '🪑 '}{t}
@@ -1911,7 +1911,7 @@ export default function ProjectDetailPage() {
                                         <button style={{ marginLeft: 8, fontSize: 11, color: 'var(--status-danger)', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => { setMpForm(f => ({ ...f, productId: '' })); setMpSearch(''); }}>✕ Bỏ chọn</button>
                                     </div>}
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                                     <div className="form-group">
                                         <label className="form-label">Số lượng <span style={{ color: 'red' }}>*</span></label>
                                         <input className="form-input" type="number" min="0" step="any" value={mpForm.quantity} onChange={e => setMpForm(f => ({ ...f, quantity: e.target.value }))} />

@@ -15,6 +15,7 @@ const fmtDateInput = (d) => {
 };
 
 const COLUMNS = [
+    { key: 'Việc định kỳ',   label: 'ĐỊNH KỲ',  fullLabel: 'VIỆC ĐỊNH KỲ',  color: '#7c3aed', bg: '#f5f3ff' },
     { key: 'Việc sẽ làm',    label: 'SẼ LÀM',   fullLabel: 'VIỆC SẼ LÀM',   color: '#6b7280', bg: '#f3f4f6' },
     { key: 'Việc cần làm',   label: 'CẦN LÀM',  fullLabel: 'VIỆC CẦN LÀM',  color: '#d97706', bg: '#fffbeb' },
     { key: 'Đang thực hiện', label: 'ĐANG LÀM', fullLabel: 'VIỆC ĐANG LÀM', color: '#2563eb', bg: '#eff6ff' },
@@ -609,7 +610,7 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
     const leftContent = (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1 }}>
             {error && <div style={{ color: '#dc2626', fontSize: 13 }}>{error}</div>}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
                     <label style={labelStyle}>Trạng thái</label>
                     <select className="form-select" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={{ width: '100%', fontSize: 13 }}>
@@ -866,7 +867,7 @@ function CreateTaskModal({ users, currentUserName, onClose, onCreate, isMobile }
                         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Mô tả</label>
                         <textarea className="form-input" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Mô tả chi tiết..." rows={3} style={{ width: '100%', resize: 'vertical', fontSize: isMobile ? 14 : undefined }} />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                         <div>
                             <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Cột</label>
                             <select className="form-select" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>

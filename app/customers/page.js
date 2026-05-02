@@ -359,7 +359,7 @@ export default function CustomersPage() {
                                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-primary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
                                     👤 Thông tin cơ bản
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                                     <div style={{ gridColumn: '1 / -1' }}>
                                         <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'none' }}>Tên khách hàng *</label>
                                         <input className="form-input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Nguyễn Văn A" style={{ textTransform: 'none' }} />
@@ -396,7 +396,7 @@ export default function CustomersPage() {
                                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-primary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
                                     🎯 Thông tin CRM
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                                     <div>
                                         <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Giai đoạn KD</label>
                                         <select className="form-select" value={form.pipelineStage} onChange={e => setForm({ ...form, pipelineStage: e.target.value })}>
@@ -428,7 +428,7 @@ export default function CustomersPage() {
                             {/* Section 3: Dự án */}
                             <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
                                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-primary)', marginBottom: 12 }}>🏠 Thông tin dự án</div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                                     <div>
                                         <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>NV kinh doanh</label>
                                         <input className="form-input" value={form.salesPerson} onChange={e => setForm({ ...form, salesPerson: e.target.value })} placeholder="Tên nhân viên KD" />
@@ -451,7 +451,7 @@ export default function CustomersPage() {
                             {/* Section 4: Liên hệ phụ + Ghi chú */}
                             <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px' }}>
                                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-primary)', marginBottom: 12 }}>📞 Liên hệ phụ & Ghi chú</div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                                     <div>
                                         <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Người liên hệ 2</label>
                                         <input className="form-input" value={form.contactPerson2} onChange={e => setForm({ ...form, contactPerson2: e.target.value })} placeholder="Họ tên" />

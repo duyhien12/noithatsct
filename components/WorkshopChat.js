@@ -92,11 +92,19 @@ export default function WorkshopChat() {
     const [uploading, setUploading] = useState(false);
     const [unread, setUnread] = useState(0);
     const [lastSeenAt, setLastSeenAt] = useState(() => localStorage.getItem('chat_last_seen') || null);
+    const [isMobile, setIsMobile] = useState(false);
     const lastTsRef = useRef(null);
     const bottomRef = useRef(null);
     const inputRef = useRef(null);
     const fileRef = useRef(null);
     const pollingRef = useRef(null);
+
+    useEffect(() => {
+        const check = () => setIsMobile(window.innerWidth <= 768);
+        check();
+        window.addEventListener('resize', check);
+        return () => window.removeEventListener('resize', check);
+    }, []);
 
     const myId = session?.user?.id || session?.user?.email;
 
@@ -211,7 +219,7 @@ export default function WorkshopChat() {
             {/* Floating button */}
             <button
                 onClick={() => setOpen(v => !v)}
-                style={{ position: 'fixed', bottom: 24, right: 24, width: 52, height: 52, borderRadius: '50%', background: open ? '#1C3A6B' : '#2563eb', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 16px rgba(37,99,235,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, zIndex: 1200, transition: 'all 0.2s' }}
+                style={{ position: 'fixed', bottom: isMobile ? 16 : 24, right: isMobile ? 16 : 24, width: isMobile ? 48 : 52, height: isMobile ? 48 : 52, borderRadius: '50%', background: open ? '#1C3A6B' : '#2563eb', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 16px rgba(37,99,235,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? 20 : 22, zIndex: 1200, transition: 'all 0.2s' }}
                 title="Chat xưởng nội thất"
             >
                 {open ? '✕' : '💬'}
@@ -224,7 +232,10 @@ export default function WorkshopChat() {
 
             {/* Chat panel */}
             {open && (
-                <div style={{ position: 'fixed', bottom: 88, right: 24, width: 360, height: 500, background: '#fff', borderRadius: 16, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', border: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', zIndex: 1200, overflow: 'hidden' }}>
+                <div style={isMobile
+                    ? { position: 'fixed', bottom: 0, right: 0, left: 0, width: '100%', height: '80vh', background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -4px 30px rgba(0,0,0,0.2)', border: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', zIndex: 1200, overflow: 'hidden' }
+                    : { position: 'fixed', bottom: 88, right: 24, width: 360, height: 500, background: '#fff', borderRadius: 16, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', border: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', zIndex: 1200, overflow: 'hidden' }
+                }>
                     {/* Header */}
                     <div style={{ padding: '12px 16px', background: '#1C3A6B', color: '#fff', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
                         <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🏭</div>

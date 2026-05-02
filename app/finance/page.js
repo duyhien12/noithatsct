@@ -424,7 +424,7 @@ ${[1, 2].map(copy => `
                             </div>
                         </div>
                         {/* Thu chi khác */}
-                        <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <div className="dashboard-grid" style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: 14, background: 'var(--bg-secondary)', borderRadius: 8 }}>
                                 <span style={{ fontSize: 13 }}>Thu khác</span><span style={{ fontWeight: 700, color: 'var(--status-success)', fontSize: 13 }}>{fmt(summary.manualIncome)}</span>
                             </div>

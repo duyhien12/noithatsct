@@ -270,7 +270,7 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
             </div>
 
             {/* Second row - wider card + approved stat */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+            <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
                 <div className="card" style={{ padding: '20px 24px', borderRadius: 12 }}>
                     <div style={{ fontSize: 20, marginBottom: 8 }}>✅</div>
                     <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--status-info)', lineHeight: 1.2 }}>{approvedCount} lệnh</div>

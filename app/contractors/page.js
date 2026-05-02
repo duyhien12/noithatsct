@@ -108,7 +108,7 @@ export default function ContractorsPage() {
                     </select>
                 </div>
                 {loading ? <div style={{ padding: 40, textAlign: 'center' }}>Đang tải...</div> : (
-                    <table className="data-table">
+                    <div className="table-container"><table className="data-table">
                         <thead><tr>
                             <th>Mã</th><th>Tên</th><th>Loại</th><th>SĐT</th><th>Ngân hàng</th><th>Đánh giá</th><th>HĐ thầu</th><th>Đã TT</th><th>Nợ</th><th style={{ width: 80 }}></th>
                         </tr></thead>
@@ -135,7 +135,7 @@ export default function ContractorsPage() {
                                 </tr>
                             );
                         })}</tbody>
-                    </table>
+                    </table></div>
                 )}
             </div>
 
@@ -173,7 +173,7 @@ export default function ContractorsPage() {
                             <h3>Xem trước — {pastePreview.length} thầu phụ</h3>
                             <button className="modal-close" onClick={() => setPastePreview([])}>×</button>
                         </div>
-                        <div className="modal-body" style={{ maxHeight: 420, overflowY: 'auto' }}>
+                        <div className="modal-body" style={{ maxHeight: 420, overflowY: 'auto', overflowX: 'auto' }}>
                             <table className="data-table">
                                 <thead><tr><th>Tên</th><th>Loại</th><th>SĐT</th><th>Địa chỉ</th><th>Ngân hàng</th></tr></thead>
                                 <tbody>{pastePreview.map((r, i) => (

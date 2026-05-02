@@ -104,28 +104,30 @@ export default function SuppliersPage() {
                     </select>
                 </div>
                 {loading ? <div style={{ padding: 40, textAlign: 'center' }}>Đang tải...</div> : (
-                    <table className="data-table">
-                        <thead><tr>
-                            <th>Mã</th><th>Tên NCC</th><th>Loại</th><th>Liên hệ</th><th>SĐT</th><th>Ngân hàng</th><th>Đánh giá</th><th style={{ width: 80 }}></th>
-                        </tr></thead>
-                        <tbody>{filtered.map(s => (
-                            <tr key={s.id}>
-                                <td className="accent">{s.code}</td>
-                                <td className="primary" style={{ cursor: 'pointer' }} onClick={() => openEdit(s)}>{s.name}</td>
-                                <td><span className="badge info">{s.type}</span></td>
-                                <td style={{ fontSize: 12 }}>{s.contact || '—'}</td>
-                                <td>{s.phone || '—'}</td>
-                                <td style={{ fontSize: 12 }}>{s.bankAccount ? `${s.bankName} - ${s.bankAccount}` : '—'}</td>
-                                <td>{'⭐'.repeat(s.rating)}</td>
-                                <td>
-                                    <div style={{ display: 'flex', gap: 4 }}>
-                                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(s)}>✏️</button>
-                                        <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(s.id)} style={{ color: 'var(--status-danger)' }}>🗑️</button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}</tbody>
-                    </table>
+                    <div className="table-container">
+                        <table className="data-table">
+                            <thead><tr>
+                                <th>Mã</th><th>Tên NCC</th><th>Loại</th><th>Liên hệ</th><th>SĐT</th><th>Ngân hàng</th><th>Đánh giá</th><th style={{ width: 80 }}></th>
+                            </tr></thead>
+                            <tbody>{filtered.map(s => (
+                                <tr key={s.id}>
+                                    <td className="accent">{s.code}</td>
+                                    <td className="primary" style={{ cursor: 'pointer' }} onClick={() => openEdit(s)}>{s.name}</td>
+                                    <td><span className="badge info">{s.type}</span></td>
+                                    <td style={{ fontSize: 12 }}>{s.contact || '—'}</td>
+                                    <td>{s.phone || '—'}</td>
+                                    <td style={{ fontSize: 12 }}>{s.bankAccount ? `${s.bankName} - ${s.bankAccount}` : '—'}</td>
+                                    <td>{'⭐'.repeat(s.rating)}</td>
+                                    <td>
+                                        <div style={{ display: 'flex', gap: 4 }}>
+                                            <button className="btn btn-ghost btn-sm" onClick={() => openEdit(s)}>✏️</button>
+                                            <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(s.id)} style={{ color: 'var(--status-danger)' }}>🗑️</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}</tbody>
+                        </table>
+                    </div>
                 )}
             </div>
 
@@ -173,7 +175,7 @@ export default function SuppliersPage() {
                             <h3>📋 Xem trước — {pastePreview.length} nhà cung cấp{pastePreview.filter(s => s._isDup).length > 0 && <span style={{ marginLeft: 8, fontSize: 12, color: '#ea580c', fontWeight: 400 }}>⚠️ {pastePreview.filter(s => s._isDup).length} trùng tên</span>}</h3>
                             <button className="modal-close" onClick={() => setPastePreview([])}>×</button>
                         </div>
-                        <div className="modal-body" style={{ maxHeight: '55vh', overflowY: 'auto', padding: 0 }}>
+                        <div className="modal-body" style={{ maxHeight: '55vh', overflowY: 'auto', overflowX: 'auto', padding: 0 }}>
                             <table className="data-table" style={{ fontSize: 12 }}>
                                 <thead><tr><th>#</th><th>Tên NCC</th><th>Loại</th><th>SĐT</th><th>Liên hệ</th><th>MST</th><th>STK / NH</th></tr></thead>
                                 <tbody>{pastePreview.map((s, i) => (

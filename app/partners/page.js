@@ -335,7 +335,7 @@ export default function PartnersPage() {
                             <h3>Xem trước — {pastePreview.length} {showPasteModal === 'ncc' ? 'NCC' : 'thầu phụ'}</h3>
                             <button className="modal-close" onClick={() => setPastePreview([])}>×</button>
                         </div>
-                        <div className="modal-body" style={{ maxHeight: 420, overflowY: 'auto' }}>
+                        <div className="modal-body" style={{ maxHeight: 420, overflowY: 'auto', overflowX: 'auto' }}>
                             <table className="data-table">
                                 <thead><tr>
                                     <th>Tên</th><th>Loại</th><th>SĐT</th><th>Địa chỉ</th><th>Ngân hàng</th>

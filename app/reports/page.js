@@ -107,7 +107,7 @@ export default function ReportsPage() {
                 {tab === 'overview' && (
                     <div style={{ padding: 24 }}>
                         {canSeeFinance && (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+                            <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
                                 <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: 20 }}>
                                     <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>🏭 Phân kỳ nợ NCC</div>
                                     <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-warning)', marginBottom: 10 }}>{fmt(debt?.supplierTotal)}</div>
