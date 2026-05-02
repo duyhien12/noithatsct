@@ -1118,6 +1118,8 @@ export default function ProductsPage() {
                                                     <option value="Cái">Cái</option>
                                                     <option value="Bộ">Bộ</option>
                                                     <option value="Cuộn">Cuộn</option>
+                                                    <option value="m²">m²</option>
+                                                    <option value="md">md</option>
                                                 </select>
                                             </div>
                                             <div className="form-group" style={{ margin: 0, flex: 2 }}>
@@ -1263,6 +1265,8 @@ export default function ProductsPage() {
                                         <option value="Cái">Cái</option>
                                         <option value="Bộ">Bộ</option>
                                         <option value="Cuộn">Cuộn</option>
+                                        <option value="m²">m²</option>
+                                        <option value="md">md</option>
                                     </select>
                                 </div>
                             </div>
@@ -1419,6 +1423,8 @@ export default function ProductsPage() {
                                         <option value="Cái">Cái</option>
                                         <option value="Bộ">Bộ</option>
                                         <option value="Cuộn">Cuộn</option>
+                                        <option value="m²">m²</option>
+                                        <option value="md">md</option>
                                     </select>
                                 </div>
                             </div>

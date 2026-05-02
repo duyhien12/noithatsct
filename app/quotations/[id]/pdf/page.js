@@ -810,6 +810,11 @@ export default function QuotationPDFPage() {
                             return r;
                         };
                         const fmtAmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0));
+                        const fmtVol = (n) => {
+                            const val = n || 0;
+                            const rounded = Math.round(val * 1000) / 1000;
+                            return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 }).format(rounded);
+                        };
                         const isDienNuoc = q.type === 'Thi công điện nước';
                         const isTongHop = q.type === 'Tổng hợp chi phí hoàn thiện';
                         const isNoiThat = q.type === 'Báo giá nội thất';
@@ -914,7 +919,7 @@ export default function QuotationPDFPage() {
                                                                         <td className="c">{item.height || ''}</td>
                                                                         <td className="c">{item.quantity > 1 ? item.quantity : ''}</td>
                                                                         <td className="c">{item.unit}</td>
-                                                                        <td className="r">{fmtAmt(item.volume || item.quantity)}</td>
+                                                                        <td className="r">{fmtVol(item.volume || item.quantity)}</td>
                                                                         <td className="r">{fmtAmt(item.unitPrice)}</td>
                                                                         <td className="r" style={{ fontWeight: 700, color: BRAND.blue }}>{fmtAmt(ntAmt(item))}</td>
                                                                     </tr>
@@ -1027,7 +1032,7 @@ export default function QuotationPDFPage() {
                                                                                 {imgCache[item.image] && <img src={resolveImg(item.image)} alt="" style={{ marginTop: 6, width: '100%', maxWidth: 220, height: 140, objectFit: 'cover', borderRadius: 5, border: '1px solid #e2e8f0', display: 'block' }} />}
                                                                             </td>
                                                                             <td className="c" style={{ fontSize: 10 }}>{item.unit}</td>
-                                                                            <td className="r" style={{ fontSize: 10 }}>{fmtAmt(item.volume || item.quantity)}</td>
+                                                                            <td className="r" style={{ fontSize: 10 }}>{fmtVol(item.volume || item.quantity)}</td>
                                                                             <td className="r" style={{ fontSize: 10 }}>{fmtAmt(item.unitPrice)}</td>
                                                                             <td className="r" style={{ fontWeight: 700, color: BRAND.blue, fontSize: 11 }}>{fmtAmt(item.amount)}</td>
                                                                         </>
@@ -1057,7 +1062,7 @@ export default function QuotationPDFPage() {
                                                                                     {si.description && <div style={{ fontSize: 8, color: BRAND.textLight, marginTop: 1 }}>{si.description}</div>}
                                                                                 </td>
                                                                                 <td className="c" style={{ fontSize: 9 }}>{si.unit}</td>
-                                                                                <td className="r" style={{ fontSize: 9 }}>{fmtAmt(si.volume || si.quantity)}</td>
+                                                                                <td className="r" style={{ fontSize: 9 }}>{fmtVol(si.volume || si.quantity)}</td>
                                                                                 <td className="r" style={{ fontSize: 9 }}>{fmtAmt(si.unitPrice)}</td>
                                                                                 <td className="r" style={{ fontSize: 9, opacity: 0.7 }}>{fmtAmt(si.amount || 0)}</td>
                                                                             </>

@@ -16,11 +16,12 @@ function calcKLAuto(row) {
     const s = parseFloat(row.sau) || 0;
     const c = parseFloat(row.cao) || 0;
     const sl = parseFloat(row.slCai) || 0;
+    const r4 = (n) => Math.round(n * 10000) / 10000;
     if (d && c) {
-        if (dvt === 'm3' || dvt === 'm³') return Math.round(d * s * c * Math.max(sl, 1) * 1000) / 1000;
-        return Math.round(d * c * Math.max(sl, 1) * 100) / 100;
+        if (dvt === 'm3' || dvt === 'm³') return r4(d * s * c * Math.max(sl, 1));
+        return r4(d * c * Math.max(sl, 1));
     }
-    if (d && (dvt === 'md' || dvt === 'mét' || dvt === 'm')) return Math.round(d * Math.max(sl, 1) * 100) / 100;
+    if (d && (dvt === 'md' || dvt === 'mét' || dvt === 'm')) return r4(d * Math.max(sl, 1));
     return sl || 0;
 }
 function calcKL(row) {
@@ -411,7 +412,7 @@ export default function QuotationNoiThatPage() {
         if (ri !== 0 || group.length === 1) return baseKL;
         if (!isTruParent(row)) return baseKL;
         const firstSubKL = calcKL(rows[group[1]]);
-        return Math.round((baseKL - firstSubKL) * 1000) / 1000;
+        return Math.round((baseKL - firstSubKL) * 10000) / 10000;
     }
     function calcRoomTotal(rm) {
         return buildGroups(rm.rows).reduce((total, group) =>
@@ -852,7 +853,7 @@ export default function QuotationNoiThatPage() {
                                                                                         const autoKL = calcKLAuto(row);
                                                                                         const firstSubKL = calcKL(rm.rows[group[1]]);
                                                                                         if (!autoKL) return '';
-                                                                                        const net = Math.round((autoKL - firstSubKL) * 1000) / 1000;
+                                                                                        const net = Math.round((autoKL - firstSubKL) * 10000) / 10000;
                                                                                         return `${autoKL}-${firstSubKL}=${net}`;
                                                                                     })()
                                                                                     : (calcKLAuto(row) || '')}
