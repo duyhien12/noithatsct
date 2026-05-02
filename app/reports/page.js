@@ -94,7 +94,7 @@ export default function ReportsPage() {
 
             {/* Tabs */}
             <div className="card">
-                <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--border)', paddingLeft: 16 }}>
+                <div className="tab-bar-scroll" style={{ paddingLeft: 16 }}>
                     {TABS.map(t => (
                         <button key={t.key} onClick={() => setTab(t.key)}
                             style={{ padding: '10px 18px', fontWeight: 600, fontSize: 13, cursor: 'pointer', border: 'none', borderBottom: tab === t.key ? '3px solid var(--accent-primary)' : '3px solid transparent', background: 'none', color: tab === t.key ? 'var(--accent-primary)' : 'var(--text-muted)', transition: '0.2s' }}>

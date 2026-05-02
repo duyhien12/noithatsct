@@ -163,7 +163,7 @@ export default function PartnersPage() {
             {/* Tabs */}
             <div className="card" style={{ marginTop: 24 }}>
                 <div className="card-header" style={{ flexDirection: 'column', gap: 12, alignItems: 'stretch' }}>
-                    <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--border)' }}>
+                    <div className="tab-bar-scroll">
                         {[{ key: 'ncc', label: '🏭 Nhà cung cấp', count: suppliers.length }, { key: 'tp', label: '👷 Thầu phụ / CTV', count: contractors.length }].map(t => (
                             <button key={t.key} onClick={() => { setTab(t.key); setSearch(''); setFilterType(''); }}
                                 style={{ padding: '10px 20px', fontWeight: 600, fontSize: 13, cursor: 'pointer', border: 'none', borderBottom: tab === t.key ? '3px solid var(--accent-primary)' : '3px solid transparent', background: 'none', color: tab === t.key ? 'var(--accent-primary)' : 'var(--text-muted)', transition: '0.2s' }}>

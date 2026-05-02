@@ -4498,3 +4498,71 @@ select.form-input-compact {
     font-size: 11px !important;
   }
 }
+
+/* ========================================
+   MOBILE BOTTOM NAV
+   ======================================== */
+.mobile-bottom-nav-wrapper {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav-wrapper {
+    display: block;
+  }
+
+  /* Thêm padding để nội dung không bị che bởi bottom nav */
+  .page-content {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+/* ========================================
+   TAB BAR SCROLL - dùng cho inline tab bars
+   ======================================== */
+.tab-bar-scroll {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border-color);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
+}
+
+.tab-bar-scroll::-webkit-scrollbar { display: none; }
+
+.tab-bar-scroll button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ========================================
+   INLINE GRID RESPONSIVE OVERRIDES
+   ======================================== */
+@media (max-width: 768px) {
+  /* 4-col stat grid → 2 cols */
+  [style*="repeat(4, 1fr)"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* 3-col inline grid → 2 cols */
+  [style*="repeat(3, 1fr)"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Inline flex toolbars → wrap */
+  .toolbar-wrap {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .toolbar-wrap > * {
+    min-width: 0;
+  }
+
+  /* Inline modal grids → 1 col */
+  .modal-grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+}

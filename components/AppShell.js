@@ -9,6 +9,7 @@ import SalesSidebar from '@/components/SalesSidebar';
 import WorkshopSidebar from '@/components/WorkshopSidebar';
 import Header from '@/components/Header';
 import WorkshopChat from '@/components/WorkshopChat';
+import MobileBottomNav from '@/components/MobileBottomNav';
 
 export default function AppShell({ children }) {
     const pathname = usePathname();
@@ -57,6 +58,9 @@ export default function AppShell({ children }) {
                 </main>
             </div>
             {showChat && <WorkshopChat />}
+            <div className="mobile-bottom-nav-wrapper">
+                <MobileBottomNav onMenuOpen={toggleSidebar} />
+            </div>
         </div>
     );
 }

@@ -565,7 +565,7 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Tổng quan tài chính xưởng</span>
                             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Lương: {monthLabel}</span>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
                             {/* Thu tiền */}
                             <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '14px 16px', borderLeft: '4px solid #16a34a' }}>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: '#15803d', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>💰 Thu tiền</div>

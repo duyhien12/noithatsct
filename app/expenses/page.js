@@ -246,7 +246,7 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
             </div>
 
             {/* Summary Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 16, marginBottom: 16 }}>
                 <div className="card" style={{ padding: '20px 24px', borderRadius: 12 }}>
                     <div style={{ fontSize: 20, marginBottom: 8 }}>📑</div>
                     <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>{expenses.length}</div>
@@ -291,7 +291,7 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
             </div>
 
             {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
                 <button className="btn btn-primary" onClick={openCreate} style={{ fontWeight: 600 }}>+ Chi phí dự án</button>
                 <button className="btn btn-ghost" onClick={() => { setForm({ ...emptyForm, expenseType: 'Công ty', category: 'Thuê văn phòng' }); setEditing(null); setShowModal(true); }} style={{ fontWeight: 600 }}>+ Chi phí chung</button>
             </div>
@@ -299,7 +299,7 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
             {/* Main card with tabs */}
             <div className="card" style={{ borderRadius: 12, overflow: 'hidden' }}>
                 {/* Tabs */}
-                <div style={{ borderBottom: '1px solid var(--border)', display: 'flex', gap: 0, padding: '0 20px' }}>
+                <div className="tab-bar-scroll" style={{ padding: '0 8px' }}>
                     {TABS.map(tab => {
                         const count = tab.key ? expenses.filter(e => e.status === tab.key).length : expenses.length;
                         const isActive = activeTab === tab.key;
