@@ -35,22 +35,20 @@ const FULL_MENU = [
         ],
     },
     {
-        section: 'Xưởng',
+        section: 'Quản lý Xưởng',
         items: [
             { href: '/workshop/tasks', icon: Wrench, label: 'Công việc xưởng' },
             { href: '/workshop/workers', icon: Users, label: 'Nhân công' },
             { href: '/workshop/work-log', icon: BookOpen, label: 'Nhật ký công việc' },
             { href: '/workshop/timeline', icon: BarChart2, label: 'Tiến độ (Gantt)' },
             { href: '/work-orders', icon: Clock, label: 'Phiếu công việc' },
-            { href: '/tasks', icon: Wrench, label: 'Tác vụ' },
-            { href: '/proposals', icon: FileText, label: 'Đề xuất - Kiến nghị' },
         ],
     },
     {
         section: 'Kho & Mua sắm',
         items: [
             { href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho' },
-            { href: '/purchasing', icon: ShoppingCart, label: 'Mua sắm VT' },
+            { href: '/purchasing', icon: ShoppingCart, label: 'Mua sắm vật tư' },
             { href: '/workshop/materials', icon: Package, label: 'Vật tư kho' },
             { href: '/products', icon: Package, label: 'Danh mục sản phẩm' },
         ],
@@ -62,12 +60,19 @@ const FULL_MENU = [
             { href: '/workshop/assets', icon: Landmark, label: 'Tài sản cố định' },
         ],
     },
+    {
+        section: 'Nội bộ',
+        items: [
+            { href: '/tasks', icon: Wrench, label: 'Tác vụ' },
+            { href: '/proposals', icon: FileText, label: 'Đề xuất - Kiến nghị' },
+        ],
+    },
 ];
 
-// Nhân viên xưởng chỉ xem 3 mục này
+// Nhân viên xưởng chỉ xem các mục cơ bản
 const NHAN_VIEN_MENU = [
     {
-        section: 'Xưởng',
+        section: 'Quản lý Xưởng',
         items: [
             { href: '/workshop/tasks', icon: Wrench, label: 'Công việc xưởng' },
             { href: '/workshop/workers', icon: Users, label: 'Nhân công' },
