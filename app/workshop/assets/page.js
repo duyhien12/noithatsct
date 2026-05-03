@@ -23,8 +23,18 @@ function calcFields(a) {
     const depAmt = (a.originalCost * a.depreciationRate) / 100;
     const wearAmt = (a.originalCost * a.wearRate) / 100;
     const annualTotal = depAmt + wearAmt;
-    const remaining = Math.max(0, a.originalCost - a.accumulatedDepreciation);
-    return { depAmt, wearAmt, annualTotal, remaining };
+
+    // Tự tính lũy kế theo số tháng đã sử dụng
+    let accumulated = 0;
+    if (a.startUseDate && annualTotal > 0) {
+        const start = new Date(a.startUseDate);
+        const end = a.disposalDate ? new Date(a.disposalDate) : new Date();
+        const months = Math.max(0, (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()));
+        accumulated = Math.min(a.originalCost, (annualTotal / 12) * months);
+    }
+
+    const remaining = Math.max(0, a.originalCost - accumulated);
+    return { depAmt, wearAmt, annualTotal, accumulated, remaining };
 }
 
 const EMPTY_FORM = {
@@ -48,6 +58,8 @@ export default function FixedAssetsPage() {
     const [showAccModal, setShowAccModal] = useState(false);
     const [accTarget, setAccTarget] = useState(null);
     const [accValue, setAccValue] = useState('');
+    const [inlineEdit, setInlineEdit] = useState({ id: '', field: '' });
+    const [inlineValue, setInlineValue] = useState('');
 
     const fetchAssets = useCallback(async () => {
         setLoading(true);
@@ -72,7 +84,7 @@ export default function FixedAssetsPage() {
 
     /* ── KPI ── */
     const totalCost = filtered.reduce((s, a) => s + a.originalCost, 0);
-    const totalAccDep = filtered.reduce((s, a) => s + a.accumulatedDepreciation, 0);
+    const totalAccDep = filtered.reduce((s, a) => s + calcFields(a).accumulated, 0);
     const totalRemaining = filtered.reduce((s, a) => s + calcFields(a).remaining, 0);
 
     /* ── CRUD ── */
@@ -151,10 +163,24 @@ export default function FixedAssetsPage() {
         fetchAssets();
     }
 
+    function startInline(id, field, currentValue) {
+        setInlineEdit({ id, field });
+        setInlineValue(currentValue || '');
+    }
+    async function saveInline(id, field, value) {
+        setInlineEdit({ id: '', field: '' });
+        await fetch('/api/workshop/assets', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, [field]: value }),
+        });
+        fetchAssets();
+    }
+
     function printLedger() {
         const typeName = filterType || 'Tất cả loại';
         const rows = filtered.map((a, i) => {
-            const { depAmt, wearAmt, annualTotal, remaining } = calcFields(a);
+            const { depAmt, wearAmt, annualTotal, accumulated, remaining } = calcFields(a);
             return `<tr>
               <td>${i + 1}</td>
               <td>${fmtDate(a.createdAt)}</td>
@@ -167,7 +193,7 @@ export default function FixedAssetsPage() {
               <td>${a.wearRate}%</td>
               <td>${wearAmt.toLocaleString('vi-VN')}</td>
               <td>${annualTotal.toLocaleString('vi-VN')}</td>
-              <td>${a.accumulatedDepreciation.toLocaleString('vi-VN')}</td>
+              <td>${accumulated.toLocaleString('vi-VN')}</td>
               <td>${a.disposalDate ? fmtDate(a.disposalDate) : ''}</td>
               <td>${a.disposalReason || ''}</td>
               <td>${remaining.toLocaleString('vi-VN')}</td>
@@ -378,17 +404,65 @@ export default function FixedAssetsPage() {
                                             <td style={tdStyle('right')}>{wearAmt > 0 ? wearAmt.toLocaleString('vi-VN') : '—'}</td>
                                             <td style={{ ...tdStyle('right'), fontWeight: 600, color: '#92400e' }}>{annualTotal > 0 ? annualTotal.toLocaleString('vi-VN') : '—'}</td>
                                             <td style={{ ...tdStyle('right'), fontWeight: 700, color: '#dc2626' }}>
-                                                <button
-                                                    onClick={() => openAcc(a)}
-                                                    title="Cập nhật lũy kế khấu hao"
-                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: '#dc2626', fontSize: 12, padding: 0 }}
-                                                >
-                                                    {a.accumulatedDepreciation > 0 ? a.accumulatedDepreciation.toLocaleString('vi-VN') : '0'}
-                                                    <span style={{ fontSize: 9, marginLeft: 2, opacity: 0.6 }}>✏️</span>
-                                                </button>
+                                                {accumulated > 0 ? accumulated.toLocaleString('vi-VN') : '0'}
+                                                {a.startUseDate && annualTotal > 0 && (
+                                                    <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 400, marginTop: 2 }}>
+                                                        {(() => {
+                                                            const start = new Date(a.startUseDate);
+                                                            const end = a.disposalDate ? new Date(a.disposalDate) : new Date();
+                                                            const months = Math.max(0, (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()));
+                                                            return `${months} tháng`;
+                                                        })()}
+                                                    </div>
+                                                )}
                                             </td>
-                                            <td style={tdStyle('center')}>{fmtDate(a.disposalDate)}</td>
-                                            <td style={{ ...tdStyle(), fontSize: 11 }}>{a.disposalReason || '—'}</td>
+                                            <td
+                                                style={{ ...tdStyle('center'), cursor: 'pointer', minWidth: 110 }}
+                                                title="Nhấn để sửa ngày giảm"
+                                                onClick={() => inlineEdit.id !== a.id || inlineEdit.field !== 'disposalDate' ? startInline(a.id, 'disposalDate', a.disposalDate ? a.disposalDate.slice(0, 10) : '') : null}
+                                            >
+                                                {inlineEdit.id === a.id && inlineEdit.field === 'disposalDate' ? (
+                                                    <input
+                                                        type="date"
+                                                        autoFocus
+                                                        value={inlineValue}
+                                                        onChange={e => setInlineValue(e.target.value)}
+                                                        onBlur={() => saveInline(a.id, 'disposalDate', inlineValue || null)}
+                                                        onKeyDown={e => { if (e.key === 'Enter') saveInline(a.id, 'disposalDate', inlineValue || null); if (e.key === 'Escape') setInlineEdit({ id: '', field: '' }); }}
+                                                        style={{ width: 110, fontSize: 11, border: '1.5px solid var(--accent-primary)', borderRadius: 4, padding: '2px 4px' }}
+                                                        onClick={e => e.stopPropagation()}
+                                                    />
+                                                ) : (
+                                                    <span>
+                                                        {fmtDate(a.disposalDate)}
+                                                        <span style={{ fontSize: 9, marginLeft: 3, opacity: 0.5 }}>✏️</span>
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td
+                                                style={{ ...tdStyle(), fontSize: 11, cursor: 'pointer', minWidth: 140 }}
+                                                title="Nhấn để sửa lý do giảm"
+                                                onClick={() => inlineEdit.id !== a.id || inlineEdit.field !== 'disposalReason' ? startInline(a.id, 'disposalReason', a.disposalReason || '') : null}
+                                            >
+                                                {inlineEdit.id === a.id && inlineEdit.field === 'disposalReason' ? (
+                                                    <input
+                                                        type="text"
+                                                        autoFocus
+                                                        value={inlineValue}
+                                                        onChange={e => setInlineValue(e.target.value)}
+                                                        onBlur={() => saveInline(a.id, 'disposalReason', inlineValue)}
+                                                        onKeyDown={e => { if (e.key === 'Enter') saveInline(a.id, 'disposalReason', inlineValue); if (e.key === 'Escape') setInlineEdit({ id: '', field: '' }); }}
+                                                        placeholder="Nhập lý do..."
+                                                        style={{ width: '100%', fontSize: 11, border: '1.5px solid var(--accent-primary)', borderRadius: 4, padding: '2px 4px' }}
+                                                        onClick={e => e.stopPropagation()}
+                                                    />
+                                                ) : (
+                                                    <span>
+                                                        {a.disposalReason || <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                                                        <span style={{ fontSize: 9, marginLeft: 3, opacity: 0.5 }}>✏️</span>
+                                                    </span>
+                                                )}
+                                            </td>
                                             <td style={{ ...tdStyle('right'), fontWeight: 700, color: remaining > 0 ? '#15803d' : 'var(--text-muted)' }}>
                                                 {remaining.toLocaleString('vi-VN')}
                                             </td>
