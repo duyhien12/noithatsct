@@ -384,7 +384,7 @@ export default function FixedAssetsPage() {
                             </thead>
                             <tbody>
                                 {filtered.map((a, idx) => {
-                                    const { depAmt, wearAmt, annualTotal, remaining } = calcFields(a);
+                                    const { depAmt, wearAmt, annualTotal, accumulated, remaining } = calcFields(a);
                                     const isDisposed = a.status === 'Đã thanh lý';
                                     return (
                                         <tr key={a.id} style={{ opacity: isDisposed ? 0.7 : 1, background: isDisposed ? '#fef2f2' : 'inherit' }}>
