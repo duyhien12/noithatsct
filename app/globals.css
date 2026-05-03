@@ -4566,3 +4566,18 @@ select.form-input-compact {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ========================================
+   WORKSHOP FINANCE — DESKTOP RESPONSIVE
+   ======================================== */
+@media (max-width: 1024px) {
+  .workshop-finance-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .workshop-finance-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

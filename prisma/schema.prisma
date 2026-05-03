@@ -1281,3 +1281,27 @@ model SalesAttendance {
   @@unique([workerId, date])
   @@index([workerId])
 }
+
+// ============ TÀI SẢN CỐ ĐỊNH XƯỞNG ============
+
+model FixedAsset {
+  id                      String    @id @default(cuid())
+  code                    String    @unique
+  name                    String
+  assetType               String    @default("Máy móc - Thiết bị")
+  origin                  String    @default("")
+  startUseDate            DateTime?
+  originalCost            Float     @default(0)
+  depreciationRate        Float     @default(0)
+  wearRate                Float     @default(0)
+  accumulatedDepreciation Float     @default(0)
+  disposalDate            DateTime?
+  disposalReason          String    @default("")
+  status                  String    @default("Đang dùng")
+  notes                   String    @default("") @db.Text
+  createdBy               String    @default("")
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  @@index([assetType])
+  @@index([status])
+}

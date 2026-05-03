@@ -541,12 +541,12 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
     return (
         <div>
             {/* Breadcrumb */}
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span>Xưởng Nội Thất</span>
                 <span style={{ color: 'var(--border)' }}>›</span>
                 <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>Tài chính Xưởng</span>
             </div>
-            <h2 style={{ margin: '0 0 20px', fontSize: 22, fontWeight: 700 }}>Tài chính Xưởng Nội Thất</h2>
+            <h2 style={{ margin: '0 0 24px', fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>Tài chính Xưởng Nội Thất</h2>
 
             {/* ── Dashboard tổng quan ── */}
             {(() => {
@@ -560,46 +560,46 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                 const canDoi    = totalThuDuoc - totalChi;
                 const monthLabel = new Date(payrollMonth + '-01').toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' });
                 return (
-                    <div className="card" style={{ marginBottom: 16, padding: '16px 20px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Tổng quan tài chính xưởng</span>
-                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Lương: {monthLabel}</span>
+                    <div className="card" style={{ marginBottom: 20, padding: '20px 24px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1.2 }}>Tổng quan tài chính xưởng</span>
+                            <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>Lương: {monthLabel}</span>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+                        <div className="workshop-finance-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
                             {/* Thu tiền */}
-                            <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '14px 16px', borderLeft: '4px solid #16a34a' }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: '#15803d', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>💰 Thu tiền</div>
-                                <div style={{ fontSize: 18, fontWeight: 800, color: '#15803d', marginBottom: 6 }}>{fmt(totalThuDuoc)}</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                    <div style={{ fontSize: 11, color: '#374151' }}>Phải thu: <strong>{fmt(totalThuPhai)}</strong></div>
-                                    <div style={{ fontSize: 11, color: '#dc2626' }}>Còn lại: <strong>{fmt(totalThuConLai)}</strong></div>
+                            <div style={{ background: '#f0fdf4', borderRadius: 12, padding: '20px 22px', borderLeft: '5px solid #16a34a' }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#15803d', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.8 }}>💰 Thu tiền</div>
+                                <div style={{ fontSize: 26, fontWeight: 800, color: '#15803d', marginBottom: 10, lineHeight: 1 }}>{fmt(totalThuDuoc)}</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    <div style={{ fontSize: 12, color: '#374151' }}>Phải thu: <strong>{fmt(totalThuPhai)}</strong></div>
+                                    <div style={{ fontSize: 12, color: '#dc2626' }}>Còn lại: <strong>{fmt(totalThuConLai)}</strong></div>
                                 </div>
                             </div>
                             {/* Chi phí */}
-                            <div style={{ background: '#fff7ed', borderRadius: 10, padding: '14px 16px', borderLeft: '4px solid #ea580c' }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: '#c2410c', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>📉 Chi phí</div>
-                                <div style={{ fontSize: 18, fontWeight: 800, color: '#c2410c', marginBottom: 6 }}>{fmt(expPaid)}</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                    <div style={{ fontSize: 11, color: '#374151' }}>Tổng giá trị: <strong>{fmt(expValue)}</strong></div>
-                                    <div style={{ fontSize: 11, color: '#92400e' }}>Chờ duyệt: <strong>{expPendingCount} lệnh</strong></div>
+                            <div style={{ background: '#fff7ed', borderRadius: 12, padding: '20px 22px', borderLeft: '5px solid #ea580c' }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#c2410c', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.8 }}>📉 Chi phí</div>
+                                <div style={{ fontSize: 26, fontWeight: 800, color: '#c2410c', marginBottom: 10, lineHeight: 1 }}>{fmt(expPaid)}</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    <div style={{ fontSize: 12, color: '#374151' }}>Tổng giá trị: <strong>{fmt(expValue)}</strong></div>
+                                    <div style={{ fontSize: 12, color: '#92400e' }}>Chờ duyệt: <strong>{expPendingCount} lệnh</strong></div>
                                 </div>
                             </div>
                             {/* Lương */}
-                            <div style={{ background: '#eff6ff', borderRadius: 10, padding: '14px 16px', borderLeft: '4px solid #2563eb' }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>👷 Lương tháng</div>
-                                <div style={{ fontSize: 18, fontWeight: 800, color: '#1d4ed8', marginBottom: 6 }}>{fmt(payrollGrandTotal)}</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                    <div style={{ fontSize: 11, color: '#374151' }}>Cơ bản: <strong>{fmt(payrollTotalBase)}</strong></div>
-                                    <div style={{ fontSize: 11, color: '#92400e' }}>Tăng ca: <strong>{fmt(payrollTotalOT)}</strong></div>
+                            <div style={{ background: '#eff6ff', borderRadius: 12, padding: '20px 22px', borderLeft: '5px solid #2563eb' }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.8 }}>👷 Lương tháng</div>
+                                <div style={{ fontSize: 26, fontWeight: 800, color: '#1d4ed8', marginBottom: 10, lineHeight: 1 }}>{fmt(payrollGrandTotal)}</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    <div style={{ fontSize: 12, color: '#374151' }}>Cơ bản: <strong>{fmt(payrollTotalBase)}</strong></div>
+                                    <div style={{ fontSize: 12, color: '#92400e' }}>Tăng ca: <strong>{fmt(payrollTotalOT)}</strong></div>
                                 </div>
                             </div>
                             {/* Cân đối */}
-                            <div style={{ background: canDoi >= 0 ? '#f0fdf4' : '#fef2f2', borderRadius: 10, padding: '14px 16px', borderLeft: `4px solid ${canDoi >= 0 ? '#16a34a' : '#dc2626'}` }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: canDoi >= 0 ? '#15803d' : '#b91c1c', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>💵 Cân đối</div>
-                                <div style={{ fontSize: 18, fontWeight: 800, color: canDoi >= 0 ? '#15803d' : '#b91c1c', marginBottom: 6 }}>{canDoi >= 0 ? '+' : ''}{fmt(canDoi)}</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                    <div style={{ fontSize: 11, color: '#374151' }}>Đã thu: <strong>{fmt(totalThuDuoc)}</strong></div>
-                                    <div style={{ fontSize: 11, color: '#374151' }}>Đã chi + lương: <strong>{fmt(totalChi)}</strong></div>
+                            <div style={{ background: canDoi >= 0 ? '#f0fdf4' : '#fef2f2', borderRadius: 12, padding: '20px 22px', borderLeft: `5px solid ${canDoi >= 0 ? '#16a34a' : '#dc2626'}` }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: canDoi >= 0 ? '#15803d' : '#b91c1c', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.8 }}>💵 Cân đối</div>
+                                <div style={{ fontSize: 26, fontWeight: 800, color: canDoi >= 0 ? '#15803d' : '#b91c1c', marginBottom: 10, lineHeight: 1 }}>{canDoi >= 0 ? '+' : ''}{fmt(canDoi)}</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    <div style={{ fontSize: 12, color: '#374151' }}>Đã thu: <strong>{fmt(totalThuDuoc)}</strong></div>
+                                    <div style={{ fontSize: 12, color: '#374151' }}>Đã chi + lương: <strong>{fmt(totalChi)}</strong></div>
                                 </div>
                             </div>
                         </div>
@@ -609,18 +609,20 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
 
             {/* ── Main tabs ── */}
             <div className="card" style={{ marginBottom: 20 }}>
-                <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 4px' }}>
+                <div style={{ display: 'flex', borderBottom: '2px solid var(--border)', padding: '0 8px', gap: 4 }}>
                     {[
                         { key: 'thu_tien', label: '📈 Thu tiền' },
                         { key: 'chi_phi',  label: '📉 Chi phí' },
                         { key: 'luong',    label: '👷 Lương & Tăng ca' },
                     ].map(t => (
                         <button key={t.key} onClick={() => setMainTab(t.key)} style={{
-                            padding: '14px 22px', border: 'none', background: 'none', cursor: 'pointer',
-                            fontSize: 14, fontWeight: mainTab === t.key ? 700 : 400,
+                            padding: '16px 28px', border: 'none', background: 'none', cursor: 'pointer',
+                            fontSize: 14, fontWeight: mainTab === t.key ? 700 : 500,
                             color: mainTab === t.key ? 'var(--accent-primary)' : 'var(--text-muted)',
                             borderBottom: mainTab === t.key ? '2px solid var(--accent-primary)' : '2px solid transparent',
-                            marginBottom: -1,
+                            marginBottom: -2,
+                            transition: 'color 0.15s',
+                            whiteSpace: 'nowrap',
                         }}>{t.label}</button>
                     ))}
                 </div>
