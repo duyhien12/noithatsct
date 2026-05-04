@@ -1,8 +1,6 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import ProjectChatPanel from '@/components/ProjectChatPanel';
-
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
 const fmtDateFull = (d) => d ? new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
 
@@ -12,15 +10,6 @@ export default function CustomerProgressPage() {
     const [loading, setLoading] = useState(true);
     const [expandedTask, setExpandedTask] = useState(null);
     const [lightbox, setLightbox] = useState(null);
-    const [chatOpen, setChatOpen] = useState(false);
-    const [chatUnread, setChatUnread] = useState(0);
-    const [customerName, setCustomerName] = useState(() => {
-        if (typeof window !== 'undefined') return localStorage.getItem('customer_chat_name') || '';
-        return '';
-    });
-    const [nameInput, setNameInput] = useState('');
-    const [showNamePrompt, setShowNamePrompt] = useState(false);
-
     useEffect(() => {
         fetch(`/api/progress/${code}`)
             .then(r => r.json())
@@ -244,65 +233,6 @@ export default function CustomerProgressPage() {
                 </div>
             )}
 
-            {/* Floating chat button */}
-            <button onClick={() => {
-                if (!customerName) { setShowNamePrompt(true); return; }
-                setChatOpen(v => !v);
-                setChatUnread(0);
-            }}
-                style={{ position: 'fixed', bottom: 24, right: 24, width: 56, height: 56, borderRadius: '50%', background: chatOpen ? '#065f46' : '#059669', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 20px rgba(5,150,105,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, zIndex: 9000, transition: 'all 0.2s' }}
-                title="Chat với đội thi công">
-                {chatOpen ? '✕' : '💬'}
-                {!chatOpen && chatUnread > 0 && (
-                    <span style={{ position: 'absolute', top: 2, right: 2, background: '#dc2626', color: '#fff', borderRadius: '50%', width: 20, height: 20, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff' }}>
-                        {chatUnread > 9 ? '9+' : chatUnread}
-                    </span>
-                )}
-            </button>
-
-            {/* Chat panel */}
-            {chatOpen && customerName && (
-                <div style={{ position: 'fixed', bottom: 92, right: 24, width: 350, height: 480, background: '#fff', borderRadius: 16, boxShadow: '0 8px 40px rgba(0,0,0,0.25)', border: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', zIndex: 9000, overflow: 'hidden' }}>
-                    <div style={{ padding: '12px 16px', background: '#065f46', color: '#fff', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🏗️</div>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 700, fontSize: 14 }}>Chat với đội thi công</div>
-                            <div style={{ fontSize: 11, opacity: 0.8 }}>Dự án {code} · {customerName}</div>
-                        </div>
-                        <button onClick={() => setChatOpen(false)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 18, cursor: 'pointer', opacity: 0.8 }}>✕</button>
-                    </div>
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                        <ProjectChatPanel
-                            apiBase={`/api/progress/${code}/chat`}
-                            myId={customerName}
-                            senderName={customerName}
-                            isCustomer={true}
-                        />
-                    </div>
-                </div>
-            )}
-
-            {/* Popup nhập tên lần đầu */}
-            {showNamePrompt && (
-                <>
-                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9100 }} onClick={() => setShowNamePrompt(false)} />
-                    <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 9200, background: '#fff', borderRadius: 16, padding: 28, width: 320, boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
-                        <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                            <div style={{ fontSize: 40, marginBottom: 8 }}>👋</div>
-                            <div style={{ fontWeight: 700, fontSize: 16, color: '#111827' }}>Chào mừng!</div>
-                            <div style={{ fontSize: 13, color: '#6b7280', marginTop: 6 }}>Vui lòng nhập tên để bắt đầu trao đổi với đội thi công</div>
-                        </div>
-                        <input autoFocus placeholder="Nhập tên của bạn..." value={nameInput} onChange={e => setNameInput(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter' && nameInput.trim()) { localStorage.setItem('customer_chat_name', nameInput.trim()); setCustomerName(nameInput.trim()); setShowNamePrompt(false); setChatOpen(true); }}}
-                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1.5px solid #d1d5db', fontSize: 14, outline: 'none', boxSizing: 'border-box', marginBottom: 12 }} />
-                        <button onClick={() => { if (!nameInput.trim()) return; localStorage.setItem('customer_chat_name', nameInput.trim()); setCustomerName(nameInput.trim()); setShowNamePrompt(false); setChatOpen(true); }}
-                            disabled={!nameInput.trim()}
-                            style={{ width: '100%', padding: '10px', background: nameInput.trim() ? '#059669' : '#d1d5db', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: nameInput.trim() ? 'pointer' : 'default' }}>
-                            Bắt đầu chat →
-                        </button>
-                    </div>
-                </>
-            )}
         </>
     );
 }

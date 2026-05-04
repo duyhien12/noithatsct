@@ -8,7 +8,6 @@ import Sidebar from '@/components/Sidebar';
 import SalesSidebar from '@/components/SalesSidebar';
 import WorkshopSidebar from '@/components/WorkshopSidebar';
 import Header from '@/components/Header';
-import WorkshopChat from '@/components/WorkshopChat';
 import MobileBottomNav from '@/components/MobileBottomNav';
 
 export default function AppShell({ children }) {
@@ -45,8 +44,6 @@ export default function AppShell({ children }) {
     if (role === 'kinh_doanh') SidebarComponent = SalesSidebar;
     else if (role === 'xuong') SidebarComponent = WorkshopSidebar;
 
-    const showChat = ['xuong', 'ban_gd', 'giam_doc', 'pho_gd', 'admin'].includes(role);
-
     return (
         <div className="app-layout">
             <SidebarComponent isOpen={sidebarOpen} onClose={closeSidebar} />
@@ -57,7 +54,6 @@ export default function AppShell({ children }) {
                     {children}
                 </main>
             </div>
-            {showChat && <WorkshopChat />}
             <div className="mobile-bottom-nav-wrapper">
                 <MobileBottomNav onMenuOpen={toggleSidebar} />
             </div>
