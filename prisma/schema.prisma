@@ -1291,6 +1291,7 @@ model FixedAsset {
   assetType               String    @default("Máy móc - Thiết bị")
   origin                  String    @default("")
   startUseDate            DateTime?
+  quantity                Int       @default(1)
   originalCost            Float     @default(0)
   depreciationRate        Float     @default(0)
   wearRate                Float     @default(0)

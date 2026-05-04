@@ -37,7 +37,7 @@ function calcFields(a) {
 
 const EMPTY_FORM = {
     name: '', assetType: 'Máy móc - Thiết bị', origin: '', startUseDate: '',
-    originalCost: '', depreciationRate: '', wearRate: '', notes: '',
+    quantity: 1, originalCost: '', depreciationRate: '', wearRate: '', notes: '',
 };
 
 export default function FixedAssetsPage() {
@@ -95,7 +95,7 @@ export default function FixedAssetsPage() {
         setEditItem(a);
         setForm({ name: a.name, assetType: a.assetType, origin: a.origin,
             startUseDate: a.startUseDate ? a.startUseDate.slice(0, 10) : '',
-            originalCost: a.originalCost, depreciationRate: a.depreciationRate,
+            quantity: a.quantity ?? 1, originalCost: a.originalCost, depreciationRate: a.depreciationRate,
             wearRate: a.wearRate, notes: a.notes });
         setShowModal(true);
     }
@@ -138,6 +138,7 @@ export default function FixedAssetsPage() {
               <td>${i + 1}</td><td>${fmtDate(a.createdAt)}</td>
               <td><strong>${a.code}</strong><br/>${a.name}</td>
               <td>${a.origin || '—'}</td><td>${fmtMonth(a.startUseDate)}</td>
+              <td>${a.quantity ?? 1}</td>
               <td>${a.originalCost.toLocaleString('vi-VN')}</td>
               <td>${a.depreciationRate}%</td><td>${depAmt.toLocaleString('vi-VN')}</td>
               <td>${a.wearRate}%</td><td>${wearAmt.toLocaleString('vi-VN')}</td>
@@ -159,11 +160,12 @@ export default function FixedAssetsPage() {
         <div class="sub">Dùng cho Xưởng nội thất — In ngày ${new Date().toLocaleDateString('vi-VN')}</div>
         <table><thead>
           <tr><th rowSpan="3">STT</th>
-            <th colspan="5" class="th-group">Ghi tăng tài sản cố định</th>
+            <th colspan="6" class="th-group">Ghi tăng tài sản cố định</th>
             <th colspan="6" class="th-group">Khấu hao (hao mòn) tài sản cố định</th>
             <th colspan="3" class="th-group">Giảm tài sản cố định</th></tr>
           <tr><th rowSpan="2">Ngày, tháng</th><th rowSpan="2">Tên, đặc điểm, ký hiệu TSCĐ</th>
             <th rowSpan="2">Nước sản xuất</th><th rowSpan="2">Tháng, năm đưa vào sử dụng</th>
+            <th rowSpan="2">Số lượng</th>
             <th rowSpan="2">Nguyên giá TSCĐ</th>
             <th colspan="2">Khấu hao</th><th colspan="2">Hao mòn</th>
             <th rowSpan="2">Tổng số KH/HM phát sinh trong năm (6=3+5)</th>
@@ -172,12 +174,13 @@ export default function FixedAssetsPage() {
             <th rowSpan="2">Giá trị còn lại</th></tr>
           <tr><th>Tỷ lệ %</th><th>Số tiền</th><th>Tỷ lệ %</th><th>Số tiền</th></tr>
           <tr style="font-weight:bold;background:#eee;">
-            <td>A</td><td>C</td><td>D</td><td>C</td><td>E</td><td>1</td>
+            <td>A</td><td>C</td><td>D</td><td>C</td><td>E</td><td>SL</td><td>1</td>
             <td>2</td><td>3</td><td>4</td><td>5</td><td>6=3+5</td><td>7</td>
             <td>G</td><td>E</td><td>8</td></tr>
         </thead><tbody>${rows}</tbody>
         <tfoot><tr>
           <td colspan="5" style="text-align:right">Cộng:</td>
+          <td></td>
           <td>${totalCost.toLocaleString('vi-VN')}</td>
           <td></td><td></td><td></td><td></td><td></td>
           <td>${totalAccDep.toLocaleString('vi-VN')}</td>
@@ -283,7 +286,7 @@ export default function FixedAssetsPage() {
                                                 color: isDisposed ? '#dc2626' : '#1e40af' }}>{a.status}</span>
                                         </div>
                                         <div style={{ fontWeight: 700, fontSize: 15, marginTop: 2 }}>{a.name}</div>
-                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{a.assetType}{a.origin ? ` · ${a.origin}` : ''}</div>
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{a.assetType}{a.origin ? ` · ${a.origin}` : ''}{(a.quantity ?? 1) > 1 ? ` · SL: ${a.quantity}` : ''}</div>
                                     </div>
                                     <div style={{ display: 'flex', gap: 6 }}>
                                         <button className="btn btn-ghost btn-sm" style={{ fontSize: 13, padding: '4px 8px' }} onClick={() => openEdit(a)}>✏️</button>
@@ -349,7 +352,7 @@ export default function FixedAssetsPage() {
                             <thead>
                                 <tr>
                                     <th rowSpan={3} style={thStyle()}>STT</th>
-                                    <th colSpan={5} style={thStyle('#dbeafe', true)}>Ghi tăng tài sản cố định</th>
+                                    <th colSpan={6} style={thStyle('#dbeafe', true)}>Ghi tăng tài sản cố định</th>
                                     <th colSpan={6} style={thStyle('#fef9c3', true)}>Khấu hao (hao mòn) tài sản cố định</th>
                                     <th colSpan={3} style={thStyle('#fce7f3', true)}>Giảm tài sản cố định</th>
                                     <th rowSpan={3} style={thStyle()}>Thao tác</th>
@@ -359,6 +362,7 @@ export default function FixedAssetsPage() {
                                     <th rowSpan={2} style={thStyle('#eff6ff', false, 200)}>Tên, ký hiệu TSCĐ</th>
                                     <th rowSpan={2} style={thStyle('#eff6ff')}>Nước SX</th>
                                     <th rowSpan={2} style={thStyle('#eff6ff')}>T/năm SD</th>
+                                    <th rowSpan={2} style={thStyle('#eff6ff')}>SL</th>
                                     <th rowSpan={2} style={thStyle('#eff6ff')}>Nguyên giá</th>
                                     <th colSpan={2} style={thStyle('#fefce8')}>Khấu hao</th>
                                     <th colSpan={2} style={thStyle('#fefce8')}>Hao mòn</th>
@@ -375,7 +379,7 @@ export default function FixedAssetsPage() {
                                     <th style={thStyle('#fefce8')}>Số tiền</th>
                                 </tr>
                                 <tr style={{ background: '#f3f4f6' }}>
-                                    {['A','C','D','C','E','1','2','3','4','5','6=3+5','7','G','E','8',''].map((h, i) => (
+                                    {['A','C','D','C','E','SL','1','2','3','4','5','6=3+5','7','G','E','8',''].map((h, i) => (
                                         <td key={i} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center', fontWeight: 700, fontSize: 11 }}>{h}</td>
                                     ))}
                                 </tr>
@@ -395,6 +399,7 @@ export default function FixedAssetsPage() {
                                             </td>
                                             <td style={tdStyle('center')}>{a.origin || '—'}</td>
                                             <td style={tdStyle('center')}>{fmtMonth(a.startUseDate)}</td>
+                                            <td style={tdStyle('center')}>{a.quantity ?? 1}</td>
                                             <td style={{ ...tdStyle('right'), fontWeight: 700 }}>{a.originalCost > 0 ? a.originalCost.toLocaleString('vi-VN') : '—'}</td>
                                             <td style={tdStyle('center')}>{a.depreciationRate > 0 ? `${a.depreciationRate}%` : '—'}</td>
                                             <td style={tdStyle('right')}>{depAmt > 0 ? depAmt.toLocaleString('vi-VN') : '—'}</td>
@@ -455,6 +460,7 @@ export default function FixedAssetsPage() {
                             <tfoot>
                                 <tr style={{ background: '#f9fafb', fontWeight: 700 }}>
                                     <td colSpan={5} style={{ ...tdStyle('right'), fontSize: 13 }}>Cộng:</td>
+                                    <td style={tdStyle()} />
                                     <td style={{ ...tdStyle('right'), fontSize: 13 }}>{totalCost.toLocaleString('vi-VN')}</td>
                                     <td style={tdStyle()} /><td style={tdStyle()} /><td style={tdStyle()} /><td style={tdStyle()} /><td style={tdStyle()} />
                                     <td style={{ ...tdStyle('right'), fontSize: 13, color: '#dc2626' }}>{totalAccDep.toLocaleString('vi-VN')}</td>
@@ -496,6 +502,10 @@ export default function FixedAssetsPage() {
                             <div>
                                 <label style={labelStyle}>Ngày đưa vào sử dụng</label>
                                 <input type="date" className="form-input" value={form.startUseDate} onChange={e => setForm(f => ({ ...f, startUseDate: e.target.value }))} />
+                            </div>
+                            <div>
+                                <label style={labelStyle}>Số lượng</label>
+                                <input type="number" className="form-input" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} placeholder="1" min="1" step="1" />
                             </div>
                             <div>
                                 <label style={labelStyle}>Nguyên giá TSCĐ (₫)</label>

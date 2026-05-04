@@ -21,7 +21,7 @@ export const GET = withAuth(async (req) => {
 
 export const POST = withAuth(async (req, _, session) => {
     const body = await req.json();
-    const { name, assetType, origin, startUseDate, originalCost, depreciationRate, wearRate, notes } = body;
+    const { name, assetType, origin, startUseDate, quantity, originalCost, depreciationRate, wearRate, notes } = body;
 
     if (!name) return NextResponse.json({ error: 'Tên tài sản không được trống' }, { status: 400 });
 
@@ -36,6 +36,7 @@ export const POST = withAuth(async (req, _, session) => {
             assetType: assetType || 'Máy móc - Thiết bị',
             origin: origin || '',
             startUseDate: startUseDate ? new Date(startUseDate) : null,
+            quantity: parseInt(quantity) || 1,
             originalCost: parseFloat(originalCost) || 0,
             depreciationRate: parseFloat(depreciationRate) || 0,
             wearRate: parseFloat(wearRate) || 0,
@@ -59,6 +60,7 @@ export const PUT = withAuth(async (req) => {
     if (disposalReason !== undefined) data.disposalReason = disposalReason;
     if (status !== undefined) data.status = status;
     if (rest.startUseDate !== undefined) data.startUseDate = rest.startUseDate ? new Date(rest.startUseDate) : null;
+    if (rest.quantity !== undefined) data.quantity = parseInt(rest.quantity) || 1;
     if (rest.originalCost !== undefined) data.originalCost = parseFloat(rest.originalCost) || 0;
     if (rest.depreciationRate !== undefined) data.depreciationRate = parseFloat(rest.depreciationRate) || 0;
     if (rest.wearRate !== undefined) data.wearRate = parseFloat(rest.wearRate) || 0;
