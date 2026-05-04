@@ -13,7 +13,7 @@ export const POST = withAuth(async (request, { params }) => {
     if (!order.assignee) return NextResponse.json({ error: 'Phiếu chưa có người thực hiện' }, { status: 400 });
 
     const result = await notifyWorkOrderAssigned(order);
-    if (result.success) return NextResponse.json({ success: true, message: 'Đã gửi Zalo thành công' });
+    if (result.success) return NextResponse.json({ success: true, message: `Đã gửi Zalo thành công (${result.sent} người)` });
     if (result.skipped) return NextResponse.json({ success: false, message: result.skipped }, { status: 422 });
     return NextResponse.json({ success: false, message: result.error || 'Gửi thất bại' }, { status: 500 });
 });
