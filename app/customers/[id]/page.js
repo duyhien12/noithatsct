@@ -271,7 +271,7 @@ export default function CustomerDetailPage() {
                     {[
                         { v: s.projectCount, l: 'Dự án', c: 'var(--text-accent)' },
                         { v: s.contractCount, l: 'Hợp đồng' },
-                        { v: fmt(s.totalContractValue), l: 'Giá trị HĐ' },
+                        { v: fmt(c.estimatedValue || 0), l: 'Giá trị deal' },
                         { v: fmt(s.totalPaid), l: 'Đã thu', c: 'var(--status-success)' },
                         { v: fmt(s.totalDebt), l: 'Công nợ', c: s.totalDebt > 0 ? 'var(--status-danger)' : 'var(--status-success)' },
                     ].map(st => (
