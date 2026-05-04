@@ -21,23 +21,21 @@ const fmtMonth = (d) => {
 
 function calcFields(a) {
     const depAmt = (a.originalCost * a.depreciationRate) / 100;
-    const wearAmt = (a.originalCost * a.wearRate) / 100;
-    const annualTotal = depAmt + wearAmt;
     let accumulated = 0;
     let months = 0;
-    if (a.startUseDate && annualTotal > 0) {
+    if (a.startUseDate && depAmt > 0) {
         const start = new Date(a.startUseDate);
         const end = a.disposalDate ? new Date(a.disposalDate) : new Date();
         months = Math.max(0, (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()));
-        accumulated = Math.min(a.originalCost, (annualTotal / 12) * months);
+        accumulated = Math.min(a.originalCost, (depAmt / 12) * months);
     }
     const remaining = Math.max(0, a.originalCost - accumulated);
-    return { depAmt, wearAmt, annualTotal, accumulated, months, remaining };
+    return { depAmt, accumulated, months, remaining };
 }
 
 const EMPTY_FORM = {
     name: '', assetType: 'Máy móc - Thiết bị', origin: '', startUseDate: '',
-    quantity: 1, originalCost: '', depreciationRate: '', wearRate: '', notes: '',
+    quantity: 1, originalCost: '', depreciationRate: '', notes: '',
 };
 
 export default function FixedAssetsPage() {
@@ -96,7 +94,7 @@ export default function FixedAssetsPage() {
         setForm({ name: a.name, assetType: a.assetType, origin: a.origin,
             startUseDate: a.startUseDate ? a.startUseDate.slice(0, 10) : '',
             quantity: a.quantity ?? 1, originalCost: a.originalCost, depreciationRate: a.depreciationRate,
-            wearRate: a.wearRate, notes: a.notes });
+            notes: a.notes });
         setShowModal(true);
     }
     async function saveAsset() {
@@ -133,7 +131,7 @@ export default function FixedAssetsPage() {
     function printLedger() {
         const typeName = filterType || 'Tất cả loại';
         const rows = filtered.map((a, i) => {
-            const { depAmt, wearAmt, annualTotal, accumulated, remaining } = calcFields(a);
+            const { depAmt, accumulated, remaining } = calcFields(a);
             return `<tr>
               <td>${i + 1}</td><td>${fmtDate(a.createdAt)}</td>
               <td><strong>${a.code}</strong><br/>${a.name}</td>
@@ -141,10 +139,8 @@ export default function FixedAssetsPage() {
               <td>${a.quantity ?? 1}</td>
               <td>${a.originalCost.toLocaleString('vi-VN')}</td>
               <td>${a.depreciationRate}%</td><td>${depAmt.toLocaleString('vi-VN')}</td>
-              <td>${a.wearRate}%</td><td>${wearAmt.toLocaleString('vi-VN')}</td>
-              <td>${annualTotal.toLocaleString('vi-VN')}</td><td>${accumulated.toLocaleString('vi-VN')}</td>
-              <td>${a.disposalDate ? fmtDate(a.disposalDate) : ''}</td>
-              <td>${a.disposalReason || ''}</td><td>${remaining.toLocaleString('vi-VN')}</td></tr>`;
+              <td>${depAmt.toLocaleString('vi-VN')}</td><td>${accumulated.toLocaleString('vi-VN')}</td>
+              <td>${remaining.toLocaleString('vi-VN')}</td></tr>`;
         }).join('');
         const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
         <style>body{font-family:'Times New Roman',serif;font-size:11px;margin:20px}
@@ -161,30 +157,26 @@ export default function FixedAssetsPage() {
         <table><thead>
           <tr><th rowSpan="3">STT</th>
             <th colspan="6" class="th-group">Ghi tăng tài sản cố định</th>
-            <th colspan="6" class="th-group">Khấu hao (hao mòn) tài sản cố định</th>
-            <th colspan="3" class="th-group">Giảm tài sản cố định</th></tr>
+            <th colspan="4" class="th-group">Khấu hao tài sản cố định</th>
+            <th rowSpan="3" class="th-group">Giá trị còn lại</th></tr>
           <tr><th rowSpan="2">Ngày, tháng</th><th rowSpan="2">Tên, đặc điểm, ký hiệu TSCĐ</th>
             <th rowSpan="2">Nước sản xuất</th><th rowSpan="2">Tháng, năm đưa vào sử dụng</th>
             <th rowSpan="2">Số lượng</th>
             <th rowSpan="2">Nguyên giá TSCĐ</th>
-            <th colspan="2">Khấu hao</th><th colspan="2">Hao mòn</th>
-            <th rowSpan="2">Tổng số KH/HM phát sinh trong năm (6=3+5)</th>
-            <th rowSpan="2">Lũy kế KH/HM</th>
-            <th rowSpan="2">Ngày, tháng</th><th rowSpan="2">Lý do ghi giảm</th>
-            <th rowSpan="2">Giá trị còn lại</th></tr>
-          <tr><th>Tỷ lệ %</th><th>Số tiền</th><th>Tỷ lệ %</th><th>Số tiền</th></tr>
+            <th colspan="2">Khấu hao</th>
+            <th rowSpan="2">Tổng KH/năm</th>
+            <th rowSpan="2">Lũy kế KH</th></tr>
+          <tr><th>Tỷ lệ %</th><th>Số tiền</th></tr>
           <tr style="font-weight:bold;background:#eee;">
             <td>A</td><td>C</td><td>D</td><td>C</td><td>E</td><td>SL</td><td>1</td>
-            <td>2</td><td>3</td><td>4</td><td>5</td><td>6=3+5</td><td>7</td>
-            <td>G</td><td>E</td><td>8</td></tr>
+            <td>2</td><td>3</td><td>6</td><td>7</td><td>8</td></tr>
         </thead><tbody>${rows}</tbody>
         <tfoot><tr>
           <td colspan="5" style="text-align:right">Cộng:</td>
           <td></td>
           <td>${totalCost.toLocaleString('vi-VN')}</td>
-          <td></td><td></td><td></td><td></td><td></td>
+          <td></td><td></td><td></td>
           <td>${totalAccDep.toLocaleString('vi-VN')}</td>
-          <td></td><td></td>
           <td>${totalRemain.toLocaleString('vi-VN')}</td>
         </tr></tfoot></table></body></html>`;
         const win = window.open('', '_blank');
@@ -270,7 +262,7 @@ export default function FixedAssetsPage() {
                 /* ══════════════ MOBILE: CARD LIST ══════════════ */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {filtered.map((a, idx) => {
-                        const { depAmt, wearAmt, annualTotal, accumulated, months, remaining } = calcFields(a);
+                        const { depAmt, accumulated, months, remaining } = calcFields(a);
                         const isDisposed = a.status === 'Đã thanh lý';
                         return (
                             <div key={a.id} className="card" style={{ padding: '14px 16px',
@@ -317,8 +309,7 @@ export default function FixedAssetsPage() {
                                 <div style={{ display: 'flex', gap: 12, fontSize: 12, color: 'var(--text-muted)', flexWrap: 'wrap', marginBottom: 10 }}>
                                     {a.startUseDate && <span>📅 Sử dụng: <strong>{fmtMonth(a.startUseDate)}</strong></span>}
                                     {a.depreciationRate > 0 && <span>KH: <strong>{a.depreciationRate}%</strong>/năm</span>}
-                                    {a.wearRate > 0 && <span>HM: <strong>{a.wearRate}%</strong>/năm</span>}
-                                    {annualTotal > 0 && <span>Tổng: <strong>{(annualTotal / 1e6).toFixed(2)}tr/năm</strong></span>}
+                                    {depAmt > 0 && <span>Tổng: <strong>{(depAmt / 1e6).toFixed(2)}tr/năm</strong></span>}
                                 </div>
 
                                 {/* Disposal info */}
@@ -353,8 +344,8 @@ export default function FixedAssetsPage() {
                                 <tr>
                                     <th rowSpan={3} style={thStyle()}>STT</th>
                                     <th colSpan={6} style={thStyle('#dbeafe', true)}>Ghi tăng tài sản cố định</th>
-                                    <th colSpan={6} style={thStyle('#fef9c3', true)}>Khấu hao (hao mòn) tài sản cố định</th>
-                                    <th colSpan={3} style={thStyle('#fce7f3', true)}>Giảm tài sản cố định</th>
+                                    <th colSpan={4} style={thStyle('#fef9c3', true)}>Khấu hao (hao mòn) tài sản cố định</th>
+                                    <th colSpan={1} style={thStyle('#fce7f3', true)}>Giảm tài sản cố định</th>
                                     <th rowSpan={3} style={thStyle()}>Thao tác</th>
                                 </tr>
                                 <tr>
@@ -365,28 +356,23 @@ export default function FixedAssetsPage() {
                                     <th rowSpan={2} style={thStyle('#eff6ff')}>SL</th>
                                     <th rowSpan={2} style={thStyle('#eff6ff')}>Nguyên giá</th>
                                     <th colSpan={2} style={thStyle('#fefce8')}>Khấu hao</th>
-                                    <th colSpan={2} style={thStyle('#fefce8')}>Hao mòn</th>
                                     <th rowSpan={2} style={thStyle('#fefce8', false, 90)}>Tổng KH/HM/năm</th>
                                     <th rowSpan={2} style={thStyle('#fefce8', false, 100)}>Lũy kế KH/HM</th>
-                                    <th rowSpan={2} style={thStyle('#fdf2f8')}>Ngày giảm</th>
-                                    <th rowSpan={2} style={thStyle('#fdf2f8', false, 140)}>Lý do giảm</th>
                                     <th rowSpan={2} style={thStyle('#fdf2f8')}>Giá trị còn lại</th>
                                 </tr>
                                 <tr>
                                     <th style={thStyle('#fefce8')}>Tỷ lệ %</th>
                                     <th style={thStyle('#fefce8')}>Số tiền</th>
-                                    <th style={thStyle('#fefce8')}>Tỷ lệ %</th>
-                                    <th style={thStyle('#fefce8')}>Số tiền</th>
                                 </tr>
                                 <tr style={{ background: '#f3f4f6' }}>
-                                    {['A','C','D','C','E','SL','1','2','3','4','5','6=3+5','7','G','E','8',''].map((h, i) => (
+                                    {['A','C','D','C','E','SL','1','2','3','6=3+5','7','8',''].map((h, i) => (
                                         <td key={i} style={{ border: '1px solid #d1d5db', padding: '4px 6px', textAlign: 'center', fontWeight: 700, fontSize: 11 }}>{h}</td>
                                     ))}
                                 </tr>
                             </thead>
                             <tbody>
                                 {filtered.map((a, idx) => {
-                                    const { depAmt, wearAmt, annualTotal, accumulated, months, remaining } = calcFields(a);
+                                    const { depAmt, accumulated, months, remaining } = calcFields(a);
                                     const isDisposed = a.status === 'Đã thanh lý';
                                     return (
                                         <tr key={a.id} style={{ opacity: isDisposed ? 0.7 : 1, background: isDisposed ? '#fef2f2' : 'inherit' }}>
@@ -403,41 +389,10 @@ export default function FixedAssetsPage() {
                                             <td style={{ ...tdStyle('right'), fontWeight: 700 }}>{a.originalCost > 0 ? a.originalCost.toLocaleString('vi-VN') : '—'}</td>
                                             <td style={tdStyle('center')}>{a.depreciationRate > 0 ? `${a.depreciationRate}%` : '—'}</td>
                                             <td style={tdStyle('right')}>{depAmt > 0 ? depAmt.toLocaleString('vi-VN') : '—'}</td>
-                                            <td style={tdStyle('center')}>{a.wearRate > 0 ? `${a.wearRate}%` : '—'}</td>
-                                            <td style={tdStyle('right')}>{wearAmt > 0 ? wearAmt.toLocaleString('vi-VN') : '—'}</td>
-                                            <td style={{ ...tdStyle('right'), fontWeight: 600, color: '#92400e' }}>{annualTotal > 0 ? annualTotal.toLocaleString('vi-VN') : '—'}</td>
+                                            <td style={{ ...tdStyle('right'), fontWeight: 600, color: '#92400e' }}>{depAmt > 0 ? depAmt.toLocaleString('vi-VN') : '—'}</td>
                                             <td style={{ ...tdStyle('right'), fontWeight: 700, color: '#dc2626' }}>
                                                 {accumulated > 0 ? accumulated.toLocaleString('vi-VN') : '0'}
                                                 {months > 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 400, marginTop: 2 }}>{months} tháng</div>}
-                                            </td>
-                                            <td style={{ ...tdStyle('center'), cursor: 'pointer', minWidth: 110 }}
-                                                title="Nhấn để sửa ngày giảm"
-                                                onClick={() => inlineEdit.id !== a.id || inlineEdit.field !== 'disposalDate' ? startInline(a.id, 'disposalDate', a.disposalDate ? a.disposalDate.slice(0, 10) : '') : null}>
-                                                {inlineEdit.id === a.id && inlineEdit.field === 'disposalDate' ? (
-                                                    <input type="date" autoFocus value={inlineValue}
-                                                        onChange={e => setInlineValue(e.target.value)}
-                                                        onBlur={() => saveInline(a.id, 'disposalDate', inlineValue || null)}
-                                                        onKeyDown={e => { if (e.key === 'Enter') saveInline(a.id, 'disposalDate', inlineValue || null); if (e.key === 'Escape') setInlineEdit({ id: '', field: '' }); }}
-                                                        style={{ width: 110, fontSize: 11, border: '1.5px solid var(--accent-primary)', borderRadius: 4, padding: '2px 4px' }}
-                                                        onClick={e => e.stopPropagation()} />
-                                                ) : (
-                                                    <span>{fmtDate(a.disposalDate)}<span style={{ fontSize: 9, marginLeft: 3, opacity: 0.5 }}>✏️</span></span>
-                                                )}
-                                            </td>
-                                            <td style={{ ...tdStyle(), fontSize: 11, cursor: 'pointer', minWidth: 140 }}
-                                                title="Nhấn để sửa lý do giảm"
-                                                onClick={() => inlineEdit.id !== a.id || inlineEdit.field !== 'disposalReason' ? startInline(a.id, 'disposalReason', a.disposalReason || '') : null}>
-                                                {inlineEdit.id === a.id && inlineEdit.field === 'disposalReason' ? (
-                                                    <input type="text" autoFocus value={inlineValue}
-                                                        onChange={e => setInlineValue(e.target.value)}
-                                                        onBlur={() => saveInline(a.id, 'disposalReason', inlineValue)}
-                                                        onKeyDown={e => { if (e.key === 'Enter') saveInline(a.id, 'disposalReason', inlineValue); if (e.key === 'Escape') setInlineEdit({ id: '', field: '' }); }}
-                                                        placeholder="Nhập lý do..."
-                                                        style={{ width: '100%', fontSize: 11, border: '1.5px solid var(--accent-primary)', borderRadius: 4, padding: '2px 4px' }}
-                                                        onClick={e => e.stopPropagation()} />
-                                                ) : (
-                                                    <span>{a.disposalReason || <span style={{ color: 'var(--text-muted)' }}>—</span>}<span style={{ fontSize: 9, marginLeft: 3, opacity: 0.5 }}>✏️</span></span>
-                                                )}
                                             </td>
                                             <td style={{ ...tdStyle('right'), fontWeight: 700, color: remaining > 0 ? '#15803d' : 'var(--text-muted)' }}>
                                                 {remaining.toLocaleString('vi-VN')}
@@ -462,9 +417,8 @@ export default function FixedAssetsPage() {
                                     <td colSpan={5} style={{ ...tdStyle('right'), fontSize: 13 }}>Cộng:</td>
                                     <td style={tdStyle()} />
                                     <td style={{ ...tdStyle('right'), fontSize: 13 }}>{totalCost.toLocaleString('vi-VN')}</td>
-                                    <td style={tdStyle()} /><td style={tdStyle()} /><td style={tdStyle()} /><td style={tdStyle()} /><td style={tdStyle()} />
+                                    <td style={tdStyle()} /><td style={tdStyle()} /><td style={tdStyle()} />
                                     <td style={{ ...tdStyle('right'), fontSize: 13, color: '#dc2626' }}>{totalAccDep.toLocaleString('vi-VN')}</td>
-                                    <td style={tdStyle()} /><td style={tdStyle()} />
                                     <td style={{ ...tdStyle('right'), fontSize: 13, color: '#15803d' }}>{totalRemain.toLocaleString('vi-VN')}</td>
                                     <td style={tdStyle()} />
                                 </tr>
@@ -515,15 +469,10 @@ export default function FixedAssetsPage() {
                                 <label style={labelStyle}>Tỷ lệ khấu hao (%/năm)</label>
                                 <input type="number" className="form-input" value={form.depreciationRate} onChange={e => setForm(f => ({ ...f, depreciationRate: e.target.value }))} placeholder="0" step="0.1" />
                             </div>
-                            <div>
-                                <label style={labelStyle}>Tỷ lệ hao mòn (%/năm)</label>
-                                <input type="number" className="form-input" value={form.wearRate} onChange={e => setForm(f => ({ ...f, wearRate: e.target.value }))} placeholder="0" step="0.1" />
-                            </div>
-                            {Number(form.originalCost) > 0 && (Number(form.depreciationRate) > 0 || Number(form.wearRate) > 0) && (
+                            {Number(form.originalCost) > 0 && Number(form.depreciationRate) > 0 && (
                                 <div style={{ gridColumn: '1 / -1', background: '#f0fdf4', borderRadius: 8, padding: '10px 14px', fontSize: 12 }}>
                                     <span style={{ fontWeight: 600, color: '#15803d' }}>Dự tính/năm: </span>
-                                    KH {((form.originalCost * form.depreciationRate) / 100).toLocaleString('vi-VN')}₫ + HM {((form.originalCost * (form.wearRate || 0)) / 100).toLocaleString('vi-VN')}₫ =
-                                    <strong> {((form.originalCost * (parseFloat(form.depreciationRate || 0) + parseFloat(form.wearRate || 0))) / 100).toLocaleString('vi-VN')}₫/năm</strong>
+                                    <strong>{((form.originalCost * parseFloat(form.depreciationRate)) / 100).toLocaleString('vi-VN')}₫/năm</strong>
                                 </div>
                             )}
                             <div style={{ gridColumn: '1 / -1' }}>
