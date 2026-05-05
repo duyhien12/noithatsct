@@ -176,7 +176,7 @@ export default function WorkshopDashboard() {
         </div>
     );
 
-    const { kpi, chartData, recentTasks, projectsInProgress, lowStockProducts } = data;
+    const { kpi, chartData, recentTasks, projectsInProgress, lowStockProducts, plSummary } = data;
 
     // Use dateISO from API for accurate labels
     const enrichedChart = (chartData || []).map(d => ({
@@ -222,6 +222,38 @@ export default function WorkshopDashboard() {
                     sub="Tính theo giờ × đơn giá"
                 />
             </div>
+
+            {/* P&L tháng hiện tại */}
+            {plSummary && (
+                <div className="card" style={{ padding: '16px 20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>
+                                📊 P&L Xưởng — {(() => { const [y, m] = plSummary.period.split('-'); return `Tháng ${m}/${y}`; })()}
+                            </h3>
+                            {plSummary.entryCount === 0 && (
+                                <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 2 }}>Chưa có bút toán — hãy vào P&L Xưởng để nhập dữ liệu</div>
+                            )}
+                        </div>
+                        <a href="/workshop/pl" style={{ fontSize: 12, color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Chi tiết P&L →</a>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+                        {[
+                            { label: 'Doanh thu', value: plSummary.revenue, color: '#2563eb' },
+                            { label: 'Chi phí TT', value: plSummary.directCosts, color: '#ea580c' },
+                            { label: 'Lợi nhuận gộp', value: plSummary.grossProfit, color: plSummary.grossProfit >= 0 ? '#16a34a' : '#dc2626', margin: `Biên: ${plSummary.revenue > 0 ? ((plSummary.grossProfit / plSummary.revenue) * 100).toFixed(1) : '0.0'}%` },
+                            { label: 'Chi phí GT', value: plSummary.indirectCosts, color: '#7c3aed' },
+                            { label: 'Lợi nhuận dòng', value: plSummary.netProfit, color: plSummary.netProfit >= 0 ? '#0f766e' : '#dc2626', margin: `Biên: ${plSummary.revenue > 0 ? ((plSummary.netProfit / plSummary.revenue) * 100).toFixed(1) : '0.0'}%` },
+                        ].map((item, i) => (
+                            <div key={i} style={{ background: `${item.color}12`, border: `1px solid ${item.color}30`, borderRadius: 10, padding: '10px 14px' }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: item.color, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>{item.label}</div>
+                                <div style={{ fontSize: 15, fontWeight: 800, color: item.color }}>{fmtShort(Math.abs(item.value))}{item.value < 0 ? ' (âm)' : ''}</div>
+                                {item.margin && <div style={{ fontSize: 10, color: item.color, marginTop: 2, opacity: 0.8 }}>{item.margin}</div>}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Middle row: Chart + Projects */}
             <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16 }}>

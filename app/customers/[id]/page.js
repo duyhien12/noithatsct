@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 
@@ -59,6 +59,26 @@ function defaultProcess() {
     return Object.fromEntries(PROCESS_STEP_DEFS.map(s => [s.key, { status: 'pending', date: '', notes: '', person: '' }]));
 }
 
+function calculateScheduleDates(items, startDateStr) {
+    const result = [];
+    const byId = {};
+    for (const item of items) {
+        let startMs = new Date(startDateStr).getTime();
+        if (item.predecessorId && byId[item.predecessorId]) {
+            startMs = new Date(byId[item.predecessorId].endDate).getTime() + 86400000;
+        } else if (item.parentId && byId[item.parentId]) {
+            startMs = new Date(byId[item.parentId].startDate).getTime();
+        }
+        const endMs = startMs + Math.max(0, (item.duration || 1) - 1) * 86400000;
+        const sd = new Date(startMs).toISOString().split('T')[0];
+        const ed = new Date(endMs).toISOString().split('T')[0];
+        const ri = { id: item.id, name: item.name, level: item.level || 0, wbs: item.wbs || '', duration: item.duration || 1, color: item.color || '', startDate: sd, endDate: ed, status: 'pending', notes: '' };
+        result.push(ri);
+        byId[item.id] = ri;
+    }
+    return result;
+}
+
 export default function CustomerDetailPage() {
     const { id } = useParams();
     const router = useRouter();
@@ -73,6 +93,13 @@ export default function CustomerDetailPage() {
     const [processForm, setProcessForm] = useState(defaultProcess());
     const [expandedStep, setExpandedStep] = useState(null);
     const [savingProcess, setSavingProcess] = useState(false);
+    const [expandedScheduleIdx, setExpandedScheduleIdx] = useState(null);
+    const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [templates, setTemplates] = useState([]);
+    const [selectedTplId, setSelectedTplId] = useState('');
+    const [scheduleSDate, setScheduleSDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [tplPreview, setTplPreview] = useState(null);
+    const [loadingTpl, setLoadingTpl] = useState(false);
 
     // Comments
     const [comments, setComments] = useState([]);
@@ -206,6 +233,61 @@ export default function CustomerDetailPage() {
 
     const updateStep = (key, field, value) => {
         setProcessForm(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
+    };
+
+    const openTemplateModal = async () => {
+        setShowTemplateModal(true);
+        if (templates.length === 0) {
+            const res = await fetch('/api/schedule-templates');
+            setTemplates(await res.json());
+        }
+    };
+
+    const previewTemplate = async (tplId, startDate) => {
+        if (!tplId || !startDate) { setTplPreview(null); return; }
+        setLoadingTpl(true);
+        const res = await fetch(`/api/schedule-templates/${tplId}`);
+        const tpl = await res.json();
+        setTplPreview({ templateId: tplId, templateName: tpl.name, startDate, items: calculateScheduleDates(tpl.items, startDate) });
+        setLoadingTpl(false);
+    };
+
+    const applyTemplate = () => {
+        if (!tplPreview) return;
+        setProcessForm(prev => ({ ...prev, _schedule: tplPreview }));
+        setShowTemplateModal(false);
+        setTplPreview(null);
+        setSelectedTplId('');
+    };
+
+    const removeSchedule = () => {
+        setProcessForm(prev => { const { _schedule, ...rest } = prev; return rest; });
+    };
+
+    const updateScheduleStatus = (idx, status) => {
+        setProcessForm(prev => ({
+            ...prev,
+            _schedule: { ...prev._schedule, items: prev._schedule.items.map((it, i) => i === idx ? { ...it, status } : it) },
+        }));
+    };
+
+    const updateScheduleItem = (idx, field, value) => {
+        setProcessForm(prev => ({
+            ...prev,
+            _schedule: {
+                ...prev._schedule,
+                items: prev._schedule.items.map((it, i) => {
+                    if (i !== idx) return it;
+                    const updated = { ...it, [field]: value };
+                    if (field === 'startDate' || field === 'endDate') {
+                        const s = field === 'startDate' ? value : it.startDate;
+                        const e = field === 'endDate' ? value : it.endDate;
+                        if (s && e && e >= s) updated.duration = Math.max(1, Math.round((new Date(e) - new Date(s)) / 86400000) + 1);
+                    }
+                    return updated;
+                }),
+            },
+        }));
     };
 
     return (
@@ -544,134 +626,216 @@ export default function CustomerDetailPage() {
                 <div className="card">
                     <div className="card-header" style={{ flexWrap: 'wrap', gap: 8 }}>
                         <span className="card-title">🔄 Quy trình bán hàng</span>
-                        <button className="btn btn-primary btn-sm" onClick={saveProcess} disabled={savingProcess}>
-                            {savingProcess ? 'Đang lưu...' : '💾 Lưu quy trình'}
-                        </button>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            <button className="btn btn-secondary btn-sm" onClick={openTemplateModal}>📅 Nhập từ mẫu tiến độ</button>
+                            <button className="btn btn-primary btn-sm" onClick={saveProcess} disabled={savingProcess}>
+                                {savingProcess ? 'Đang lưu...' : '💾 Lưu quy trình'}
+                            </button>
+                        </div>
                     </div>
-                    <div style={{ padding: '16px 20px' }}>
-                        {PROCESS_STEP_DEFS.map((step, idx) => {
-                            const stepData = processForm[step.key] || { status: 'pending', date: '', notes: '', person: '' };
-                            const isDone = stepData.status === 'done';
-                            const isActive = stepData.status === 'in_progress';
-                            const isExpanded = expandedStep === step.key;
-                            const statusInfo = STATUS_OPTIONS.find(o => o.key === stepData.status) || STATUS_OPTIONS[0];
-                            return (
-                                <div key={step.key} style={{ display: 'flex', gap: 14, marginBottom: 0 }}>
-                                    {/* Connector line + icon */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, width: 40 }}>
-                                        <div
-                                            onClick={() => setExpandedStep(isExpanded ? null : step.key)}
-                                            style={{
-                                                width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                fontSize: isDone ? 18 : 13, cursor: 'pointer', border: '2px solid',
-                                                borderColor: isDone ? step.color : isActive ? step.color : 'var(--border)',
-                                                background: isDone ? step.bg : isActive ? step.bg + '88' : 'var(--bg-secondary)',
-                                                fontWeight: 700, color: isDone || isActive ? step.color : 'var(--text-muted)',
-                                                transition: 'all .2s', userSelect: 'none',
-                                            }}>
-                                            {isDone ? step.icon : idx + 1}
-                                        </div>
-                                        {idx < PROCESS_STEP_DEFS.length - 1 && (
-                                            <div style={{ width: 2, flex: 1, minHeight: 16, background: isDone ? step.color : 'var(--border)', opacity: isDone ? 0.35 : 0.15, margin: '3px 0' }} />
-                                        )}
+                    {!processForm._schedule && (
+                        <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            <div style={{ fontSize: 32, marginBottom: 12 }}>📅</div>
+                            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Chưa có lịch tiến độ</div>
+                            <div style={{ fontSize: 13, marginBottom: 16 }}>Nhấn "Nhập từ mẫu tiến độ" để tạo lịch với ngày tháng cụ thể</div>
+                            <button className="btn btn-primary btn-sm" onClick={openTemplateModal}>📅 Nhập từ mẫu tiến độ</button>
+                        </div>
+                    )}
+                    {/* Lịch tiến độ từ mẫu */}
+                    {processForm._schedule && (() => {
+                        const sched = processForm._schedule;
+                        const today = new Date().toISOString().split('T')[0];
+                        const doneCount = sched.items.filter(it => it.status === 'done').length;
+                        const totalCount = sched.items.length;
+                        const pctDone = totalCount > 0 ? Math.round(doneCount / totalCount * 100) : 0;
+
+                        // Gantt range
+                        const minDate = sched.items.reduce((m, it) => it.startDate < m ? it.startDate : m, sched.items[0]?.startDate || today);
+                        const maxDate = sched.items.reduce((m, it) => it.endDate > m ? it.endDate : m, sched.items[0]?.endDate || today);
+                        const totalDays = Math.max(1, (new Date(maxDate) - new Date(minDate)) / 86400000 + 1);
+                        const getPct = d => ((new Date(d) - new Date(minDate)) / 86400000) / totalDays * 100;
+                        const getW = (s, e) => Math.max(1, ((new Date(e) - new Date(s)) / 86400000 + 1) / totalDays * 100);
+
+                        // Generate month labels for Gantt header
+                        const months = [];
+                        let cur = new Date(minDate);
+                        const end = new Date(maxDate);
+                        while (cur <= end) {
+                            months.push({ label: `${cur.getMonth() + 1}/${cur.getFullYear()}`, pct: getPct(cur.toISOString().split('T')[0]) });
+                            cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+                        }
+
+                        return (
+                            <div>
+                                {/* Sub-header */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: 'var(--bg-secondary)', borderTop: '1px solid var(--border-light)', flexWrap: 'wrap' }}>
+                                    <span style={{ fontWeight: 700, fontSize: 13 }}>📅 {sched.templateName}</span>
+                                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                        {new Date(minDate).toLocaleDateString('vi-VN')} → {new Date(maxDate).toLocaleDateString('vi-VN')}
+                                    </span>
+                                    <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 10, background: pctDone === 100 ? '#d1fae5' : '#fef3c7', color: pctDone === 100 ? '#10b981' : '#f59e0b', fontWeight: 600 }}>
+                                        {doneCount}/{totalCount} · {pctDone}%
+                                    </span>
+                                    <div style={{ flex: 1, minWidth: 80, height: 6, background: 'var(--border-light)', borderRadius: 3, overflow: 'hidden' }}>
+                                        <div style={{ height: '100%', width: `${pctDone}%`, background: pctDone === 100 ? '#10b981' : '#f59e0b', borderRadius: 3, transition: 'width .3s' }} />
                                     </div>
-                                    {/* Content block */}
-                                    <div style={{ flex: 1, paddingBottom: idx < PROCESS_STEP_DEFS.length - 1 ? 12 : 4 }}>
-                                        {/* Header row - always visible, clickable */}
-                                        <div
-                                            onClick={() => setExpandedStep(isExpanded ? null : step.key)}
-                                            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', paddingTop: 8, paddingBottom: 6 }}>
-                                            <span style={{ fontWeight: 700, fontSize: 14, color: isDone ? step.color : isActive ? step.color : 'var(--text-primary)' }}>
-                                                {step.label}
-                                            </span>
-                                            <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 8px', borderRadius: 10, background: statusInfo.bg, color: statusInfo.color }}>
-                                                {statusInfo.label}
-                                            </span>
-                                            {stepData.date && (
-                                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>📅 {new Date(stepData.date).toLocaleDateString('vi-VN')}</span>
-                                            )}
-                                            {stepData.person && (
-                                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>👤 {stepData.person}</span>
-                                            )}
-                                            <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', transition: 'transform .2s', display: 'inline-block', transform: isExpanded ? 'rotate(90deg)' : 'none' }}>▶</span>
+                                    <button className="btn btn-ghost btn-sm" onClick={removeSchedule} style={{ color: 'var(--status-danger)', fontSize: 11 }}>🗑️ Xóa lịch</button>
+                                </div>
+
+                                {/* Table */}
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                                        <thead>
+                                            <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-light)' }}>
+                                                <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, width: 36 }}>✓</th>
+                                                <th style={{ padding: '8px 4px', textAlign: 'left', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, width: 40 }}>WBS</th>
+                                                <th style={{ padding: '8px 8px', textAlign: 'left', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Hạng mục</th>
+                                                <th style={{ padding: '8px 8px', textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>Bắt đầu</th>
+                                                <th style={{ padding: '8px 8px', textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>Kết thúc</th>
+                                                <th style={{ padding: '8px 8px', textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, width: 52 }}>Ngày</th>
+                                                <th style={{ padding: '8px 8px', textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, width: 40 }}></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {sched.items.map((item, idx) => {
+                                                const isGroup = item.level === 0;
+                                                const isDone = item.status === 'done';
+                                                const isLate = !isDone && item.endDate < today;
+                                                const isExp = expandedScheduleIdx === idx;
+                                                return (
+                                                    <Fragment key={idx}>
+                                                        <tr style={{ borderBottom: '1px solid var(--border-light)', background: isGroup ? 'var(--bg-secondary)' : 'transparent', transition: 'background .15s' }}>
+                                                            {/* Checkbox */}
+                                                            <td style={{ padding: '9px 12px', verticalAlign: 'middle' }}>
+                                                                <input type="checkbox" checked={isDone}
+                                                                    onChange={() => updateScheduleStatus(idx, isDone ? 'pending' : 'done')}
+                                                                    style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#10b981' }} />
+                                                            </td>
+                                                            {/* WBS */}
+                                                            <td style={{ padding: '9px 4px', fontFamily: 'monospace', fontSize: 11, color: 'var(--text-muted)', verticalAlign: 'middle' }}>{item.wbs}</td>
+                                                            {/* Name */}
+                                                            <td style={{ padding: '9px 8px', paddingLeft: isGroup ? 8 : 20, verticalAlign: 'middle' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                                    {isGroup && <span style={{ width: 10, height: 10, borderRadius: 2, background: item.color || '#6b7280', flexShrink: 0 }} />}
+                                                                    <span style={{ fontWeight: isGroup ? 700 : 400, textDecoration: isDone ? 'line-through' : 'none', color: isDone ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+                                                                        {item.name}
+                                                                    </span>
+                                                                    {isLate && <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 700, flexShrink: 0 }}>⚠️ Trễ</span>}
+                                                                    {item.notes && !isExp && <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>💬</span>}
+                                                                </div>
+                                                            </td>
+                                                            {/* Start date */}
+                                                            <td style={{ padding: '9px 8px', textAlign: 'center', fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                                                                {new Date(item.startDate).toLocaleDateString('vi-VN')}
+                                                            </td>
+                                                            {/* End date */}
+                                                            <td style={{ padding: '9px 8px', textAlign: 'center', fontSize: 12, color: isLate ? '#ef4444' : 'var(--text-secondary)', whiteSpace: 'nowrap', fontWeight: isLate ? 600 : 400, verticalAlign: 'middle' }}>
+                                                                {new Date(item.endDate).toLocaleDateString('vi-VN')}
+                                                            </td>
+                                                            {/* Duration */}
+                                                            <td style={{ padding: '9px 8px', textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', verticalAlign: 'middle' }}>{item.duration}d</td>
+                                                            {/* Edit toggle */}
+                                                            <td style={{ padding: '9px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
+                                                                <button onClick={() => setExpandedScheduleIdx(isExp ? null : idx)}
+                                                                    style={{ background: isExp ? 'var(--primary)' : 'var(--bg-secondary)', border: '1px solid var(--border-light)', borderRadius: 6, cursor: 'pointer', padding: '3px 7px', fontSize: 11, color: isExp ? '#fff' : 'var(--text-muted)' }}>
+                                                                    {isExp ? '▲' : '✏️'}
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                        {/* Expanded edit row */}
+                                                        {isExp && (
+                                                            <tr>
+                                                                <td colSpan={7} style={{ padding: '12px 16px', background: '#f0f9ff', borderBottom: '1px solid var(--border-light)' }}>
+                                                                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
+                                                                        <div style={{ flex: 2, minWidth: 160 }}>
+                                                                            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 3 }}>TÊN HẠNG MỤC</label>
+                                                                            <input className="form-input" style={{ fontSize: 13 }} value={item.name}
+                                                                                onChange={e => updateScheduleItem(idx, 'name', e.target.value)} />
+                                                                        </div>
+                                                                        <div style={{ flex: 1, minWidth: 130 }}>
+                                                                            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 3 }}>NGÀY BẮT ĐẦU</label>
+                                                                            <input className="form-input" type="date" style={{ fontSize: 13 }} value={item.startDate}
+                                                                                onChange={e => updateScheduleItem(idx, 'startDate', e.target.value)} />
+                                                                        </div>
+                                                                        <div style={{ flex: 1, minWidth: 130 }}>
+                                                                            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 3 }}>NGÀY KẾT THÚC</label>
+                                                                            <input className="form-input" type="date" style={{ fontSize: 13 }} value={item.endDate}
+                                                                                onChange={e => updateScheduleItem(idx, 'endDate', e.target.value)} />
+                                                                        </div>
+                                                                    </div>
+                                                                    <div>
+                                                                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 3 }}>GHI CHÚ</label>
+                                                                        <textarea className="form-input" rows={2} style={{ fontSize: 13, resize: 'vertical' }}
+                                                                            placeholder="Ghi chú tiến độ, vấn đề phát sinh..."
+                                                                            value={item.notes || ''}
+                                                                            onChange={e => updateScheduleItem(idx, 'notes', e.target.value)} />
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                    </Fragment>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Gantt chart */}
+                                <div style={{ padding: '16px', borderTop: '2px solid var(--border-light)', overflowX: 'auto' }}>
+                                    <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, letterSpacing: 1 }}>BIỂU ĐỒ TIẾN ĐỘ</div>
+                                    {/* Month header */}
+                                    <div style={{ display: 'flex', marginBottom: 6, paddingLeft: 130 }}>
+                                        <div style={{ flex: 1, position: 'relative', height: 16 }}>
+                                            {months.map((m, i) => (
+                                                <span key={i} style={{ position: 'absolute', left: `${m.pct}%`, fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap', transform: 'translateX(-25%)' }}>{m.label}</span>
+                                            ))}
                                         </div>
-                                        {!isExpanded && stepData.notes && (
-                                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', paddingBottom: 4, paddingLeft: 2, whiteSpace: 'pre-wrap', opacity: 0.85 }}>
-                                                {stepData.notes}
-                                            </div>
-                                        )}
-                                        {/* Expanded edit form */}
-                                        {isExpanded && (
-                                            <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px', marginBottom: 8, border: `1px solid ${step.color}33` }}>
-                                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>{step.desc}</div>
-                                                {/* Status */}
-                                                <div style={{ marginBottom: 10 }}>
-                                                    <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>TRẠNG THÁI</label>
-                                                    <div style={{ display: 'flex', gap: 6 }}>
-                                                        {STATUS_OPTIONS.map(opt => (
-                                                            <button key={opt.key} type="button"
-                                                                onClick={() => updateStep(step.key, 'status', opt.key)}
-                                                                style={{ padding: '5px 12px', borderRadius: 8, border: '2px solid', cursor: 'pointer', fontSize: 12, fontWeight: 600, transition: 'all .15s',
-                                                                    borderColor: stepData.status === opt.key ? opt.color : 'var(--border)',
-                                                                    background: stepData.status === opt.key ? opt.bg : 'transparent',
-                                                                    color: stepData.status === opt.key ? opt.color : 'var(--text-muted)' }}>
-                                                                {opt.label}
-                                                            </button>
-                                                        ))}
-                                                    </div>
+                                    </div>
+                                    {/* Today line + bars */}
+                                    {sched.items.map((item, idx) => {
+                                        const isDone = item.status === 'done';
+                                        const isInProgress = item.status === 'in_progress';
+                                        const isGroup = item.level === 0;
+                                        const barColor = isDone ? '#10b981' : isInProgress ? '#f59e0b' : (item.color || '#3b82f6');
+                                        const todayPct = getPct(today);
+                                        return (
+                                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: isGroup ? 6 : 2, height: isGroup ? 26 : 20 }}>
+                                                <div style={{ width: 130, flexShrink: 0, fontSize: isGroup ? 12 : 11, fontWeight: isGroup ? 700 : 400, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8, paddingLeft: isGroup ? 0 : 10, textDecoration: isDone ? 'line-through' : 'none' }}>
+                                                    {item.name}
                                                 </div>
-                                                {/* Date + Person */}
-                                                <div style={{ display: 'flex', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
-                                                    <div style={{ flex: 1, minWidth: 140 }}>
-                                                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>NGÀY THỰC HIỆN</label>
-                                                        <input type="date" className="form-input" style={{ fontSize: 13 }}
-                                                            value={stepData.date || ''}
-                                                            onChange={e => updateStep(step.key, 'date', e.target.value)} />
+                                                <div style={{ flex: 1, position: 'relative', height: '100%', background: 'var(--bg-secondary)', borderRadius: 4, minWidth: 200 }}>
+                                                    {/* Today marker */}
+                                                    {todayPct >= 0 && todayPct <= 100 && (
+                                                        <div style={{ position: 'absolute', left: `${todayPct}%`, top: 0, bottom: 0, width: 2, background: '#ef4444', opacity: 0.5, zIndex: 2 }} />
+                                                    )}
+                                                    {/* Bar */}
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        left: `${getPct(item.startDate)}%`,
+                                                        width: `${getW(item.startDate, item.endDate)}%`,
+                                                        height: '100%',
+                                                        background: barColor,
+                                                        borderRadius: 4,
+                                                        opacity: isDone ? 0.6 : 0.85,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    }}>
+                                                        {isGroup && <span style={{ fontSize: 9, color: '#fff', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', padding: '0 4px' }}>{item.duration}d</span>}
                                                     </div>
-                                                    <div style={{ flex: 1, minWidth: 140 }}>
-                                                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>NGƯỜI PHỤ TRÁCH</label>
-                                                        <input type="text" className="form-input" style={{ fontSize: 13 }} placeholder="Tên nhân viên"
-                                                            value={stepData.person || ''}
-                                                            onChange={e => updateStep(step.key, 'person', e.target.value)} />
-                                                    </div>
-                                                </div>
-                                                {/* Notes */}
-                                                <div>
-                                                    <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>GHI CHÚ / KẾT QUẢ</label>
-                                                    <textarea className="form-input" rows={3} style={{ fontSize: 13, resize: 'vertical' }} placeholder="Mô tả chi tiết kết quả, vấn đề phát sinh..."
-                                                        value={stepData.notes || ''}
-                                                        onChange={e => updateStep(step.key, 'notes', e.target.value)} />
                                                 </div>
                                             </div>
-                                        )}
+                                        );
+                                    })}
+                                    <div style={{ marginTop: 8, paddingLeft: 130, display: 'flex', gap: 12 }}>
+                                        <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 6, background: '#10b981', borderRadius: 2, display: 'inline-block' }}/>Hoàn thành</span>
+                                        <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 6, background: '#f59e0b', borderRadius: 2, display: 'inline-block' }}/>Đang thực hiện</span>
+                                        <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 6, background: '#3b82f6', borderRadius: 2, display: 'inline-block' }}/>Chưa bắt đầu</span>
+                                        <span style={{ fontSize: 10, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 2, height: 10, background: '#ef4444', opacity: 0.5, display: 'inline-block' }}/>Hôm nay</span>
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
-                    {/* Footer tóm tắt */}
-                    <div style={{ borderTop: '1px solid var(--border-light)', padding: '12px 20px', display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 18, fontWeight: 700, color: '#3b82f6' }}>
-                                {Object.values(processForm).filter(v => v.status === 'done').length}/{PROCESS_STEP_DEFS.length}
                             </div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Bước xong</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 18, fontWeight: 700, color: '#f59e0b' }}>
-                                {Object.values(processForm).filter(v => v.status === 'in_progress').length}
-                            </div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Đang làm</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>{fmt(s.totalPaid)}</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Đã thu</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 18, fontWeight: 700, color: s.totalDebt > 0 ? '#ef4444' : '#94a3b8' }}>{fmt(s.totalDebt)}</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Còn nợ</div>
-                        </div>
-                    </div>
+                        );
+                    })()}
+
                 </div>
             )}
 
@@ -815,6 +979,68 @@ export default function CustomerDetailPage() {
                             </div>
                         </div>
                         <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setShowLogModal(false)}>Hủy</button><button className="btn btn-primary" onClick={addTrackingLog}>Lưu</button></div>
+                    </div>
+                </div>
+            )}
+
+            {/* Template Modal */}
+            {showTemplateModal && (
+                <div className="modal-overlay" onClick={() => { setShowTemplateModal(false); setTplPreview(null); setSelectedTplId(''); }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 620 }}>
+                        <div className="modal-header">
+                            <h3>📅 Nhập từ mẫu tiến độ</h3>
+                            <button className="modal-close" onClick={() => { setShowTemplateModal(false); setTplPreview(null); setSelectedTplId(''); }}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Chọn mẫu tiến độ</label>
+                                    <select className="form-select" value={selectedTplId}
+                                        onChange={e => { setSelectedTplId(e.target.value); previewTemplate(e.target.value, scheduleSDate); }}>
+                                        <option value="">-- Chọn mẫu --</option>
+                                        {templates.map(t => <option key={t.id} value={t.id}>{t.name} ({t.type})</option>)}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Ngày bắt đầu</label>
+                                    <input className="form-input" type="date" value={scheduleSDate}
+                                        onChange={e => { setScheduleSDate(e.target.value); previewTemplate(selectedTplId, e.target.value); }} />
+                                </div>
+                            </div>
+                            {loadingTpl && <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 20 }}>Đang tải...</div>}
+                            {tplPreview && (
+                                <div style={{ marginTop: 12, maxHeight: 360, overflowY: 'auto', border: '1px solid var(--border-light)', borderRadius: 8 }}>
+                                    <div style={{ padding: '8px 14px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-light)', fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, position: 'sticky', top: 0 }}>
+                                        Xem trước — {tplPreview.items.length} hạng mục
+                                    </div>
+                                    {tplPreview.items.map((item, idx) => (
+                                        <div key={idx} style={{
+                                            padding: '7px 14px',
+                                            borderBottom: '1px solid var(--border-light)',
+                                            paddingLeft: item.level === 0 ? 14 : 32,
+                                            background: item.level === 0 ? 'var(--bg-primary)' : 'transparent',
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                                                <span style={{ fontSize: 13, fontWeight: item.level === 0 ? 700 : 400, flex: 1 }}>
+                                                    <span style={{ color: 'var(--text-muted)', fontFamily: 'monospace', fontSize: 11, marginRight: 6 }}>{item.wbs}</span>
+                                                    {item.name}
+                                                </span>
+                                                <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
+                                                    {new Date(item.startDate).toLocaleDateString('vi-VN')} → {new Date(item.endDate).toLocaleDateString('vi-VN')} ({item.duration}d)
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {!tplPreview && !loadingTpl && selectedTplId && (
+                                <div style={{ color: 'var(--text-muted)', fontSize: 12, padding: '8px 0' }}>Chọn ngày bắt đầu để xem lịch tiến độ</div>
+                            )}
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => { setShowTemplateModal(false); setTplPreview(null); setSelectedTplId(''); }}>Hủy</button>
+                            <button className="btn btn-primary" onClick={applyTemplate} disabled={!tplPreview}>Áp dụng lịch tiến độ</button>
+                        </div>
                     </div>
                 </div>
             )}

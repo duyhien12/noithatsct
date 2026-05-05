@@ -1,10 +1,15 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 
+const REVENUE_TYPES  = ['REVENUE_INTERNAL', 'REVENUE_EXTERNAL'];
+const DIRECT_TYPES   = ['DIRECT_MATERIAL', 'DIRECT_LABOR_SALARY', 'DIRECT_LABOR_INSURANCE', 'DIRECT_LABOR_BONUS', 'DIRECT_LABOR_MEAL', 'DIRECT_OUTSOURCE'];
+const INDIRECT_TYPES = ['INDIRECT_MGMT_SALARY', 'INDIRECT_MGMT_INSURANCE', 'INDIRECT_MGMT_BONUS', 'INDIRECT_MGMT_MEAL', 'INDIRECT_OFFICE_MACHINE', 'INDIRECT_OFFICE_TOOLS', 'INDIRECT_ELECTRIC', 'INDIRECT_EQUIPMENT', 'INDIRECT_MAINTENANCE', 'INDIRECT_DEPRECIATION', 'INDIRECT_OTHER'];
+
 export const GET = withAuth(async () => {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+    const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     // Last 7 days for chart
     const days = Array.from({ length: 7 }, (_, i) => {
@@ -24,6 +29,7 @@ export const GET = withAuth(async () => {
         lowStockProducts,
         tasksByDay,
         workerTaskCounts,
+        plEntries,
     ] = await Promise.all([
         // Nhân công đang hoạt động
         prisma.workshopWorker.count({ where: { status: 'Hoạt động' } }),
@@ -90,6 +96,12 @@ export const GET = withAuth(async () => {
             orderBy: { _count: { workerId: 'desc' } },
             take: 5,
         }),
+
+        // P&L tháng hiện tại
+        prisma.workshopPLEntry.findMany({
+            where: { period: currentPeriod },
+            select: { entryType: true, amount: true },
+        }),
     ]);
 
     // Tính giá trị tồn kho
@@ -114,6 +126,14 @@ export const GET = withAuth(async () => {
         };
     });
 
+    // Tính P&L tháng hiện tại
+    const sumType = (types) => plEntries.filter(e => types.includes(e.entryType)).reduce((s, e) => s + e.amount, 0);
+    const plRevenue      = sumType(REVENUE_TYPES);
+    const plDirectCosts  = sumType(DIRECT_TYPES);
+    const plGrossProfit  = plRevenue - plDirectCosts;
+    const plIndirectCosts= sumType(INDIRECT_TYPES);
+    const plNetProfit    = plGrossProfit - plIndirectCosts;
+
     return Response.json({
         kpi: {
             activeWorkers,
@@ -122,6 +142,15 @@ export const GET = withAuth(async () => {
             totalInventoryValue,
             todayCost,
             lowStockCount,
+        },
+        plSummary: {
+            period: currentPeriod,
+            revenue: plRevenue,
+            directCosts: plDirectCosts,
+            grossProfit: plGrossProfit,
+            indirectCosts: plIndirectCosts,
+            netProfit: plNetProfit,
+            entryCount: plEntries.length,
         },
         chartData,
         recentTasks,
