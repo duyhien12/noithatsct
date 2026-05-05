@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { usePathname } from 'next/navigation';
+import { useState, useCallback, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useRole } from '@/contexts/RoleContext';
 import Sidebar from '@/components/Sidebar';
@@ -16,6 +16,7 @@ export default function AppShell({ children }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const { role } = useRole();
 
+    const router = useRouter();
     const toggleSidebar = useCallback(() => setSidebarOpen(prev => !prev), []);
     const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
@@ -23,9 +24,15 @@ export default function AppShell({ children }) {
     const noShellPaths = ['/login', '/gantt-pdf', '/schedule-pdf'];
     const isNoShell = noShellPaths.some(p => pathname.includes(p));
 
-    if (isNoShell || status === 'unauthenticated') {
-        return children;
-    }
+    useEffect(() => {
+        if (status === 'unauthenticated' && !isNoShell) {
+            router.replace('/login');
+        }
+    }, [status, isNoShell, router]);
+
+    if (isNoShell) return children;
+
+    if (status === 'unauthenticated') return null;
 
     // Loading state
     if (status === 'loading') {
