@@ -317,6 +317,22 @@ function CellEditor({ day, category, shift, cellEntries, pos, workers, projects,
     );
 }
 
+// Gộp entries cùng projectId (hoặc cùng tên nếu không có id) trong một ô lịch
+function groupByProject(entries) {
+    const map = {};
+    entries.forEach(entry => {
+        const key = entry.projectId || entry.projectName || entry.project?.name || entry.note || String(entry.id);
+        if (!map[key]) map[key] = {
+            projectName: entry.projectName || entry.project?.name || '',
+            projectCode: entry.project?.code || '',
+            note: entry.note || '',
+            entries: []
+        };
+        map[key].entries.push(entry);
+    });
+    return Object.values(map);
+}
+
 // Tính công:
 // - Có nhập giờ → tổng giờ ÷ 8
 // - Không có giờ → mỗi ca (sáng/chiều) = 0.5 công; cả 2 ca cùng ngày = 1 công
@@ -329,7 +345,9 @@ function computeWorkSummary(entries, workerMap) {
         const code = entry.project?.code || ''
         const dateKey = new Date(entry.date).toDateString()
         const shift = entry.shift || 'Sáng'
-        if (!map[projectName]) map[projectName] = { name: projectName, code, main: {}, sub: {} }
+        // Group by projectId when available, fall back to projectName
+        const key = entry.projectId || projectName
+        if (!map[key]) map[key] = { name: projectName, code, main: {}, sub: {} }
 
         const allWorkers = [
             ...parseWorkersWithHours(entry.mainWorkers),
@@ -337,7 +355,7 @@ function computeWorkSummary(entries, workerMap) {
         ]
         allWorkers.forEach(({ name: w, hours }) => {
             const wType = workerMap[w] || 'Thợ chính'
-            const bucket = wType === 'Thợ phụ' ? map[projectName].sub : map[projectName].main
+            const bucket = wType === 'Thợ phụ' ? map[key].sub : map[key].main
             if (!bucket[w]) bucket[w] = { dateShifts: {}, totalHours: 0 }
             if (hours) {
                 bucket[w].totalHours += hours
@@ -603,24 +621,27 @@ export default function WorkLogPage() {
                                                     );
                                                 }
 
+                                                const groups = groupByProject(shiftEntries);
                                                 return [
                                                     <td key={cat.key+'_ct_'+shift} onClick={onClick} style={{ ...tdStyle, minWidth: 130, background: shiftEntries.length > 0 ? cat.color : 'transparent' }} title="Nhấn để thêm/sửa">
-                                                        {shiftEntries.length > 0 ? shiftEntries.map(entry => {
-                                                            const displayName = isViecKhac ? (entry.note || '') : (entry.projectName || entry.project?.name || '');
+                                                        {groups.length > 0 ? groups.map((g, gi) => {
+                                                            const displayName = isViecKhac ? g.note : g.projectName;
                                                             return displayName ? (
-                                                                <div key={entry.id} style={{ marginBottom: 2 }}>
+                                                                <div key={gi} style={{ marginBottom: 2 }}>
                                                                     <div style={{ fontWeight: 600, color: isViecKhac ? '#166534' : '#1e3a5f', fontSize: 12 }}>{displayName}</div>
-                                                                    {entry.project && !isViecKhac && <div style={{ fontSize: 10, color: '#6b7280' }}>{entry.project.code}</div>}
+                                                                    {g.projectCode && !isViecKhac && <div style={{ fontSize: 10, color: '#6b7280' }}>{g.projectCode}</div>}
                                                                 </div>
                                                             ) : null;
                                                         }) : <div style={{ color: '#d1d5db', fontSize: 11, textAlign: 'center', padding: '4px 0' }}>·</div>}
                                                     </td>,
                                                     <td key={cat.key+'_nth_'+shift} onClick={onClick} style={{ ...tdStyle, minWidth: 120, background: shiftEntries.length > 0 ? cat.color : 'transparent' }} title="Nhấn để thêm/sửa">
-                                                        {shiftEntries.length > 0 ? shiftEntries.map(entry => {
-                                                            const ws = parseWorkersWithHours(entry.mainWorkers);
-                                                            return ws.length > 0 ? (
-                                                                <div key={entry.id} style={{ color: '#374151', fontSize: 11, marginBottom: 1 }}>
-                                                                    {ws.map(w => w.hours ? `${w.name} (${w.hours}h)` : w.name).join(', ')}
+                                                        {groups.length > 0 ? groups.map((g, gi) => {
+                                                            const allNames = [...new Map(
+                                                                g.entries.flatMap(e => parseWorkersWithHours(e.mainWorkers)).map(w => [w.name, w])
+                                                            ).values()];
+                                                            return allNames.length > 0 ? (
+                                                                <div key={gi} style={{ color: '#374151', fontSize: 11, marginBottom: 1 }}>
+                                                                    {allNames.map(w => w.hours ? `${w.name} (${w.hours}h)` : w.name).join(', ')}
                                                                 </div>
                                                             ) : null;
                                                         }) : <div style={{ color: '#d1d5db', fontSize: 11, textAlign: 'center', padding: '4px 0' }}>·</div>}
