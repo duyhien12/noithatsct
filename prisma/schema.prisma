@@ -1306,3 +1306,20 @@ model FixedAsset {
   @@index([assetType])
   @@index([status])
 }
+
+// ============ TRUNG TÂM TÀI CHÍNH XƯỞNG (P&L) ============
+
+model WorkshopPLEntry {
+  id          String   @id @default(cuid())
+  period      String   // "YYYY-MM"
+  entryType   String
+  description String
+  amount      Float    @default(0)
+  notes       String?  @db.Text
+  assignedTo  String?
+  createdBy   String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([period])
+  @@index([entryType])
+}

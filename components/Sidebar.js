@@ -6,7 +6,7 @@ import {
     LayoutDashboard, GitBranch, Users, Building2, FileText,
     Package, ClipboardList, Wrench, CreditCard, Receipt,
     ShoppingCart, Truck, Warehouse, Wallet, UserCog,
-    BarChart3, ChevronRight, Shield, X, CalendarDays, HardHat, Banknote
+    BarChart3, ChevronRight, Shield, X, CalendarDays, HardHat, Banknote, TrendingUp
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useSession } from 'next-auth/react';
@@ -84,6 +84,8 @@ const menuItems = [
             { href: '/workshop/workers', icon: HardHat, label: 'Nhân công',
               roles: [...BAN_GD, ...VIEWER, 'xuong'] },
             { href: '/workshop/expenses', icon: Banknote, label: 'Tài chính xưởng',
+              roles: [...BAN_GD, ...VIEWER, 'xuong', 'ke_toan', 'hanh_chinh_kt'] },
+            { href: '/workshop/pl', icon: TrendingUp, label: 'P&L Xưởng',
               roles: [...BAN_GD, ...VIEWER, 'xuong', 'ke_toan', 'hanh_chinh_kt'] },
             { href: '/workshop/assets', icon: BarChart3, label: 'Tài sản cố định',
               roles: [...BAN_GD, ...VIEWER, 'xuong', 'ke_toan', 'hanh_chinh_kt'] },
