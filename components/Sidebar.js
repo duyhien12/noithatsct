@@ -59,6 +59,8 @@ const menuItems = [
               roles: [...BAN_GD, ...KE_TOAN, ...KY_THUAT, ...KINH_DOANH, ...VIEWER] },
             { href: '/finance', icon: Wallet, label: 'Tổng hợp tài chính',
               roles: [...BAN_GD, ...KE_TOAN, ...VIEWER] },
+            { href: '/finance/kinh-doanh', icon: BarChart3, label: 'Chi phí Kinh doanh',
+              roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER] },
         ],
     },
     {

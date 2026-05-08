@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, GitBranch, Users, FileText,
     ClipboardList, ChevronRight, X, Building2,
-    Wrench, CalendarDays, CreditCard, Receipt, ShoppingCart, Warehouse, Package,
+    Wrench, CalendarDays, CreditCard, Receipt, ShoppingCart, Warehouse, Package, BarChart3,
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useState } from 'react';
@@ -48,6 +48,7 @@ const menuItems = [
         items: [
             { href: '/payments', icon: CreditCard, label: 'Thu tiền' },
             { href: '/sales/expenses', icon: Receipt, label: 'Chi phí' },
+            { href: '/finance/kinh-doanh', icon: BarChart3, label: 'Tổng hợp chi phí KD' },
             { href: '/purchasing', icon: ShoppingCart, label: 'Mua sắm vật tư' },
             { href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho' },
         ],

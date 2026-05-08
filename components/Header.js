@@ -14,6 +14,7 @@ const pageTitles = {
     '/quotations': 'Báo giá',
     '/inventory': 'Kho & Tồn kho',
     '/finance': 'Tài chính',
+    '/finance/kinh-doanh': 'Chi phí Kinh doanh',
     '/workshop/tasks': 'Công việc xưởng',
     '/workshop/workers': 'Nhân công xưởng',
     '/workshop/materials': 'Vật tư kho',
