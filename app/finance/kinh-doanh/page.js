@@ -313,6 +313,17 @@ export default function KinhDoanhCostPage() {
 
     return (
         <div style={{ padding: '16px', minHeight: '100vh', background: 'var(--bg-primary)' }}>
+            <style>{`
+              @media (max-width: 768px) {
+                .kd-charts-row { grid-template-columns: 1fr !important; }
+                .kd-controls { margin-left: 0 !important; width: 100%; }
+                .kd-sync-modal { max-height: 95vh !important; }
+                .kd-legend-area { display: none !important; }
+              }
+              @media (max-width: 480px) {
+                .kd-kpi-grid { grid-template-columns: 1fr 1fr !important; }
+              }
+            `}</style>
 
             {/* ── HEADER ── */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -320,7 +331,7 @@ export default function KinhDoanhCostPage() {
                     <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Bảng Tổng Hợp Chi Phí</h1>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Trung tâm tài chính — Phòng Kinh Doanh</div>
                 </div>
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div className="kd-controls" style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <select className="form-select" value={year} onChange={e => { setYear(Number(e.target.value)); }} style={{ minWidth: 110 }}>
                         {years.map(y => <option key={y} value={y}>Năm {y}</option>)}
                     </select>
@@ -345,7 +356,7 @@ export default function KinhDoanhCostPage() {
             {!loading && (
                 <>
                     {/* KPI Cards row 1 */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 12 }}>
+                    <div className="kd-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 12 }}>
                         {[
                             { label: 'Doanh thu', value: rev, icon: '📈', color: '#1e40af', bg: '#dbeafe', sub: `${pct(rev, rev)} năm ${year}` },
                             { label: 'Chi phí trực tiếp', value: directCost, icon: '📦', color: '#92400e', bg: '#fef3c7', sub: `${pct(directCost, rev)} DT` },
@@ -365,7 +376,7 @@ export default function KinhDoanhCostPage() {
                     </div>
 
                     {/* Progress bars + Chart */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+                    <div className="kd-charts-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
 
                         {/* Cơ cấu chi phí */}
                         <div style={{ background: 'var(--bg-card, #fff)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
@@ -470,9 +481,9 @@ export default function KinhDoanhCostPage() {
             )}
 
             {/* ── BẢNG CHI TIẾT ── */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
                 <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Bảng chi tiết</h2>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 11 }}>
+                <div className="kd-legend-area" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 11 }}>
                     {[
                         { bg: '#dbeafe', color: '#1e40af', label: 'Nhóm' },
                         { bg: '#eff6ff', color: '#1d4ed8', label: 'Tiểu nhóm' },
@@ -596,7 +607,7 @@ export default function KinhDoanhCostPage() {
                     style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
                     onClick={e => { if (e.target === e.currentTarget) setSyncModal(false); }}
                 >
-                    <div style={{ background: 'var(--bg-card, #fff)', borderRadius: 12, width: '100%', maxWidth: 720, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+                    <div className="kd-sync-modal" style={{ background: 'var(--bg-card, #fff)', borderRadius: 12, width: '100%', maxWidth: 720, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
                         {/* Modal header */}
                         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
                             <span style={{ fontSize: 18 }}>🔄</span>
