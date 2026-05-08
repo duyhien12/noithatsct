@@ -281,6 +281,8 @@ export default function KinhDoanhCostPage() {
         fetchData();
     };
 
+    const [viewMonth, setViewMonth] = useState(null); // null = tất cả tháng
+
     // ── Computed KPIs ────────────────────────────────────────────────────────
     const rev        = yearTotal('total_rev', data);
     const directCost = yearTotal('total_direct', data);
@@ -499,10 +501,45 @@ export default function KinhDoanhCostPage() {
                 </div>
             </div>
 
+            {/* Month tabs */}
+            <div style={{ display: 'flex', gap: 4, marginBottom: 12, flexWrap: 'wrap' }}>
+                <button
+                    onClick={() => setViewMonth(null)}
+                    style={{
+                        padding: '5px 12px', borderRadius: 6, fontSize: 12, fontWeight: viewMonth === null ? 700 : 500,
+                        border: '1px solid', cursor: 'pointer',
+                        borderColor: viewMonth === null ? '#1e40af' : 'var(--border)',
+                        background: viewMonth === null ? '#1e40af' : 'var(--bg-card, #fff)',
+                        color: viewMonth === null ? '#fff' : 'var(--text-muted)',
+                    }}
+                >
+                    Cả năm
+                </button>
+                {MONTHS.map(m => {
+                    const hasData = computeVal('total_rev', m, data) > 0 || computeVal('total_direct', m, data) > 0;
+                    return (
+                        <button
+                            key={m}
+                            onClick={() => setViewMonth(m)}
+                            style={{
+                                padding: '5px 10px', borderRadius: 6, fontSize: 12, fontWeight: viewMonth === m ? 700 : 500,
+                                border: '1px solid', cursor: 'pointer',
+                                borderColor: viewMonth === m ? '#1e40af' : (hasData ? '#93c5fd' : 'var(--border)'),
+                                background: viewMonth === m ? '#1e40af' : (hasData ? '#eff6ff' : 'var(--bg-card, #fff)'),
+                                color: viewMonth === m ? '#fff' : (hasData ? '#1e40af' : 'var(--text-muted)'),
+                            }}
+                        >
+                            T{m}
+                        </button>
+                    );
+                })}
+            </div>
+
             <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid var(--border)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 16 }}>
                 {loading ? (
                     <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải dữ liệu...</div>
-                ) : (
+                ) : viewMonth === null ? (
+                    /* ── Chế độ xem tất cả tháng ── */
                     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1200 }}>
                         <thead>
                             <tr style={{ background: '#1e3a5f', color: '#fff' }}>
@@ -588,6 +625,101 @@ export default function KinhDoanhCostPage() {
                                             whiteSpace: 'nowrap',
                                         }}>
                                             {isNonData ? null : total === 0 ? '—' : fmtFull(total)}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                ) : (
+                    /* ── Chế độ xem theo tháng ── */
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 500 }}>
+                        <thead>
+                            <tr style={{ background: '#1e3a5f', color: '#fff' }}>
+                                <th style={{ padding: '10px 14px', textAlign: 'left', minWidth: 280, fontWeight: 700, fontSize: 13, position: 'sticky', left: 0, background: '#1e3a5f', zIndex: 2 }}>
+                                    Chỉ tiêu
+                                </th>
+                                <th style={{ padding: '10px 14px', textAlign: 'right', minWidth: 140, fontWeight: 700, fontSize: 13 }}>
+                                    Tháng {viewMonth}/{year}
+                                </th>
+                                <th style={{ padding: '10px 14px', textAlign: 'right', minWidth: 130, fontWeight: 600, fontSize: 12, background: '#16325c' }}>
+                                    % / Doanh thu
+                                </th>
+                                <th style={{ padding: '10px 14px', textAlign: 'right', minWidth: 130, fontWeight: 600, fontSize: 12, background: '#16325c' }}>
+                                    Lũy kế năm
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {ROW_DEFS.map((def) => {
+                                const rs = rowStyle(def);
+                                const isNonData = ['section', 'group', 'subgroup'].includes(def.type);
+                                const val = isNonData ? null : computeVal(def.key, viewMonth, data);
+                                const cumulative = isNonData ? null : totalForRow(def);
+                                const isNeg = val !== null && val < 0;
+                                const isEditing = editCell?.rowKey === def.key && editCell?.month === viewMonth;
+                                const isDirty = !!dirty[`${def.key}__${viewMonth}`];
+                                const monthRev = computeVal('total_rev', viewMonth, data);
+                                const pctOfRev = (monthRev > 0 && val !== null && !isNonData) ? ((val / monthRev) * 100).toFixed(1) + '%' : null;
+
+                                return (
+                                    <tr key={def.key} style={{ borderBottom: '1px solid #e5e7eb', ...rs }}>
+                                        <td style={{
+                                            padding: `8px 10px 8px ${10 + (def.indent || 0) * 14}px`,
+                                            fontWeight: rs.fontWeight, fontSize: rs.fontSize,
+                                            color: rs.color || 'var(--text-primary)',
+                                            background: rs.background,
+                                            position: 'sticky', left: 0, zIndex: 1,
+                                            borderRight: '1px solid #e5e7eb',
+                                            whiteSpace: 'nowrap', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis',
+                                        }}>
+                                            {def.label}
+                                        </td>
+                                        <td
+                                            onClick={() => def.type === 'input' && startEdit(def.key, viewMonth)}
+                                            style={{
+                                                padding: '7px 14px',
+                                                textAlign: 'right',
+                                                fontSize: rs.fontSize,
+                                                fontWeight: rs.fontWeight,
+                                                color: isNeg ? '#dc2626' : (rs.color || 'var(--text-primary)'),
+                                                background: isNonData ? rs.background : (isDirty ? '#fffbeb' : isEditing ? '#fff7ed' : isNeg && def.type === 'profit' ? '#fee2e2' : 'transparent'),
+                                                cursor: def.type === 'input' && canEdit ? 'pointer' : 'default',
+                                                borderRight: '1px solid #f0f0f0',
+                                            }}
+                                        >
+                                            {isEditing ? (
+                                                <input
+                                                    ref={inputRef}
+                                                    value={editVal}
+                                                    onChange={e => setEditVal(e.target.value)}
+                                                    onBlur={commitEdit}
+                                                    onKeyDown={handleKeyDown}
+                                                    style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#1e40af' }}
+                                                    placeholder="0"
+                                                />
+                                            ) : isNonData ? null : (
+                                                <span style={{ color: isNeg ? '#dc2626' : val === 0 ? '#d1d5db' : undefined }}>
+                                                    {val === 0 ? '—' : fmtFull(val)}
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td style={{
+                                            padding: '7px 14px', textAlign: 'right', fontSize: 11,
+                                            color: isNonData ? 'transparent' : (isNeg ? '#dc2626' : '#6b7280'),
+                                            background: rs.background || '#f9fafb',
+                                            borderRight: '1px solid #f0f0f0',
+                                        }}>
+                                            {pctOfRev || (isNonData ? null : '—')}
+                                        </td>
+                                        <td style={{
+                                            padding: '7px 14px', textAlign: 'right',
+                                            fontSize: rs.fontSize, fontWeight: 600,
+                                            color: cumulative !== null && cumulative < 0 ? '#dc2626' : (rs.color || 'var(--text-muted)'),
+                                            background: rs.background || '#f9fafb',
+                                            borderLeft: '2px solid #e5e7eb',
+                                        }}>
+                                            {isNonData ? null : cumulative === 0 ? '—' : fmtFull(cumulative)}
                                         </td>
                                     </tr>
                                 );

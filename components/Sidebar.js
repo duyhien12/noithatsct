@@ -6,7 +6,7 @@ import {
     LayoutDashboard, GitBranch, Users, Building2, FileText,
     Package, ClipboardList, Wrench, CreditCard, Receipt,
     ShoppingCart, Truck, Warehouse, Wallet, UserCog,
-    BarChart3, ChevronRight, Shield, X, CalendarDays, HardHat, Banknote, TrendingUp
+    BarChart3, ChevronRight, Shield, X, CalendarDays, HardHat, Banknote, TrendingUp, BookMarked
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useSession } from 'next-auth/react';
@@ -63,6 +63,8 @@ const menuItems = [
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER] },
             { href: '/finance/luong-chi-phi', icon: Banknote, label: 'Lương & Chi phí cố định',
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH] },
+            { href: '/finance/tong-hop', icon: BookMarked, label: 'Báo cáo tổng hợp 2 phòng',
+              roles: [...BAN_GD, ...KE_TOAN] },
         ],
     },
     {

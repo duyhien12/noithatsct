@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, Wrench, Building2, ShoppingCart, Package,
     ChevronRight, X, CalendarDays, Users, FileText, Warehouse,
-    BarChart2, Clock, BookOpen, Banknote, Landmark,
+    BarChart2, Clock, BookOpen, Banknote, Landmark, BookMarked,
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useState } from 'react';
@@ -58,6 +58,8 @@ const FULL_MENU = [
         items: [
             { href: '/workshop/expenses', icon: Banknote, label: 'Chi phí xưởng' },
             { href: '/workshop/assets', icon: Landmark, label: 'Tài sản cố định' },
+            { href: '/workshop/pl', icon: BarChart2, label: 'P&L Xưởng' },
+            { href: '/finance/tong-hop', icon: BookMarked, label: 'Báo cáo tổng hợp 2 phòng' },
         ],
     },
     {

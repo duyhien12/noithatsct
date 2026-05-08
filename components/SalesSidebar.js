@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, GitBranch, Users, FileText,
     ClipboardList, ChevronRight, X, Building2,
-    Wrench, CalendarDays, CreditCard, Receipt, ShoppingCart, Warehouse, Package, BarChart3, Banknote,
+    Wrench, CalendarDays, CreditCard, Receipt, ShoppingCart, Warehouse, Package, BarChart3, Banknote, BookMarked,
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useState } from 'react';
@@ -50,6 +50,7 @@ const menuItems = [
             { href: '/sales/expenses', icon: Receipt, label: 'Chi phí' },
             { href: '/finance/kinh-doanh', icon: BarChart3, label: 'Tổng hợp chi phí KD' },
             { href: '/finance/luong-chi-phi', icon: Banknote, label: 'Lương & Chi phí cố định' },
+            { href: '/finance/tong-hop', icon: BookMarked, label: 'Báo cáo tổng hợp 2 phòng' },
             { href: '/purchasing', icon: ShoppingCart, label: 'Mua sắm vật tư' },
             { href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho' },
         ],
