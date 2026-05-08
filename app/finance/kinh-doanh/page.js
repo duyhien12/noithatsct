@@ -246,12 +246,28 @@ export default function KinhDoanhCostPage() {
         try {
             // Bước 1: kéo dữ liệu mới nhất từ Lark Base về DB
             setSyncStep('Bước 1/2 — Đang kết nối và tải dữ liệu từ Lark Base...');
-            const larkRes = await fetch('/api/finance/lark-bulk-sync', { method: 'POST' });
-            const larkJson = await larkRes.json();
-            if (!larkRes.ok) throw new Error(larkJson.error || 'Lark sync thất bại');
-            setLarkSyncInfo({ synced: larkJson.synced, fetched: larkJson.fetched, pages: larkJson.pages });
+            let larkOk = false;
+            let larkWarn = '';
+            try {
+                const larkRes = await fetch('/api/finance/lark-bulk-sync', { method: 'POST' });
+                const larkJson = await larkRes.json();
+                if (larkRes.ok && larkJson.synced !== undefined) {
+                    setLarkSyncInfo({ synced: larkJson.synced, fetched: larkJson.fetched, pages: larkJson.pages });
+                    larkOk = true;
+                } else {
+                    // Trích xuất thông báo lỗi từ Lark
+                    const detail = larkJson?.error || larkJson?.message || JSON.stringify(larkJson);
+                    larkWarn = 'Lark: ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)).slice(0, 120);
+                }
+            } catch (e) {
+                larkWarn = 'Không kết nối được Lark: ' + e.message;
+            }
 
-            // Bước 2: tổng hợp từ toàn bộ dữ liệu trong DB
+            if (!larkOk) {
+                setLarkSyncInfo({ warn: larkWarn });
+            }
+
+            // Bước 2: tổng hợp từ dữ liệu hiện có trong DB (dù bước 1 có lỗi hay không)
             setSyncStep('Bước 2/2 — Đang tổng hợp số liệu theo chỉ tiêu...');
             const res = await fetch(`/api/finance/kd-cost/sync?year=${year}`);
             const json = await res.json();
