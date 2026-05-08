@@ -290,13 +290,19 @@ ${[1, 2].map(copy => `
 
     const bulkSyncLark = async () => {
         if (!confirm('Đồng bộ toàn bộ dữ liệu từ Lark Base? Có thể mất 1-2 phút.')) return;
-        const res = await fetch('/api/finance/lark-bulk-sync', { method: 'POST' });
-        const data = await res.json();
-        if (data.synced !== undefined) {
-            alert(`Đã đồng bộ ${data.synced}/${data.total} giao dịch từ Lark!`);
-            fetchAll();
-        } else {
-            alert('Lỗi: ' + (data.error || JSON.stringify(data)));
+        try {
+            const res = await fetch('/api/finance/lark-bulk-sync', { method: 'POST' });
+            const data = await res.json();
+            if (data.synced !== undefined) {
+                alert(`Đã đồng bộ ${data.synced}/${data.total} giao dịch từ Lark!`);
+                fetchAll();
+            } else if (data.error && (data.error.includes('99991673') || data.error.includes('unauthorized'))) {
+                alert('Không thể kết nối Lark Base: ứng dụng chưa được cấp quyền hoặc token đã hết hạn.\n\nVui lòng liên hệ quản trị viên để cập nhật LARK_APP_ID / LARK_APP_SECRET.');
+            } else {
+                alert('Lỗi đồng bộ Lark: ' + (data.error || 'Không xác định'));
+            }
+        } catch (e) {
+            alert('Không kết nối được máy chủ: ' + e.message);
         }
     };
 
