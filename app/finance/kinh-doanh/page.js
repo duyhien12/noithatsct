@@ -173,9 +173,11 @@ export default function KinhDoanhCostPage() {
 
     // ── Sync state ───────────────────────────────────────────────────────────
     const [syncLoading, setSyncLoading] = useState(false);
+    const [syncStep, setSyncStep] = useState('');      // mô tả bước đang chạy
     const [syncModal, setSyncModal] = useState(false);
-    const [syncResults, setSyncResults] = useState(null); // { rowKey: { months, total, count, source } }
-    const [syncSelected, setSyncSelected] = useState({});  // { rowKey: bool }
+    const [syncResults, setSyncResults] = useState(null);
+    const [syncSelected, setSyncSelected] = useState({});
+    const [larkSyncInfo, setLarkSyncInfo] = useState(null); // { synced, fetched }
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -239,17 +241,31 @@ export default function KinhDoanhCostPage() {
         setSyncLoading(true);
         setSyncModal(true);
         setSyncResults(null);
+        setLarkSyncInfo(null);
+
         try {
+            // Bước 1: kéo dữ liệu mới nhất từ Lark Base về DB
+            setSyncStep('Bước 1/2 — Đang kết nối và tải dữ liệu từ Lark Base...');
+            const larkRes = await fetch('/api/finance/lark-bulk-sync', { method: 'POST' });
+            const larkJson = await larkRes.json();
+            if (!larkRes.ok) throw new Error(larkJson.error || 'Lark sync thất bại');
+            setLarkSyncInfo({ synced: larkJson.synced, fetched: larkJson.fetched, pages: larkJson.pages });
+
+            // Bước 2: tổng hợp từ toàn bộ dữ liệu trong DB
+            setSyncStep('Bước 2/2 — Đang tổng hợp số liệu theo chỉ tiêu...');
             const res = await fetch(`/api/finance/kd-cost/sync?year=${year}`);
             const json = await res.json();
             const results = json.results || {};
             setSyncResults(results);
-            // Pre-select all rows that have data
+
             const sel = {};
             for (const [key, val] of Object.entries(results)) {
                 sel[key] = val.total > 0;
             }
             setSyncSelected(sel);
+            setSyncStep('');
+        } catch (err) {
+            setSyncStep('❌ Lỗi: ' + err.message);
         } finally {
             setSyncLoading(false);
         }
@@ -595,8 +611,8 @@ export default function KinhDoanhCostPage() {
                         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
                             <span style={{ fontSize: 18 }}>🔄</span>
                             <div>
-                                <div style={{ fontWeight: 700, fontSize: 15 }}>Đồng bộ dữ liệu từ hệ thống — Năm {year}</div>
-                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Chọn các chỉ tiêu muốn ghi đè từ dữ liệu thực tế</div>
+                                <div style={{ fontWeight: 700, fontSize: 15 }}>Đồng bộ từ Lark Base → Bảng chi phí KD — Năm {year}</div>
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Tự động kéo Lark mới nhất rồi tổng hợp vào bảng</div>
                             </div>
                             <button onClick={() => setSyncModal(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--text-muted)', lineHeight: 1 }}>×</button>
                         </div>
@@ -604,12 +620,73 @@ export default function KinhDoanhCostPage() {
                         {/* Modal body */}
                         <div style={{ overflowY: 'auto', flex: 1, padding: '12px 20px' }}>
                             {syncLoading ? (
-                                <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-muted)' }}>
-                                    <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
-                                    <div>Đang truy vấn dữ liệu từ hệ thống...</div>
+                                <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+                                    {/* Progress steps */}
+                                    <div style={{ display: 'flex', justifyContent: 'center', gap: 0, marginBottom: 28 }}>
+                                        {[
+                                            { n: 1, label: 'Tải từ Lark Base', icon: '☁️' },
+                                            { n: 2, label: 'Tổng hợp số liệu', icon: '📊' },
+                                        ].map((s, i) => {
+                                            const done = syncStep.includes('Bước 2') && s.n === 1;
+                                            const active = syncStep.includes(`Bước ${s.n}`);
+                                            return (
+                                                <div key={s.n} style={{ display: 'flex', alignItems: 'center' }}>
+                                                    <div style={{ textAlign: 'center', width: 120 }}>
+                                                        <div style={{
+                                                            width: 44, height: 44, borderRadius: '50%', margin: '0 auto 8px',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            fontSize: done ? 20 : 18,
+                                                            background: done ? '#dcfce7' : active ? '#dbeafe' : '#f3f4f6',
+                                                            border: `2px solid ${done ? '#16a34a' : active ? '#3b82f6' : '#e5e7eb'}`,
+                                                            transition: 'all 0.3s',
+                                                        }}>
+                                                            {done ? '✅' : active ? <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⏳</span> : s.icon}
+                                                        </div>
+                                                        <div style={{ fontSize: 12, fontWeight: active || done ? 600 : 400, color: active ? '#1e40af' : done ? '#16a34a' : '#9ca3af' }}>
+                                                            {s.label}
+                                                        </div>
+                                                    </div>
+                                                    {i === 0 && (
+                                                        <div style={{ width: 48, height: 2, background: done ? '#16a34a' : '#e5e7eb', margin: '0 0 24px', transition: 'background 0.3s' }} />
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <div style={{ fontSize: 13, color: '#1e40af', fontWeight: 500, marginBottom: 8 }}>
+                                        {syncStep || 'Đang khởi động...'}
+                                    </div>
+                                    {syncStep.includes('Bước 1') && (
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                            Có thể mất 1–2 phút do tải toàn bộ lịch sử Lark Base
+                                        </div>
+                                    )}
+                                    {larkSyncInfo && (
+                                        <div style={{ marginTop: 12, display: 'inline-block', padding: '6px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 20, fontSize: 12, color: '#16a34a', fontWeight: 600 }}>
+                                            ✅ Lark: đã tải {larkSyncInfo.fetched} bản ghi ({larkSyncInfo.pages} trang)
+                                        </div>
+                                    )}
+                                </div>
+                            ) : syncStep.startsWith('❌') ? (
+                                <div style={{ padding: 40, textAlign: 'center' }}>
+                                    <div style={{ fontSize: 32, marginBottom: 12 }}>❌</div>
+                                    <div style={{ color: '#dc2626', fontWeight: 600 }}>{syncStep}</div>
+                                    <button className="btn btn-ghost btn-sm" style={{ marginTop: 16 }} onClick={() => setSyncModal(false)}>Đóng</button>
                                 </div>
                             ) : syncResults ? (
                                 <>
+                                    {/* Lark sync info banner */}
+                                    {larkSyncInfo && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '7px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 12 }}>
+                                            <span>✅</span>
+                                            <span style={{ color: '#15803d', fontWeight: 600 }}>
+                                                Đã đồng bộ Lark Base: {larkSyncInfo.fetched?.toLocaleString()} bản ghi ({larkSyncInfo.pages} trang)
+                                            </span>
+                                            <span style={{ color: '#16a34a', marginLeft: 'auto' }}>Dữ liệu mới nhất</span>
+                                        </div>
+                                    )}
+
                                     {/* Select all / none */}
                                     <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
                                         <button className="btn btn-ghost btn-sm" onClick={() => {
