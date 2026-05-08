@@ -61,6 +61,8 @@ const menuItems = [
               roles: [...BAN_GD, ...KE_TOAN, ...VIEWER] },
             { href: '/finance/kinh-doanh', icon: BarChart3, label: 'Chi phí Kinh doanh',
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER] },
+            { href: '/finance/luong-chi-phi', icon: Banknote, label: 'Lương & Chi phí cố định',
+              roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH] },
         ],
     },
     {

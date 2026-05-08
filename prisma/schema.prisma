@@ -777,6 +777,22 @@ model KdCostEntry {
   @@index([year])
 }
 
+// ============ LƯƠNG & CHI PHÍ CỐ ĐỊNH HÀNG THÁNG ============
+
+model MonthlyFixedCost {
+  id          Int      @id @default(autoincrement())
+  year        Int
+  month       Int      // 1-12
+  rowKey      String   // labor_salary, labor_insurance, labor_bonus, direct_design_dept, mgmt_salary, mgmt_bonus, indirect_general, indirect_equipment, indirect_renovation, indirect_marketing, indirect_other
+  amount      Float    @default(0)
+  description String?  // mô tả chi tiết phiếu
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([year])
+  @@index([year, month])
+}
+
 // ============ ĐỊNH MỨC VẬT TƯ (BOM) ============
 
 model ProductBOM {
