@@ -156,13 +156,14 @@ export default function WorkersPage() {
     };
 
     useEffect(() => {
-        if (showSummary) fetchMonthlySummary(summaryMonth);
-    }, [summaryMonth, showSummary]);
+        if (showSummary || showPayroll) fetchMonthlySummary(summaryMonth);
+    }, [summaryMonth, showSummary, showPayroll]);
 
     // Khởi tạo bảng thanh toán lương từ dữ liệu chấm công
     useEffect(() => {
         if (loadingSummary) return;
-        if (payrollMonth === summaryMonth && payrollRows.length > 0) return;
+        // Chỉ bỏ qua khi đã có dữ liệu ngày công thực sự (không bỏ qua khi rows toàn 0)
+        if (payrollMonth === summaryMonth && payrollRows.some(r => r.ngayCong > 0)) return;
         const congFn = (h) => h / 8;
         const byWorkerDay = {};
         summaryAttendance.forEach(a => {
