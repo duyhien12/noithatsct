@@ -188,7 +188,7 @@ export default function WorkersPage() {
         });
         setPayrollRows(rows);
         setPayrollMonth(summaryMonth);
-    }, [loadingSummary, summaryMonth, summaryAttendance, summaryOvertimes, salaryAdvances, workers]);
+    }, [loadingSummary, summaryMonth, summaryAttendance, summaryOvertimes, salaryAdvances, workers, payrollMonth]);
 
     useEffect(() => {
         if (showOvertimeList) fetchMonthlyOvertimes(overtimeMonth);
