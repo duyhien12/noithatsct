@@ -52,7 +52,17 @@ export default function WorkersPage() {
     const [summaryMonth, setSummaryMonth] = useState(() => new Date().toISOString().slice(0, 7));
     const [summaryAttendance, setSummaryAttendance] = useState([]);
     const [summaryOvertimes, setSummaryOvertimes] = useState([]);
+    const [salaryAdvances, setSalaryAdvances] = useState([]); // [{workerId, amount, notes}]
+    const [editingAdvance, setEditingAdvance] = useState(null); // workerId being edited
+    const [advanceInput, setAdvanceInput] = useState('');
     const [loadingSummary, setLoadingSummary] = useState(false);
+
+    // ── Bảng thanh toán lương ────────────────────────────────────────────────
+    const [showPayroll, setShowPayroll] = useState(false);
+    const [payrollRows, setPayrollRows] = useState([]);
+    const [payrollMonth, setPayrollMonth] = useState('');
+    const [editingPayrollCell, setEditingPayrollCell] = useState(null); // {workerId, field}
+    const [editingPayrollVal, setEditingPayrollVal] = useState('');
 
     // ── Tăng ca ──────────────────────────────────────────────────────────────
     const [overtimes, setOvertimes] = useState([]);
@@ -98,14 +108,37 @@ export default function WorkersPage() {
 
     const fetchMonthlySummary = async (month) => {
         setLoadingSummary(true);
-        const [attRes, otRes] = await Promise.all([
+        const [attRes, otRes, advRes] = await Promise.all([
             fetch(`/api/workshop/attendance?month=${month}`),
             fetch(`/api/workshop/overtimes?month=${month}`),
+            fetch(`/api/workshop/salary-advances?month=${month}`),
         ]);
-        const [attData, otData] = await Promise.all([attRes.json(), otRes.json()]);
+        const [attData, otData, advData] = await Promise.all([attRes.json(), otRes.json(), advRes.json()]);
         setSummaryAttendance(Array.isArray(attData) ? attData : []);
         setSummaryOvertimes(Array.isArray(otData) ? otData : []);
+        setSalaryAdvances(Array.isArray(advData) ? advData : []);
         setLoadingSummary(false);
+    };
+
+    const saveAdvance = async (workerId, amount) => {
+        await fetch('/api/workshop/salary-advances', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ workerId, month: summaryMonth, amount: Number(amount) || 0 }),
+        });
+        setSalaryAdvances(prev => {
+            const existing = prev.find(a => a.workerId === workerId);
+            if (existing) return prev.map(a => a.workerId === workerId ? { ...a, amount: Number(amount) || 0 } : a);
+            return [...prev, { workerId, amount: Number(amount) || 0 }];
+        });
+    };
+
+    const updatePayrollRow = (workerId, field, rawVal) => {
+        const isDecimal = field === 'ngayCong';
+        const value = isDecimal
+            ? (parseFloat(String(rawVal).replace(/[^0-9.]/g, '')) || 0)
+            : (parseInt(String(rawVal).replace(/[^0-9]/g, ''), 10) || 0);
+        setPayrollRows(prev => prev.map(r => r.workerId === workerId ? { ...r, [field]: value } : r));
     };
 
     const fetchOvertimes = async (date) => {
@@ -125,6 +158,36 @@ export default function WorkersPage() {
     useEffect(() => {
         if (showSummary) fetchMonthlySummary(summaryMonth);
     }, [summaryMonth, showSummary]);
+
+    // Khởi tạo bảng thanh toán lương từ dữ liệu chấm công
+    useEffect(() => {
+        if (loadingSummary) return;
+        if (payrollMonth === summaryMonth && payrollRows.length > 0) return;
+        const congFn = (h) => h / 8;
+        const byWorkerDay = {};
+        summaryAttendance.forEach(a => {
+            if (!byWorkerDay[a.workerId]) byWorkerDay[a.workerId] = {};
+            byWorkerDay[a.workerId][new Date(a.date).getUTCDate()] = a.hoursWorked;
+        });
+        const activeWorkers = workers.filter(w => w.status !== 'Nghỉ việc' || byWorkerDay[w.id]);
+        const rows = activeWorkers.map(w => {
+            const dayMap = byWorkerDay[w.id] || {};
+            const totalCong = Object.values(dayMap).reduce((s, h) => s + congFn(h), 0);
+            const otCost = summaryOvertimes.filter(o => o.workerId === w.id).reduce((s, o) => s + o.totalPay, 0);
+            const advance = salaryAdvances.find(a => a.workerId === w.id)?.amount || 0;
+            return {
+                workerId: w.id, name: w.name, skill: w.skill || '',
+                mucLuong: Math.round(w.hourlyRate * 26),
+                ngayLuong: Math.round(w.hourlyRate),
+                ngayCong: totalCong,
+                thuong: 0, phuCap: 0,
+                luongOT: otCost,
+                tamUng: advance, baoHiem: 0, cd: 0, daThanhToan: 0,
+            };
+        });
+        setPayrollRows(rows);
+        setPayrollMonth(summaryMonth);
+    }, [loadingSummary, summaryMonth, summaryAttendance, summaryOvertimes, salaryAdvances, workers]);
 
     useEffect(() => {
         if (showOvertimeList) fetchMonthlyOvertimes(overtimeMonth);
@@ -588,6 +651,13 @@ export default function WorkersPage() {
                 >
                     ⏰ {showOvertimeList ? 'Ẩn' : 'Xem'} danh sách tăng ca
                 </button>
+                <button
+                    className={`btn btn-sm ${showPayroll ? 'btn-primary' : 'btn-ghost'}`}
+                    style={{ fontWeight: 600, ...(showPayroll ? { background: '#059669', borderColor: '#059669' } : {}) }}
+                    onClick={() => setShowPayroll(v => !v)}
+                >
+                    📋 {showPayroll ? 'Ẩn' : 'Xem'} bảng thanh toán lương
+                </button>
             </div>
 
             {/* Bảng tổng hợp tháng */}
@@ -666,6 +736,8 @@ export default function WorkersPage() {
 
                 const dayOTTotal = (day) => summaryWorkers.reduce((s, w) => s + (byWorkerDayOT[w.id]?.[day] || 0), 0);
 
+                const getAdvance = (workerId) => salaryAdvances.find(a => a.workerId === workerId)?.amount || 0;
+
                 const grandTotal = summaryWorkers.reduce((s, w) => {
                     const { totalCong, totalH, cost } = workerTotal(w);
                     return { cong: s.cong + totalCong, hours: s.hours + totalH, cost: s.cost + cost };
@@ -675,6 +747,8 @@ export default function WorkersPage() {
                     const { totalH, cost } = workerOTTotal(w);
                     return { hours: s.hours + totalH, cost: s.cost + cost };
                 }, { hours: 0, cost: 0 });
+
+                const grandAdvanceTotal = summaryWorkers.reduce((s, w) => s + getAdvance(w.id), 0);
 
                 const prevMonth = () => {
                     const d = new Date(y, m - 2, 1);
@@ -689,13 +763,153 @@ export default function WorkersPage() {
                 const dayOfWeek = (day) => new Date(y, m - 1, day).getDay(); // 0=Sun, 6=Sat
                 const isWeekend = (day) => { const d = dayOfWeek(day); return d === 0 || d === 6; };
 
+                const exportPayrollPDF = () => {
+                    const monthStr = `${String(m).padStart(2, '0')}/${y}`;
+                    const fmtN = (n) => n > 0 ? new Intl.NumberFormat('vi-VN').format(Math.round(n)) : '';
+                    const fmtC = (n) => n > 0 ? (n % 1 === 0 ? String(n) : n.toFixed(1)) : '';
+
+                    const totalCongAll = summaryWorkers.reduce((s, w) => s + workerTotal(w).totalCong, 0);
+                    const totalCostAll = grandTotal.cost;
+                    const totalOTAll = grandOTTotal.cost;
+                    const totalAdvAll = grandAdvanceTotal;
+                    const totalTongTien = totalCostAll + totalOTAll;
+                    const totalThanhTien = totalTongTien - totalAdvAll;
+
+                    const rows = summaryWorkers.map((w, idx) => {
+                        const { totalCong, cost } = workerTotal(w);
+                        const { cost: otCost } = workerOTTotal(w);
+                        const adv = getAdvance(w.id);
+                        const mucLuong = Math.round(w.hourlyRate * 26);
+                        const tongTien = cost + otCost;
+                        const thanhTien = tongTien - adv;
+                        return `<tr>
+                            <td style="text-align:center">${idx + 1}</td>
+                            <td>${w.name}</td>
+                            <td style="text-align:right">${fmtN(mucLuong)}</td>
+                            <td style="text-align:right">${fmtN(w.hourlyRate)}</td>
+                            <td style="text-align:center">${fmtC(totalCong)}</td>
+                            <td style="text-align:right">${fmtN(cost)}</td>
+                            <td></td>
+                            <td></td>
+                            <td style="text-align:right">${fmtN(otCost)}</td>
+                            <td style="text-align:right;font-weight:600">${fmtN(tongTien)}</td>
+                            <td style="text-align:right">${fmtN(adv)}</td>
+                            <td></td>
+                            <td></td>
+                            <td style="text-align:right">${fmtN(adv)}</td>
+                            <td style="text-align:right;font-weight:600">${fmtN(thanhTien)}</td>
+                            <td></td>
+                            <td style="text-align:right;font-weight:700">${fmtN(thanhTien)}</td>
+                            <td></td>
+                        </tr>`;
+                    }).join('');
+
+                    const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>Bảng Thanh Toán Lương Tháng ${monthStr}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+@page{size:A4 landscape;margin:8mm}
+body{font-family:'Times New Roman',Times,serif;font-size:9pt;color:#000}
+.hdr{margin-bottom:6px}
+.hdr .co{font-size:10pt;font-weight:bold;text-transform:uppercase}
+.title-wrap{text-align:center;margin-bottom:6px}
+.title{font-size:11pt;font-weight:bold;text-transform:uppercase}
+.date{text-align:right;font-size:8.5pt;font-style:italic;margin-bottom:6px}
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid #000;padding:2px 3px;font-size:7.8pt;vertical-align:middle}
+th{background:#fff;font-weight:bold;text-align:center;line-height:1.2}
+.gtr{background:#f5f5f5}
+tfoot td{font-weight:bold;background:#f5f5f5}
+.sigs{margin-top:14px;display:flex;justify-content:space-between}
+.sig{text-align:center;width:23%}
+.sig-t{font-weight:bold;font-size:8.5pt}
+.sig-n{margin-top:36px;font-size:8pt;font-style:italic}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div class="co">Công ty TNHH kiến trúc đô thị SCT</div>
+  <div>Xưởng Nội Thất</div>
+</div>
+<div class="title-wrap">
+  <div class="title">Bảng thanh toán lương tháng ${monthStr} xưởng nội thất</div>
+</div>
+<div class="date">Lào Cai, ngày &nbsp;&nbsp;&nbsp; tháng ${String(m).padStart(2,'0')} năm ${y}</div>
+<table>
+<thead>
+<tr>
+  <th rowspan="3" style="width:24px">STT</th>
+  <th rowspan="3" style="min-width:75px">Họ và tên</th>
+  <th rowspan="3" style="width:56px">Mức lương</th>
+  <th rowspan="3" style="width:52px">Ngày lương thỏa thuận (1)</th>
+  <th rowspan="3" style="width:32px">Ngày công thực tế (2)</th>
+  <th rowspan="3" style="width:58px">Tổng lương theo ngày công CT (3=2×1)</th>
+  <th rowspan="3" style="width:46px">Thưởng phụ trách CT (4)</th>
+  <th rowspan="3" style="width:46px">Phụ cấp XX/ĐT/BS (5)</th>
+  <th rowspan="3" style="width:52px">Lương làm thêm giờ (6)</th>
+  <th rowspan="3" style="width:58px">Tổng tiền (7=3+4+5+6)</th>
+  <th colspan="4" class="gtr">Giảm trừ</th>
+  <th rowspan="3" style="width:58px">Thành tiền (12=7-11)</th>
+  <th rowspan="3" style="width:46px">Đã thanh toán (13)</th>
+  <th rowspan="3" style="width:58px">Còn lại (14=12-13)</th>
+  <th rowspan="3" style="width:40px">Ký nhận</th>
+</tr>
+<tr>
+  <th style="width:52px" class="gtr">Tạm ứng (8)</th>
+  <th style="width:46px" class="gtr">Bảo hiểm (9)</th>
+  <th style="width:30px" class="gtr">CD (10)</th>
+  <th style="width:52px" class="gtr">Cộng (11=8+9+10)</th>
+</tr>
+<tr>
+  <th></th><th></th><th>1</th><th>2</th><th>3=2×1</th><th>4</th><th>5</th><th>6</th><th>7=3+4+5+6</th><th>8</th><th>9</th><th>10</th><th>11=8+9+10</th><th>12=7-11</th><th>13</th><th>14=12-13</th><th></th>
+</tr>
+</thead>
+<tbody>${rows}</tbody>
+<tfoot>
+<tr>
+  <td colspan="2" style="text-align:center">TỔNG CỘNG</td>
+  <td></td>
+  <td></td>
+  <td style="text-align:center">${fmtC(totalCongAll)}</td>
+  <td style="text-align:right">${fmtN(totalCostAll)}</td>
+  <td></td>
+  <td></td>
+  <td style="text-align:right">${fmtN(totalOTAll)}</td>
+  <td style="text-align:right">${fmtN(totalTongTien)}</td>
+  <td style="text-align:right">${fmtN(totalAdvAll)}</td>
+  <td></td>
+  <td></td>
+  <td style="text-align:right">${fmtN(totalAdvAll)}</td>
+  <td style="text-align:right">${fmtN(totalThanhTien)}</td>
+  <td></td>
+  <td style="text-align:right">${fmtN(totalThanhTien)}</td>
+  <td></td>
+</tr>
+</tfoot>
+</table>
+<div class="sigs">
+  <div class="sig"><div class="sig-t">Phụ trách bộ phận</div><div class="sig-n">Ký tên</div></div>
+  <div class="sig"><div class="sig-t">Người lập</div><div class="sig-n">Ký tên</div></div>
+  <div class="sig"><div class="sig-t">Phòng hành chính - Kế toán</div><div class="sig-n">Ký tên</div></div>
+  <div class="sig"><div class="sig-t">Giám đốc điều hành</div><div class="sig-n">Ký tên</div></div>
+</div>
+</body></html>`;
+
+                    const pw = window.open('', '_blank', 'width=1100,height=800');
+                    pw.document.write(html);
+                    pw.document.close();
+                    pw.focus();
+                    setTimeout(() => pw.print(), 600);
+                };
+
                 return (
                     <div className="card" style={{ overflow: 'hidden' }}>
                         <div className="card-header" style={{ flexWrap: 'wrap', gap: 8 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <h3 style={{ margin: 0 }}>📊 Bảng tổng hợp công tháng</h3>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                 <button className="btn btn-ghost btn-sm" onClick={prevMonth}>◀</button>
                                 <input type="month" value={summaryMonth} onChange={e => setSummaryMonth(e.target.value)}
                                     style={{ padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 600 }} />
@@ -703,6 +917,14 @@ export default function WorkersPage() {
                                 <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 4 }}>
                                     {daysInMonth} ngày · {summaryWorkers.length} người
                                 </span>
+                                <button
+                                    className="btn btn-sm"
+                                    style={{ background: '#dc2626', color: '#fff', border: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}
+                                    onClick={exportPayrollPDF}
+                                    disabled={loadingSummary}
+                                >
+                                    🖨️ Xuất PDF
+                                </button>
                             </div>
                         </div>
 
@@ -732,6 +954,7 @@ export default function WorkersPage() {
                                             <th style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap', color: '#d97706', background: 'var(--bg-secondary)' }}>Giờ OT</th>
                                             <th style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap', color: '#8b5cf6', background: 'var(--bg-secondary)' }}>Thành tiền</th>
                                             <th style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap', color: '#ea580c', background: 'var(--bg-secondary)' }}>Tiền OT</th>
+                                            <th style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap', color: '#dc2626', background: 'var(--bg-secondary)' }}>Ứng lương</th>
                                             <th style={{ padding: '8px 10px', textAlign: 'right', borderBottom: '2px solid var(--border)', whiteSpace: 'nowrap', color: '#0f172a', fontWeight: 800, background: '#f0fdf4' }}>Tổng nhận</th>
                                         </tr>
                                     </thead>
@@ -772,7 +995,7 @@ export default function WorkersPage() {
                                                     <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 600, color: '#2563eb', whiteSpace: 'nowrap' }}>
                                                         {totalH > 0 ? `${totalH}h` : '—'}
                                                     </td>
-                                                    {(() => { const ot = workerOTTotal(w); return (
+                                                    {(() => { const ot = workerOTTotal(w); const adv = getAdvance(w.id); const total = cost + ot.cost - adv; return (
                                                         <>
                                                         <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700, color: '#d97706', whiteSpace: 'nowrap' }}>
                                                             {ot.totalH > 0 ? `${ot.totalH}h` : '—'}
@@ -783,8 +1006,27 @@ export default function WorkersPage() {
                                                         <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700, color: '#ea580c', whiteSpace: 'nowrap' }}>
                                                             {ot.cost > 0 ? `${new Intl.NumberFormat('vi-VN').format(Math.round(ot.cost / 1000))}k` : '—'}
                                                         </td>
-                                                        <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 800, color: '#15803d', whiteSpace: 'nowrap', background: '#f0fdf4' }}>
-                                                            {(cost + ot.cost) > 0 ? `${new Intl.NumberFormat('vi-VN').format(Math.round((cost + ot.cost) / 1000))}k` : '—'}
+                                                        <td style={{ padding: '4px 8px', textAlign: 'right', whiteSpace: 'nowrap', cursor: 'pointer' }}
+                                                            onClick={() => { setEditingAdvance(w.id); setAdvanceInput(adv > 0 ? String(adv) : ''); }}>
+                                                            {editingAdvance === w.id ? (
+                                                                <input
+                                                                    autoFocus
+                                                                    type="number"
+                                                                    value={advanceInput}
+                                                                    onChange={e => setAdvanceInput(e.target.value)}
+                                                                    onBlur={() => { saveAdvance(w.id, advanceInput); setEditingAdvance(null); }}
+                                                                    onKeyDown={e => { if (e.key === 'Enter') { saveAdvance(w.id, advanceInput); setEditingAdvance(null); } if (e.key === 'Escape') setEditingAdvance(null); }}
+                                                                    style={{ width: 80, textAlign: 'right', fontSize: 12, padding: '2px 4px', border: '1px solid #dc2626', borderRadius: 4 }}
+                                                                    onClick={e => e.stopPropagation()}
+                                                                />
+                                                            ) : (
+                                                                <span style={{ color: adv > 0 ? '#dc2626' : '#d1d5db', fontWeight: adv > 0 ? 700 : 400 }}>
+                                                                    {adv > 0 ? `${new Intl.NumberFormat('vi-VN').format(Math.round(adv / 1000))}k` : '—'}
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 800, color: total > 0 ? '#15803d' : '#dc2626', whiteSpace: 'nowrap', background: '#f0fdf4' }}>
+                                                            {(cost + ot.cost) > 0 ? `${new Intl.NumberFormat('vi-VN').format(Math.round(total / 1000))}k` : '—'}
                                                         </td>
                                                         </>
                                                     ); })()}
@@ -831,8 +1073,11 @@ export default function WorkersPage() {
                                             <td style={{ padding: '8px 10px', textAlign: 'right', color: '#ea580c', whiteSpace: 'nowrap', fontSize: 13, fontWeight: 700 }}>
                                                 {grandOTTotal.cost > 0 ? `${new Intl.NumberFormat('vi-VN').format(Math.round(grandOTTotal.cost / 1000))}k` : '—'}
                                             </td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'right', color: '#dc2626', whiteSpace: 'nowrap', fontSize: 13, fontWeight: 700 }}>
+                                                {grandAdvanceTotal > 0 ? `${new Intl.NumberFormat('vi-VN').format(Math.round(grandAdvanceTotal / 1000))}k` : '—'}
+                                            </td>
                                             <td style={{ padding: '8px 10px', textAlign: 'right', color: '#15803d', whiteSpace: 'nowrap', fontSize: 13, fontWeight: 800, background: '#f0fdf4' }}>
-                                                {(grandTotal.cost + grandOTTotal.cost) > 0 ? `${new Intl.NumberFormat('vi-VN').format(Math.round((grandTotal.cost + grandOTTotal.cost) / 1000))}k` : '—'}
+                                                {(grandTotal.cost + grandOTTotal.cost) > 0 ? `${new Intl.NumberFormat('vi-VN').format(Math.round((grandTotal.cost + grandOTTotal.cost - grandAdvanceTotal) / 1000))}k` : '—'}
                                             </td>
                                         </tr>
                                     </tfoot>
@@ -852,6 +1097,248 @@ export default function WorkersPage() {
                             <span><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 3, background: '#fee2e2', marginRight: 4, verticalAlign: 'middle' }}></span>Dưới nửa công</span>
                             <span style={{ color: '#dc2626', fontWeight: 600 }}>Đỏ = Cuối tuần</span>
                         </div>
+                    </div>
+                );
+            })()}
+
+            {/* Bảng thanh toán lương */}
+            {showPayroll && (() => {
+                const [yw, mw] = summaryMonth.split('-').map(Number);
+                const monthStr = `${String(mw).padStart(2,'0')}/${yw}`;
+                const fmtN = (n) => n > 0 ? new Intl.NumberFormat('vi-VN').format(Math.round(n)) : '';
+                const fmtC = (n) => n > 0 ? (n % 1 === 0 ? String(n) : n.toFixed(1)) : '';
+
+                const rows = payrollRows.map(r => {
+                    const tongLuong = r.ngayCong * r.ngayLuong;
+                    const tongTien = tongLuong + r.thuong + r.phuCap + r.luongOT;
+                    const congGiamTru = r.tamUng + r.baoHiem + r.cd;
+                    const thanhTien = tongTien - congGiamTru;
+                    const conLai = thanhTien - r.daThanhToan;
+                    return { ...r, tongLuong, tongTien, congGiamTru, thanhTien, conLai };
+                });
+
+                const totals = rows.reduce((s, r) => ({
+                    ngayCong: s.ngayCong + r.ngayCong,
+                    tongLuong: s.tongLuong + r.tongLuong,
+                    thuong: s.thuong + r.thuong,
+                    phuCap: s.phuCap + r.phuCap,
+                    luongOT: s.luongOT + r.luongOT,
+                    tongTien: s.tongTien + r.tongTien,
+                    tamUng: s.tamUng + r.tamUng,
+                    baoHiem: s.baoHiem + r.baoHiem,
+                    cd: s.cd + r.cd,
+                    congGiamTru: s.congGiamTru + r.congGiamTru,
+                    thanhTien: s.thanhTien + r.thanhTien,
+                    daThanhToan: s.daThanhToan + r.daThanhToan,
+                    conLai: s.conLai + r.conLai,
+                }), { ngayCong:0,tongLuong:0,thuong:0,phuCap:0,luongOT:0,tongTien:0,tamUng:0,baoHiem:0,cd:0,congGiamTru:0,thanhTien:0,daThanhToan:0,conLai:0 });
+
+                // Styles
+                const thBase = { padding: '5px 4px', textAlign: 'center', fontSize: 10, fontWeight: 700, border: '1px solid #94a3b8', background: '#f1f5f9', whiteSpace: 'nowrap', lineHeight: 1.3 };
+                const tdBase = { padding: '3px 5px', fontSize: 11, border: '1px solid #e2e8f0', whiteSpace: 'nowrap', verticalAlign: 'middle' };
+                const cTd = { ...tdBase, textAlign: 'right', background: '#f8fafc', color: '#1e293b', fontWeight: 600 };
+                const greenTd = { ...cTd, background: '#f0fdf4', color: '#15803d', fontWeight: 700 };
+                const blueTd = { ...cTd, background: '#eff6ff', color: '#1d4ed8', fontWeight: 700 };
+                const redTd = { ...cTd, background: '#fff7ed', color: '#c2410c' };
+
+                // Editable cell helper
+                const eCell = (r, field, style, isDecimal) => {
+                    const isEditing = editingPayrollCell?.workerId === r.workerId && editingPayrollCell?.field === field;
+                    const val = r[field] || 0;
+                    if (isEditing) return (
+                        <td style={{ ...tdBase, padding: 0, border: '2px solid #3b82f6', background: '#eff6ff' }}>
+                            <input autoFocus type="text" value={editingPayrollVal}
+                                onChange={e => setEditingPayrollVal(e.target.value)}
+                                onBlur={() => { updatePayrollRow(r.workerId, field, editingPayrollVal); setEditingPayrollCell(null); }}
+                                onKeyDown={e => { if (e.key === 'Enter') { updatePayrollRow(r.workerId, field, editingPayrollVal); setEditingPayrollCell(null); } if (e.key === 'Escape') setEditingPayrollCell(null); }}
+                                onClick={e => e.stopPropagation()}
+                                style={{ width: '100%', minWidth: 60, textAlign: 'right', fontSize: 11, padding: '2px 5px', border: 'none', outline: 'none', background: 'transparent' }}
+                            />
+                        </td>
+                    );
+                    return (
+                        <td style={{ ...tdBase, textAlign: 'right', cursor: 'pointer', ...style }}
+                            title="Click để chỉnh sửa"
+                            onClick={() => { setEditingPayrollCell({ workerId: r.workerId, field }); setEditingPayrollVal(val > 0 ? (isDecimal ? String(val) : String(Math.round(val))) : ''); }}>
+                            <span style={{ color: val > 0 ? undefined : '#cbd5e1' }}>
+                                {val > 0 ? (isDecimal ? fmtC(val) : fmtN(val)) : '—'}
+                            </span>
+                        </td>
+                    );
+                };
+
+                const exportPDF = () => {
+                    const pRows = rows.map((r, idx) => `<tr>
+                        <td style="text-align:center">${idx+1}</td>
+                        <td>${r.name}</td>
+                        <td style="text-align:right">${fmtN(r.mucLuong)}</td>
+                        <td style="text-align:right">${fmtN(r.ngayLuong)}</td>
+                        <td style="text-align:center">${fmtC(r.ngayCong)}</td>
+                        <td style="text-align:right">${fmtN(r.tongLuong)}</td>
+                        <td style="text-align:right">${fmtN(r.thuong)}</td>
+                        <td style="text-align:right">${fmtN(r.phuCap)}</td>
+                        <td style="text-align:right">${fmtN(r.luongOT)}</td>
+                        <td style="text-align:right;font-weight:600">${fmtN(r.tongTien)}</td>
+                        <td style="text-align:right">${fmtN(r.tamUng)}</td>
+                        <td style="text-align:right">${fmtN(r.baoHiem)}</td>
+                        <td style="text-align:right">${fmtN(r.cd)}</td>
+                        <td style="text-align:right">${fmtN(r.congGiamTru)}</td>
+                        <td style="text-align:right;font-weight:600">${fmtN(r.thanhTien)}</td>
+                        <td style="text-align:right">${fmtN(r.daThanhToan)}</td>
+                        <td style="text-align:right;font-weight:700">${fmtN(r.conLai)}</td>
+                        <td></td>
+                    </tr>`).join('');
+                    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Bảng Thanh Toán Lương Tháng ${monthStr}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}@page{size:A4 landscape;margin:8mm}
+body{font-family:'Times New Roman',Times,serif;font-size:9pt;color:#000}
+.hdr{margin-bottom:4px}.hdr .co{font-size:10pt;font-weight:bold;text-transform:uppercase}
+.title-wrap{text-align:center;margin-bottom:5px}.title{font-size:11pt;font-weight:bold;text-transform:uppercase}
+.date{text-align:right;font-size:8.5pt;font-style:italic;margin-bottom:5px}
+table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:2px 3px;font-size:7.8pt;vertical-align:middle}
+th{font-weight:bold;text-align:center;line-height:1.2}.gtr{background:#f5f5f5}
+tfoot td{font-weight:bold;background:#f5f5f5}
+.sigs{margin-top:12px;display:flex;justify-content:space-between}
+.sig{text-align:center;width:23%}.sig-t{font-weight:bold;font-size:8.5pt}.sig-n{margin-top:34px;font-size:8pt;font-style:italic}
+</style></head><body>
+<div class="hdr"><div class="co">Công ty TNHH kiến trúc đô thị SCT</div><div>Xưởng Nội Thất</div></div>
+<div class="title-wrap"><div class="title">Bảng thanh toán lương tháng ${monthStr} xưởng nội thất</div></div>
+<div class="date">Lào Cai, ngày &nbsp;&nbsp;&nbsp; tháng ${String(mw).padStart(2,'0')} năm ${yw}</div>
+<table><thead>
+<tr>
+  <th rowspan="3" style="width:22px">STT</th><th rowspan="3" style="min-width:70px">Họ và tên</th>
+  <th rowspan="3" style="width:54px">Mức lương</th><th rowspan="3" style="width:50px">Ngày lương thỏa thuận (1)</th>
+  <th rowspan="3" style="width:30px">Ngày công thực tế (2)</th><th rowspan="3" style="width:56px">Tổng lương theo ngày công CT (3=2×1)</th>
+  <th rowspan="3" style="width:44px">Thưởng phụ trách CT (4)</th><th rowspan="3" style="width:44px">Phụ cấp XX/ĐT/BS (5)</th>
+  <th rowspan="3" style="width:50px">Lương làm thêm giờ (6)</th><th rowspan="3" style="width:56px">Tổng tiền (7=3+4+5+6)</th>
+  <th colspan="4" class="gtr">Giảm trừ</th>
+  <th rowspan="3" style="width:56px">Thành tiền (12=7-11)</th><th rowspan="3" style="width:44px">Đã thanh toán (13)</th>
+  <th rowspan="3" style="width:56px">Còn lại (14=12-13)</th><th rowspan="3" style="width:38px">Ký nhận</th>
+</tr>
+<tr>
+  <th style="width:50px" class="gtr">Tạm ứng (8)</th><th style="width:44px" class="gtr">Bảo hiểm (9)</th>
+  <th style="width:28px" class="gtr">CD (10)</th><th style="width:50px" class="gtr">Cộng (11=8+9+10)</th>
+</tr>
+<tr><th></th><th></th><th>1</th><th>2</th><th>3=2×1</th><th>4</th><th>5</th><th>6</th><th>7=3+4+5+6</th><th>8</th><th>9</th><th>10</th><th>11=8+9+10</th><th>12=7-11</th><th>13</th><th>14=12-13</th><th></th></tr>
+</thead>
+<tbody>${pRows}</tbody>
+<tfoot><tr>
+  <td colspan="2" style="text-align:center">TỔNG CỘNG</td><td></td><td></td>
+  <td style="text-align:center">${fmtC(totals.ngayCong)}</td><td style="text-align:right">${fmtN(totals.tongLuong)}</td>
+  <td style="text-align:right">${fmtN(totals.thuong)}</td><td style="text-align:right">${fmtN(totals.phuCap)}</td>
+  <td style="text-align:right">${fmtN(totals.luongOT)}</td><td style="text-align:right">${fmtN(totals.tongTien)}</td>
+  <td style="text-align:right">${fmtN(totals.tamUng)}</td><td style="text-align:right">${fmtN(totals.baoHiem)}</td>
+  <td style="text-align:right">${fmtN(totals.cd)}</td><td style="text-align:right">${fmtN(totals.congGiamTru)}</td>
+  <td style="text-align:right">${fmtN(totals.thanhTien)}</td><td style="text-align:right">${fmtN(totals.daThanhToan)}</td>
+  <td style="text-align:right">${fmtN(totals.conLai)}</td><td></td>
+</tr></tfoot></table>
+<div class="sigs">
+  <div class="sig"><div class="sig-t">Phụ trách bộ phận</div><div class="sig-n">Ký tên</div></div>
+  <div class="sig"><div class="sig-t">Người lập</div><div class="sig-n">Ký tên</div></div>
+  <div class="sig"><div class="sig-t">Phòng hành chính - Kế toán</div><div class="sig-n">Ký tên</div></div>
+  <div class="sig"><div class="sig-t">Giám đốc điều hành</div><div class="sig-n">Ký tên</div></div>
+</div></body></html>`;
+                    const pw = window.open('', '_blank', 'width=1100,height=800');
+                    pw.document.write(html); pw.document.close(); pw.focus();
+                    setTimeout(() => pw.print(), 600);
+                };
+
+                return (
+                    <div className="card" style={{ overflow: 'hidden' }}>
+                        <div className="card-header" style={{ flexWrap: 'wrap', gap: 8 }}>
+                            <h3 style={{ margin: 0 }}>📋 Bảng thanh toán lương — Tháng {monthStr}</h3>
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Click ô để chỉnh sửa</span>
+                                <button className="btn btn-ghost btn-sm" onClick={() => { setPayrollMonth(''); }}
+                                    title="Tải lại dữ liệu từ bảng chấm công">↺ Làm mới</button>
+                                <button className="btn btn-sm"
+                                    style={{ background: '#dc2626', color: '#fff', border: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}
+                                    onClick={exportPDF}>🖨️ Xuất PDF</button>
+                            </div>
+                        </div>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ borderCollapse: 'collapse', fontSize: 11, minWidth: 1100 }}>
+                                <thead>
+                                    <tr>
+                                        <th rowSpan={2} style={{ ...thBase, width: 30 }}>STT</th>
+                                        <th rowSpan={2} style={{ ...thBase, minWidth: 110, textAlign: 'left', paddingLeft: 8, position: 'sticky', left: 0, zIndex: 2 }}>Họ và tên</th>
+                                        <th rowSpan={2} style={{ ...thBase, width: 70 }}>Mức lương</th>
+                                        <th rowSpan={2} style={{ ...thBase, width: 65 }}>Ngày lương TT (1)</th>
+                                        <th rowSpan={2} style={{ ...thBase, width: 42 }}>Ngày công TT (2)</th>
+                                        <th rowSpan={2} style={{ ...thBase, width: 70, background: '#ede9fe', color: '#6d28d9' }}>Tổng lương (3=2×1)</th>
+                                        <th rowSpan={2} style={{ ...thBase, width: 58 }}>Thưởng PT (4)</th>
+                                        <th rowSpan={2} style={{ ...thBase, width: 58 }}>Phụ cấp XX/ĐT/BS (5)</th>
+                                        <th rowSpan={2} style={{ ...thBase, width: 65, background: '#fff7ed', color: '#c2410c' }}>Lương OT (6)</th>
+                                        <th rowSpan={2} style={{ ...thBase, width: 72, background: '#dcfce7', color: '#15803d' }}>Tổng tiền (7=3+4+5+6)</th>
+                                        <th colSpan={4} style={{ ...thBase, background: '#fee2e2', color: '#b91c1c' }}>Giảm trừ</th>
+                                        <th rowSpan={2} style={{ ...thBase, width: 72, background: '#dcfce7', color: '#166534', fontWeight: 800 }}>Thành tiền (12=7-11)</th>
+                                        <th rowSpan={2} style={{ ...thBase, width: 65 }}>Đã thanh toán (13)</th>
+                                        <th rowSpan={2} style={{ ...thBase, width: 72, background: '#dbeafe', color: '#1d4ed8', fontWeight: 800 }}>Còn lại (14=12-13)</th>
+                                        <th rowSpan={2} style={{ ...thBase, width: 48 }}>Ký nhận</th>
+                                    </tr>
+                                    <tr>
+                                        <th style={{ ...thBase, width: 65, background: '#fef9c3', color: '#b45309' }}>Tạm ứng (8)</th>
+                                        <th style={{ ...thBase, width: 58, background: '#fee2e2', color: '#b91c1c' }}>Bảo hiểm (9)</th>
+                                        <th style={{ ...thBase, width: 40, background: '#fee2e2', color: '#b91c1c' }}>CD (10)</th>
+                                        <th style={{ ...thBase, width: 68, background: '#fee2e2', color: '#b91c1c' }}>Cộng (11=8+9+10)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {rows.map((r, idx) => (
+                                        <tr key={r.workerId} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                                            <td style={{ ...tdBase, textAlign: 'center', color: '#6b7280' }}>{idx + 1}</td>
+                                            <td style={{ ...tdBase, position: 'sticky', left: 0, background: idx % 2 === 0 ? '#fff' : '#f8fafc', zIndex: 1, fontWeight: 600 }}>
+                                                <div style={{ fontSize: 11 }}>{r.name}</div>
+                                                {r.skill && <div style={{ fontSize: 9, color: 'var(--text-muted)', fontWeight: 400 }}>{r.skill}</div>}
+                                            </td>
+                                            {eCell(r, 'mucLuong')}
+                                            {eCell(r, 'ngayLuong')}
+                                            {eCell(r, 'ngayCong', {}, true)}
+                                            <td style={{ ...cTd, color: '#6d28d9', background: '#faf5ff' }}>{fmtN(r.tongLuong)}</td>
+                                            {eCell(r, 'thuong')}
+                                            {eCell(r, 'phuCap')}
+                                            {eCell(r, 'luongOT', { color: '#c2410c' })}
+                                            <td style={{ ...greenTd }}>{fmtN(r.tongTien)}</td>
+                                            {eCell(r, 'tamUng', { color: '#b45309', background: '#fffbeb' })}
+                                            {eCell(r, 'baoHiem', { color: '#b91c1c' })}
+                                            {eCell(r, 'cd', { color: '#b91c1c' })}
+                                            <td style={{ ...redTd }}>{fmtN(r.congGiamTru)}</td>
+                                            <td style={{ ...greenTd, fontWeight: 800 }}>{fmtN(r.thanhTien)}</td>
+                                            {eCell(r, 'daThanhToan')}
+                                            <td style={{ ...blueTd, fontWeight: 800 }}>{fmtN(r.conLai)}</td>
+                                            <td style={{ ...tdBase }}></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot>
+                                    <tr style={{ background: '#f1f5f9', fontWeight: 700, borderTop: '2px solid #94a3b8' }}>
+                                        <td colSpan={2} style={{ ...tdBase, textAlign: 'center', fontWeight: 800, position: 'sticky', left: 0, background: '#f1f5f9', zIndex: 1 }}>TỔNG CỘNG</td>
+                                        <td style={{ ...tdBase, textAlign: 'right', fontSize: 11 }}></td>
+                                        <td style={{ ...tdBase, textAlign: 'right', fontSize: 11 }}></td>
+                                        <td style={{ ...tdBase, textAlign: 'center', fontWeight: 700, color: '#1d4ed8' }}>{fmtC(totals.ngayCong)}</td>
+                                        <td style={{ ...cTd, color: '#6d28d9', background: '#faf5ff' }}>{fmtN(totals.tongLuong)}</td>
+                                        <td style={{ ...tdBase, textAlign: 'right' }}>{fmtN(totals.thuong)}</td>
+                                        <td style={{ ...tdBase, textAlign: 'right' }}>{fmtN(totals.phuCap)}</td>
+                                        <td style={{ ...tdBase, textAlign: 'right', color: '#c2410c' }}>{fmtN(totals.luongOT)}</td>
+                                        <td style={{ ...greenTd, fontWeight: 800 }}>{fmtN(totals.tongTien)}</td>
+                                        <td style={{ ...tdBase, textAlign: 'right', color: '#b45309' }}>{fmtN(totals.tamUng)}</td>
+                                        <td style={{ ...tdBase, textAlign: 'right', color: '#b91c1c' }}>{fmtN(totals.baoHiem)}</td>
+                                        <td style={{ ...tdBase, textAlign: 'right', color: '#b91c1c' }}>{fmtN(totals.cd)}</td>
+                                        <td style={{ ...redTd, fontWeight: 800 }}>{fmtN(totals.congGiamTru)}</td>
+                                        <td style={{ ...greenTd, fontWeight: 800 }}>{fmtN(totals.thanhTien)}</td>
+                                        <td style={{ ...tdBase, textAlign: 'right' }}>{fmtN(totals.daThanhToan)}</td>
+                                        <td style={{ ...blueTd, fontWeight: 800 }}>{fmtN(totals.conLai)}</td>
+                                        <td style={{ ...tdBase }}></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        {payrollRows.length === 0 && (
+                            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
+                                Mở bảng chấm công tháng để tải dữ liệu, hoặc nhấn ↺ Làm mới
+                            </div>
+                        )}
                     </div>
                 );
             })()}
