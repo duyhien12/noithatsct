@@ -1169,80 +1169,178 @@ tfoot td{font-weight:bold;background:#f5f5f5}
                 };
 
                 const exportPDF = () => {
-                    const pRows = rows.map((r, idx) => `<tr>
-                        <td style="text-align:center">${idx+1}</td>
-                        <td>${r.name}</td>
-                        <td style="text-align:right">${fmtN(r.mucLuong)}</td>
-                        <td style="text-align:right">${fmtN(r.ngayLuong)}</td>
-                        <td style="text-align:center">${fmtC(r.ngayCong)}</td>
-                        <td style="text-align:right">${fmtN(r.tongLuong)}</td>
-                        <td style="text-align:right">${fmtN(r.thuong)}</td>
-                        <td style="text-align:right">${fmtN(r.phuCap)}</td>
-                        <td style="text-align:right">${fmtN(r.luongOT)}</td>
-                        <td style="text-align:right;font-weight:600">${fmtN(r.tongTien)}</td>
-                        <td style="text-align:right">${fmtN(r.tamUng)}</td>
-                        <td style="text-align:right">${fmtN(r.baoHiem)}</td>
-                        <td style="text-align:right">${fmtN(r.cd)}</td>
-                        <td style="text-align:right">${fmtN(r.congGiamTru)}</td>
-                        <td style="text-align:right;font-weight:600">${fmtN(r.thanhTien)}</td>
-                        <td style="text-align:right">${fmtN(r.daThanhToan)}</td>
-                        <td style="text-align:right;font-weight:700">${fmtN(r.conLai)}</td>
+                    const v  = (val, cls='') => val > 0 ? `<span class="${cls}">${fmtN(val)}</span>` : `<span class="z">—</span>`;
+                    const vc = (val, cls='') => val > 0 ? `<span class="${cls}">${fmtC(val)}</span>` : `<span class="z">—</span>`;
+                    const pRows = rows.map((r, idx) => `<tr class="${idx%2===0?'r0':'r1'}">
+                        <td class="tc sm">${idx+1}</td>
+                        <td class="tl pl"><b>${r.name}</b>${r.skill?`<br><i class="sk">${r.skill}</i>`:''}</td>
+                        <td class="tr">${v(r.mucLuong)}</td>
+                        <td class="tr">${v(r.ngayLuong)}</td>
+                        <td class="tc">${vc(r.ngayCong,'cb')}</td>
+                        <td class="tr c3">${v(r.tongLuong,'cp')}</td>
+                        <td class="tr">${v(r.thuong)}</td>
+                        <td class="tr">${v(r.phuCap)}</td>
+                        <td class="tr">${v(r.luongOT,'co')}</td>
+                        <td class="tr c7 fw">${v(r.tongTien,'cg')}</td>
+                        <td class="tr">${v(r.tamUng,'ca')}</td>
+                        <td class="tr">${v(r.baoHiem,'cr')}</td>
+                        <td class="tr">${v(r.cd,'cr')}</td>
+                        <td class="tr c11 fw">${v(r.congGiamTru,'cr')}</td>
+                        <td class="tr c12 fw">${v(r.thanhTien,'cg')}</td>
+                        <td class="tr">${v(r.daThanhToan)}</td>
+                        <td class="tr c14 fw">${v(r.conLai,'cb')}</td>
                         <td></td>
                     </tr>`).join('');
-                    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>Bảng Thanh Toán Lương Tháng ${monthStr}</title>
+
+                    const html = `<!DOCTYPE html>
+<html lang="vi"><head><meta charset="UTF-8">
+<title>Bảng Thanh Toán Lương ${monthStr} — Xưởng Nội Thất SCT</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}@page{size:A4 landscape;margin:8mm}
-body{font-family:'Times New Roman',Times,serif;font-size:9pt;color:#000}
-.hdr{margin-bottom:4px}.hdr .co{font-size:10pt;font-weight:bold;text-transform:uppercase}
-.title-wrap{text-align:center;margin-bottom:5px}.title{font-size:11pt;font-weight:bold;text-transform:uppercase}
-.date{text-align:right;font-size:8.5pt;font-style:italic;margin-bottom:5px}
-table{width:100%;border-collapse:collapse}th,td{border:1px solid #000;padding:2px 3px;font-size:7.8pt;vertical-align:middle}
-th{font-weight:bold;text-align:center;line-height:1.2}.gtr{background:#f5f5f5}
-tfoot td{font-weight:bold;background:#f5f5f5}
-.sigs{margin-top:12px;display:flex;justify-content:space-between}
-.sig{text-align:center;width:23%}.sig-t{font-weight:bold;font-size:8.5pt}.sig-n{margin-top:34px;font-size:8pt;font-style:italic}
-</style></head><body>
-<div class="hdr"><div class="co">Công ty TNHH kiến trúc đô thị SCT</div><div>Xưởng Nội Thất</div></div>
-<div class="title-wrap"><div class="title">Bảng thanh toán lương tháng ${monthStr} xưởng nội thất</div></div>
-<div class="date">Lào Cai, ngày &nbsp;&nbsp;&nbsp; tháng ${String(mw).padStart(2,'0')} năm ${yw}</div>
-<table><thead>
-<tr>
-  <th rowspan="3" style="width:22px">STT</th><th rowspan="3" style="min-width:70px">Họ và tên</th>
-  <th rowspan="3" style="width:54px">Mức lương</th><th rowspan="3" style="width:50px">Ngày lương thỏa thuận (1)</th>
-  <th rowspan="3" style="width:30px">Ngày công thực tế (2)</th><th rowspan="3" style="width:56px">Tổng lương theo ngày công CT (3=2×1)</th>
-  <th rowspan="3" style="width:44px">Thưởng phụ trách CT (4)</th><th rowspan="3" style="width:44px">Phụ cấp XX/ĐT/BS (5)</th>
-  <th rowspan="3" style="width:50px">Lương làm thêm giờ (6)</th><th rowspan="3" style="width:56px">Tổng tiền (7=3+4+5+6)</th>
-  <th colspan="4" class="gtr">Giảm trừ</th>
-  <th rowspan="3" style="width:56px">Thành tiền (12=7-11)</th><th rowspan="3" style="width:44px">Đã thanh toán (13)</th>
-  <th rowspan="3" style="width:56px">Còn lại (14=12-13)</th><th rowspan="3" style="width:38px">Ký nhận</th>
-</tr>
-<tr>
-  <th style="width:50px" class="gtr">Tạm ứng (8)</th><th style="width:44px" class="gtr">Bảo hiểm (9)</th>
-  <th style="width:28px" class="gtr">CD (10)</th><th style="width:50px" class="gtr">Cộng (11=8+9+10)</th>
-</tr>
-<tr><th></th><th></th><th>1</th><th>2</th><th>3=2×1</th><th>4</th><th>5</th><th>6</th><th>7=3+4+5+6</th><th>8</th><th>9</th><th>10</th><th>11=8+9+10</th><th>12=7-11</th><th>13</th><th>14=12-13</th><th></th></tr>
-</thead>
-<tbody>${pRows}</tbody>
-<tfoot><tr>
-  <td colspan="2" style="text-align:center">TỔNG CỘNG</td><td></td><td></td>
-  <td style="text-align:center">${fmtC(totals.ngayCong)}</td><td style="text-align:right">${fmtN(totals.tongLuong)}</td>
-  <td style="text-align:right">${fmtN(totals.thuong)}</td><td style="text-align:right">${fmtN(totals.phuCap)}</td>
-  <td style="text-align:right">${fmtN(totals.luongOT)}</td><td style="text-align:right">${fmtN(totals.tongTien)}</td>
-  <td style="text-align:right">${fmtN(totals.tamUng)}</td><td style="text-align:right">${fmtN(totals.baoHiem)}</td>
-  <td style="text-align:right">${fmtN(totals.cd)}</td><td style="text-align:right">${fmtN(totals.congGiamTru)}</td>
-  <td style="text-align:right">${fmtN(totals.thanhTien)}</td><td style="text-align:right">${fmtN(totals.daThanhToan)}</td>
-  <td style="text-align:right">${fmtN(totals.conLai)}</td><td></td>
-</tr></tfoot></table>
+@page{size:A4 landscape;margin:7mm 6mm}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Times New Roman',Times,serif;font-size:8pt;color:#111;background:#fff}
+
+/* PAGE HEADER */
+.ph{display:flex;justify-content:space-between;align-items:center;padding-bottom:4px;margin-bottom:5px;border-bottom:2.5px solid #ea580c}
+.co{font-size:9.5pt;font-weight:900;text-transform:uppercase;color:#ea580c;line-height:1.3}
+.dept{font-size:7.5pt;color:#666}
+.badge{background:#ea580c;color:#fff;font-size:11pt;font-weight:900;letter-spacing:2px;padding:3px 9px;border-radius:3px}
+
+/* TITLE */
+.ttl{text-align:center;font-size:11pt;font-weight:900;text-transform:uppercase;margin:3px 0 2px}
+.dt{text-align:right;font-size:7.5pt;font-style:italic;color:#555;margin-bottom:4px}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th,td{border:.6px solid #aaa;padding:1.5px 2px;font-size:7pt;vertical-align:middle;line-height:1.2;overflow:hidden}
+th{text-align:center;font-weight:700;line-height:1.15}
+
+/* HEADER ROW 1 — orange */
+thead tr:first-child th{background:#ea580c;color:#fff;border-color:#c04a08}
+thead tr:first-child th.hg{background:#b91c1c;border-color:#991b1b}
+
+/* HEADER ROW 2 — sub (Giảm trừ) */
+thead tr:last-child th{background:#fff1e6;color:#9a3412;border-color:#fbc9a9}
+
+/* COLUMN TINTS (data rows) */
+.c3{background:#f9f5ff}.c7{background:#f0fdf4}.c11{background:#fff5f5}.c12{background:#f0fdf4}.c14{background:#eff6ff}
+.r1 .c3{background:#f3eeff}.r1 .c7{background:#e7faee}.r1 .c11{background:#ffeaea}.r1 .c12{background:#e7faee}.r1 .c14{background:#e5f0ff}
+
+/* TFOOT */
+tfoot td{font-weight:700;background:#fff7ed;border-top:1.5px solid #ea580c;font-size:7pt}
+tfoot .lbl{text-align:center;color:#ea580c;font-size:7.5pt}
+
+/* UTILS */
+.tc{text-align:center}.tr{text-align:right}.tl{text-align:left}.pl{padding-left:4px}
+.fw{font-weight:700}.sm{color:#666;font-size:6.5pt}.sk{font-size:6pt;color:#888;font-weight:400}
+.z{color:#ccc}.cp{color:#7c3aed}.cg{color:#15803d}.cb{color:#1d4ed8}.cr{color:#b91c1c}.ca{color:#b45309}.co{color:#c2410c}
+.r0{background:#fff}.r1{background:#fafafa}
+
+/* SIGS */
+.sigs{margin-top:10px;display:flex;justify-content:space-between}
+.sig{text-align:center;width:23%}
+.sig-t{font-weight:700;font-size:8pt}
+.sig-s{font-size:7pt;color:#666;font-style:italic;margin-top:1px}
+.sig-l{margin-top:28px;border-top:1px dotted #aaa;padding-top:3px;font-size:7.5pt;font-style:italic;color:#666}
+
+/* FOOTER */
+.pf{margin-top:6px;padding-top:3px;border-top:.7px solid #ddd;display:flex;justify-content:space-between;font-size:6.5pt;color:#aaa;font-style:italic}
+</style>
+</head><body>
+
+<div class="ph">
+  <div><div class="co">Công ty TNHH Kiến Trúc Đô Thị SCT</div><div class="dept">Xưởng Nội Thất</div></div>
+  <div class="badge">SCT</div>
+</div>
+
+<div class="ttl">Bảng thanh toán lương tháng ${monthStr} — Xưởng Nội Thất</div>
+<div class="dt">Lào Cai, ngày &nbsp;&nbsp;&nbsp; tháng ${String(mw).padStart(2,'0')} năm ${yw}</div>
+
+<table>
+  <colgroup>
+    <col style="width:6mm">  <!-- STT -->
+    <col style="width:28mm"> <!-- Họ tên -->
+    <col style="width:16mm"> <!-- Mức lương -->
+    <col style="width:14mm"> <!-- Ngày lương TT (1) -->
+    <col style="width:10mm"> <!-- Ngày công TT (2) -->
+    <col style="width:17mm"> <!-- Tổng lương (3) -->
+    <col style="width:13mm"> <!-- Thưởng PT (4) -->
+    <col style="width:13mm"> <!-- Phụ cấp (5) -->
+    <col style="width:14mm"> <!-- Lương OT (6) -->
+    <col style="width:17mm"> <!-- Tổng tiền (7) -->
+    <col style="width:14mm"> <!-- Tạm ứng (8) -->
+    <col style="width:13mm"> <!-- Bảo hiểm (9) -->
+    <col style="width:8mm">  <!-- CD (10) -->
+    <col style="width:15mm"> <!-- Cộng (11) -->
+    <col style="width:17mm"> <!-- Thành tiền (12) -->
+    <col style="width:13mm"> <!-- Đã TT (13) -->
+    <col style="width:17mm"> <!-- Còn lại (14) -->
+    <col style="width:11mm"> <!-- Ký nhận -->
+  </colgroup>
+  <thead>
+    <tr>
+      <th rowspan="2">STT</th>
+      <th rowspan="2" style="text-align:left;padding-left:4px">Họ và tên</th>
+      <th rowspan="2">Mức lương</th>
+      <th rowspan="2">Ngày lương thỏa thuận (1)</th>
+      <th rowspan="2">Ngày công thực tế (2)</th>
+      <th rowspan="2">Tổng lương theo ngày công (3=2×1)</th>
+      <th rowspan="2">Thưởng phụ trách CT (4)</th>
+      <th rowspan="2">Phụ cấp XX/ĐT/BS (5)</th>
+      <th rowspan="2">Lương làm thêm giờ (6)</th>
+      <th rowspan="2">Tổng tiền (7=3+4+5+6)</th>
+      <th colspan="4" class="hg">Giảm trừ</th>
+      <th rowspan="2">Thành tiền (12=7-11)</th>
+      <th rowspan="2">Đã thanh toán (13)</th>
+      <th rowspan="2">Còn lại (14=12-13)</th>
+      <th rowspan="2">Ký nhận</th>
+    </tr>
+    <tr>
+      <th>Tạm ứng (8)</th>
+      <th>Bảo hiểm (9)</th>
+      <th>CD (10)</th>
+      <th>Cộng (11=8+9+10)</th>
+    </tr>
+  </thead>
+  <tbody>${pRows}</tbody>
+  <tfoot>
+    <tr>
+      <td colspan="2" class="lbl">TỔNG CỘNG</td>
+      <td></td><td></td>
+      <td class="tc fw cb">${fmtC(totals.ngayCong)}</td>
+      <td class="tr fw cp c3">${fmtN(totals.tongLuong)}</td>
+      <td class="tr">${fmtN(totals.thuong)}</td>
+      <td class="tr">${fmtN(totals.phuCap)}</td>
+      <td class="tr co">${fmtN(totals.luongOT)}</td>
+      <td class="tr fw cg c7">${fmtN(totals.tongTien)}</td>
+      <td class="tr ca">${fmtN(totals.tamUng)}</td>
+      <td class="tr cr">${fmtN(totals.baoHiem)}</td>
+      <td class="tr cr">${fmtN(totals.cd)}</td>
+      <td class="tr fw cr c11">${fmtN(totals.congGiamTru)}</td>
+      <td class="tr fw cg c12">${fmtN(totals.thanhTien)}</td>
+      <td class="tr">${fmtN(totals.daThanhToan)}</td>
+      <td class="tr fw cb c14">${fmtN(totals.conLai)}</td>
+      <td></td>
+    </tr>
+  </tfoot>
+</table>
+
 <div class="sigs">
-  <div class="sig"><div class="sig-t">Phụ trách bộ phận</div><div class="sig-n">Ký tên</div></div>
-  <div class="sig"><div class="sig-t">Người lập</div><div class="sig-n">Ký tên</div></div>
-  <div class="sig"><div class="sig-t">Phòng hành chính - Kế toán</div><div class="sig-n">Ký tên</div></div>
-  <div class="sig"><div class="sig-t">Giám đốc điều hành</div><div class="sig-n">Ký tên</div></div>
-</div></body></html>`;
-                    const pw = window.open('', '_blank', 'width=1100,height=800');
+  <div class="sig"><div class="sig-t">Phụ trách bộ phận</div><div class="sig-s">Head of Department</div><div class="sig-l">Ký tên</div></div>
+  <div class="sig"><div class="sig-t">Người lập</div><div class="sig-s">Prepared by</div><div class="sig-l">Ký tên</div></div>
+  <div class="sig"><div class="sig-t">Phòng hành chính - Kế toán</div><div class="sig-s">Accounting &amp; HR</div><div class="sig-l">Ký tên</div></div>
+  <div class="sig"><div class="sig-t">Giám đốc điều hành</div><div class="sig-s">Chief Executive Officer</div><div class="sig-l">Ký tên</div></div>
+</div>
+
+<div class="pf">
+  <span>Tài liệu nội bộ — Công ty TNHH Kiến Trúc Đô Thị SCT</span>
+  <span>Xưởng Nội Thất · Bảng lương tháng ${monthStr}</span>
+</div>
+
+</body></html>`;
+                    const pw = window.open('', '_blank', 'width=1200,height=850');
                     pw.document.write(html); pw.document.close(); pw.focus();
-                    setTimeout(() => pw.print(), 600);
+                    setTimeout(() => pw.print(), 700);
                 };
 
                 return (
