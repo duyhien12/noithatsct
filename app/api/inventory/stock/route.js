@@ -21,19 +21,20 @@ export const GET = withAuth(async (request, _ctx, session) => {
         orderBy: { name: 'asc' },
     });
 
+    // Inventory page chỉ hiện sản phẩm thuộc Kho nội thất (tồn kho thực tế)
+    // An Cường, Thái, xay_dung items không nằm trong kho vật lý
+    const isKhoNoiThat = (p) =>
+        p.supplier === 'Kho nội thất' ||
+        p.categoryRef?.supplier === 'Kho nội thất';
+
     let products;
-    if (role === 'xuong') {
-        products = allProducts.filter(p =>
-            p.supplier === 'Kho nội thất' ||
-            p.categoryRef?.supplier === 'Kho nội thất'
-        );
-    } else if (role === 'xay_dung') {
+    if (role === 'xay_dung') {
         products = allProducts.filter(p =>
             !EXCLUDED_SUPPLIERS.includes(p.supplier) &&
             !EXCLUDED_SUPPLIERS.includes(p.categoryRef?.supplier || '')
         );
     } else {
-        products = allProducts;
+        products = allProducts.filter(isKhoNoiThat);
     }
 
     const lowStock = products.filter(p => p.stock <= p.minStock && p.minStock > 0);
