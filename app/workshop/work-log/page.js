@@ -482,9 +482,12 @@ export default function WorkLogPage() {
     const [entries, setEntries] = useState([]);
     const [workers, setWorkers] = useState([]);
     const [projects, setProjects] = useState([]);
+    const [activeTasks, setActiveTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
     const [editCell, setEditCell] = useState(null);
+    const [showSync, setShowSync] = useState(false);
+    const [syncing, setSyncing] = useState(false);
 
     useEffect(() => {
         if (role && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd'].includes(role)) {
@@ -492,6 +495,7 @@ export default function WorkLogPage() {
         }
         fetch('/api/workshop/workers').then(r => r.json()).then(d => setWorkers(Array.isArray(d) ? d : []));
         fetch('/api/projects?limit=200&type=Thi công nội thất').then(r => r.json()).then(d => setProjects(Array.isArray(d?.data) ? d.data : []));
+        fetch('/api/workshop/tasks?status=Đang làm').then(r => r.json()).then(d => setActiveTasks(Array.isArray(d) ? d : []));
     }, [role]);
 
     useEffect(() => {
@@ -528,6 +532,57 @@ export default function WorkLogPage() {
     const closeEdit = () => setEditCell(null);
     const handleSaved = () => { closeEdit(); fetchAll(); };
 
+    // Open CellEditor at screen center (for quick actions without a DOM click event)
+    const openQuick = (cat, shift) => {
+        const left = typeof window !== 'undefined' ? Math.max(8, Math.round((window.innerWidth - 320) / 2)) : 100;
+        setEditCell({ day: today, category: cat, shift, pos: { top: 110, left } });
+    };
+
+    // Toggle an entry's shift between Sáng ↔ Chiều
+    const changeShift = async (entry) => {
+        const newShift = (entry.shift || 'Sáng') === 'Sáng' ? 'Chiều' : 'Sáng';
+        await fetch(`/api/workshop/work-log/${entry.id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                shift: newShift,
+                projectId: entry.projectId || null,
+                projectName: entry.projectName || '',
+                mainWorkers: parseWorkersWithHours(entry.mainWorkers),
+                subWorkers: parseWorkersWithHours(entry.subWorkers),
+                note: entry.note || '',
+            }),
+        });
+        fetchAll();
+    };
+
+    // Sync active tasks into today's work log (skip duplicates)
+    const syncFromTasks = async () => {
+        setSyncing(true);
+        const todayStr = toISO(today);
+        const CAT_MAP = { 'Lắp ghép tại xưởng': 'Lắp ghép tại xưởng', 'Lắp đặt tại công trình': 'Lắp đặt tại công trình', 'Gia công nguội': 'Gia công nguội', 'Bảo dưỡng': 'Bảo dưỡng' };
+        const tasksForToday = activeTasks.filter(t => t.workers?.length > 0);
+        let created = 0;
+        for (const task of tasksForToday) {
+            const catKey = CAT_MAP[task.category] || 'Lắp ghép tại xưởng';
+            const alreadyExists = entries.some(e =>
+                isSameDay(new Date(e.date), today) &&
+                e.category === catKey &&
+                (e.projectId === task.projectId || e.projectName === (task.project?.name || ''))
+            );
+            if (!alreadyExists) {
+                const workers = task.workers.map(tw => ({ name: tw.worker?.name || '', hours: null })).filter(w => w.name);
+                await fetch('/api/workshop/work-log', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ date: todayStr, category: catKey, shift: 'Sáng', projectId: task.projectId || null, projectName: task.project?.name || '', mainWorkers: workers, subWorkers: [], note: '' }),
+                });
+                created++;
+            }
+        }
+        setSyncing(false);
+        setShowSync(false);
+        if (created > 0) fetchAll();
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div className="card" style={{ overflow: 'hidden' }}>
@@ -550,10 +605,62 @@ export default function WorkLogPage() {
                         <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={() => setWeekStart(getWeekStart(new Date()))}>Tuần này</button>
                     </div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
-                        <span>💡 Nhấn vào ô để thêm/sửa</span>
+                        <span className="desktop-table-view">💡 Nhấn vào ô để thêm/sửa</span>
                         <button className="btn btn-ghost btn-sm" onClick={fetchAll}>🔄 Làm mới</button>
                     </div>
                 </div>
+
+                {/* Quick Actions bar */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', background: '#f8fafc', borderBottom: '1px solid var(--border-light)', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', flexShrink: 0 }}>Thao tác nhanh:</span>
+                    <button
+                        onClick={() => openQuick(CATEGORIES.find(c => c.key === 'Nhân công nghỉ'), 'Sáng')}
+                        style={{ padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1.5px solid #fca5a5', background: '#fee2e2', color: '#dc2626' }}>
+                        🏠 Chấm vắng hôm nay
+                    </button>
+                    <button
+                        onClick={() => openQuick(CATEGORIES[0], 'Chiều')}
+                        style={{ padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1.5px solid #fdba74', background: '#fff7ed', color: '#c2410c' }}>
+                        🌙 Thêm ca chiều
+                    </button>
+                    <button
+                        onClick={() => setShowSync(v => !v)}
+                        style={{ padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: `1.5px solid ${showSync ? '#2563eb' : '#93c5fd'}`, background: showSync ? '#dbeafe' : '#eff6ff', color: '#1d4ed8' }}>
+                        🔗 Đồng bộ từ Tasks {activeTasks.length > 0 && `(${activeTasks.length})`}
+                    </button>
+                </div>
+
+                {/* Task sync panel */}
+                {showSync && (
+                    <div style={{ padding: '12px 16px', background: '#eff6ff', borderBottom: '1px solid #bfdbfe' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                            <span style={{ fontWeight: 700, fontSize: 13, color: '#1d4ed8' }}>
+                                Tasks đang làm ({activeTasks.length}) → thêm vào nhật ký hôm nay
+                            </span>
+                            <button className="btn btn-primary btn-sm" onClick={syncFromTasks} disabled={syncing || activeTasks.length === 0}>
+                                {syncing ? 'Đang đồng bộ...' : '⚡ Đồng bộ tất cả'}
+                            </button>
+                        </div>
+                        {activeTasks.length === 0 ? (
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Không có task đang làm</div>
+                        ) : (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                {activeTasks.map(t => (
+                                    <div key={t.id} style={{ padding: '6px 10px', borderRadius: 8, background: '#dbeafe', border: '1px solid #93c5fd', fontSize: 12, maxWidth: 260 }}>
+                                        <div style={{ fontWeight: 600, color: '#1e3a5f', marginBottom: 2 }}>{t.title}</div>
+                                        {t.project && <div style={{ fontSize: 11, color: '#2563eb' }}>{t.project.code} · {t.project.name}</div>}
+                                        {t.workers?.length > 0 && (
+                                            <div style={{ fontSize: 11, color: '#374151', marginTop: 2 }}>
+                                                👷 {t.workers.map(tw => tw.worker?.name || '').filter(Boolean).join(', ')}
+                                            </div>
+                                        )}
+                                        <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>{t.category}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {loading ? (
                     <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
@@ -662,28 +769,46 @@ export default function WorkLogPage() {
                             const isToday = isSameDay(day, today);
                             const isWeekend = dow === 0 || dow === 6;
                             const dayEntries = entries.filter(e => isSameDay(new Date(e.date), day));
+                            const hasMorning = dayEntries.some(e => (e.shift || 'Sáng') === 'Sáng');
+                            const hasAfternoon = dayEntries.some(e => e.shift === 'Chiều');
                             return (
                                 <div key={toISO(day)}>
-                                    <div style={{ padding: '8px 14px', background: isToday ? '#fef3c7' : isWeekend ? '#fee2e2' : '#f1f5f9', borderBottom: '2px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <div style={{ padding: '8px 14px', background: isToday ? '#fef3c7' : isWeekend ? '#fee2e2' : '#f1f5f9', borderBottom: '2px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                         <span style={{ fontWeight: 700, fontSize: 13, color: isWeekend ? '#dc2626' : '#475569' }}>{DAYS_VI[dow]} {fmtShortDate(day)}</span>
-                                        {isToday && <span style={{ fontSize: 11, background: '#f59e0b', color: '#fff', padding: '1px 6px', borderRadius: 8 }}>Hôm nay</span>}
-                                        <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto', fontSize: 11 }} onClick={(e) => openEdit(day, CATEGORIES[0], e)}>+ Thêm</button>
+                                        {isToday && <span style={{ fontSize: 10, background: '#f59e0b', color: '#fff', padding: '1px 6px', borderRadius: 8 }}>Hôm nay</span>}
+                                        {hasMorning && <span style={{ fontSize: 10, background: '#fefce8', color: '#854d0e', padding: '1px 5px', borderRadius: 6, border: '1px solid #fde68a' }}>Sáng</span>}
+                                        {hasAfternoon && <span style={{ fontSize: 10, background: '#fff7ed', color: '#9a3412', padding: '1px 5px', borderRadius: 6, border: '1px solid #fed7aa' }}>Chiều</span>}
+                                        <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                                            <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 8px' }} onClick={(e) => openEdit(day, CATEGORIES[0], 'Sáng', e)}>☀ Sáng</button>
+                                            <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 8px' }} onClick={(e) => openEdit(day, CATEGORIES[0], 'Chiều', e)}>🌙 Chiều</button>
+                                        </div>
                                     </div>
                                     {dayEntries.length === 0
                                         ? <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Không có việc</div>
                                         : dayEntries.map(entry => {
                                             const cat = CATEGORIES.find(c => c.key === entry.category);
-                                            const main = parseWorkers(entry.mainWorkers);
-                                            const sub = parseWorkers(entry.subWorkers);
+                                            const entryShift = entry.shift || 'Sáng';
                                             return (
-                                                <div key={entry.id} className="mobile-card-item" style={{ borderLeft: `3px solid ${cat?.hd || '#e5e7eb'}`, cursor: 'pointer' }}
-                                                    onClick={(e) => openEdit(day, cat || CATEGORIES[0], e)}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                        <div style={{ fontWeight: 700, fontSize: 13 }}>{entry.projectName || entry.project?.name || entry.note || '—'}</div>
-                                                        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 8, background: cat?.color || '#f3f4f6', color: '#374151', flexShrink: 0, marginLeft: 6 }}>{cat?.label}</span>
+                                                <div key={entry.id} className="mobile-card-item" style={{ borderLeft: `3px solid ${cat?.hd || '#e5e7eb'}` }}>
+                                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 4 }}>
+                                                        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 6, background: entryShift === 'Sáng' ? '#fefce8' : '#fff7ed', color: entryShift === 'Sáng' ? '#854d0e' : '#9a3412', border: `1px solid ${entryShift === 'Sáng' ? '#fde68a' : '#fed7aa'}`, flexShrink: 0, fontWeight: 700 }}>{entryShift}</span>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontWeight: 700, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.projectName || entry.project?.name || entry.note || '—'}</div>
+                                                            {entry.project && <div style={{ fontSize: 10, color: '#2563eb' }}>{entry.project.code}</div>}
+                                                        </div>
+                                                        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 8, background: cat?.color || '#f3f4f6', color: '#374151', flexShrink: 0 }}>{cat?.label}</span>
                                                     </div>
-                                                    {entry.project && <div style={{ fontSize: 11, color: '#2563eb' }}>{entry.project.code}</div>}
-                                                    {(() => { const w = parseWorkers(entry.mainWorkers); return w.length > 0 ? <div style={{ fontSize: 11, color: '#374151' }}>👷 {w.join(', ')}</div> : null; })()}
+                                                    {(() => { const w = parseWorkers(entry.mainWorkers); return w.length > 0 ? <div style={{ fontSize: 11, color: '#374151', marginBottom: 4 }}>👷 {w.join(', ')}</div> : null; })()}
+                                                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                                        <button onClick={(e) => { e.stopPropagation(); openEdit(day, cat || CATEGORIES[0], entryShift, e); }}
+                                                            style={{ padding: '3px 10px', borderRadius: 12, border: '1px solid var(--border)', background: '#f8fafc', fontSize: 11, cursor: 'pointer', fontWeight: 500 }}>
+                                                            ✏ Sửa
+                                                        </button>
+                                                        <button onClick={(e) => { e.stopPropagation(); changeShift(entry); }}
+                                                            style={{ padding: '3px 10px', borderRadius: 12, border: '1px solid #fde68a', background: '#fefce8', color: '#854d0e', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+                                                            🔄 Đổi ca → {entryShift === 'Sáng' ? 'Chiều' : 'Sáng'}
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             );
                                         })
