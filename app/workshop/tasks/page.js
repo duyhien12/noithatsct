@@ -44,8 +44,8 @@ export default function WorkshopTasksPage() {
     const [projects, setProjects]     = useState([]);
     const [products, setProducts]     = useState([]);
     const [loading, setLoading]       = useState(true);
-    const [filterStatus, setFilterStatus]   = useState('');
-    const [filterStage, setFilterStage]     = useState('');
+    const [filterStatus, setFilterStatus]   = useState(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('status') || '' : '');
+    const [filterStage, setFilterStage]     = useState(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('stage') || '' : '');
     const [filterProject, setFilterProject] = useState('');
     const [search, setSearch]         = useState('');
     const [showModal, setShowModal]   = useState(false);

@@ -32,6 +32,22 @@ const STAGE_STYLE = {
 
 const DAY_LABELS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
+const MACHINE_STATUS_STYLE = {
+    'Đang dùng':  { color: '#16a34a', bg: '#dcfce7', label: 'Hoạt động' },
+    'Bảo trì':    { color: '#d97706', bg: '#fef3c7', label: 'Bảo trì' },
+    'Hỏng':       { color: '#dc2626', bg: '#fee2e2', label: 'Hỏng' },
+    'Đã thanh lý':{ color: '#9ca3af', bg: '#f3f4f6', label: 'Thanh lý' },
+};
+
+function LiveClock() {
+    const [time, setTime] = useState(() => new Date());
+    useEffect(() => {
+        const id = setInterval(() => setTime(new Date()), 1000);
+        return () => clearInterval(id);
+    }, []);
+    return <span>{time.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>;
+}
+
 function BarChart({ data }) {
     const containerRef = useRef(null);
     const [width, setWidth] = useState(500);
@@ -116,6 +132,7 @@ export default function WorkshopDashboard() {
     const [data, setData]     = useState(null);
     const [loading, setLoading] = useState(true);
     const [lastRefresh, setLastRefresh] = useState(null);
+    const [secsLeft, setSecsLeft] = useState(30);
     const intervalRef = useRef(null);
 
     const fetchData = useCallback(async (silent = false) => {
@@ -139,6 +156,15 @@ export default function WorkshopDashboard() {
         return () => clearInterval(intervalRef.current);
     }, [role, fetchData]);
 
+    useEffect(() => {
+        if (!lastRefresh) return;
+        const id = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - lastRefresh.getTime()) / 1000);
+            setSecsLeft(Math.max(0, 30 - elapsed));
+        }, 1000);
+        return () => clearInterval(id);
+    }, [lastRefresh]);
+
     if (loading) return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400, color: 'var(--text-muted)' }}>
             <div style={{ textAlign: 'center' }}>
@@ -154,7 +180,8 @@ export default function WorkshopDashboard() {
     );
 
     const { kpi, chartData, recentTasks, projectsInProgress, lowStockProducts, plSummary,
-            stagePipeline = [], idleWorkers = [], inventoryForecast = [], equipmentAlerts = [] } = data;
+            stagePipeline = [], idleWorkers = [], inventoryForecast = [], equipmentAlerts = [],
+            deliveryRisks = [], machineStatus = [], overdueWorkOrders = [] } = data;
 
     const enrichedChart = (chartData || []).map(d => ({ ...d, _date: new Date(d.dateISO || d._date) }));
 
@@ -174,6 +201,21 @@ export default function WorkshopDashboard() {
             msg: `${inventoryForecast.filter(m => !m.sufficient).length} vật tư thiếu hụt cho tasks`,
             href: '/workshop/materials',
         },
+        deliveryRisks.length > 0 && {
+            type: 'danger', icon: '🕐',
+            msg: `${deliveryRisks.length} dự án rủi ro giao hàng`,
+            href: '/projects',
+        },
+        plSummary?.profitCritical && {
+            type: 'danger', icon: '📉',
+            msg: `Lợi nhuận âm tháng này (${plSummary.netMarginPct?.toFixed(1)}%)`,
+            href: '/workshop/pl',
+        },
+        plSummary?.profitAlert && !plSummary?.profitCritical && {
+            type: 'warning', icon: '📊',
+            msg: `Biên lợi nhuận thấp: ${plSummary.netMarginPct?.toFixed(1)}%`,
+            href: '/workshop/pl',
+        },
     ].filter(Boolean);
 
     // Bottleneck = stage with highest active task count
@@ -182,6 +224,42 @@ export default function WorkshopDashboard() {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* Command Center Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 18px', borderRadius: 12, background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)', color: '#fff' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 22 }}>🏭</span>
+                    <div>
+                        <div style={{ fontWeight: 800, fontSize: 15, letterSpacing: 0.5 }}>Factory Command Center</div>
+                        <div style={{ fontSize: 11, color: '#a5b4fc', marginTop: 1 }}>Xưởng sản xuất nội thất SCT</div>
+                    </div>
+                </div>
+                <div style={{ display: 'flex', align: 'center', gap: 20 }}>
+                    {machineStatus.length > 0 && (
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            {machineStatus.map(m => {
+                                const st = MACHINE_STATUS_STYLE[m.status] || { color: '#9ca3af', bg: '#f3f4f6', label: m.status };
+                                return (
+                                    <div key={m.status} onClick={() => router.push('/workshop/assets')}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 20, background: `${st.color}25`, border: `1px solid ${st.color}60`, cursor: 'pointer' }}>
+                                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: st.color, display: 'inline-block' }} />
+                                        <span style={{ fontSize: 12, fontWeight: 700, color: st.color }}>{m.count}</span>
+                                        <span style={{ fontSize: 10, color: '#c7d2fe' }}>{st.label}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                    <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 20, fontWeight: 800, fontVariantNumeric: 'tabular-nums', fontFamily: 'monospace', color: '#e0e7ff' }}>
+                            <LiveClock />
+                        </div>
+                        <div style={{ fontSize: 10, color: '#a5b4fc', marginTop: 1 }}>
+                            Làm mới sau {secsLeft}s
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             {/* Risk Banner */}
             {riskAlerts.length > 0 && (
@@ -200,11 +278,6 @@ export default function WorkshopDashboard() {
                             </span>
                         ))}
                     </div>
-                    {lastRefresh && (
-                        <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>
-                            Cập nhật: {lastRefresh.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                        </span>
-                    )}
                 </div>
             )}
 
@@ -236,6 +309,84 @@ export default function WorkshopDashboard() {
                     borderColor="#10b981" sub="Tính theo giờ × đơn giá" />
             </div>
 
+            {/* Overdue Work Orders Panel */}
+            {overdueWorkOrders.length > 0 && (
+                <div className="card" style={{ padding: '14px 20px', borderLeft: '4px solid #dc2626' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#dc2626' }}>🚨 Phiếu công việc quá hạn ({overdueWorkOrders.length})</h3>
+                        <a href="/work-orders?status=Quá hạn" style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>Xem tất cả →</a>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {overdueWorkOrders.map(wo => {
+                            const daysOverdue = Math.floor((Date.now() - new Date(wo.dueDate).getTime()) / 86400000);
+                            const prioColor = wo.priority === 'Cao' ? '#dc2626' : wo.priority === 'Trung bình' ? '#d97706' : '#6b7280';
+                            return (
+                                <div key={wo.id} onClick={() => router.push(`/work-orders?wo=${wo.id}`)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fca5a5', cursor: 'pointer' }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+                                    onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            [{wo.code}] {wo.title}
+                                        </div>
+                                        <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>
+                                            {wo.project?.name || 'Không có dự án'} · Người giao: {wo.assignee || '—'}
+                                        </div>
+                                    </div>
+                                    <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                                        <div style={{ fontSize: 11, fontWeight: 800, color: '#dc2626' }}>Trễ {daysOverdue}n</div>
+                                        <div style={{ fontSize: 10, padding: '1px 6px', borderRadius: 10, background: `${prioColor}18`, color: prioColor, fontWeight: 700 }}>{wo.priority}</div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Delivery Risk Panel */}
+            {deliveryRisks.length > 0 && (
+                <div className="card" style={{ padding: '14px 20px', borderLeft: '4px solid #dc2626' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#dc2626' }}>🕐 Rủi ro giao hàng — Dự án cần chú ý</h3>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Dự án có endDate trong 14 ngày tới và tiến độ &lt; 80%</div>
+                        </div>
+                        <a href="/projects" style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>Xem dự án →</a>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
+                        {deliveryRisks.map(p => {
+                            const now2 = new Date();
+                            const daysLeft = Math.ceil((new Date(p.endDate) - now2) / 86400000);
+                            const isOverdue = daysLeft < 0;
+                            const isUrgent  = daysLeft <= 3 && !isOverdue;
+                            const badgeColor = isOverdue ? '#dc2626' : isUrgent ? '#d97706' : '#2563eb';
+                            const bgColor    = isOverdue ? '#fef2f2' : isUrgent ? '#fffbeb' : '#eff6ff';
+                            const borderColor = isOverdue ? '#fca5a5' : isUrgent ? '#fde68a' : '#bfdbfe';
+                            return (
+                                <a key={p.id} href={`/projects/${p.id}`} style={{ textDecoration: 'none' }}>
+                                    <div style={{ padding: '10px 14px', borderRadius: 10, background: bgColor, border: `1px solid ${borderColor}` }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                                            <span style={{ fontWeight: 600, fontSize: 12, color: '#1f2937', flex: 1, paddingRight: 8 }}>{p.name}</span>
+                                            <span style={{ fontSize: 11, fontWeight: 800, color: badgeColor, flexShrink: 0, background: `${badgeColor}18`, padding: '1px 7px', borderRadius: 10 }}>
+                                                {isOverdue ? `Trễ ${Math.abs(daysLeft)}n` : `${daysLeft} ngày`}
+                                            </span>
+                                        </div>
+                                        <div style={{ height: 5, borderRadius: 2, background: '#e5e7eb', overflow: 'hidden', marginBottom: 5 }}>
+                                            <div style={{ height: '100%', width: `${p.progress}%`, background: p.progress >= 60 ? '#f59e0b' : '#ef4444', borderRadius: 2 }} />
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)' }}>
+                                            <span>{p.code} · {fmtDate(p.endDate)}</span>
+                                            <span style={{ fontWeight: 700, color: badgeColor }}>{p.progress}%</span>
+                                        </div>
+                                    </div>
+                                </a>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/* Stage Pipeline */}
             <div className="card" style={{ padding: '14px 20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -257,7 +408,7 @@ export default function WorkshopDashboard() {
                         const isCritical   = s.stage === criticalStage.stage && s.blocked > 0;
                         return (
                             <div key={s.stage} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <div onClick={() => router.push(`/workshop/tasks`)} style={{
+                                <div onClick={() => router.push(`/workshop/tasks?stage=${s.stage}`)} style={{
                                     minWidth: 90, padding: '10px 14px', borderRadius: 10, textAlign: 'center', cursor: 'pointer',
                                     background: isCritical ? '#fee2e2' : isBottleneck ? '#fef3c7' : st.bg,
                                     border: `2px solid ${isCritical ? '#dc2626' : isBottleneck ? '#d97706' : st.color}`,
@@ -276,6 +427,11 @@ export default function WorkshopDashboard() {
                                         {s.count === 0 ? 'Trống' : 'việc'}
                                         {s.blocked > 0 && <span style={{ color: '#dc2626', fontWeight: 700, marginLeft: 4 }}>🔴{s.blocked}</span>}
                                     </div>
+                                    {s.oldestTaskDays > 3 && s.count > 0 && (
+                                        <div style={{ fontSize: 9, color: s.oldestTaskDays > 7 ? '#dc2626' : '#d97706', fontWeight: 700, marginTop: 2 }}>
+                                            ⏱{s.oldestTaskDays}n
+                                        </div>
+                                    )}
                                 </div>
                                 {i < stagePipeline.length - 1 && (
                                     <svg width={18} height={18} viewBox="0 0 18 18" style={{ flexShrink: 0, opacity: 0.4 }}>
@@ -295,14 +451,20 @@ export default function WorkshopDashboard() {
 
             {/* P&L tháng hiện tại */}
             {plSummary && (
-                <div className="card" style={{ padding: '14px 20px' }}>
+                <div className="card" style={{ padding: '14px 20px', borderLeft: plSummary.profitCritical ? '4px solid #dc2626' : plSummary.profitAlert ? '4px solid #d97706' : undefined }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                         <div>
                             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>
-                                📊 P&L Xưởng — {(() => { const [y, m] = plSummary.period.split('-'); return `Tháng ${m}/${y}`; })()}
+                                {plSummary.profitCritical ? '📉' : plSummary.profitAlert ? '⚠️' : '📊'} P&L Xưởng — {(() => { const [y, m] = plSummary.period.split('-'); return `Tháng ${m}/${y}`; })()}
                             </h3>
                             {plSummary.entryCount === 0 && (
                                 <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 2 }}>Chưa có bút toán — vào P&L để nhập</div>
+                            )}
+                            {plSummary.profitCritical && (
+                                <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 700, marginTop: 2 }}>Lợi nhuận âm! Cần kiểm tra chi phí ngay</div>
+                            )}
+                            {plSummary.profitAlert && !plSummary.profitCritical && (
+                                <div style={{ fontSize: 11, color: '#d97706', fontWeight: 600, marginTop: 2 }}>Biên lợi nhuận thấp ({plSummary.netMarginPct?.toFixed(1)}%) — mục tiêu &gt;15%</div>
                             )}
                         </div>
                         <a href="/workshop/pl" style={{ fontSize: 12, color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Chi tiết P&L →</a>
@@ -494,7 +656,7 @@ export default function WorkshopDashboard() {
                             </div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                                 {idleWorkers.map(w => (
-                                    <span key={w.id} onClick={() => router.push('/workshop/workers')}
+                                    <span key={w.id} onClick={() => router.push(`/workshop/workers?idle=1`)}
                                         style={{ padding: '3px 10px', borderRadius: 20, background: '#fef3c7', color: '#92400e', fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid #fde68a' }}>
                                         {w.name}
                                     </span>
@@ -543,35 +705,55 @@ export default function WorkshopDashboard() {
                         )}
                     </div>
 
-                    {/* Equipment Alerts */}
-                    {equipmentAlerts.length > 0 && (
-                        <div className="card" style={{ padding: '14px 16px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                                <div style={{ fontWeight: 700, fontSize: 13, color: '#d97706' }}>🔧 Thiết bị cần kiểm tra</div>
-                                <a href="/workshop/assets" style={{ fontSize: 11, color: 'var(--primary)' }}>Xem →</a>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                {equipmentAlerts.map(eq => {
-                                    const wearColor = eq.wearRate >= 90 ? '#dc2626' : eq.wearRate >= 80 ? '#d97706' : '#16a34a';
-                                    const statusColor = eq.status !== 'Đang dùng' ? '#dc2626' : '#16a34a';
+                    {/* Machine Status + Equipment Alerts */}
+                    <div className="card" style={{ padding: '14px 16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: '#374151' }}>🔧 Trạng thái máy móc</div>
+                            <a href="/workshop/assets" style={{ fontSize: 11, color: 'var(--primary)' }}>Quản lý →</a>
+                        </div>
+                        {machineStatus.length > 0 && (
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                                {machineStatus.map(m => {
+                                    const st = MACHINE_STATUS_STYLE[m.status] || { color: '#6b7280', bg: '#f9fafb', label: m.status };
                                     return (
-                                        <div key={eq.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-light)' }}>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{eq.name}</div>
-                                                <div style={{ fontSize: 10, color: statusColor, fontWeight: 600 }}>{eq.status}</div>
-                                            </div>
-                                            {eq.wearRate > 0 && (
-                                                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                                                    <div style={{ fontSize: 13, fontWeight: 800, color: wearColor }}>{eq.wearRate}%</div>
-                                                    <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>hao mòn</div>
-                                                </div>
-                                            )}
+                                        <div key={m.status} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, background: st.bg, border: `1px solid ${st.color}40` }}>
+                                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: st.color, display: 'inline-block' }} />
+                                            <span style={{ fontSize: 12, fontWeight: 800, color: st.color }}>{m.count}</span>
+                                            <span style={{ fontSize: 10, color: st.color, fontWeight: 600 }}>{st.label}</span>
                                         </div>
                                     );
                                 })}
                             </div>
-                        </div>
-                    )}
+                        )}
+                        {equipmentAlerts.length > 0 && (
+                            <>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', marginBottom: 6 }}>Cần kiểm tra:</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    {equipmentAlerts.map(eq => {
+                                        const wearColor = eq.wearRate >= 90 ? '#dc2626' : eq.wearRate >= 80 ? '#d97706' : '#16a34a';
+                                        const statusColor = eq.status !== 'Đang dùng' ? '#dc2626' : '#16a34a';
+                                        return (
+                                            <div key={eq.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-light)' }}>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{eq.name}</div>
+                                                    <div style={{ fontSize: 10, color: statusColor, fontWeight: 600 }}>{eq.status}</div>
+                                                </div>
+                                                {eq.wearRate > 0 && (
+                                                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                                        <div style={{ fontSize: 13, fontWeight: 800, color: wearColor }}>{eq.wearRate}%</div>
+                                                        <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>hao mòn</div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </>
+                        )}
+                        {machineStatus.length === 0 && equipmentAlerts.length === 0 && (
+                            <div style={{ textAlign: 'center', color: '#16a34a', fontSize: 12, padding: '8px 0' }}>✅ Tất cả thiết bị hoạt động bình thường</div>
+                        )}
+                    </div>
                 </div>
             </div>
 

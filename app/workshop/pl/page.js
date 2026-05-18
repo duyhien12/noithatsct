@@ -197,6 +197,11 @@ export default function WorkshopPLPage() {
     const [selected, setSelected]       = useState(new Set());
     const [importing, setImporting]     = useState(false);
 
+    // Auto-import from attendance + inventory
+    const [showAutoImport, setShowAutoImport] = useState(false);
+    const [autoImportData, setAutoImportData] = useState(null);
+    const [autoImporting, setAutoImporting]   = useState(false);
+
     const { revenue, directCosts, grossProfit, indirectCosts, netProfit } = useMemo(() => computeSummary(entries), [entries]);
 
     async function load() {
@@ -280,6 +285,33 @@ export default function WorkshopPLPage() {
         }
     }
 
+    async function openAutoImport() {
+        setAutoImporting(true);
+        try {
+            const res = await fetch(`/api/workshop/pl/import?period=${period}`);
+            const data = await res.json();
+            setAutoImportData(data);
+            setShowAutoImport(true);
+        } finally {
+            setAutoImporting(false);
+        }
+    }
+
+    async function confirmAutoImport() {
+        setAutoImporting(true);
+        try {
+            const res = await fetch('/api/workshop/pl/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ period }),
+            });
+            const result = await res.json();
+            if (result.success) { setShowAutoImport(false); load(); }
+        } finally {
+            setAutoImporting(false);
+        }
+    }
+
     function toggleSelect(i) {
         setSelected(prev => { const s = new Set(prev); s.has(i) ? s.delete(i) : s.add(i); return s; });
     }
@@ -322,6 +354,11 @@ export default function WorkshopPLPage() {
                         </button>
                     </div>
                     {canEdit && (<>
+                        <button onClick={openAutoImport} disabled={autoImporting}
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#0f766e', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer', opacity: autoImporting ? 0.7 : 1 }}
+                            title="Tự động tính lương từ chấm công, vật tư từ xuất kho, khấu hao từ tài sản">
+                            ⚡ {autoImporting ? 'Đang tính...' : 'Auto-import'}
+                        </button>
                         <button onClick={handlePull} disabled={pulling} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer', opacity: pulling ? 0.7 : 1 }}>
                             <Download size={15} /> {pulling ? 'Đang kéo...' : 'Kéo dữ liệu'}
                         </button>
@@ -510,6 +547,60 @@ export default function WorkshopPLPage() {
                                 </button>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Auto-import modal */}
+            {showAutoImport && autoImportData && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                    <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 540, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>⚡ Auto-import — {displayPeriod(period)}</h3>
+                                <p style={{ margin: '2px 0 0', fontSize: 12, color: '#6b7280' }}>Tính tự động từ chấm công, xuất kho, khấu hao TSCĐ</p>
+                            </div>
+                            <button onClick={() => setShowAutoImport(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}><X size={18} /></button>
+                        </div>
+                        <div style={{ padding: 16, overflowY: 'auto', flex: 1 }}>
+                            {autoImportData.existing?.length > 0 && (
+                                <div style={{ padding: '10px 14px', background: '#fef3c7', borderRadius: 8, marginBottom: 12, fontSize: 12, color: '#92400e' }}>
+                                    <strong>⚠️ Đã có {autoImportData.existing.length} bút toán auto-import kỳ này.</strong> Nhấn Xác nhận sẽ xoá và tạo lại từ dữ liệu mới nhất.
+                                </div>
+                            )}
+                            {autoImportData.preview?.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: 32, color: '#9ca3af' }}>Không có dữ liệu để import trong kỳ {displayPeriod(period)}</div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    {autoImportData.preview?.map((e, i) => {
+                                        const TYPE_COLOR = { DIRECT_LABOR_SALARY: '#2563eb', DIRECT_MATERIAL: '#ea580c', INDIRECT_DEPRECIATION: '#7c3aed' };
+                                        const color = TYPE_COLOR[e.entryType] || '#374151';
+                                        return (
+                                            <div key={i} style={{ padding: '12px 14px', borderRadius: 8, border: `1px solid ${color}30`, background: `${color}08` }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontWeight: 600, fontSize: 13, color }}>{e.description}</span>
+                                                    <span style={{ fontWeight: 800, fontSize: 14, color }}>{fmt(e.amount)}</span>
+                                                </div>
+                                                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{ENTRY_TYPES[e.entryType]?.label}</div>
+                                            </div>
+                                        );
+                                    })}
+                                    <div style={{ marginTop: 4, padding: '10px 14px', borderRadius: 8, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: '#15803d' }}>
+                                            <span>Tổng chi phí auto-import</span>
+                                            <span>{fmt(autoImportData.preview?.reduce((s, e) => s + e.amount, 0) || 0)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ padding: '12px 20px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                            <button onClick={() => setShowAutoImport(false)} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', fontSize: 13 }}>Hủy</button>
+                            <button onClick={confirmAutoImport} disabled={autoImporting || !autoImportData.preview?.length}
+                                style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: autoImportData.preview?.length ? '#0f766e' : '#d1d5db', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 13, opacity: autoImporting ? 0.7 : 1 }}>
+                                {autoImporting ? 'Đang import...' : '⚡ Xác nhận import'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

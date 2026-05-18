@@ -589,12 +589,18 @@ function PhieuTab() {
     const [detailWO, setDetailWO] = useState(null);
     const [zaloMsg, setZaloMsg] = useState({});
 
-    const fetchOrders = useCallback(() => {
+    const intervalRef = useRef(null);
+    const fetchOrders = useCallback((silent = false) => {
+        if (!silent) setLoading(true);
         fetch('/api/work-orders?limit=1000').then(r => r.json()).then(d => {
-            setOrders(d.data || []); setLoading(false);
+            setOrders(d.data || []); if (!silent) setLoading(false);
         });
     }, []);
-    useEffect(fetchOrders, [fetchOrders]);
+    useEffect(() => {
+        fetchOrders();
+        intervalRef.current = setInterval(() => fetchOrders(true), 30000);
+        return () => clearInterval(intervalRef.current);
+    }, [fetchOrders]);
 
     // Auto-open from QR scan (?wo=<id>)
     useEffect(() => {

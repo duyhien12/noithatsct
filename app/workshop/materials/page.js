@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRole } from '@/contexts/RoleContext';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
@@ -19,9 +19,10 @@ export default function MaterialsPage() {
     const [adjustTarget, setAdjustTarget] = useState(null);
     const [adjustForm, setAdjustForm] = useState({ type: 'in', quantity: 1, note: '' });
     const [saving, setSaving] = useState(false);
+    const intervalRef = useRef(null);
 
-    const fetchMaterials = async () => {
-        setLoading(true);
+    const fetchMaterials = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         const params = new URLSearchParams();
         if (search) params.set('search', search);
         if (filterLow) params.set('lowStock', 'true');
@@ -29,10 +30,14 @@ export default function MaterialsPage() {
         const res = await fetch(`/api/workshop/materials?${params}`);
         const data = await res.json();
         setMaterials(Array.isArray(data) ? data : []);
-        setLoading(false);
-    };
+        if (!silent) setLoading(false);
+    }, [search, filterLow, isXuong]);
 
-    useEffect(() => { fetchMaterials(); }, [filterLow, isXuong]);
+    useEffect(() => {
+        fetchMaterials();
+        intervalRef.current = setInterval(() => fetchMaterials(true), 30000);
+        return () => clearInterval(intervalRef.current);
+    }, [fetchMaterials]);
 
     const handleSearch = (e) => {
         if (e.key === 'Enter') fetchMaterials();

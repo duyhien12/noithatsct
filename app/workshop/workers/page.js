@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRole } from '@/contexts/RoleContext';
 
@@ -75,6 +75,8 @@ export default function WorkersPage() {
     const [monthlyOvertimes, setMonthlyOvertimes] = useState([]);
     const [loadingOT, setLoadingOT] = useState(false);
     const [monthlyAtt, setMonthlyAtt] = useState([]);
+    const [filterIdle, setFilterIdle] = useState(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('idle') === '1' : false);
+    const intervalRef = useRef(null);
 
     useEffect(() => {
         fetch('/api/users').then(r => r.json()).then(d => setUserList(Array.isArray(d) ? d : []));
@@ -215,6 +217,8 @@ export default function WorkersPage() {
             return;
         }
         fetchAll();
+        intervalRef.current = setInterval(fetchWorkers, 30000);
+        return () => clearInterval(intervalRef.current);
     }, [role]);
 
     // Khi đổi ngày → refetch chấm công + tăng ca
@@ -409,10 +413,11 @@ export default function WorkersPage() {
     };
 
     const isToday = selectedDate === todayStr();
-    const filtered = workers.filter(w =>
-        !search || w.name.toLowerCase().includes(search.toLowerCase()) ||
-        w.skill?.toLowerCase().includes(search.toLowerCase())
-    );
+    const idleSet = new Set(workers.filter(w => w.status === 'Hoạt động' && (!workerTasks[w.id] || workerTasks[w.id].length === 0)).map(w => w.id));
+    const filtered = workers.filter(w => {
+        if (filterIdle && !idleSet.has(w.id)) return false;
+        return !search || w.name.toLowerCase().includes(search.toLowerCase()) || w.skill?.toLowerCase().includes(search.toLowerCase());
+    });
 
     const activeCount = workers.filter(w => w.status === 'Hoạt động').length;
     const attendedCount = attendance.length;
@@ -459,7 +464,7 @@ export default function WorkersPage() {
         );
     };
 
-    const idleWorkers = workers.filter(w => w.status === 'Hoạt động' && (!workerTasks[w.id] || workerTasks[w.id].length === 0));
+    const idleWorkers = workers.filter(w => idleSet.has(w.id));
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -516,6 +521,11 @@ export default function WorkersPage() {
                 <div className="filter-bar" style={{ borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 8 }}>
                     <input className="form-input" placeholder="🔍 Tìm theo tên, tay nghề..."
                         value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
+                    <button onClick={() => setFilterIdle(f => !f)}
+                        className={filterIdle ? 'btn btn-warning btn-sm' : 'btn btn-ghost btn-sm'}
+                        style={{ flexShrink: 0 }}>
+                        ⚡ {filterIdle ? `Rảnh (${idleWorkers.length})` : `Xem thợ rảnh`}
+                    </button>
                     {/* Bộ chọn ngày chấm công */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                         <button className="btn btn-ghost btn-sm" onClick={() => {

@@ -18,6 +18,8 @@ export const GET = withAuth(async () => {
         return d;
     });
 
+    const deadline14d = new Date(now.getTime() + 14 * 86400000);
+
     const [
         activeWorkersCount,
         inProgressTasks,
@@ -33,6 +35,10 @@ export const GET = withAuth(async () => {
         stageBlockedCounts,
         taskMaterialDemand,
         equipmentAlerts,
+        deliveryRisksRaw,
+        machineStatusRaw,
+        stageAvgAge,
+        overdueWorkOrdersRaw,
     ] = await Promise.all([
         prisma.workshopWorker.count({ where: { status: 'Hoạt động' } }),
 
@@ -119,6 +125,39 @@ export const GET = withAuth(async () => {
             orderBy: { wearRate: 'desc' },
             select: { id: true, code: true, name: true, status: true, wearRate: true, assetType: true },
         }),
+
+        // Delivery risks: active projects nearing deadline with low progress
+        prisma.project.findMany({
+            where: {
+                status: { in: ['Thi công', 'Đang thực hiện', 'Khởi công'] },
+                endDate: { not: null, lte: deadline14d },
+                progress: { lt: 80 },
+            },
+            orderBy: { endDate: 'asc' },
+            select: { id: true, code: true, name: true, progress: true, endDate: true },
+        }),
+
+        // Machine status breakdown by status
+        prisma.fixedAsset.groupBy({
+            by: ['status'],
+            _count: { id: true },
+        }),
+
+        // Avg task age per stage (tasks not completed, created before today)
+        prisma.workshopTask.groupBy({
+            by: ['stage'],
+            where: { status: { not: 'Hoàn thành' }, createdAt: { lt: todayStart } },
+            _min: { createdAt: true },
+            _count: { id: true },
+        }),
+
+        // Overdue work orders (dueDate < now, not completed)
+        prisma.workOrder.findMany({
+            where: { dueDate: { lt: now }, status: { notIn: ['Hoàn thành'] } },
+            orderBy: { dueDate: 'asc' },
+            take: 5,
+            select: { id: true, code: true, title: true, dueDate: true, assignee: true, priority: true, status: true, project: { select: { name: true, code: true } } },
+        }),
     ]);
 
     // Idle workers: active workers with no 'Đang làm' task assigned
@@ -163,14 +202,27 @@ export const GET = withAuth(async () => {
     const plIndirectCosts = sumType(INDIRECT_TYPES);
     const plNetProfit     = plGrossProfit - plIndirectCosts;
 
-    // Stage pipeline with bottleneck info
+    // Stage pipeline with bottleneck info + avg age
     const stageCountMap   = Object.fromEntries(stageTaskCounts.map(s => [s.stage, s._count.id]));
     const stageBlockedMap = Object.fromEntries(stageBlockedCounts.map(s => [s.stage, s._count.id]));
+    const stageAgeMap     = Object.fromEntries(stageAvgAge.map(s => {
+        const ageMs = s._min.createdAt ? now.getTime() - new Date(s._min.createdAt).getTime() : 0;
+        return [s.stage, Math.floor(ageMs / 86400000)]; // oldest task age in days
+    }));
     const stagePipeline   = STAGES.map(s => ({
         stage: s,
         count: stageCountMap[s] || 0,
         blocked: stageBlockedMap[s] || 0,
+        oldestTaskDays: stageAgeMap[s] || 0,
     }));
+
+    // Machine status summary
+    const machineStatus = machineStatusRaw.map(s => ({ status: s.status, count: s._count.id }));
+
+    // Profit alert
+    const netMarginPct = plRevenue > 0 ? Math.round((plNetProfit / plRevenue) * 1000) / 10 : 0;
+    const profitAlert  = plRevenue > 0 && netMarginPct < 15;
+    const profitCritical = plNetProfit < 0;
 
     // Inventory forecast: tasks need materials vs. current stock
     const productMap = Object.fromEntries(allProducts.map(p => [p.id, p]));
@@ -204,6 +256,9 @@ export const GET = withAuth(async () => {
             grossProfit: plGrossProfit,
             indirectCosts: plIndirectCosts,
             netProfit: plNetProfit,
+            netMarginPct,
+            profitAlert,
+            profitCritical,
             entryCount: plEntries.length,
         },
         chartData,
@@ -215,5 +270,8 @@ export const GET = withAuth(async () => {
         idleWorkers,
         inventoryForecast,
         equipmentAlerts,
+        deliveryRisks: deliveryRisksRaw,
+        machineStatus,
+        overdueWorkOrders: overdueWorkOrdersRaw,
     });
 });
