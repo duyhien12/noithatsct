@@ -74,6 +74,7 @@ export default function WorkersPage() {
     const [overtimeMonth, setOvertimeMonth] = useState(() => new Date().toISOString().slice(0, 7));
     const [monthlyOvertimes, setMonthlyOvertimes] = useState([]);
     const [loadingOT, setLoadingOT] = useState(false);
+    const [monthlyAtt, setMonthlyAtt] = useState([]);
 
     useEffect(() => {
         fetch('/api/users').then(r => r.json()).then(d => setUserList(Array.isArray(d) ? d : []));
@@ -196,7 +197,15 @@ export default function WorkersPage() {
 
     const fetchAll = async () => {
         setLoading(true);
-        await Promise.all([fetchWorkers(), fetchAttendance(selectedDate), fetchOvertimes(selectedDate)]);
+        const monthStr = new Date().toISOString().slice(0, 7);
+        const [, , , mAttRes] = await Promise.all([
+            fetchWorkers(),
+            fetchAttendance(selectedDate),
+            fetchOvertimes(selectedDate),
+            fetch(`/api/workshop/attendance?month=${monthStr}`),
+        ]);
+        const mAttData = await mAttRes.json();
+        setMonthlyAtt(Array.isArray(mAttData) ? mAttData : []);
         setLoading(false);
     };
 
@@ -412,6 +421,46 @@ export default function WorkersPage() {
     const totalCost = attendance.reduce((s, a) => s + (a.hoursWorked / 8) * (a.worker?.hourlyRate || 0), 0);
     const monthlyPayroll = workers.filter(w => w.status === 'Hoạt động').reduce((s, w) => s + w.hourlyRate * 26, 0);
 
+    // ── Productivity & monthly cost helpers ──────────────────────────────────
+    const workingDaysSoFar = (() => {
+        const t = new Date();
+        let c = 0;
+        for (let d = 1; d <= t.getDate(); d++) {
+            if (new Date(t.getFullYear(), t.getMonth(), d).getDay() !== 0) c++;
+        }
+        return c;
+    })();
+
+    const getWorkerMonthStats = (workerId, hourlyRate) => {
+        const att = monthlyAtt.filter(a => a.workerId === workerId);
+        const monthlyCost = att.reduce((s, a) => s + (a.hoursWorked / 8) * hourlyRate, 0);
+        const productivity = workingDaysSoFar > 0 ? Math.min(100, Math.round((att.length / workingDaysSoFar) * 100)) : null;
+        return { monthlyCost, productivity, attendedDays: att.length };
+    };
+
+    const renderHeatmap = (workerId) => {
+        const today = new Date();
+        const days = today.getDate();
+        const workerDays = {};
+        monthlyAtt.filter(a => a.workerId === workerId).forEach(a => {
+            workerDays[new Date(a.date).getUTCDate()] = a.hoursWorked;
+        });
+        return (
+            <div style={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', maxWidth: 116, marginTop: 4 }}>
+                {Array.from({ length: days }, (_, i) => i + 1).map(day => {
+                    const h = workerDays[day];
+                    const bg = h ? (h >= 8 ? '#16a34a' : '#86efac') : '#e5e7eb';
+                    return (
+                        <div key={day} title={`Ngày ${day}: ${h ? h + 'h' : 'Vắng'}`}
+                            style={{ width: 7, height: 7, borderRadius: 1.5, background: bg, flexShrink: 0 }} />
+                    );
+                })}
+            </div>
+        );
+    };
+
+    const idleWorkers = workers.filter(w => w.status === 'Hoạt động' && (!workerTasks[w.id] || workerTasks[w.id].length === 0));
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* KPI */}
@@ -420,6 +469,9 @@ export default function WorkersPage() {
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>👷 Nhân công hoạt động</div>
                     <div style={{ fontSize: 28, fontWeight: 800, color: '#2563eb' }}>{activeCount}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>/ {workers.length} tổng cộng</div>
+                    {idleWorkers.length > 0 && (
+                        <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: '#b45309' }}>⚠ {idleWorkers.length} đang rảnh</div>
+                    )}
                 </div>
                 <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #16a34a' }}>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>✅ Chấm công{isToday ? ' hôm nay' : ''}</div>
@@ -437,6 +489,24 @@ export default function WorkersPage() {
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>× 26 ngày/tháng</div>
                 </div>
             </div>
+
+            {/* Idle alert */}
+            {idleWorkers.length > 0 && (
+                <div style={{ padding: '10px 16px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 700, color: '#b45309', fontSize: 13, flexShrink: 0 }}>
+                        ⚠ {idleWorkers.length} thợ đang rảnh việc
+                    </span>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
+                        {idleWorkers.map(w => (
+                            <span key={w.id} onClick={() => openCurrentWork(w)}
+                                style={{ padding: '2px 10px', borderRadius: 20, background: '#fde68a', color: '#92400e', fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid #f59e0b' }}>
+                                {w.name}
+                            </span>
+                        ))}
+                    </div>
+                    <span style={{ fontSize: 11, color: '#b45309', flexShrink: 0 }}>Click để giao việc</span>
+                </div>
+            )}
 
             <div className="card">
                 <div className="card-header">
@@ -507,16 +577,42 @@ export default function WorkersPage() {
                                         const currentTasks = workerTasks[w.id] || [];
                                         return (
                                             <tr key={w.id}>
-                                                <td>
-                                                    <div style={{ fontWeight: 600, fontSize: 13 }}>{w.name}</div>
-                                                    <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 8, background: WORKER_TYPE_BG[w.workerType] || '#f3f4f6', color: WORKER_TYPE_COLOR[w.workerType] || '#374151', fontWeight: 600 }}>
-                                                        {w.workerType || 'Thợ chính'}
-                                                    </span>
+                                                <td style={{ minWidth: 150 }}>
+                                                    {(() => {
+                                                        const { productivity } = getWorkerMonthStats(w.id, w.hourlyRate);
+                                                        const isIdle = !!idleWorkers.find(x => x.id === w.id);
+                                                        const col = productivity !== null ? (productivity >= 80 ? '#16a34a' : productivity >= 50 ? '#d97706' : '#dc2626') : null;
+                                                        const bg  = productivity !== null ? (productivity >= 80 ? '#dcfce7' : productivity >= 50 ? '#fef3c7' : '#fee2e2') : null;
+                                                        return (
+                                                            <>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+                                                                    <span style={{ fontWeight: 600, fontSize: 13, color: isIdle ? '#b45309' : 'var(--text-primary)' }}>{w.name}</span>
+                                                                    {productivity !== null && <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 20, background: bg, color: col, fontWeight: 700, flexShrink: 0 }}>{productivity}%</span>}
+                                                                </div>
+                                                                <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 8, background: WORKER_TYPE_BG[w.workerType] || '#f3f4f6', color: WORKER_TYPE_COLOR[w.workerType] || '#374151', fontWeight: 600 }}>
+                                                                    {w.workerType || 'Thợ chính'}
+                                                                </span>
+                                                                {monthlyAtt.length > 0 && renderHeatmap(w.id)}
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </td>
                                                 <td style={{ fontSize: 12 }}>{w.skill || '—'}</td>
                                                 <td style={{ fontSize: 12 }}>{w.phone || '—'}</td>
-                                                <td style={{ fontWeight: 600, fontSize: 13 }}>
-                                                    {w.hourlyRate > 0 ? `${new Intl.NumberFormat('vi-VN').format(w.hourlyRate)}đ/ngày` : '—'}
+                                                <td style={{ fontSize: 13 }}>
+                                                    {w.hourlyRate > 0 ? (
+                                                        <>
+                                                            <div style={{ fontWeight: 600 }}>{new Intl.NumberFormat('vi-VN').format(w.hourlyRate)}đ/ngày</div>
+                                                            {(() => {
+                                                                const { monthlyCost } = getWorkerMonthStats(w.id, w.hourlyRate);
+                                                                return monthlyCost > 0 ? (
+                                                                    <div style={{ fontSize: 11, color: '#8b5cf6', fontWeight: 600 }}>
+                                                                        {new Intl.NumberFormat('vi-VN').format(Math.round(monthlyCost / 1000))}k/tháng này
+                                                                    </div>
+                                                                ) : null;
+                                                            })()}
+                                                        </>
+                                                    ) : '—'}
                                                 </td>
                                                 <td style={{ fontSize: 12 }}>
                                                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4, cursor: 'pointer' }} onClick={() => openCurrentWork(w)} title="Nhấn để sửa việc hiện tại">
