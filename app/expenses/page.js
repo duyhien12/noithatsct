@@ -1,13 +1,69 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import { useSession } from 'next-auth/react';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 
-const PROJECT_CATEGORIES = ['Vật tư xây dựng', 'Nhân công', 'Vận chuyển', 'Thiết bị máy móc', 'Điện nước', 'Thuê ngoài', 'Sửa chữa', 'Bảo hiểm công trình', 'Khác'];
-const COMPANY_CATEGORIES = ['Thuê văn phòng', 'Lương & Phú cấp', 'Điện nước VP', 'Văn phòng phẩm', 'Marketing & QC', 'Phí ngân hàng', 'Bảo hiểm xã hội', 'Tiếp khách', 'Công tác phí', 'Phần mềm & CNTT', 'Bảo trì & Sửa chữa', 'Thuế & Lệ phí', 'Khấu hao TSCD', 'Khác'];
+const daysPending = (e) => {
+    if (['Hoàn thành', 'Từ chối', 'Đã thanh toán'].includes(e.status)) return null;
+    const base = e.createdAt || e.date;
+    if (!base) return null;
+    return Math.floor((Date.now() - new Date(base).getTime()) / 86400000);
+};
 
-const emptyForm = { expenseType: 'Dự án', description: '', amount: 0, category: 'Vật tư xây dựng', submittedBy: '', date: new Date().toISOString().split('T')[0], notes: '', projectId: '', recipientType: '', recipientId: '' };
+const computePriority = (e) => {
+    if (e.priority && e.priority !== 'Thường') return e.priority;
+    const days = daysPending(e);
+    if ((days != null && days > 10) || (e.amount > 100_000_000)) return 'Khẩn';
+    if ((days != null && days > 5) || (e.amount > 30_000_000)) return 'Cao';
+    return 'Thường';
+};
+
+const isOverdue = (e) => {
+    const d = daysPending(e);
+    return d !== null && d > 5;
+};
+
+const HOLDER_BY_STATUS = {
+    'Chờ duyệt':      'KT trưởng / GĐ',
+    'Đã duyệt':       'KT thực hiện chi',
+    'Đã chi':         'KT xác nhận',
+    'Chờ thanh toán': 'Bên nhận tiền',
+    'Đã thanh toán':  'KT đối soát',
+    'Hoàn thành':     '—',
+    'Từ chối':        'Người đề nghị',
+};
+
+const STATUS_SORT = { 'Chờ duyệt': 0, 'Đã duyệt': 1, 'Chờ thanh toán': 2, 'Từ chối': 3, 'Đã chi': 4, 'Đã thanh toán': 5, 'Hoàn thành': 6 };
+
+const STATUS_STYLE = {
+    'Chờ duyệt':      { bg: '#FFF3E0', color: '#BF360C', border: '#FF9800' },
+    'Đã duyệt':       { bg: '#E3F2FD', color: '#0D47A1', border: '#42A5F5' },
+    'Đã chi':         { bg: '#E8F5E9', color: '#1B5E20', border: '#66BB6A' },
+    'Chờ thanh toán': { bg: '#EDE7F6', color: '#311B92', border: '#7E57C2' },
+    'Đã thanh toán':  { bg: '#E8F5E9', color: '#1B5E20', border: '#43A047' },
+    'Hoàn thành':     { bg: '#F5F5F5', color: '#616161', border: '#BDBDBD' },
+    'Từ chối':        { bg: '#FFEBEE', color: '#B71C1C', border: '#EF5350' },
+};
+
+const PRIORITY_STYLE = {
+    'Khẩn':   { bg: '#FFEBEE', color: '#C62828', border: '#EF5350' },
+    'Cao':    { bg: '#FFF8E1', color: '#E65100', border: '#FFA726' },
+    'Thường': { bg: 'var(--bg-secondary)', color: 'var(--text-muted)', border: 'var(--border)' },
+};
+
+const PROJECT_CATEGORIES = ['Vật tư xây dựng', 'Nhân công', 'Vận chuyển', 'Thiết bị máy móc', 'Điện nước', 'Thuê ngoài', 'Sửa chữa', 'Bảo hiểm công trình', 'Khác'];
+const COMPANY_CATEGORIES = ['Thuê văn phòng', 'Lương & Phụ cấp', 'Điện nước VP', 'Văn phòng phẩm', 'Marketing & QC', 'Phí ngân hàng', 'Bảo hiểm xã hội', 'Tiếp khách', 'Công tác phí', 'Phần mềm & CNTT', 'Bảo trì & Sửa chữa', 'Thuế & Lệ phí', 'Khấu hao TSCĐ', 'Khác'];
+const FUND_SOURCES = ['Tiền mặt', 'Chuyển khoản', 'Quỹ dự án', 'Quỹ công ty', 'Vay nội bộ', 'Khác'];
+
+const emptyForm = {
+    expenseType: 'Dự án', description: '', amount: 0,
+    category: 'Vật tư xây dựng', submittedBy: '',
+    date: new Date().toISOString().split('T')[0],
+    notes: '', projectId: '', recipientType: '', recipientId: '',
+    priority: 'Thường', fundSource: '',
+};
 
 const TABS = [
     { key: '', label: 'Tất cả' },
@@ -20,13 +76,23 @@ const TABS = [
     { key: 'Từ chối', label: 'Từ chối' },
 ];
 
+const QUICK_FILTERS = [
+    { key: 'canduyet', label: 'Cần duyệt', dot: '#FF9800' },
+    { key: 'cuatoi',  label: 'Của tôi',   dot: '#42A5F5' },
+    { key: 'khan',    label: 'Khẩn',      dot: '#EF5350' },
+    { key: 'quahan',  label: 'Quá hạn',   dot: '#C62828' },
+    { key: 'homnay',  label: 'Hôm nay',   dot: '#43A047' },
+];
+
 export default function ExpensesPage() {
+    const { data: session } = useSession();
     const [expenses, setExpenses] = useState([]);
     const [projects, setProjects] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
     const [contractors, setContractors] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('');
+    const [quickFilter, setQuickFilter] = useState('');
     const [filterCategory, setFilterCategory] = useState('');
     const [filterProject, setFilterProject] = useState('');
     const [search, setSearch] = useState('');
@@ -55,43 +121,96 @@ export default function ExpensesPage() {
     };
     useEffect(() => { fetchData(); }, []);
 
-    const totalAmount = expenses.reduce((s, e) => s + (e.amount || 0), 0);
-    const totalPaid = expenses.filter(e => ['Đã chi', 'Hoàn thành', 'Đã thanh toán'].includes(e.status)).reduce((s, e) => s + (e.amount || 0), 0);
-    const totalPending = expenses.filter(e => e.status === 'Chờ duyệt').reduce((s, e) => s + (e.amount || 0), 0);
-    const pendingCount = expenses.filter(e => e.status === 'Chờ duyệt').length;
-    const approvedCount = expenses.filter(e => e.status === 'Đã duyệt').length;
-    const cats = [...new Set(expenses.map(e => e.category))].filter(Boolean);
+    // --- Derived stats ---
+    const totalAmount  = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+    const totalPaid    = expenses.filter(e => ['Đã chi', 'Hoàn thành', 'Đã thanh toán'].includes(e.status)).reduce((s, e) => s + (e.amount || 0), 0);
+    const pendingList  = expenses.filter(e => e.status === 'Chờ duyệt');
+    const approvedList = expenses.filter(e => e.status === 'Đã duyệt');
+    const waitingList  = expenses.filter(e => e.status === 'Chờ thanh toán');
+    const overdueList  = expenses.filter(e => isOverdue(e));
+    const cats        = [...new Set(expenses.map(e => e.category))].filter(Boolean);
     const expProjects = [...new Set(expenses.map(e => e.project?.name).filter(Boolean))];
+
+    const TODAY_STR = new Date().toDateString();
+
+    const applyQuickFilter = (e) => {
+        if (!quickFilter) return true;
+        if (quickFilter === 'canduyet') return e.status === 'Chờ duyệt';
+        if (quickFilter === 'cuatoi')  return e.submittedBy === session?.user?.name;
+        if (quickFilter === 'khan')    return computePriority(e) === 'Khẩn';
+        if (quickFilter === 'quahan')  return isOverdue(e);
+        if (quickFilter === 'homnay')  return new Date(e.date || e.createdAt).toDateString() === TODAY_STR;
+        return true;
+    };
 
     const filtered = expenses.filter(e => {
         if (activeTab && e.status !== activeTab) return false;
+        if (!applyQuickFilter(e)) return false;
         if (filterCategory && e.category !== filterCategory) return false;
         if (filterProject && e.project?.name !== filterProject) return false;
         if (search && !e.code?.toLowerCase().includes(search.toLowerCase()) && !e.description?.toLowerCase().includes(search.toLowerCase())) return false;
         return true;
     });
 
+    // Default view: sort by urgency (Chờ duyệt first, then Đã duyệt, …), then days pending desc
+    const sortedFiltered = [...filtered].sort((a, b) => {
+        if (!activeTab && !quickFilter) {
+            const pA = STATUS_SORT[a.status] ?? 99;
+            const pB = STATUS_SORT[b.status] ?? 99;
+            if (pA !== pB) return pA - pB;
+        }
+        const dA = daysPending(a) ?? -1;
+        const dB = daysPending(b) ?? -1;
+        return dB - dA;
+    });
+
+    // --- Handlers ---
+    const setActionFilter = (tab, qf = '') => {
+        setActiveTab(tab); setQuickFilter(qf);
+        setSearch(''); setFilterCategory(''); setFilterProject('');
+    };
     const openCreate = () => { setEditing(null); setForm(emptyForm); setShowModal(true); };
     const openEdit = (e) => {
         setEditing(e);
-        setForm({ expenseType: e.expenseType || 'Dự án', description: e.description, amount: e.amount, category: e.category, submittedBy: e.submittedBy, date: e.date?.split('T')[0] || '', notes: e.notes, projectId: e.projectId || '', recipientType: e.recipientType || '', recipientId: e.recipientId || '' });
+        setForm({
+            expenseType: e.expenseType || 'Dự án',
+            description: e.description,
+            amount: e.amount,
+            category: e.category,
+            submittedBy: e.submittedBy,
+            date: e.date?.split('T')[0] || '',
+            notes: e.notes,
+            projectId: e.projectId || '',
+            recipientType: e.recipientType || '',
+            recipientId: e.recipientId || '',
+            priority: e.priority || 'Thường',
+            fundSource: e.fundSource || '',
+        });
         setShowModal(true);
     };
     const handleSubmit = async () => {
         if (!form.description.trim()) return alert('Nhập mô tả chi phí!');
         if (form.expenseType === 'Dự án' && !form.projectId) return alert('Chọn dự án!');
         if (!form.amount || form.amount <= 0) return alert('Nhập số tiền!');
-        const recipientName = form.recipientType === 'NCC' ? suppliers.find(s => s.id === form.recipientId)?.name : form.recipientType === 'Thầu phụ' ? contractors.find(c => c.id === form.recipientId)?.name : '';
-        form.recipientName = recipientName || '';
+        const recipientName = form.recipientType === 'NCC'
+            ? suppliers.find(s => s.id === form.recipientId)?.name
+            : form.recipientType === 'Thầu phụ'
+                ? contractors.find(c => c.id === form.recipientId)?.name
+                : '';
+        const payload = { ...form, recipientName: recipientName || '', amount: Number(form.amount) };
         if (editing) {
-            await fetch('/api/project-expenses', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editing.id, ...form, amount: Number(form.amount) }) });
+            await fetch('/api/project-expenses', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editing.id, ...payload }) });
         } else {
-            await fetch('/api/project-expenses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+            await fetch('/api/project-expenses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         }
         setShowModal(false);
         fetchData();
     };
-    const handleDelete = async (id) => { if (!confirm('Xóa lệnh chi này?')) return; await fetch(`/api/project-expenses?id=${id}`, { method: 'DELETE' }); fetchData(); };
+    const handleDelete = async (id) => {
+        if (!confirm('Xóa lệnh chi này?')) return;
+        await fetch(`/api/project-expenses?id=${id}`, { method: 'DELETE' });
+        fetchData();
+    };
     const updateStatus = async (id, status, extraData = {}) => {
         await fetch('/api/project-expenses', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status, ...extraData }) });
         fetchData();
@@ -212,6 +331,7 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
       ${e.recipientType ? `<div class="info-row"><div class="lbl">Loại đối tượng</div><div class="val">${e.recipientType}</div></div>` : ''}
       ${e.project ? `<div class="info-row"><div class="lbl">Công trình / Dự án</div><div class="val">${e.project.code} — ${e.project.name}</div></div>` : ''}
       <div class="info-row"><div class="lbl">Nội dung chi</div><div class="val">${e.description}</div></div>
+      ${e.fundSource ? `<div class="info-row"><div class="lbl">Nguồn tiền</div><div class="val">${e.fundSource}</div></div>` : ''}
       ${e.notes ? `<div class="info-row"><div class="lbl">Ghi chú</div><div class="val">${e.notes}</div></div>` : ''}
     </div>
     <div class="amount-wrap">
@@ -236,6 +356,35 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
         w.document.close();
     };
 
+    // --- Status badge helper ---
+    const StatusBadge = ({ status }) => {
+        const s = STATUS_STYLE[status] || {};
+        return (
+            <span style={{
+                display: 'inline-block', fontSize: 11, fontWeight: 600,
+                padding: '3px 10px', borderRadius: 20,
+                background: s.bg || 'var(--bg-secondary)',
+                color: s.color || 'var(--text-muted)',
+                border: `1.5px solid ${s.border || 'var(--border)'}`,
+                whiteSpace: 'nowrap',
+            }}>{status}</span>
+        );
+    };
+
+    const PriorityBadge = ({ priority }) => {
+        const s = PRIORITY_STYLE[priority] || PRIORITY_STYLE['Thường'];
+        if (priority === 'Thường') return null;
+        return (
+            <span style={{
+                display: 'inline-block', fontSize: 10, fontWeight: 700,
+                padding: '2px 8px', borderRadius: 20,
+                background: s.bg, color: s.color,
+                border: `1.5px solid ${s.border}`,
+                whiteSpace: 'nowrap',
+            }}>{priority === 'Khẩn' ? '⚡ Khẩn' : '↑ Cao'}</span>
+        );
+    };
+
     return (
         <div>
             {/* Breadcrumb */}
@@ -245,68 +394,145 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
                 <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>Chi phí</span>
             </div>
 
-            {/* Summary Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 16, marginBottom: 16 }}>
-                <div className="card" style={{ padding: '20px 24px', borderRadius: 12 }}>
-                    <div style={{ fontSize: 20, marginBottom: 8 }}>📑</div>
-                    <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>{expenses.length}</div>
-                    <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Tổng lệnh chi</div>
-                </div>
-                <div className="card" style={{ padding: '20px 24px', borderRadius: 12 }}>
-                    <div style={{ fontSize: 20, marginBottom: 8 }}>💵</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--accent-primary)', lineHeight: 1.2 }}>{fmt(totalAmount)}</div>
-                    <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Tổng giá trị</div>
-                </div>
-                <div className="card" style={{ padding: '20px 24px', borderRadius: 12 }}>
-                    <div style={{ fontSize: 20, marginBottom: 8 }}>💸</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--status-success)', lineHeight: 1.2 }}>{fmt(totalPaid)}</div>
-                    <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Đã chi</div>
-                </div>
-                <div className="card" style={{ padding: '20px 24px', borderRadius: 12 }}>
-                    <div style={{ fontSize: 20, marginBottom: 8 }}>⏳</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--status-warning)', lineHeight: 1.2 }}>{fmt(totalPending)}</div>
-                    <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Chờ duyệt ({pendingCount})</div>
-                </div>
-            </div>
-
-            {/* Second row - wider card + approved stat */}
-            <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-                <div className="card" style={{ padding: '20px 24px', borderRadius: 12 }}>
-                    <div style={{ fontSize: 20, marginBottom: 8 }}>✅</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--status-info)', lineHeight: 1.2 }}>{approvedCount} lệnh</div>
-                    <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Đã duyệt — chờ chi tiền</div>
-                </div>
-                <div className="card" style={{ padding: '20px 24px', borderRadius: 12 }}>
-                    <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8, fontWeight: 500 }}>Quy trình</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <span className="badge warning" style={{ fontSize: 11 }}>Tạo lệnh chi</span>
-                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>→</span>
-                        <span className="badge info" style={{ fontSize: 11 }}>Duyệt lệnh</span>
-                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>→</span>
-                        <span style={{ padding: '2px 8px', background: 'var(--accent-primary)', color: '#fff', borderRadius: 10, fontSize: 11 }}>KT chi & upload CT</span>
-                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>→</span>
-                        <span className="badge success" style={{ fontSize: 11 }}>Hoàn thành</span>
+            {/* Action cards - clickable workflow status cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+                {/* Cần duyệt ngay */}
+                <div
+                    className="card"
+                    onClick={() => setActionFilter('Chờ duyệt')}
+                    style={{
+                        padding: '14px 18px', borderRadius: 12, cursor: 'pointer',
+                        border: pendingList.length > 0 ? '2px solid #FF9800' : '1px solid var(--border)',
+                        transition: 'box-shadow 0.15s',
+                        background: pendingList.length > 0 ? '#FFFBF0' : undefined,
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(255,152,0,.25)'}
+                    onMouseLeave={e => e.currentTarget.style.boxShadow = ''}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#E65100', textTransform: 'uppercase', letterSpacing: 0.5 }}>Cần duyệt ngay</div>
+                        {pendingList.length > 0 && (
+                            <span style={{ background: '#FF9800', color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 11, fontWeight: 700 }}>{pendingList.length}</span>
+                        )}
                     </div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: pendingList.length > 0 ? '#BF360C' : 'var(--text-muted)' }}>{pendingList.length} lệnh</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{fmt(pendingList.reduce((s, e) => s + e.amount, 0))}</div>
+                    <div style={{ fontSize: 11, color: '#FF9800', marginTop: 6, fontWeight: 500 }}>→ Chờ KT trưởng / GĐ duyệt</div>
+                </div>
+
+                {/* Chờ chi tiền */}
+                <div
+                    className="card"
+                    onClick={() => setActionFilter('Đã duyệt')}
+                    style={{
+                        padding: '14px 18px', borderRadius: 12, cursor: 'pointer',
+                        border: approvedList.length > 0 ? '2px solid #42A5F5' : '1px solid var(--border)',
+                        transition: 'box-shadow 0.15s',
+                        background: approvedList.length > 0 ? '#F0F8FF' : undefined,
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(66,165,245,.25)'}
+                    onMouseLeave={e => e.currentTarget.style.boxShadow = ''}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#0D47A1', textTransform: 'uppercase', letterSpacing: 0.5 }}>Chờ chi tiền</div>
+                        {approvedList.length > 0 && (
+                            <span style={{ background: '#42A5F5', color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 11, fontWeight: 700 }}>{approvedList.length}</span>
+                        )}
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: approvedList.length > 0 ? '#0D47A1' : 'var(--text-muted)' }}>{approvedList.length} lệnh</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{fmt(approvedList.reduce((s, e) => s + e.amount, 0))}</div>
+                    <div style={{ fontSize: 11, color: '#42A5F5', marginTop: 6, fontWeight: 500 }}>→ Đã duyệt, KT thực hiện chi</div>
+                </div>
+
+                {/* Chờ thanh toán */}
+                <div
+                    className="card"
+                    onClick={() => setActionFilter('Chờ thanh toán')}
+                    style={{
+                        padding: '14px 18px', borderRadius: 12, cursor: 'pointer',
+                        border: waitingList.length > 0 ? '2px solid #7E57C2' : '1px solid var(--border)',
+                        transition: 'box-shadow 0.15s',
+                        background: waitingList.length > 0 ? '#F3F0FF' : undefined,
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(126,87,194,.25)'}
+                    onMouseLeave={e => e.currentTarget.style.boxShadow = ''}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#311B92', textTransform: 'uppercase', letterSpacing: 0.5 }}>Chờ thanh toán</div>
+                        {waitingList.length > 0 && (
+                            <span style={{ background: '#7E57C2', color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 11, fontWeight: 700 }}>{waitingList.length}</span>
+                        )}
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: waitingList.length > 0 ? '#311B92' : 'var(--text-muted)' }}>{waitingList.length} lệnh</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{fmt(waitingList.reduce((s, e) => s + e.amount, 0))}</div>
+                    <div style={{ fontSize: 11, color: '#7E57C2', marginTop: 6, fontWeight: 500 }}>→ Đang chờ bên nhận thanh toán</div>
+                </div>
+
+                {/* Quá hạn */}
+                <div
+                    className="card"
+                    onClick={() => setActionFilter('', 'quahan')}
+                    style={{
+                        padding: '14px 18px', borderRadius: 12, cursor: 'pointer',
+                        border: overdueList.length > 0 ? '2px solid #EF5350' : '1px solid var(--border)',
+                        transition: 'box-shadow 0.15s',
+                        background: overdueList.length > 0 ? '#FFF5F5' : undefined,
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(239,83,80,.25)'}
+                    onMouseLeave={e => e.currentTarget.style.boxShadow = ''}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#B71C1C', textTransform: 'uppercase', letterSpacing: 0.5 }}>Quá hạn xử lý</div>
+                        {overdueList.length > 0 && (
+                            <span style={{ background: '#EF5350', color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 11, fontWeight: 700 }}>{overdueList.length}</span>
+                        )}
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: overdueList.length > 0 ? '#B71C1C' : 'var(--text-muted)' }}>{overdueList.length} lệnh</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{fmt(overdueList.reduce((s, e) => s + e.amount, 0))}</div>
+                    <div style={{ fontSize: 11, color: '#EF5350', marginTop: 6, fontWeight: 500 }}>→ Pending &gt; 5 ngày, cần đôn đốc</div>
                 </div>
             </div>
 
-            {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+            {/* Action buttons + Quick filter pills */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
                 <button className="btn btn-primary" onClick={openCreate} style={{ fontWeight: 600 }}>+ Chi phí dự án</button>
                 <button className="btn btn-ghost" onClick={() => { setForm({ ...emptyForm, expenseType: 'Công ty', category: 'Thuê văn phòng' }); setEditing(null); setShowModal(true); }} style={{ fontWeight: 600 }}>+ Chi phí chung</button>
+                <div style={{ flex: 1 }} />
+                {/* Quick filter pills */}
+                {QUICK_FILTERS.map(qf => {
+                    const active = quickFilter === qf.key;
+                    return (
+                        <button
+                            key={qf.key}
+                            onClick={() => { setQuickFilter(active ? '' : qf.key); setActiveTab(''); }}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 5,
+                                padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                                border: active ? `2px solid ${qf.dot}` : '1.5px solid var(--border)',
+                                background: active ? `${qf.dot}18` : 'var(--bg-primary)',
+                                color: active ? qf.dot : 'var(--text-muted)',
+                                cursor: 'pointer', transition: 'all 0.15s',
+                            }}
+                        >
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: qf.dot, display: 'inline-block', flexShrink: 0 }} />
+                            {qf.label}
+                        </button>
+                    );
+                })}
             </div>
 
-            {/* Main card with tabs */}
+            {/* Main card with tabs + table */}
             <div className="card" style={{ borderRadius: 12, overflow: 'hidden' }}>
                 {/* Tabs */}
                 <div className="tab-bar-scroll" style={{ padding: '0 8px' }}>
                     {TABS.map(tab => {
                         const count = tab.key ? expenses.filter(e => e.status === tab.key).length : expenses.length;
-                        const isActive = activeTab === tab.key;
+                        const isActive = activeTab === tab.key && !quickFilter;
+                        const needsAttention = (tab.key === 'Chờ duyệt' && pendingList.length > 0) || (tab.key === 'Chờ thanh toán' && waitingList.length > 0);
                         return (
                             <button
                                 key={tab.key}
-                                onClick={() => setActiveTab(tab.key)}
+                                onClick={() => { setActiveTab(tab.key); setQuickFilter(''); }}
                                 style={{
                                     padding: '14px 16px',
                                     border: 'none',
@@ -320,19 +546,19 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
                                     whiteSpace: 'nowrap',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: 6,
+                                    gap: 5,
                                     transition: 'all 0.15s',
                                 }}
                             >
                                 {tab.label}
                                 {count > 0 && (
                                     <span style={{
-                                        background: isActive ? 'var(--accent-primary)' : 'var(--bg-secondary)',
-                                        color: isActive ? '#fff' : 'var(--text-muted)',
+                                        background: needsAttention ? '#FF9800' : isActive ? 'var(--accent-primary)' : 'var(--bg-secondary)',
+                                        color: (needsAttention || isActive) ? '#fff' : 'var(--text-muted)',
                                         borderRadius: 10,
                                         fontSize: 10,
                                         padding: '1px 6px',
-                                        fontWeight: 600,
+                                        fontWeight: 700,
                                         minWidth: 18,
                                         textAlign: 'center',
                                     }}>
@@ -345,13 +571,13 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
                 </div>
 
                 {/* Filter bar */}
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <input
                         className="form-input"
                         placeholder="Tìm kiếm mã, mô tả..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        style={{ flex: 1, minWidth: 200 }}
+                        style={{ flex: 1, minWidth: 180 }}
                     />
                     <select className="form-select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
                         <option value="">Tất cả hạng mục</option>
@@ -361,21 +587,34 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
                         <option value="">Tất cả dự án</option>
                         {expProjects.map(p => <option key={p}>{p}</option>)}
                     </select>
+                    {(activeTab || quickFilter || filterCategory || filterProject || search) && (
+                        <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => { setActiveTab(''); setQuickFilter(''); setFilterCategory(''); setFilterProject(''); setSearch(''); }}
+                            style={{ fontSize: 11, whiteSpace: 'nowrap' }}
+                        >
+                            ✕ Xóa filter
+                        </button>
+                    )}
                 </div>
 
-                {/* Tab stats summary */}
-                {activeTab && (
-                    <div style={{ padding: '12px 20px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)', display: 'flex', gap: 24, alignItems: 'center' }}>
-                        <div style={{ fontSize: 13 }}>
-                            <span style={{ color: 'var(--text-muted)' }}>Số lệnh: </span>
-                            <strong>{filtered.length}</strong>
-                        </div>
-                        <div style={{ fontSize: 13 }}>
-                            <span style={{ color: 'var(--text-muted)' }}>Tổng giá trị: </span>
-                            <strong style={{ color: 'var(--accent-primary)' }}>{fmt(filtered.reduce((s, e) => s + (e.amount || 0), 0))}</strong>
-                        </div>
+                {/* Summary bar */}
+                <div style={{ padding: '8px 16px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)', display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: 12 }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Hiển thị: </span>
+                        <strong>{sortedFiltered.length}</strong>
+                        <span style={{ color: 'var(--text-muted)' }}> / {expenses.length} lệnh</span>
                     </div>
-                )}
+                    <div style={{ fontSize: 12 }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Tổng: </span>
+                        <strong style={{ color: 'var(--accent-primary)' }}>{fmt(sortedFiltered.reduce((s, e) => s + (e.amount || 0), 0))}</strong>
+                    </div>
+                    {quickFilter && (
+                        <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, background: 'var(--accent-primary)', color: '#fff', fontWeight: 600 }}>
+                            Filter: {QUICK_FILTERS.find(q => q.key === quickFilter)?.label}
+                        </span>
+                    )}
+                </div>
 
                 {/* Table */}
                 {loading ? (
@@ -383,69 +622,162 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
                 ) : (
                     <div style={{ overflowX: 'auto' }}>
                         <table className="data-table" style={{ margin: 0 }}>
-                            <thead><tr>
-                                <th>Mã</th><th>Mô tả</th><th>Dự án</th><th>Người nhận</th><th>Hạng mục</th><th>Số tiền</th><th>Người nộp</th><th>Ngày</th><th>Trạng thái</th><th style={{ minWidth: 160 }}>Thao tác</th>
-                            </tr></thead>
-                            <tbody>{filtered.map(e => (
-                                <tr key={e.id} style={{ opacity: e.status === 'Hoàn thành' ? 0.6 : 1 }}>
-                                    <td className="accent">{e.code}</td>
-                                    <td className="primary" style={{ cursor: (e.status === 'Chờ duyệt' || e.status === 'Từ chối') ? 'pointer' : 'default' }} onClick={() => openEdit(e)}>{e.description}</td>
-                                    <td><span className="badge info" style={{ fontSize: 10 }}>{e.project?.code}</span> <span style={{ fontSize: 11 }}>{e.project?.name}</span></td>
-                                    <td style={{ fontSize: 12 }}>{e.recipientType && <span className="badge" style={{ fontSize: 9, background: e.recipientType === 'NCC' ? '#e8f5e9' : '#fff3e0', color: e.recipientType === 'NCC' ? '#2e7d32' : '#e65100', marginRight: 4 }}>{e.recipientType}</span>}{e.recipientName || '—'}</td>
-                                    <td><span className="badge muted">{e.category}</span></td>
-                                    <td className="amount">{fmt(e.amount)}</td>
-                                    <td style={{ fontSize: 12 }}>{e.submittedBy || '—'}</td>
-                                    <td style={{ fontSize: 12 }}>{fmtDate(e.date)}</td>
-                                    <td>
-                                        <select
-                                            value={e.status}
-                                            onChange={ev => updateStatus(e.id, ev.target.value)}
-                                            style={{ fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-secondary)', cursor: 'pointer', maxWidth: 140 }}
-                                        >
-                                            <option>Chờ duyệt</option>
-                                            <option>Đã duyệt</option>
-                                            <option>Đã chi</option>
-                                            <option>Hoàn thành</option>
-                                            <option>Từ chối</option>
-                                            <option>Chờ thanh toán</option>
-                                            <option>Đã thanh toán</option>
-                                        </select>
-                                        {e.proofUrl && <a href={e.proofUrl} target="_blank" rel="noreferrer" title="Xem chứng từ" style={{ marginLeft: 4 }}>📎</a>}
-                                    </td>
-                                    <td>
-                                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                            <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => openEdit(e)} title="Chỉnh sửa">✏️</button>
-                                            {e.status === 'Chờ duyệt' && (<>
-                                                <button className="btn btn-sm" style={{ background: 'var(--status-success)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Đã duyệt')}>✓ Duyệt</button>
-                                                <button className="btn btn-sm" style={{ background: 'var(--status-danger)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Từ chối')}>✗ Từ chối</button>
-                                            </>)}
-                                            {e.status === 'Đã duyệt' && (
-                                                <button className="btn btn-sm" style={{ background: 'var(--accent-primary)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => openProofModal(e)}>💸 Chi tiền</button>
-                                            )}
-                                            {e.status === 'Đã chi' && (
-                                                <button className="btn btn-sm" style={{ background: 'var(--status-success)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Hoàn thành')}>✅ Hoàn thành</button>
-                                            )}
-                                            {e.status === 'Chờ thanh toán' && (
-                                                <button className="btn btn-sm" style={{ background: 'var(--status-success)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Đã thanh toán')}>✓ Đã thanh toán</button>
-                                            )}
-                                            {e.status === 'Đã thanh toán' && (
-                                                <button className="btn btn-sm" style={{ background: 'var(--status-success)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Hoàn thành')}>✅ Hoàn thành</button>
-                                            )}
-                                            {e.status === 'Từ chối' && (
-                                                <button className="btn btn-sm" style={{ background: 'var(--status-warning)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Chờ duyệt')}>↩ Mở lại</button>
-                                            )}
-                                            {(e.status === 'Đã chi' || e.status === 'Hoàn thành' || e.status === 'Đã thanh toán') && (
-                                                <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => printExpenseVoucher(e)}>🧾 In HĐ</button>
-                                            )}
-                                            <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(e.id)} style={{ color: 'var(--status-danger)', fontSize: 11 }}>🗑️</button>
-                                        </div>
-                                    </td>
+                            <thead>
+                                <tr>
+                                    <th style={{ minWidth: 64 }}>Mã</th>
+                                    <th style={{ minWidth: 180 }}>Mô tả / Người đề nghị</th>
+                                    <th style={{ minWidth: 120 }}>Dự án</th>
+                                    <th style={{ minWidth: 110 }}>Hạng mục</th>
+                                    <th style={{ minWidth: 120 }}>Số tiền</th>
+                                    <th style={{ minWidth: 130 }}>Trạng thái</th>
+                                    <th style={{ minWidth: 130 }}>Người giữ bước</th>
+                                    <th style={{ minWidth: 80 }}>Pending</th>
+                                    <th style={{ minWidth: 72 }}>Ưu tiên</th>
+                                    <th style={{ minWidth: 100 }}>Nguồn tiền</th>
+                                    <th style={{ minWidth: 84 }}>Ngày</th>
+                                    <th style={{ minWidth: 160 }}>Thao tác</th>
                                 </tr>
-                            ))}</tbody>
+                            </thead>
+                            <tbody>
+                                {sortedFiltered.map(e => {
+                                    const days = daysPending(e);
+                                    const priority = computePriority(e);
+                                    const overdue = isOverdue(e);
+                                    const rowBg = overdue && !['Hoàn thành', 'Từ chối', 'Đã thanh toán'].includes(e.status)
+                                        ? 'rgba(239,83,80,.05)'
+                                        : e.status === 'Chờ duyệt'
+                                            ? 'rgba(255,152,0,.04)'
+                                            : undefined;
+                                    return (
+                                        <tr key={e.id} style={{ opacity: e.status === 'Hoàn thành' ? 0.55 : 1, background: rowBg }}>
+                                            {/* Mã */}
+                                            <td className="accent" style={{ fontWeight: 700, fontSize: 12 }}>{e.code}</td>
+
+                                            {/* Mô tả + người nộp */}
+                                            <td style={{ cursor: (e.status === 'Chờ duyệt' || e.status === 'Từ chối') ? 'pointer' : 'default' }} onClick={() => openEdit(e)}>
+                                                <div className="primary" style={{ fontWeight: 500, fontSize: 13 }}>{e.description}</div>
+                                                {e.submittedBy && (
+                                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                                        {e.recipientType && <span style={{ marginRight: 4, padding: '1px 5px', background: e.recipientType === 'NCC' ? '#e8f5e9' : '#fff3e0', color: e.recipientType === 'NCC' ? '#2e7d32' : '#e65100', borderRadius: 4, fontSize: 9, fontWeight: 600 }}>{e.recipientType}</span>}
+                                                        {e.recipientName ? e.recipientName : e.submittedBy}
+                                                    </div>
+                                                )}
+                                            </td>
+
+                                            {/* Dự án */}
+                                            <td>
+                                                {e.project ? (
+                                                    <>
+                                                        <span className="badge info" style={{ fontSize: 9, marginRight: 4 }}>{e.project.code}</span>
+                                                        <span style={{ fontSize: 11 }}>{e.project.name}</span>
+                                                    </>
+                                                ) : <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>}
+                                            </td>
+
+                                            {/* Hạng mục */}
+                                            <td><span className="badge muted" style={{ fontSize: 11 }}>{e.category}</span></td>
+
+                                            {/* Số tiền */}
+                                            <td className="amount" style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{fmt(e.amount)}</td>
+
+                                            {/* Trạng thái — sát Số tiền */}
+                                            <td>
+                                                <select
+                                                    value={e.status}
+                                                    onChange={ev => updateStatus(e.id, ev.target.value)}
+                                                    style={{
+                                                        fontSize: 11, fontWeight: 600,
+                                                        padding: '3px 8px', borderRadius: 20,
+                                                        border: `1.5px solid ${STATUS_STYLE[e.status]?.border || 'var(--border)'}`,
+                                                        background: STATUS_STYLE[e.status]?.bg || 'var(--bg-secondary)',
+                                                        color: STATUS_STYLE[e.status]?.color || 'var(--text-primary)',
+                                                        cursor: 'pointer', maxWidth: 150,
+                                                        appearance: 'none', paddingRight: 20,
+                                                    }}
+                                                >
+                                                    <option>Chờ duyệt</option>
+                                                    <option>Đã duyệt</option>
+                                                    <option>Đã chi</option>
+                                                    <option>Hoàn thành</option>
+                                                    <option>Từ chối</option>
+                                                    <option>Chờ thanh toán</option>
+                                                    <option>Đã thanh toán</option>
+                                                </select>
+                                                {e.proofUrl && <a href={e.proofUrl} target="_blank" rel="noreferrer" title="Xem chứng từ" style={{ marginLeft: 4, fontSize: 14 }}>📎</a>}
+                                            </td>
+
+                                            {/* Người giữ bước */}
+                                            <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                                {HOLDER_BY_STATUS[e.status] || '—'}
+                                            </td>
+
+                                            {/* Số ngày pending */}
+                                            <td>
+                                                {days !== null ? (
+                                                    <span style={{
+                                                        display: 'inline-block', fontSize: 11, fontWeight: 700,
+                                                        padding: '2px 8px', borderRadius: 20,
+                                                        background: days > 10 ? '#FFEBEE' : days > 5 ? '#FFF8E1' : 'var(--bg-secondary)',
+                                                        color: days > 10 ? '#C62828' : days > 5 ? '#E65100' : 'var(--text-muted)',
+                                                        border: `1px solid ${days > 10 ? '#EF5350' : days > 5 ? '#FFA726' : 'var(--border)'}`,
+                                                    }}>
+                                                        {days}d
+                                                    </span>
+                                                ) : (
+                                                    <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</span>
+                                                )}
+                                            </td>
+
+                                            {/* Mức ưu tiên */}
+                                            <td>
+                                                <PriorityBadge priority={priority} />
+                                            </td>
+
+                                            {/* Nguồn tiền */}
+                                            <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                                {e.fundSource || '—'}
+                                            </td>
+
+                                            {/* Ngày */}
+                                            <td style={{ fontSize: 11 }}>{fmtDate(e.date)}</td>
+
+                                            {/* Thao tác */}
+                                            <td>
+                                                <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                                                    <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => openEdit(e)} title="Chỉnh sửa">✏️</button>
+                                                    {e.status === 'Chờ duyệt' && (<>
+                                                        <button className="btn btn-sm" style={{ background: 'var(--status-success)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Đã duyệt')}>✓ Duyệt</button>
+                                                        <button className="btn btn-sm" style={{ background: 'var(--status-danger)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Từ chối')}>✗</button>
+                                                    </>)}
+                                                    {e.status === 'Đã duyệt' && (
+                                                        <button className="btn btn-sm" style={{ background: 'var(--accent-primary)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => openProofModal(e)}>💸 Chi</button>
+                                                    )}
+                                                    {e.status === 'Đã chi' && (
+                                                        <button className="btn btn-sm" style={{ background: 'var(--status-success)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Hoàn thành')}>✅</button>
+                                                    )}
+                                                    {e.status === 'Chờ thanh toán' && (
+                                                        <button className="btn btn-sm" style={{ background: 'var(--status-success)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Đã thanh toán')}>✓ TT</button>
+                                                    )}
+                                                    {e.status === 'Đã thanh toán' && (
+                                                        <button className="btn btn-sm" style={{ background: 'var(--status-success)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Hoàn thành')}>✅</button>
+                                                    )}
+                                                    {e.status === 'Từ chối' && (
+                                                        <button className="btn btn-sm" style={{ background: 'var(--status-warning)', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }} onClick={() => updateStatus(e.id, 'Chờ duyệt')}>↩</button>
+                                                    )}
+                                                    {(e.status === 'Đã chi' || e.status === 'Hoàn thành' || e.status === 'Đã thanh toán') && (
+                                                        <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => printExpenseVoucher(e)}>🧾</button>
+                                                    )}
+                                                    <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(e.id)} style={{ color: 'var(--status-danger)', fontSize: 11 }}>🗑️</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
                         </table>
                     </div>
                 )}
-                {!loading && filtered.length === 0 && (
+                {!loading && sortedFiltered.length === 0 && (
                     <div style={{ color: 'var(--text-muted)', padding: 40, textAlign: 'center', fontSize: 14 }}>Không có dữ liệu</div>
                 )}
             </div>
@@ -453,12 +785,13 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
             {/* Modal tạo/sửa lệnh chi */}
             {showModal && (
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 580 }}>
                         <div className="modal-header">
                             <h3>{editing ? '✏️ Sửa lệnh chi' : '+ Tạo lệnh chi tiền'}</h3>
                             <button className="modal-close" onClick={() => setShowModal(false)}>×</button>
                         </div>
                         <div className="modal-body">
+                            {/* Loại chi phí */}
                             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                                 {['Dự án', 'Công ty'].map(t => (
                                     <button key={t} onClick={() => setForm({ ...form, expenseType: t, projectId: t === 'Công ty' ? '' : form.projectId, recipientType: t === 'Công ty' ? '' : form.recipientType, recipientId: t === 'Công ty' ? '' : form.recipientId, category: t === 'Công ty' ? 'Thuê văn phòng' : 'Vật tư xây dựng' })}
@@ -467,6 +800,7 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
                                     </button>
                                 ))}
                             </div>
+
                             {form.expenseType === 'Dự án' && (
                                 <div className="form-group">
                                     <label className="form-label">Dự án *</label>
@@ -476,10 +810,12 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
                                     </select>
                                 </div>
                             )}
+
                             <div className="form-group">
                                 <label className="form-label">Mô tả chi phí *</label>
                                 <input className="form-input" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="VD: Mua xi măng, thuê xe cẩu..." />
                             </div>
+
                             {form.expenseType === 'Dự án' && (
                                 <div className="form-row">
                                     <div className="form-group">
@@ -502,6 +838,7 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
                                     )}
                                 </div>
                             )}
+
                             <div className="form-row">
                                 <div className="form-group">
                                     <label className="form-label">Số tiền *</label>
@@ -514,6 +851,25 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
                                     </select>
                                 </div>
                             </div>
+
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Nguồn tiền</label>
+                                    <select className="form-select" value={form.fundSource} onChange={e => setForm({ ...form, fundSource: e.target.value })}>
+                                        <option value="">— Chọn nguồn —</option>
+                                        {FUND_SOURCES.map(f => <option key={f}>{f}</option>)}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Mức ưu tiên</label>
+                                    <select className="form-select" value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })}>
+                                        <option value="Thường">Thường</option>
+                                        <option value="Cao">Cao</option>
+                                        <option value="Khẩn">Khẩn</option>
+                                    </select>
+                                </div>
+                            </div>
+
                             <div className="form-row">
                                 <div className="form-group">
                                     <label className="form-label">Người đề nghị</label>
@@ -524,6 +880,7 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
                                     <input className="form-input" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
                                 </div>
                             </div>
+
                             <div className="form-group">
                                 <label className="form-label">Ghi chú</label>
                                 <textarea className="form-input" rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
@@ -549,8 +906,9 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f
                             <div style={{ padding: 12, background: 'var(--bg-secondary)', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
                                 <div><strong>Mã:</strong> {proofModal.code}</div>
                                 <div><strong>Mô tả:</strong> {proofModal.description}</div>
-                                <div><strong>Dự án:</strong> {proofModal.project?.name}</div>
+                                <div><strong>Dự án:</strong> {proofModal.project?.name || '—'}</div>
                                 <div><strong>Số tiền chi:</strong> <span style={{ fontWeight: 700, color: 'var(--status-danger)' }}>{fmt(proofModal.amount)}</span></div>
+                                {proofModal.fundSource && <div><strong>Nguồn tiền:</strong> {proofModal.fundSource}</div>}
                             </div>
                             <div className="form-group">
                                 <label className="form-label">📎 Chứng từ chi * <span style={{ color: 'var(--status-danger)', fontSize: 11 }}>(Bắt buộc: ảnh UNC, biên lai, hóa đơn...)</span></label>

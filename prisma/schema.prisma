@@ -684,6 +684,8 @@ model ProjectExpense {
   recipientType String   @default("")
   recipientId   String   @default("")
   recipientName String   @default("")
+  priority      String   @default("Thường")
+  fundSource    String   @default("")
   date          DateTime @default(now())
   notes         String   @default("") @db.Text
   projectId     String?
