@@ -1084,24 +1084,27 @@ model WorkshopWorker {
 }
 
 model WorkshopTask {
-  id          String    @id @default(cuid())
-  title       String
-  description String    @default("") @db.Text
-  projectId   String?
-  project     Project?  @relation(fields: [projectId], references: [id])
-  startDate   DateTime?
-  deadline    DateTime?
-  progress    Int       @default(0)
-  status      String    @default("Chờ làm")
-  category    String    @default("Lắp ghép tại xưởng")
-  priority    String    @default("Trung bình")
-  isLocked    Boolean   @default(false)
-  notes       String    @default("") @db.Text
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  workers     WorkshopTaskWorker[]
-  materials   WorkshopTaskMaterial[]
+  id            String    @id @default(cuid())
+  title         String
+  description   String    @default("") @db.Text
+  projectId     String?
+  project       Project?  @relation(fields: [projectId], references: [id])
+  startDate     DateTime?
+  deadline      DateTime?
+  progress      Int       @default(0)
+  status        String    @default("Chờ làm")
+  stage         String    @default("Cut")
+  blockedReason String    @default("") @db.Text
+  category      String    @default("Lắp ghép tại xưởng")
+  priority      String    @default("Trung bình")
+  isLocked      Boolean   @default(false)
+  notes         String    @default("") @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  workers       WorkshopTaskWorker[]
+  materials     WorkshopTaskMaterial[]
   @@index([projectId])
+  @@index([stage])
 }
 
 model WorkshopTaskWorker {

@@ -6,24 +6,26 @@ import { notifyWorkshopTaskAssigned } from '@/lib/notify';
 export const PUT = withAuth(async (req, { params }) => {
     const { id } = await params;
     const body = await req.json();
-    const { title, description, projectId, startDate, deadline, priority, status, progress, notes, category, workerIds, materials } = body;
+    const { title, description, projectId, startDate, deadline, priority, status, progress, notes, category, stage, blockedReason, isLocked, workerIds, materials } = body;
 
     const updateData = {};
-    if (title !== undefined) updateData.title = title.trim();
-    if (description !== undefined) updateData.description = description.trim();
-    if (projectId !== undefined) updateData.project = projectId ? { connect: { id: projectId } } : { disconnect: true };
-    if (startDate !== undefined) updateData.startDate = startDate ? new Date(startDate) : null;
-    if (deadline !== undefined) updateData.deadline = deadline ? new Date(deadline) : null;
-    if (priority !== undefined) updateData.priority = priority;
-    if (status !== undefined) updateData.status = status;
-    if (category !== undefined) updateData.category = category;
-    if (progress !== undefined) {
+    if (title         !== undefined) updateData.title         = title.trim();
+    if (description   !== undefined) updateData.description   = description.trim();
+    if (projectId     !== undefined) updateData.project       = projectId ? { connect: { id: projectId } } : { disconnect: true };
+    if (startDate     !== undefined) updateData.startDate     = startDate ? new Date(startDate) : null;
+    if (deadline      !== undefined) updateData.deadline      = deadline ? new Date(deadline) : null;
+    if (priority      !== undefined) updateData.priority      = priority;
+    if (status        !== undefined) updateData.status        = status;
+    if (category      !== undefined) updateData.category      = category;
+    if (stage         !== undefined) updateData.stage         = stage;
+    if (blockedReason !== undefined) updateData.blockedReason = blockedReason.trim();
+    if (isLocked      !== undefined) updateData.isLocked      = isLocked;
+    if (notes         !== undefined) updateData.notes         = notes.trim();
+    if (progress      !== undefined) {
         updateData.progress = Number(progress);
         if (Number(progress) >= 100) updateData.isLocked = true;
     }
-    if (notes !== undefined) updateData.notes = notes.trim();
 
-    // Update workers if provided
     if (workerIds !== undefined) {
         updateData.workers = {
             deleteMany: {},
@@ -31,7 +33,6 @@ export const PUT = withAuth(async (req, { params }) => {
         };
     }
 
-    // Update materials if provided
     if (materials !== undefined) {
         updateData.materials = {
             deleteMany: {},
@@ -53,7 +54,6 @@ export const PUT = withAuth(async (req, { params }) => {
         },
     });
 
-    // Thông báo khi danh sách thợ thay đổi
     if (workerIds !== undefined && workerIds.length > 0) {
         const oldWorkerIds = existing?.workers?.map(w => w.workerId) || [];
         const newWorkerIds = workerIds.filter(wid => !oldWorkerIds.includes(wid));

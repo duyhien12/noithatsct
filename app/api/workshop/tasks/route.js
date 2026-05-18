@@ -5,12 +5,14 @@ import { notifyWorkshopTaskAssigned } from '@/lib/notify';
 
 export const GET = withAuth(async (req) => {
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get('status');
+    const status    = searchParams.get('status');
     const projectId = searchParams.get('projectId');
+    const stage     = searchParams.get('stage');
 
     const where = {};
-    if (status) where.status = status;
+    if (status)    where.status    = status;
     if (projectId) where.projectId = projectId;
+    if (stage)     where.stage     = stage;
 
     const tasks = await prisma.workshopTask.findMany({
         where,
@@ -33,7 +35,7 @@ export const POST = withAuth(async (req) => {
     try {
         rawBody = await req.text();
         const body = JSON.parse(rawBody);
-        const { title, description, projectId, startDate, deadline, priority, notes, category, workerIds = [], materials = [] } = body;
+        const { title, description, projectId, startDate, deadline, priority, notes, category, stage, workerIds = [], materials = [] } = body;
 
         if (!title?.trim()) {
             return NextResponse.json({ error: 'Tiêu đề bắt buộc' }, { status: 400 });
@@ -48,6 +50,7 @@ export const POST = withAuth(async (req) => {
                 deadline: deadline ? new Date(deadline) : null,
                 priority: priority || 'Trung bình',
                 category: category || 'Lắp ghép tại xưởng',
+                stage: stage || 'Cut',
                 notes: notes?.trim() || '',
                 workers: workerIds.length > 0 ? {
                     create: workerIds.map(wid => ({ workerId: wid })),
