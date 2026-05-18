@@ -14,7 +14,7 @@ export const GET = withAuth(async (request, { params }) => {
     return NextResponse.json(order);
 });
 
-export const PUT = withAuth(async (request, { params }) => {
+export const PUT = withAuth(async (request, { params }, session) => {
     const { id } = await params;
     const body = await request.json();
     const data = workOrderUpdateSchema.parse(body);
@@ -22,12 +22,25 @@ export const PUT = withAuth(async (request, { params }) => {
         data.completedAt = new Date();
     }
 
-    const existing = await prisma.workOrder.findUnique({ where: { id }, select: { assignee: true } });
+    const existing = await prisma.workOrder.findUnique({ where: { id }, select: { assignee: true, status: true } });
     const order = await prisma.workOrder.update({
         where: { id },
         data,
         include: { project: { select: { name: true, code: true } } },
     });
+
+    // Log stage change
+    if (data.status && data.status !== existing?.status) {
+        prisma.workOrderStageLog.create({
+            data: {
+                workOrderId: id,
+                fromStatus: existing.status,
+                toStatus: data.status,
+                changedBy: session?.user?.name || '',
+                note: body.stageNote || '',
+            },
+        }).catch(() => {});
+    }
 
     // Thông báo khi assignee thay đổi (giao lại cho người khác)
     if (data.assignee && data.assignee !== existing?.assignee) {

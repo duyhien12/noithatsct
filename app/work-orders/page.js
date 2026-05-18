@@ -1,10 +1,558 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useRole } from '@/contexts/RoleContext';
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+const fmtDateTime = (d) => d ? new Date(d).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 const toInputDate = (d) => d ? new Date(d).toISOString().slice(0, 10) : '';
+const diffMinutes = (a, b) => Math.round((new Date(b) - new Date(a)) / 60000);
+
+const PHOTO_TYPES = ['evidence', 'before', 'after', 'qc'];
+const PHOTO_TYPE_LABEL = { evidence: 'Minh chứng', before: 'Trước', after: 'Sau', qc: 'QC' };
+const QC_STATUS_STYLE = {
+    pending: { color: '#6b7280', bg: '#f3f4f6', label: 'Chờ' },
+    pass:    { color: '#16a34a', bg: '#dcfce7', label: 'Đạt' },
+    fail:    { color: '#dc2626', bg: '#fee2e2', label: 'Không đạt' },
+    na:      { color: '#9ca3af', bg: '#f3f4f6', label: 'N/A' },
+};
+const STATUS_STYLE = {
+    'Chờ xử lý': { color: '#d97706', bg: '#fef3c7' },
+    'Đang xử lý': { color: '#2563eb', bg: '#dbeafe' },
+    'Hoàn thành': { color: '#16a34a', bg: '#dcfce7' },
+    'Quá hạn':   { color: '#dc2626', bg: '#fee2e2' },
+};
+
+// ─── WorkOrderDetailModal ─────────────────────────────────────────────────────
+function WorkOrderDetailModal({ wo, onClose, onUpdated, session }) {
+    const [tab, setTab] = useState('detail');
+    const [editForm, setEditForm] = useState({});
+    const [saving, setSaving] = useState(false);
+
+    // Photos state
+    const [photos, setPhotos] = useState([]);
+    const [photoLoading, setPhotoLoading] = useState(false);
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    const [photoType, setPhotoType] = useState('evidence');
+    const [photoCaption, setPhotoCaption] = useState('');
+    const photoInputRef = useRef(null);
+
+    // QC state
+    const [qcItems, setQcItems] = useState([]);
+    const [qcLoading, setQcLoading] = useState(false);
+    const [newQcItem, setNewQcItem] = useState('');
+    const [addingQc, setAddingQc] = useState(false);
+
+    // Checkin state
+    const [checkins, setCheckins] = useState([]);
+    const [checkinLoading, setCheckinLoading] = useState(false);
+    const [checkinWorker, setCheckinWorker] = useState('');
+    const [doingCheckin, setDoingCheckin] = useState(false);
+
+    // Stage history state
+    const [stageLogs, setStageLogs] = useState([]);
+    const [stageLoading, setStageLoading] = useState(false);
+
+    // QR scanner
+    const [scannerOpen, setScannerOpen] = useState(false);
+    const videoRef = useRef(null);
+    const streamRef = useRef(null);
+    const scannerIntervalRef = useRef(null);
+
+    useEffect(() => {
+        if (!wo) return;
+        setEditForm({
+            title: wo.title || '',
+            description: wo.description || '',
+            category: wo.category || '',
+            assignee: wo.assignee || '',
+            priority: wo.priority || 'Trung bình',
+            status: wo.status || 'Chờ xử lý',
+            dueDate: toInputDate(wo.dueDate),
+        });
+        setTab('detail');
+    }, [wo?.id]);
+
+    useEffect(() => {
+        if (!wo) return;
+        if (tab === 'photos') fetchPhotos();
+        if (tab === 'qc') fetchQC();
+        if (tab === 'checkins') fetchCheckins();
+        if (tab === 'history') fetchStageLogs();
+    }, [tab, wo?.id]);
+
+    const fetchPhotos = async () => {
+        setPhotoLoading(true);
+        const r = await fetch(`/api/work-orders/${wo.id}/photos`);
+        setPhotos(await r.json());
+        setPhotoLoading(false);
+    };
+
+    const fetchQC = async () => {
+        setQcLoading(true);
+        const r = await fetch(`/api/work-orders/${wo.id}/qc`);
+        setQcItems(await r.json());
+        setQcLoading(false);
+    };
+
+    const fetchCheckins = async () => {
+        setCheckinLoading(true);
+        const r = await fetch(`/api/work-orders/${wo.id}/checkins`);
+        setCheckins(await r.json());
+        setCheckinLoading(false);
+    };
+
+    const fetchStageLogs = async () => {
+        setStageLoading(true);
+        const r = await fetch(`/api/work-orders/${wo.id}/stage-logs`);
+        setStageLogs(await r.json());
+        setStageLoading(false);
+    };
+
+    // ── Save basic info ───────────────────────────────────────────────────────
+    const saveEdit = async () => {
+        if (!editForm.title?.trim()) return;
+        setSaving(true);
+        await fetch(`/api/work-orders/${wo.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: editForm.title.trim(),
+                description: editForm.description || '',
+                category: editForm.category || '',
+                assignee: editForm.assignee || '',
+                priority: editForm.priority,
+                status: editForm.status,
+                dueDate: editForm.dueDate || null,
+            }),
+        });
+        setSaving(false);
+        onUpdated?.();
+        // refresh stage logs if status changed
+        if (editForm.status !== wo.status) fetchStageLogs();
+    };
+
+    // ── Photos ────────────────────────────────────────────────────────────────
+    const handlePhotoUpload = async (file) => {
+        if (!file) return;
+        setUploadingPhoto(true);
+        const form = new FormData();
+        form.append('file', file);
+        form.append('type', 'proofs');
+        const uploadRes = await fetch('/api/upload?type=proofs', { method: 'POST', body: form });
+        const uploadData = await uploadRes.json();
+        if (uploadData.url) {
+            await fetch(`/api/work-orders/${wo.id}/photos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: uploadData.url, caption: photoCaption, type: photoType }),
+            });
+            setPhotoCaption('');
+            fetchPhotos();
+        }
+        setUploadingPhoto(false);
+    };
+
+    const deletePhoto = async (photoId) => {
+        await fetch(`/api/work-orders/${wo.id}/photos?photoId=${photoId}`, { method: 'DELETE' });
+        fetchPhotos();
+    };
+
+    // ── QC ────────────────────────────────────────────────────────────────────
+    const addQcItem = async () => {
+        if (!newQcItem.trim()) return;
+        setAddingQc(true);
+        await fetch(`/api/work-orders/${wo.id}/qc`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ item: newQcItem.trim(), sortOrder: qcItems.length }),
+        });
+        setNewQcItem('');
+        fetchQC();
+        setAddingQc(false);
+    };
+
+    const updateQcStatus = async (itemId, status) => {
+        await fetch(`/api/work-orders/${wo.id}/qc`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itemId, status }),
+        });
+        fetchQC();
+    };
+
+    const deleteQcItem = async (itemId) => {
+        await fetch(`/api/work-orders/${wo.id}/qc?itemId=${itemId}`, { method: 'DELETE' });
+        fetchQC();
+    };
+
+    // ── Check-in/out ──────────────────────────────────────────────────────────
+    const doCheckin = async () => {
+        if (!checkinWorker.trim()) return;
+        setDoingCheckin(true);
+        await fetch(`/api/work-orders/${wo.id}/checkins`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ workerName: checkinWorker.trim() }),
+        });
+        setCheckinWorker('');
+        fetchCheckins();
+        setDoingCheckin(false);
+    };
+
+    const doCheckout = async (checkinId) => {
+        await fetch(`/api/work-orders/${wo.id}/checkins`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ checkinId }),
+        });
+        fetchCheckins();
+    };
+
+    // ── QR Scanner ────────────────────────────────────────────────────────────
+    const startScanner = async () => {
+        setScannerOpen(true);
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            streamRef.current = stream;
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                videoRef.current.play();
+            }
+            if ('BarcodeDetector' in window) {
+                const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+                scannerIntervalRef.current = setInterval(async () => {
+                    if (!videoRef.current) return;
+                    try {
+                        const codes = await detector.detect(videoRef.current);
+                        if (codes.length > 0) {
+                            stopScanner();
+                            const scannedUrl = codes[0].rawValue;
+                            const match = scannedUrl.match(/[?&]wo=([^&]+)/);
+                            if (match) window.location.href = `/work-orders?wo=${match[1]}`;
+                        }
+                    } catch {}
+                }, 300);
+            }
+        } catch (e) {
+            setScannerOpen(false);
+            alert('Không thể mở camera: ' + e.message);
+        }
+    };
+
+    const stopScanner = () => {
+        if (scannerIntervalRef.current) clearInterval(scannerIntervalRef.current);
+        if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+        setScannerOpen(false);
+    };
+
+    // ── QC summary ────────────────────────────────────────────────────────────
+    const qcPass = qcItems.filter(i => i.status === 'pass').length;
+    const qcFail = qcItems.filter(i => i.status === 'fail').length;
+    const qcChecked = qcItems.filter(i => i.status !== 'pending').length;
+
+    const TABS = [
+        { key: 'detail',   label: 'Chi tiết' },
+        { key: 'photos',   label: `Ảnh${photos.length ? ` (${photos.length})` : ''}` },
+        { key: 'qc',       label: `QC${qcItems.length ? ` ${qcPass}/${qcItems.length}` : ''}` },
+        { key: 'checkins', label: `Check-in${checkins.length ? ` (${checkins.length})` : ''}` },
+        { key: 'history',  label: 'Lịch sử' },
+    ];
+
+    if (!wo) return null;
+
+    return (
+        <>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '20px 8px', overflowY: 'auto' }}>
+            <div style={{ background: 'var(--bg-card)', borderRadius: 14, width: '100%', maxWidth: 640, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+                {/* Header */}
+                <div style={{ padding: '18px 20px 0', borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: '#6b7280' }}>{wo.code}</span>
+                                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600, ...STATUS_STYLE[wo.status] }}>{wo.status}</span>
+                            </div>
+                            <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4, color: 'var(--text-primary)' }}>{wo.title}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{wo.project?.name} · {wo.assignee || 'Chưa giao'}</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                            <button onClick={startScanner} title="Quét QR" className="btn btn-ghost btn-sm" style={{ fontSize: 18, padding: '4px 8px' }}>📷</button>
+                            <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ fontSize: 20, lineHeight: 1, padding: '4px 8px' }}>×</button>
+                        </div>
+                    </div>
+                    {/* Tabs */}
+                    <div style={{ display: 'flex', gap: 0, overflowX: 'auto' }}>
+                        {TABS.map(t => (
+                            <button key={t.key} onClick={() => setTab(t.key)} style={{
+                                padding: '8px 14px', fontSize: 13, fontWeight: tab === t.key ? 700 : 400,
+                                border: 'none', background: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                                color: tab === t.key ? 'var(--primary)' : 'var(--text-muted)',
+                                borderBottom: tab === t.key ? '2px solid var(--primary)' : '2px solid transparent',
+                            }}>{t.label}</button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Tab content */}
+                <div style={{ padding: 20, maxHeight: '70vh', overflowY: 'auto' }}>
+
+                    {/* ── Chi tiết tab ── */}
+                    {tab === 'detail' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            <div>
+                                <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Tiêu đề *</label>
+                                <input className="form-input" value={editForm.title || ''} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} style={{ width: '100%' }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Mô tả</label>
+                                <textarea className="form-input" value={editForm.description || ''} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} rows={2} style={{ width: '100%', resize: 'vertical' }} />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Loại công việc</label>
+                                    <select className="form-select" value={editForm.category || ''} onChange={e => setEditForm(p => ({ ...p, category: e.target.value }))} style={{ width: '100%' }}>
+                                        <option value="">— Chọn —</option>
+                                        {['Thi công','Lắp đặt','Kiểm tra','Hoàn thiện','Sửa chữa','Khác'].map(c => <option key={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Ưu tiên</label>
+                                    <select className="form-select" value={editForm.priority || 'Trung bình'} onChange={e => setEditForm(p => ({ ...p, priority: e.target.value }))} style={{ width: '100%' }}>
+                                        {['Cao','Trung bình','Thấp'].map(p => <option key={p}>{p}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Trạng thái</label>
+                                    <select className="form-select" value={editForm.status || 'Chờ xử lý'} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))} style={{ width: '100%' }}>
+                                        {['Chờ xử lý','Đang xử lý','Hoàn thành','Quá hạn'].map(s => <option key={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Hạn chót</label>
+                                    <input type="date" className="form-input" value={editForm.dueDate || ''} onChange={e => setEditForm(p => ({ ...p, dueDate: e.target.value }))} style={{ width: '100%' }} />
+                                </div>
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Người thực hiện</label>
+                                <input className="form-input" value={editForm.assignee || ''} onChange={e => setEditForm(p => ({ ...p, assignee: e.target.value }))} placeholder="Tên người thực hiện" style={{ width: '100%' }} />
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                <button className="btn btn-ghost" onClick={onClose}>Đóng</button>
+                                <button className="btn btn-primary" onClick={saveEdit} disabled={saving || !editForm.title?.trim()}>{saving ? 'Đang lưu...' : 'Lưu thay đổi'}</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── Ảnh tab ── */}
+                    {tab === 'photos' && (
+                        <div>
+                            {/* Upload area */}
+                            <div style={{ background: 'var(--bg-hover)', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+                                    <div>
+                                        <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Loại ảnh</label>
+                                        <select className="form-select" value={photoType} onChange={e => setPhotoType(e.target.value)} style={{ width: '100%', fontSize: 12 }}>
+                                            {PHOTO_TYPES.map(t => <option key={t} value={t}>{PHOTO_TYPE_LABEL[t]}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Chú thích</label>
+                                        <input className="form-input" value={photoCaption} onChange={e => setPhotoCaption(e.target.value)} placeholder="Mô tả ảnh..." style={{ width: '100%', fontSize: 12 }} />
+                                    </div>
+                                </div>
+                                <input ref={photoInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+                                    onChange={e => handlePhotoUpload(e.target.files?.[0])} />
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button className="btn btn-primary btn-sm" onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto} style={{ flex: 1 }}>
+                                        {uploadingPhoto ? '⏳ Đang tải...' : '📷 Chụp / Chọn ảnh'}
+                                    </button>
+                                </div>
+                            </div>
+                            {/* Gallery */}
+                            {photoLoading ? <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 20 }}>Đang tải...</div> : (
+                                photos.length === 0 ? (
+                                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 30, fontSize: 13 }}>Chưa có ảnh nào</div>
+                                ) : (
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
+                                        {photos.map(p => (
+                                            <div key={p.id} style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', position: 'relative' }}>
+                                                <img src={p.url} alt={p.caption} style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover', display: 'block' }} />
+                                                <div style={{ padding: '6px 8px', background: 'var(--bg-card)' }}>
+                                                    <div style={{ fontSize: 10, color: 'var(--primary)', fontWeight: 600 }}>{PHOTO_TYPE_LABEL[p.type] || p.type}</div>
+                                                    {p.caption && <div style={{ fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.caption}</div>}
+                                                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{fmtDate(p.createdAt)}</div>
+                                                </div>
+                                                <button onClick={() => deletePhoto(p.id)} style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: 20, width: 22, height: 22, cursor: 'pointer', color: '#fff', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── QC Checklist tab ── */}
+                    {tab === 'qc' && (
+                        <div>
+                            {/* Summary bar */}
+                            {qcItems.length > 0 && (
+                                <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, ...QC_STATUS_STYLE.pass }}>Đạt: {qcPass}</span>
+                                    <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, ...QC_STATUS_STYLE.fail }}>Không đạt: {qcFail}</span>
+                                    <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: '#f3f4f6', color: '#6b7280' }}>Chờ: {qcItems.length - qcChecked}</span>
+                                    {qcItems.length > 0 && <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: '#ede9fe', color: '#7c3aed', marginLeft: 'auto' }}>{Math.round(qcPass / qcItems.length * 100)}% đạt</span>}
+                                </div>
+                            )}
+                            {/* Add item */}
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                                <input className="form-input" value={newQcItem} onChange={e => setNewQcItem(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && addQcItem()}
+                                    placeholder="Thêm hạng mục kiểm tra..." style={{ flex: 1, fontSize: 13 }} />
+                                <button className="btn btn-primary btn-sm" onClick={addQcItem} disabled={addingQc || !newQcItem.trim()}>Thêm</button>
+                            </div>
+                            {/* QC list */}
+                            {qcLoading ? <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 20 }}>Đang tải...</div> : (
+                                qcItems.length === 0 ? (
+                                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 30, fontSize: 13 }}>Chưa có hạng mục QC nào</div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        {qcItems.map(item => (
+                                            <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)' }}>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: 13, fontWeight: 500 }}>{item.item}</div>
+                                                    {item.checkedBy && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{item.checkedBy} · {fmtDateTime(item.checkedAt)}</div>}
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 4 }}>
+                                                    {['pass', 'fail', 'na'].map(s => (
+                                                        <button key={s} onClick={() => updateQcStatus(item.id, item.status === s ? 'pending' : s)} style={{
+                                                            padding: '3px 8px', fontSize: 11, fontWeight: 600, borderRadius: 20, border: 'none', cursor: 'pointer',
+                                                            ...( item.status === s ? QC_STATUS_STYLE[s] : { color: '#9ca3af', bg: '#f3f4f6', background: '#f3f4f6' }),
+                                                            background: item.status === s ? QC_STATUS_STYLE[s].bg : '#f3f4f6',
+                                                            color: item.status === s ? QC_STATUS_STYLE[s].color : '#9ca3af',
+                                                            outline: item.status === s ? `2px solid ${QC_STATUS_STYLE[s].color}` : 'none',
+                                                        }}>{QC_STATUS_STYLE[s].label}</button>
+                                                    ))}
+                                                    <button onClick={() => deleteQcItem(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 14, padding: '3px 4px' }}>×</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── Check-in/out tab ── */}
+                    {tab === 'checkins' && (
+                        <div>
+                            {/* Check-in form */}
+                            <div style={{ background: 'var(--bg-hover)', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: 'var(--text-muted)' }}>Ghi nhận check-in</div>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <input className="form-input" value={checkinWorker} onChange={e => setCheckinWorker(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && doCheckin()}
+                                        placeholder="Tên thợ / nhân viên..." style={{ flex: 1, fontSize: 13 }} />
+                                    <button className="btn btn-primary btn-sm" onClick={doCheckin} disabled={doingCheckin || !checkinWorker.trim()}>Check-in</button>
+                                </div>
+                            </div>
+                            {/* Checkin list */}
+                            {checkinLoading ? <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 20 }}>Đang tải...</div> : (
+                                checkins.length === 0 ? (
+                                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 30, fontSize: 13 }}>Chưa có check-in nào</div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        {checkins.map(c => {
+                                            const duration = c.checkoutAt ? diffMinutes(c.checkinAt, c.checkoutAt) : null;
+                                            return (
+                                                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)' }}>
+                                                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: c.checkoutAt ? '#dcfce7' : '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
+                                                        {c.checkoutAt ? '✅' : '🔵'}
+                                                    </div>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontWeight: 600, fontSize: 13 }}>{c.workerName}</div>
+                                                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                                            Vào: {fmtDateTime(c.checkinAt)}
+                                                            {c.checkoutAt && <> · Ra: {fmtDateTime(c.checkoutAt)}</>}
+                                                        </div>
+                                                        {duration !== null && (
+                                                            <div style={{ fontSize: 11, color: '#7c3aed', fontWeight: 500, marginTop: 1 }}>
+                                                                Thời gian: {duration >= 60 ? `${Math.floor(duration/60)}h ${duration%60}p` : `${duration}p`}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {!c.checkoutAt && (
+                                                        <button className="btn btn-ghost btn-sm" onClick={() => doCheckout(c.id)} style={{ fontSize: 12, whiteSpace: 'nowrap' }}>Check-out</button>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── Lịch sử tab ── */}
+                    {tab === 'history' && (
+                        <div>
+                            {/* QR Code */}
+                            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8, fontWeight: 600 }}>QR Code phiếu này</div>
+                                <img src={`/api/work-orders/${wo.id}/qr`} alt="QR Code" style={{ width: 140, height: 140, border: '1px solid var(--border)', borderRadius: 8 }} />
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Scan để mở phiếu trên thiết bị khác</div>
+                            </div>
+                            {/* Stage history timeline */}
+                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 10 }}>Lịch sử trạng thái</div>
+                            {stageLoading ? <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 20 }}>Đang tải...</div> : (
+                                stageLogs.length === 0 ? (
+                                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: 20 }}>Chưa có lịch sử thay đổi</div>
+                                ) : (
+                                    <div style={{ position: 'relative', paddingLeft: 24 }}>
+                                        <div style={{ position: 'absolute', left: 8, top: 0, bottom: 0, width: 2, background: 'var(--border)' }} />
+                                        {stageLogs.map((log, i) => (
+                                            <div key={log.id} style={{ position: 'relative', paddingBottom: 16 }}>
+                                                <div style={{ position: 'absolute', left: -20, top: 4, width: 10, height: 10, borderRadius: '50%', background: STATUS_STYLE[log.toStatus]?.color || '#6b7280', border: '2px solid var(--bg-card)' }} />
+                                                <div style={{ fontSize: 12 }}>
+                                                    <span style={{ fontWeight: 600 }}>{log.fromStatus}</span>
+                                                    <span style={{ color: 'var(--text-muted)', margin: '0 6px' }}>→</span>
+                                                    <span style={{ fontWeight: 700, color: STATUS_STYLE[log.toStatus]?.color }}>{log.toStatus}</span>
+                                                </div>
+                                                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                                    {log.changedBy && <span>{log.changedBy} · </span>}
+                                                    {fmtDateTime(log.createdAt)}
+                                                </div>
+                                                {log.note && <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', marginTop: 2 }}>{log.note}</div>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+
+        {/* QR Scanner overlay */}
+        {scannerOpen && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+                <div style={{ fontSize: 16, color: '#fff', fontWeight: 600 }}>Quét QR phiếu công việc</div>
+                <video ref={videoRef} style={{ width: '100%', maxWidth: 360, borderRadius: 12, border: '3px solid #fff' }} playsInline muted />
+                {'BarcodeDetector' in (typeof window !== 'undefined' ? window : {}) ? (
+                    <div style={{ fontSize: 13, color: '#aaa' }}>Hướng camera vào QR code</div>
+                ) : (
+                    <div style={{ fontSize: 13, color: '#f87171' }}>Trình duyệt không hỗ trợ quét tự động.<br/>Dùng Chrome/Android để quét QR.</div>
+                )}
+                <button className="btn btn-ghost" onClick={stopScanner} style={{ color: '#fff', borderColor: '#fff' }}>Đóng</button>
+            </div>
+        )}
+        </>
+    );
+}
 
 function getWeekStart(date) {
     const d = new Date(date);
@@ -29,6 +577,7 @@ const WO_STATUSES   = ['Chờ xử lý', 'Đang xử lý', 'Hoàn thành', 'Quá
 
 function PhieuTab() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -37,17 +586,29 @@ function PhieuTab() {
     const [syncing, setSyncing] = useState(false);
     const [syncMsg, setSyncMsg] = useState('');
     const [syncWeek, setSyncWeek] = useState(() => getWeekStart(new Date()));
-    const [editingWO, setEditingWO] = useState(null);
-    const [editForm, setEditForm] = useState({});
-    const [saving, setSaving] = useState(false);
+    const [detailWO, setDetailWO] = useState(null);
     const [zaloMsg, setZaloMsg] = useState({});
 
-    const fetchOrders = () => {
+    const fetchOrders = useCallback(() => {
         fetch('/api/work-orders?limit=1000').then(r => r.json()).then(d => {
             setOrders(d.data || []); setLoading(false);
         });
+    }, []);
+    useEffect(fetchOrders, [fetchOrders]);
+
+    // Auto-open from QR scan (?wo=<id>)
+    useEffect(() => {
+        const woId = searchParams?.get('wo');
+        if (woId) {
+            fetch(`/api/work-orders/${woId}`).then(r => r.ok ? r.json() : null).then(d => { if (d) setDetailWO(d); });
+        }
+    }, [searchParams]);
+
+    // Open detail modal — refresh work order data from server first
+    const openDetail = async (wo) => {
+        const r = await fetch(`/api/work-orders/${wo.id}`);
+        setDetailWO(await r.json());
     };
-    useEffect(fetchOrders, []);
 
     const syncFromLog = async () => {
         setSyncing(true); setSyncMsg('');
@@ -63,37 +624,21 @@ function PhieuTab() {
         setSyncing(false);
     };
 
-    const updateStatus = async (id, status) => {
+    const updateStatus = async (id, status, e) => {
+        e.stopPropagation();
         await fetch(`/api/work-orders/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
         fetchOrders();
     };
 
-    const openEdit = (wo) => {
-        setEditingWO(wo);
-        setEditForm({ title: wo.title || '', description: wo.description || '', category: wo.category || '',
-            assignee: wo.assignee || '', priority: wo.priority || 'Trung bình', status: wo.status || 'Chờ xử lý',
-            dueDate: toInputDate(wo.dueDate) });
-    };
-
-    const saveEdit = async () => {
-        if (!editForm.title?.trim()) return;
-        setSaving(true);
-        await fetch(`/api/work-orders/${editingWO.id}`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: editForm.title.trim(), description: editForm.description || '',
-                category: editForm.category || '', assignee: editForm.assignee || '',
-                priority: editForm.priority, status: editForm.status, dueDate: editForm.dueDate || null }),
-        });
-        setSaving(false); setEditingWO(null); fetchOrders();
-    };
-
-    const deleteOrder = async (wo) => {
+    const deleteOrder = async (wo, e) => {
+        e.stopPropagation();
         if (!window.confirm(`Xoá phiếu "${wo.title}"?`)) return;
         await fetch(`/api/work-orders/${wo.id}`, { method: 'DELETE' });
         fetchOrders();
     };
 
-    const sendZalo = async (wo) => {
+    const sendZalo = async (wo, e) => {
+        e.stopPropagation();
         setZaloMsg(p => ({ ...p, [wo.id]: '⏳' }));
         const res = await fetch(`/api/work-orders/${wo.id}/notify-zalo`, { method: 'POST' });
         const data = await res.json();
@@ -153,10 +698,10 @@ function PhieuTab() {
                 {loading ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (<>
                     <div className="desktop-table-view">
                         <div className="table-container"><table className="data-table">
-                            <thead><tr><th>Công trình</th><th>Tiêu đề</th><th>Loại</th><th>Ưu tiên</th><th>Người thực hiện</th><th>Hạn</th><th style={{ width: 110 }}>HĐ</th></tr></thead>
+                            <thead><tr><th>Công trình</th><th>Tiêu đề</th><th>Loại</th><th>Ưu tiên</th><th>Người thực hiện</th><th>Hạn</th><th style={{ width: 90 }}>HĐ</th></tr></thead>
                             <tbody>{filtered.map(wo => (
-                                <tr key={wo.id}>
-                                    <td style={{ cursor: wo.project ? 'pointer' : 'default' }} onClick={() => wo.project && router.push(`/projects/${wo.projectId}`)}>
+                                <tr key={wo.id} onClick={() => openDetail(wo)} style={{ cursor: 'pointer' }}>
+                                    <td onClick={e => { e.stopPropagation(); wo.project && router.push(`/projects/${wo.projectId}`); }} style={{ cursor: wo.project ? 'pointer' : 'default' }}>
                                         <span className="badge info">{wo.project?.code}</span> <span style={{ fontSize: 12 }}>{wo.project?.name}</span>
                                     </td>
                                     <td className="primary">
@@ -171,13 +716,12 @@ function PhieuTab() {
                                     <td><span className={`badge ${wo.priority === 'Cao' ? 'danger' : wo.priority === 'Trung bình' ? 'warning' : 'muted'}`}>{wo.priority}</span></td>
                                     <td style={{ fontSize: 13 }}>{wo.assignee || '—'}</td>
                                     <td style={{ fontSize: 12 }}>{fmtDate(wo.dueDate)}</td>
-                                    <td>
+                                    <td onClick={e => e.stopPropagation()}>
                                         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                                            <button className="btn btn-ghost btn-sm" title="Chỉnh sửa" onClick={() => openEdit(wo)} style={{ padding: '3px 7px', fontSize: 14 }}>✏️</button>
-                                            <button className="btn btn-ghost btn-sm" title="Gửi qua Zalo OA" onClick={() => sendZalo(wo)} style={{ padding: '3px 7px', fontSize: 14 }} disabled={zaloMsg[wo.id] === '⏳'}>
+                                            <button className="btn btn-ghost btn-sm" title="Gửi qua Zalo OA" onClick={e => sendZalo(wo, e)} style={{ padding: '3px 7px', fontSize: 14 }} disabled={zaloMsg[wo.id] === '⏳'}>
                                                 {zaloMsg[wo.id] === '⏳' ? '⏳' : '💬'}
                                             </button>
-                                            <button className="btn btn-ghost btn-sm" title="Xoá" onClick={() => deleteOrder(wo)} style={{ padding: '3px 7px', fontSize: 14, color: '#dc2626' }}>🗑️</button>
+                                            <button className="btn btn-ghost btn-sm" title="Xoá" onClick={e => deleteOrder(wo, e)} style={{ padding: '3px 7px', fontSize: 14, color: '#dc2626' }}>🗑️</button>
                                         </div>
                                         {zaloMsg[wo.id] && zaloMsg[wo.id] !== '⏳' && (
                                             <div style={{ fontSize: 10, marginTop: 2, color: zaloMsg[wo.id].startsWith('✅') ? '#16a34a' : '#dc2626', whiteSpace: 'nowrap' }}>{zaloMsg[wo.id]}</div>
@@ -189,29 +733,28 @@ function PhieuTab() {
                     </div>
                     <div className="mobile-card-list">
                         {filtered.map(wo => (
-                            <div key={wo.id} className="mobile-card-item">
+                            <div key={wo.id} className="mobile-card-item" onClick={() => openDetail(wo)} style={{ cursor: 'pointer' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wo.title}</div>
                                         <div className="card-subtitle">{wo.code} · {wo.project?.name || '—'}</div>
                                     </div>
-                                    <div style={{ display: 'flex', gap: 4 }}>
+                                    <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
                                         <span className={`badge ${wo.priority === 'Cao' ? 'danger' : wo.priority === 'Trung bình' ? 'warning' : 'muted'}`}>{wo.priority}</span>
-                                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(wo)} style={{ padding: '2px 6px', fontSize: 13 }}>✏️</button>
-                                        <button className="btn btn-ghost btn-sm" onClick={() => sendZalo(wo)} style={{ padding: '2px 6px', fontSize: 13 }} disabled={zaloMsg[wo.id] === '⏳'}>
+                                        <button className="btn btn-ghost btn-sm" onClick={e => sendZalo(wo, e)} style={{ padding: '2px 6px', fontSize: 13 }} disabled={zaloMsg[wo.id] === '⏳'}>
                                             {zaloMsg[wo.id] === '⏳' ? '⏳' : '💬'}
                                         </button>
-                                        <button className="btn btn-ghost btn-sm" onClick={() => deleteOrder(wo)} style={{ padding: '2px 6px', fontSize: 13, color: '#dc2626' }}>🗑️</button>
+                                        <button className="btn btn-ghost btn-sm" onClick={e => deleteOrder(wo, e)} style={{ padding: '2px 6px', fontSize: 13, color: '#dc2626' }}>🗑️</button>
                                     </div>
                                 </div>
                                 {zaloMsg[wo.id] && zaloMsg[wo.id] !== '⏳' && (
                                     <div style={{ fontSize: 11, color: zaloMsg[wo.id].startsWith('✅') ? '#16a34a' : '#dc2626', marginTop: 4 }}>{zaloMsg[wo.id]}</div>
                                 )}
-                                <div className="card-row">
+                                <div className="card-row" onClick={e => e.stopPropagation()}>
                                     <div><span className="card-label">Người TH</span><div style={{ fontSize: 12, fontWeight: 500 }}>{wo.assignee || '—'}</div></div>
                                     <div><span className="card-label">Hạn</span><div style={{ fontSize: 12, fontWeight: 500 }}>{fmtDate(wo.dueDate)}</div></div>
                                     <div>
-                                        <select value={wo.status} onChange={e => updateStatus(wo.id, e.target.value)} className="form-select" style={{ padding: '6px 28px 6px 8px', fontSize: 12, minWidth: 0 }}>
+                                        <select value={wo.status} onChange={e => updateStatus(wo.id, e.target.value, e)} className="form-select" style={{ padding: '6px 28px 6px 8px', fontSize: 12, minWidth: 0 }}>
                                             <option>Chờ xử lý</option><option>Đang xử lý</option><option>Hoàn thành</option><option>Quá hạn</option>
                                         </select>
                                     </div>
@@ -222,62 +765,17 @@ function PhieuTab() {
                 </>)}
             </div>
 
-            {editingWO && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-                    <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 24, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Chỉnh sửa phiếu — {editingWO.code}</h3>
-                            <button className="btn btn-ghost btn-sm" onClick={() => setEditingWO(null)} style={{ fontSize: 18, lineHeight: 1 }}>×</button>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                            <div>
-                                <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Tiêu đề *</label>
-                                <input className="form-input" value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} style={{ width: '100%' }} />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Mô tả</label>
-                                <textarea className="form-input" value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} rows={2} style={{ width: '100%', resize: 'vertical' }} />
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                <div>
-                                    <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Loại công việc</label>
-                                    <select className="form-select" value={editForm.category} onChange={e => setEditForm(p => ({ ...p, category: e.target.value }))} style={{ width: '100%' }}>
-                                        <option value="">— Chọn —</option>
-                                        {WO_CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                                        {editForm.category && !WO_CATEGORIES.includes(editForm.category) && <option value={editForm.category}>{editForm.category}</option>}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Ưu tiên</label>
-                                    <select className="form-select" value={editForm.priority} onChange={e => setEditForm(p => ({ ...p, priority: e.target.value }))} style={{ width: '100%' }}>
-                                        {WO_PRIORITIES.map(p => <option key={p}>{p}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                <div>
-                                    <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Trạng thái</label>
-                                    <select className="form-select" value={editForm.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))} style={{ width: '100%' }}>
-                                        {WO_STATUSES.map(s => <option key={s}>{s}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Hạn chót</label>
-                                    <input type="date" className="form-input" value={editForm.dueDate} onChange={e => setEditForm(p => ({ ...p, dueDate: e.target.value }))} style={{ width: '100%' }} />
-                                </div>
-                            </div>
-                            <div>
-                                <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Người thực hiện</label>
-                                <input className="form-input" value={editForm.assignee} onChange={e => setEditForm(p => ({ ...p, assignee: e.target.value }))} placeholder="Tên hoặc email người thực hiện" style={{ width: '100%' }} />
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
-                                <button className="btn btn-ghost" onClick={() => setEditingWO(null)}>Huỷ</button>
-                                <button className="btn btn-primary" onClick={saveEdit} disabled={saving || !editForm.title?.trim()}>{saving ? 'Đang lưu...' : 'Lưu thay đổi'}</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <WorkOrderDetailModal
+                wo={detailWO}
+                onClose={() => setDetailWO(null)}
+                onUpdated={async () => {
+                    fetchOrders();
+                    if (detailWO) {
+                        const r = await fetch(`/api/work-orders/${detailWO.id}`);
+                        if (r.ok) setDetailWO(await r.json());
+                    }
+                }}
+            />
         </div>
     );
 }
@@ -770,7 +1268,7 @@ export default function WorkOrdersPage() {
             </div>
 
             {tab === 'phieu'
-                ? <PhieuTab />
+                ? <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>}><PhieuTab /></Suspense>
                 : <CongViecXuongTab workers={workers} projects={projects} />
             }
         </div>

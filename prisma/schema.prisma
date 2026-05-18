@@ -519,11 +519,63 @@ model WorkOrder {
   projectId   String
   sourceLogId String?
   project     Project  @relation(fields: [projectId], references: [id])
+  checkins    WorkOrderCheckin[]
+  photos      WorkOrderPhoto[]
+  qcItems     WorkOrderQCItem[]
+  stageLogs   WorkOrderStageLog[]
   deletedAt   DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   @@index([projectId])
   @@index([sourceLogId])
+}
+
+model WorkOrderCheckin {
+  id          String    @id @default(cuid())
+  workOrderId String
+  workerName  String
+  checkinAt   DateTime  @default(now())
+  checkoutAt  DateTime?
+  notes       String    @default("")
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  @@index([workOrderId])
+}
+
+model WorkOrderPhoto {
+  id          String    @id @default(cuid())
+  workOrderId String
+  url         String
+  caption     String    @default("")
+  type        String    @default("evidence")
+  uploadedBy  String    @default("")
+  createdAt   DateTime  @default(now())
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  @@index([workOrderId])
+}
+
+model WorkOrderQCItem {
+  id          String    @id @default(cuid())
+  workOrderId String
+  item        String
+  status      String    @default("pending")
+  note        String    @default("")
+  checkedBy   String    @default("")
+  checkedAt   DateTime?
+  sortOrder   Int       @default(0)
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  @@index([workOrderId])
+}
+
+model WorkOrderStageLog {
+  id          String    @id @default(cuid())
+  workOrderId String
+  fromStatus  String
+  toStatus    String
+  changedBy   String    @default("")
+  note        String    @default("")
+  createdAt   DateTime  @default(now())
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  @@index([workOrderId])
 }
 
 model MaterialPlan {
