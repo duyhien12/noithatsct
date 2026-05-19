@@ -15,6 +15,7 @@ function PurchasingContent() {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('');
+    const [filterProject, setFilterProject] = useState('');
     const [projects, setProjects] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
 
@@ -94,7 +95,11 @@ function PurchasingContent() {
     const totalValue = orders.reduce((s, o) => s + o.totalAmount, 0);
     const totalPaid = orders.reduce((s, o) => s + o.paidAmount, 0);
     const statuses = ['Nháp', 'Đang đặt', 'Đã xác nhận', 'Đang giao', 'Đã giao', 'Đã thanh toán'];
-    const filtered = filterStatus ? orders.filter(o => o.status === filterStatus) : orders;
+    const filtered = orders.filter(o => {
+        if (filterStatus && o.status !== filterStatus) return false;
+        if (filterProject && o.projectId !== filterProject) return false;
+        return true;
+    });
 
     const updateItem = (i, field, value) => {
         setPoItems(items => items.map((it, idx) => {
@@ -192,9 +197,13 @@ function PurchasingContent() {
             <div className="card">
                 <div className="card-header">
                     <h3>Danh sách đơn mua hàng</h3>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <select className="form-select" value={filterProject} onChange={e => setFilterProject(e.target.value)} style={{ minWidth: 180 }}>
+                            <option value="">Tất cả dự án</option>
+                            {projects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+                        </select>
                         <select className="form-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                            <option value="">Tất cả</option>
+                            <option value="">Tất cả trạng thái</option>
                             {statuses.map(s => <option key={s}>{s}</option>)}
                         </select>
                         <button className="btn btn-primary" onClick={() => {
@@ -216,7 +225,11 @@ function PurchasingContent() {
                                 <tr key={o.id} onClick={() => o.projectId && router.push(`/projects/${o.projectId}`)} style={{ cursor: o.projectId ? 'pointer' : 'default' }}>
                                     <td className="accent">{o.code}</td>
                                     <td className="primary">{o.supplier}</td>
-                                    <td>{o.project ? <span className="badge badge-info">{o.project.code}</span> : <span style={{ opacity: 0.3, fontSize: 12 }}>—</span>}</td>
+                                    <td>
+                                        {o.project
+                                            ? <div><span className="badge badge-info" style={{ marginBottom: 2 }}>{o.project.code}</span><div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.project.name}</div></div>
+                                            : <span style={{ opacity: 0.3, fontSize: 12 }}>—</span>}
+                                    </td>
                                     <td className="amount">{fmt(o.totalAmount)}</td>
                                     <td>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

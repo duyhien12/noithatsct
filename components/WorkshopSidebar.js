@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, Wrench, Building2, ShoppingCart, Package,
     ChevronRight, X, CalendarDays, Users, FileText, Warehouse,
-    BarChart2, Clock, BookOpen, Banknote, Landmark, BookMarked,
+    BarChart2, Clock, BookOpen, Banknote, Landmark, BookMarked, Settings,
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useState } from 'react';
@@ -32,6 +32,7 @@ const FULL_MENU = [
             { href: '/schedule-templates', icon: CalendarDays, label: 'Mẫu tiến độ' },
             { href: '/customers', icon: Users, label: 'Khách hàng' },
             { href: '/contracts', icon: FileText, label: 'Hợp đồng' },
+            { href: '/maintenance', icon: Settings, label: 'Bảo dưỡng' },
         ],
     },
     {

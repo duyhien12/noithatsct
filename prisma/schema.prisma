@@ -118,6 +118,7 @@ model Project {
   workshopTasks   WorkshopTask[]
   workLogEntries  WorkLogEntry[]
   projectChats    ProjectChatMsg[]
+  maintenanceRecords MaintenanceRecord[]
   deletedAt       DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -1424,4 +1425,49 @@ model WorkshopPLEntry {
   updatedAt   DateTime @updatedAt
   @@index([period])
   @@index([entryType])
+}
+
+// ============ BẢO DƯỠNG & HẬU MÃI ============
+
+model MaintenanceRecord {
+  id               String    @id @default(cuid())
+  code             String    @unique
+  title            String
+  type             String    @default("Bảo hành")
+  category         String    @default("Khác")
+  priority         String    @default("Trung bình")
+  status           String    @default("Tiếp nhận")
+  description      String    @default("") @db.Text
+  resolution       String    @default("") @db.Text
+  rootCause        String    @default("") @db.Text
+  notes            String    @default("") @db.Text
+  assignee         String    @default("")
+  reportedBy       String    @default("")
+  receivedAt       DateTime  @default(now())
+  scheduledDate    DateTime?
+  startedAt        DateTime?
+  completedDate    DateTime?
+  slaDeadline      DateTime?
+  nextScheduleDate DateTime?
+  warrantyEndDate  DateTime?
+  isUnderWarranty  Boolean   @default(true)
+  isRepeatIssue    Boolean   @default(false)
+  repeatCount      Int       @default(0)
+  parentIssueId    String?
+  estimatedCost    Float     @default(0)
+  actualCost       Float     @default(0)
+  beforePhotos     String    @default("[]") @db.Text
+  afterPhotos      String    @default("[]") @db.Text
+  customerRating   Int?
+  customerFeedback String    @default("") @db.Text
+  ratedAt          DateTime?
+  projectId        String
+  project          Project   @relation(fields: [projectId], references: [id])
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  @@index([projectId])
+  @@index([status])
+  @@index([slaDeadline])
+  @@index([parentIssueId])
 }
