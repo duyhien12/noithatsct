@@ -147,7 +147,7 @@ export default function ProjectsPage() {
     const atRiskCount    = allProjects.filter(p => p.risks?.length > 0).length;
 
     // Project row for desktop table
-    const ProjectRow = ({ p }) => {
+    const ProjectRow = ({ p, dept }) => {
         const hasRisks   = p.risks?.length > 0;
         const rowBg      = hasRisks && p.healthScore < 35
             ? 'rgba(220,38,38,0.025)'
@@ -236,7 +236,23 @@ export default function ProjectsPage() {
                 </td>
 
                 {/* Actions */}
-                <td onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <td onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'nowrap' }}>
+                    {dept === 'kinh_doanh' && (
+                        <button
+                            className="btn btn-sm"
+                            title="Chuyển sang Phòng Xây Dựng"
+                            onClick={() => moveToDept(p.id, 'xay_dung')}
+                            style={{ fontSize: 10, padding: '3px 7px', background: '#dbeafe', color: '#1d4ed8', border: '1px solid #93c5fd', whiteSpace: 'nowrap', borderRadius: 6 }}
+                        >→ XD</button>
+                    )}
+                    {dept === 'xay_dung' && (
+                        <button
+                            className="btn btn-sm"
+                            title="Chuyển sang Phòng Kinh Doanh"
+                            onClick={() => moveToDept(p.id, 'kinh_doanh')}
+                            style={{ fontSize: 10, padding: '3px 7px', background: '#fff7ed', color: '#c2410c', border: '1px solid #fdba74', whiteSpace: 'nowrap', borderRadius: 6 }}
+                        >→ KD</button>
+                    )}
                     <span
                         draggable
                         onDragStart={e => onDragStart(e, p.id)}
@@ -249,7 +265,7 @@ export default function ProjectsPage() {
         );
     };
 
-    const ProjectCard = ({ p }) => (
+    const ProjectCard = ({ p, dept }) => (
         <div key={p.id} className="mobile-card-item" onClick={() => router.push(`/projects/${p.id}`)}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -259,6 +275,18 @@ export default function ProjectsPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, marginLeft: 8, flexShrink: 0 }}>
                     <span className={`badge ${stColor[p.status] || 'badge-default'}`} style={{ fontSize: 10 }}>{p.status}</span>
                     <HealthDot score={p.healthScore ?? 100} />
+                    {dept === 'kinh_doanh' && (
+                        <button onClick={e => { e.stopPropagation(); moveToDept(p.id, 'xay_dung'); }}
+                            style={{ fontSize: 10, padding: '2px 8px', background: '#dbeafe', color: '#1d4ed8', border: '1px solid #93c5fd', borderRadius: 6, cursor: 'pointer', marginTop: 2 }}>
+                            → Xây Dựng
+                        </button>
+                    )}
+                    {dept === 'xay_dung' && (
+                        <button onClick={e => { e.stopPropagation(); moveToDept(p.id, 'kinh_doanh'); }}
+                            style={{ fontSize: 10, padding: '2px 8px', background: '#fff7ed', color: '#c2410c', border: '1px solid #fdba74', borderRadius: 6, cursor: 'pointer', marginTop: 2 }}>
+                            → Kinh Doanh
+                        </button>
+                    )}
                 </div>
             </div>
             {p.risks?.length > 0 && (
@@ -322,7 +350,7 @@ export default function ProjectsPage() {
                         <tbody>
                             {projects.length === 0
                                 ? <tr><td colSpan={10} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>Không có dự án</td></tr>
-                                : projects.map(p => <ProjectRow key={p.id} p={p} />)
+                                : projects.map(p => <ProjectRow key={p.id} p={p} dept={dept} />)
                             }
                         </tbody>
                     </table>
@@ -330,7 +358,7 @@ export default function ProjectsPage() {
             </div>
             {/* Mobile */}
             <div className="mobile-card-list">
-                {projects.map(p => <ProjectCard key={p.id} p={p} />)}
+                {projects.map(p => <ProjectCard key={p.id} p={p} dept={dept} />)}
             </div>
         </div>
     );
