@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import DocumentManager from '@/components/documents/DocumentManager';
 import ScheduleManager from '@/components/schedule/ScheduleManager';
 import JournalTab from '@/components/journal/JournalTab';
+import ProjectChatTab from '@/components/project/ProjectChatTab';
 import BudgetLockBar from '@/components/budget/BudgetLockBar';
 import VarianceTable from '@/components/budget/VarianceTable';
 import ProfitabilityWidget from '@/components/budget/ProfitabilityWidget';
@@ -700,6 +701,7 @@ export default function ProjectDetailPage() {
         { key: 'finance', label: 'Tài chính', icon: '💰' },
         { key: 'documents', label: 'Tài liệu', icon: '📁', count: p.documents?.length },
         { key: 'journal', label: 'Nhật ký AI', icon: '🤖' },
+        { key: 'chat', label: 'Nhận xét', icon: '💬' },
     ].filter(Boolean);
 
     return (
@@ -896,6 +898,13 @@ export default function ProjectDetailPage() {
             {tab === 'journal' && (
                 <div className="card" style={{ padding: 24 }}>
                     <JournalTab projectId={id} />
+                </div>
+            )}
+
+            {/* TAB: Nhận xét (chat) */}
+            {tab === 'chat' && (
+                <div className="card" style={{ padding: 20 }}>
+                    <ProjectChatTab projectId={id} />
                 </div>
             )}
 
