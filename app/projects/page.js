@@ -443,7 +443,7 @@ export default function ProjectsPage() {
                 )}
 
                 {/* Bảng Phòng Kinh Doanh */}
-                <div className="card">
+                {role !== 'xay_dung' && <div className="card">
                     <div className="card-header">
                         <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             💼 Phòng kinh doanh đặt hàng xưởng nội thất
@@ -456,7 +456,7 @@ export default function ProjectsPage() {
                         </h3>
                     </div>
                     <TableSection projects={projectsKD} dept="kinh_doanh" />
-                </div>
+                </div>}
             </>)}
 
             {/* Modal tạo dự án */}
