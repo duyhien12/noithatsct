@@ -49,7 +49,7 @@ const FULL_MENU = [
         section: 'Kho & Mua sắm',
         items: [
             { href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho' },
-            { href: '/purchasing', icon: ShoppingCart, label: 'Mua sắm vật tư' },
+            { href: '/purchasing?view=xuong', icon: ShoppingCart, label: 'Mua sắm vật tư' },
             { href: '/workshop/materials', icon: Package, label: 'Vật tư kho' },
             { href: '/products', icon: Package, label: 'Danh mục sản phẩm' },
         ],

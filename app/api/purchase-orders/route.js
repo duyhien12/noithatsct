@@ -11,6 +11,7 @@ export const GET = withAuth(async (request) => {
     const search = searchParams.get('search') || '';
 
     const excludeRole = searchParams.get('excludeRole');
+    const excludeProjectRole = searchParams.get('excludeProjectRole');
     const where = {};
     if (search) {
         where.OR = [
@@ -21,6 +22,20 @@ export const GET = withAuth(async (request) => {
     }
     if (excludeRole) {
         where.NOT = { createdByRole: excludeRole };
+    }
+    if (excludeProjectRole) {
+        where.OR = [
+            { projectId: null },
+            { project: { createdByRole: { not: excludeProjectRole } } },
+        ];
+    }
+    const projectRole = searchParams.get('projectRole');
+    if (projectRole === 'xay_dung') {
+        where.project = { createdByRole: 'xay_dung' };
+    } else if (projectRole === 'kinh_doanh') {
+        where.project = { createdByRole: 'kinh_doanh' };
+    } else if (projectRole === 'xuong') {
+        where.project = { createdByRole: '' };
     }
 
     const [orders, total] = await Promise.all([

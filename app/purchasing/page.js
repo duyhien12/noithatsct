@@ -9,13 +9,22 @@ const pct = (a, b) => b > 0 ? Math.round((a / b) * 100) : 0;
 
 const STATUS_BADGE = { 'Đã thanh toán': 'badge-success', 'Đã giao': 'badge-info', 'Đang giao': 'badge-warning', 'Nháp': 'badge-default' };
 
+const DEPT_OPTIONS = [
+    { value: '', label: 'Tất cả phòng ban' },
+    { value: 'kinh_doanh', label: 'Kinh doanh' },
+    { value: 'xay_dung', label: 'Xây dựng' },
+    { value: 'xuong', label: 'Xưởng nội thất' },
+];
+
 function PurchasingContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const isXuongView = searchParams.get('view') === 'xuong';
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('');
     const [filterProject, setFilterProject] = useState('');
+    const [filterDept, setFilterDept] = useState('');
     const [projects, setProjects] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
 
@@ -61,14 +70,28 @@ function PurchasingContent() {
     const [phieuChiNotes, setPhieuChiNotes] = useState('');
     const [creatingPhieuChi, setCreatingPhieuChi] = useState(false);
 
-    const fetchOrders = () => {
+    const fetchOrders = (dept = filterDept) => {
         setLoading(true);
-        fetch('/api/purchase-orders?limit=1000&excludeRole=xay_dung').then(r => r.json()).then(d => { setOrders(d.data || []); setLoading(false); });
+        let url = '/api/purchase-orders?limit=1000';
+        if (isXuongView) {
+            url += '&excludeRole=xay_dung&excludeProjectRole=xay_dung';
+        } else if (dept) {
+            url += `&projectRole=${dept}`;
+        }
+        fetch(url).then(r => r.json()).then(d => { setOrders(d.data || []); setLoading(false); });
+    };
+
+    const fetchProjects = (dept = filterDept) => {
+        let url = '/api/projects?limit=200';
+        if (isXuongView) url += '&dept=kinh_doanh';
+        else if (dept === 'xay_dung') url += '&dept=xay_dung';
+        else if (dept === 'kinh_doanh') url += '&dept=kinh_doanh';
+        fetch(url).then(r => r.json()).then(d => setProjects(d.data || []));
     };
 
     useEffect(() => {
         fetchOrders();
-        fetch('/api/projects?limit=200').then(r => r.json()).then(d => setProjects(d.data || []));
+        fetchProjects();
         fetch('/api/suppliers?limit=1000').then(r => r.json()).then(d => setSuppliers(d.data || []));
     }, []);
 
@@ -91,6 +114,13 @@ function PurchasingContent() {
             });
         }
     }, [searchParams]);
+
+    const handleDeptChange = (dept) => {
+        setFilterDept(dept);
+        setFilterProject('');
+        fetchOrders(dept);
+        fetchProjects(dept);
+    };
 
     const totalValue = orders.reduce((s, o) => s + o.totalAmount, 0);
     const totalPaid = orders.reduce((s, o) => s + o.paidAmount, 0);
@@ -183,7 +213,7 @@ function PurchasingContent() {
     return (
         <div>
             <div style={{ marginBottom: 24 }}>
-                <h2 style={{ margin: 0 }}>🛒 Mua sắm vật tư toàn công ty</h2>
+                <h2 style={{ margin: 0 }}>🛒 {isXuongView ? 'Mua sắm vật tư — Xưởng nội thất' : 'Mua sắm vật tư toàn công ty'}</h2>
             </div>
 
             <div className="stats-grid" style={{ marginBottom: 24 }}>
@@ -198,6 +228,11 @@ function PurchasingContent() {
                 <div className="card-header">
                     <h3>Danh sách đơn mua hàng</h3>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        {!isXuongView && (
+                            <select className="form-select" value={filterDept} onChange={e => handleDeptChange(e.target.value)} style={{ minWidth: 160 }}>
+                                {DEPT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
+                        )}
                         <select className="form-select" value={filterProject} onChange={e => setFilterProject(e.target.value)} style={{ minWidth: 180 }}>
                             <option value="">Tất cả dự án</option>
                             {projects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
