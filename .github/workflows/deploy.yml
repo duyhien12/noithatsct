@@ -45,14 +45,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Sync database schema
+      - name: Sync database schema (safe migration)
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
           DB_PASS="${POSTGRES_PASSWORD:-postgres}"
           docker exec noithatsct-postgres psql -U postgres -c "ALTER USER postgres WITH PASSWORD '${DB_PASS}';"
           npx prisma generate
-          DATABASE_URL="postgresql://postgres:${DB_PASS}@localhost:5432/noithatsct?schema=public" npx prisma db push --accept-data-loss
+          DB_URL="postgresql://postgres:${DB_PASS}@localhost:5432/noithatsct?schema=public"
+          # Baseline existing migrations so migrate deploy doesn't try to re-create tables
+          DATABASE_URL="$DB_URL" npx prisma migrate resolve --applied 20260217182412_init || true
+          DATABASE_URL="$DB_URL" npx prisma migrate resolve --applied 20260217185441_enhance_all || true
+          DATABASE_URL="$DB_URL" npx prisma migrate deploy
 
       - name: Build and deploy app
         run: |
