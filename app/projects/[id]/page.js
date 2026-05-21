@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import DocumentManager from '@/components/documents/DocumentManager';
 import ScheduleManager from '@/components/schedule/ScheduleManager';
-import JournalTab from '@/components/journal/JournalTab';
 import ProjectChatTab from '@/components/project/ProjectChatTab';
 import BudgetLockBar from '@/components/budget/BudgetLockBar';
 import VarianceTable from '@/components/budget/VarianceTable';
@@ -700,7 +699,6 @@ export default function ProjectDetailPage() {
         { key: 'contractors', label: 'Thầu phụ', icon: '👷', count: p.contractorPays?.length },
         { key: 'finance', label: 'Tài chính', icon: '💰' },
         { key: 'documents', label: 'Tài liệu', icon: '📁', count: p.documents?.length },
-        { key: 'journal', label: 'Nhật ký AI', icon: '🤖' },
         { key: 'chat', label: 'Nhận xét', icon: '💬' },
     ].filter(Boolean);
 
@@ -891,13 +889,6 @@ export default function ProjectDetailPage() {
                         </div>
                     ))}
                     {!(p.trackingLogs?.length) && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có nhật ký theo dõi</div>}
-                </div>
-            )}
-
-            {/* TAB: Nhật ký AI */}
-            {tab === 'journal' && (
-                <div className="card" style={{ padding: 24 }}>
-                    <JournalTab projectId={id} />
                 </div>
             )}
 
