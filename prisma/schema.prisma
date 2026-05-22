@@ -103,6 +103,7 @@ model Project {
   workOrders      WorkOrder[]
   materialPlans   MaterialPlan[]
   productionCosts ProductionCostItem[]
+  productionOrders ProductionOrder[]
   purchaseOrders  PurchaseOrder[]
   requisitions    MaterialRequisition[]
   expenses        ProjectExpense[]
@@ -1425,6 +1426,72 @@ model WorkshopPLEntry {
   updatedAt   DateTime @updatedAt
   @@index([period])
   @@index([entryType])
+}
+
+// ============ QUẢN LÝ SẢN XUẤT ĐƠN HÀNG ============
+
+model ProductionOrder {
+  id          String            @id @default(cuid())
+  projectId   String            @unique
+  project     Project           @relation(fields: [projectId], references: [id])
+  notes       String            @default("") @db.Text
+  createdBy   String            @default("")
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  floors      ProductionFloor[]
+  @@index([projectId])
+}
+
+model ProductionFloor {
+  id          String          @id @default(cuid())
+  orderId     String
+  order       ProductionOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  name        String
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  rooms       ProductionRoom[]
+  @@index([orderId])
+}
+
+model ProductionRoom {
+  id          String          @id @default(cuid())
+  floorId     String
+  floor       ProductionFloor @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  name        String
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  items       ProductionItem[]
+  @@index([floorId])
+}
+
+model ProductionItem {
+  id                     String         @id @default(cuid())
+  roomId                 String
+  room                   ProductionRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  name                   String
+  quantity               Int            @default(1)
+  notes                  String         @default("") @db.Text
+  sortOrder              Int            @default(0)
+  stepCNC                Boolean        @default(false)
+  stepCNCAt              DateTime?
+  stepCNCBy              String         @default("")
+  stepColdProcess        Boolean        @default(false)
+  stepColdProcessAt      DateTime?
+  stepColdProcessBy      String         @default("")
+  stepWorkshopAssembly   Boolean        @default(false)
+  stepWorkshopAssemblyAt DateTime?
+  stepWorkshopAssemblyBy String         @default("")
+  stepTransport          Boolean        @default(false)
+  stepTransportAt        DateTime?
+  stepTransportBy        String         @default("")
+  stepSiteInstall        Boolean        @default(false)
+  stepSiteInstallAt      DateTime?
+  stepSiteInstallBy      String         @default("")
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  @@index([roomId])
 }
 
 // ============ BẢO DƯỠNG & HẬU MÃI ============

@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, Wrench, Building2, ShoppingCart, Package,
     ChevronRight, X, CalendarDays, Users, FileText, Warehouse,
-    BarChart2, Clock, BookOpen, Banknote, Landmark, BookMarked, Settings,
+    BarChart2, Clock, BookOpen, Banknote, Landmark, BookMarked, Settings, Factory,
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useState } from 'react';
@@ -43,6 +43,7 @@ const FULL_MENU = [
             { href: '/workshop/work-log', icon: BookOpen, label: 'Nhật ký công việc' },
             { href: '/workshop/timeline', icon: BarChart2, label: 'Tiến độ (Gantt)' },
             { href: '/work-orders', icon: Clock, label: 'Phiếu công việc' },
+            { href: '/production', icon: Factory, label: 'Quản lý sản xuất' },
         ],
     },
     {
@@ -81,6 +82,7 @@ const NHAN_VIEN_MENU = [
             { href: '/workshop/workers', icon: Users, label: 'Nhân công' },
             { href: '/workshop/work-log', icon: BookOpen, label: 'Nhật ký công việc' },
             { href: '/workshop/timeline', icon: BarChart2, label: 'Tiến độ (Gantt)' },
+            { href: '/production', icon: Factory, label: 'Quản lý sản xuất' },
         ],
     },
 ];
