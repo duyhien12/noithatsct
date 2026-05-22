@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { SPACES, DOC_CATEGORIES, STATUS_CONFIG } from '@/lib/document-constants';
 
 function useIsMobile() {
@@ -366,6 +367,111 @@ function UploadModal({ onClose, onUpload, folders, preselectedFolderId, parentDo
     );
 }
 
+// ============ LIGHTBOX (mobile swipe image viewer) ============
+function LightboxModal({ docs, initialIndex, onClose }) {
+    const [index, setIndex] = useState(initialIndex);
+    const touchStartX = useRef(null);
+    const touchStartY = useRef(null);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => { setMounted(true); }, []);
+
+    const doc = docs[index];
+    const total = docs.length;
+
+    const goNext = useCallback(() => setIndex(i => (i + 1) % total), [total]);
+    const goPrev = useCallback(() => setIndex(i => (i - 1 + total) % total), [total]);
+
+    useEffect(() => {
+        const handler = (e) => {
+            if (e.key === 'ArrowRight') goNext();
+            else if (e.key === 'ArrowLeft') goPrev();
+            else if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [goNext, goPrev, onClose]);
+
+    // Prevent body scroll while lightbox is open
+    useEffect(() => {
+        document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = ''; };
+    }, []);
+
+    const handleTouchStart = (e) => {
+        touchStartX.current = e.touches[0].clientX;
+        touchStartY.current = e.touches[0].clientY;
+    };
+
+    const handleTouchEnd = (e) => {
+        if (touchStartX.current === null) return;
+        const dx = e.changedTouches[0].clientX - touchStartX.current;
+        const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
+        if (Math.abs(dx) > 45 && dy < 100) {
+            dx < 0 ? goNext() : goPrev();
+        }
+        touchStartX.current = null;
+        touchStartY.current = null;
+    };
+
+    if (!mounted || !doc) return null;
+
+    const content = (
+        <div
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.96)', zIndex: 99999, display: 'flex', flexDirection: 'column', touchAction: 'pan-y' }}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+        >
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', flexShrink: 0, gap: 10 }}>
+                <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', width: 34, height: 34, borderRadius: '50%', cursor: 'pointer', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>×</button>
+                <span style={{ color: '#fff', fontSize: 13, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</span>
+                <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, flexShrink: 0 }}>{index + 1} / {total}</span>
+            </div>
+
+            {/* Image area */}
+            <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {total > 1 && (
+                    <button onClick={(e) => { e.stopPropagation(); goPrev(); }}
+                        style={{ position: 'absolute', left: 8, zIndex: 2, background: 'rgba(255,255,255,0.18)', border: 'none', color: '#fff', width: 40, height: 40, borderRadius: '50%', cursor: 'pointer', fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+                )}
+                <img
+                    key={doc.fileUrl}
+                    src={doc.fileUrl}
+                    alt={doc.name}
+                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', userSelect: 'none', WebkitUserSelect: 'none', pointerEvents: 'none' }}
+                    draggable={false}
+                />
+                {total > 1 && (
+                    <button onClick={(e) => { e.stopPropagation(); goNext(); }}
+                        style={{ position: 'absolute', right: 8, zIndex: 2, background: 'rgba(255,255,255,0.18)', border: 'none', color: '#fff', width: 40, height: 40, borderRadius: '50%', cursor: 'pointer', fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
+                )}
+            </div>
+
+            {/* Dot indicators */}
+            {total > 1 && total <= 30 && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 5, padding: '8px 16px 4px', flexWrap: 'wrap' }}>
+                    {docs.map((_, i) => (
+                        <button key={i} onClick={() => setIndex(i)}
+                            style={{ width: i === index ? 20 : 7, height: 7, borderRadius: 4, border: 'none', background: i === index ? '#fff' : 'rgba(255,255,255,0.3)', cursor: 'pointer', padding: 0, transition: 'all 0.2s' }} />
+                    ))}
+                </div>
+            )}
+
+            {/* Footer */}
+            <div style={{ padding: '8px 16px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+                <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>{fmtSize(doc.fileSize)} • {fmtDate(doc.createdAt)}</span>
+                <a href={doc.fileUrl} download target="_blank" rel="noopener"
+                    style={{ color: '#fff', background: 'rgba(255,255,255,0.15)', padding: '7px 16px', borderRadius: 8, fontSize: 13, textDecoration: 'none' }}>
+                    ⬇️ Tải xuống
+                </a>
+            </div>
+        </div>
+    );
+
+    return createPortal(content, document.body);
+}
+
 // ============ PREVIEW MODAL ============
 function PreviewModal({ doc, onClose }) {
     const [fileStatus, setFileStatus] = useState('checking'); // checking | ok | error
@@ -490,7 +596,7 @@ function VersionModal({ docId, onClose }) {
 }
 
 // ============ GRID CARD ============
-function DocCard({ doc, onPreview, onNewVersion, onDelete, onStatusChange, flatFolders, onMoveDoc }) {
+function DocCard({ doc, onPreview, onNewVersion, onDelete, onStatusChange, flatFolders, onMoveDoc, onLightbox }) {
     const st = STATUS_CONFIG[doc.status] || STATUS_CONFIG['Nháp'];
     const versionCount = (doc._count?.versions || 0) + 1;
     const thumb = doc.thumbnailUrl || (doc.mimeType?.startsWith('image/') ? doc.fileUrl : '');
@@ -506,7 +612,7 @@ function DocCard({ doc, onPreview, onNewVersion, onDelete, onStatusChange, flatF
         >
             {/* Thumbnail */}
             <div
-                onClick={() => { if (doc.fileUrl) onPreview(doc); }}
+                onClick={() => { if (doc.fileUrl) { if (onLightbox && doc.mimeType?.startsWith('image/')) onLightbox(); else onPreview(doc); } }}
                 style={{
                     width: '100%', paddingTop: '56.25%', /* 16:9 */
                     position: 'relative', background: thumb ? `url(${thumb}) center/cover` : 'linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-elevated, #e5e7eb) 100%)',
@@ -564,6 +670,7 @@ export default function DocumentManager({ projectId, onRefresh }) {
     const [selectedDoc, setSelectedDoc] = useState(null);
     const [totalDocs, setTotalDocs] = useState(0);
     const [showFolderPanel, setShowFolderPanel] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState(null);
 
     const fetchFolders = useCallback(async () => {
         try {
@@ -664,6 +771,9 @@ export default function DocumentManager({ projectId, onRefresh }) {
     const flatFolders = [];
     const flatten = (list, depth = 0) => { for (const f of list) { flatFolders.push({ id: f.id, name: f.name, depth }); if (f.children) flatten(f.children, depth + 1); } };
     flatten(folders);
+
+    // Image docs for lightbox navigation
+    const imageDocs = documents.filter(d => d.mimeType?.startsWith('image/') && d.fileUrl);
 
     // Selected folder name for breadcrumb
     const selectedFolderName = selectedFolderId === null ? 'Tất cả tài liệu'
@@ -783,7 +893,9 @@ export default function DocumentManager({ projectId, onRefresh }) {
                     ) : viewMode === 'grid' ? (
                         /* ======== GRID VIEW ======== */
                         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(220px, 1fr))', gap: isMobile ? 10 : 16 }}>
-                            {documents.map(doc => (
+                            {documents.map(doc => {
+                                const imgIdx = imageDocs.findIndex(d => d.id === doc.id);
+                                return (
                                 <DocCard
                                     key={doc.id}
                                     doc={doc}
@@ -793,8 +905,10 @@ export default function DocumentManager({ projectId, onRefresh }) {
                                     onStatusChange={handleStatusChange}
                                     flatFolders={flatFolders}
                                     onMoveDoc={handleMoveDoc}
+                                    onLightbox={imgIdx >= 0 ? () => setLightboxIndex(imgIdx) : null}
                                 />
-                            ))}
+                                );
+                            })}
                         </div>
                     ) : isMobile ? (
                         /* ======== MOBILE LIST VIEW ======== */
@@ -890,6 +1004,11 @@ export default function DocumentManager({ projectId, onRefresh }) {
                     )}
                 </div>
             </div>
+
+            {/* Lightbox */}
+            {lightboxIndex !== null && imageDocs.length > 0 && (
+                <LightboxModal docs={imageDocs} initialIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} />
+            )}
 
             {/* Modals */}
             {modal === 'upload' && (
