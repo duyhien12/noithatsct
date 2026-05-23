@@ -179,9 +179,15 @@ export default function WorkshopDashboard() {
         </div>
     );
 
-    const { kpi, chartData, recentTasks, projectsInProgress, lowStockProducts, plSummary,
+    const { kpi = {}, chartData, recentTasks, projectsInProgress, lowStockProducts, plSummary,
             stagePipeline = [], idleWorkers = [], inventoryForecast = [], equipmentAlerts = [],
             deliveryRisks = [], machineStatus = [], overdueWorkOrders = [] } = data;
+
+    if (!kpi || data.error) return (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400, color: 'var(--text-muted)' }}>
+            Không thể tải dữ liệu dashboard. {data.error || ''}
+        </div>
+    );
 
     const enrichedChart = (chartData || []).map(d => ({ ...d, _date: new Date(d.dateISO || d._date) }));
 
