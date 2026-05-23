@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { LogIn, Eye, EyeOff, AlertCircle, UserPlus, KeyRound, CheckCircle } from 'lucide-react';
@@ -10,13 +10,8 @@ const SCT_ORANGE = '#F47920';
 const SCT_DARK = '#E8621A';
 
 const AUTH_ERRORS = {
-    OAuthSignin: 'Không thể khởi động đăng nhập Google. Thử lại sau.',
-    OAuthCallback: 'Google trả về lỗi xác thực. Thử lại sau.',
-    OAuthCreateAccount: 'Không thể tạo tài khoản từ Google.',
-    OAuthAccountNotLinked: 'Email này đã được đăng ký bằng mật khẩu. Hãy dùng form đăng nhập bên dưới.',
     AccountDisabled: 'Tài khoản của bạn đã bị vô hiệu hoá. Liên hệ quản trị viên.',
     DatabaseError: 'Lỗi hệ thống. Vui lòng thử lại sau.',
-    Configuration: 'Google OAuth chưa được cấu hình.',
     AccessDenied: 'Quyền truy cập bị từ chối.',
     Callback: 'Lỗi xác thực. Thử lại.',
     Default: 'Đăng nhập thất bại. Vui lòng thử lại.',
@@ -45,45 +40,6 @@ const LogoIcon = () => (
     </div>
 );
 
-const GoogleIcon = () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
-        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-    </svg>
-);
-
-// Nút Google — đặt NGOÀI LoginForm để tránh remount mỗi render
-function GoogleButton({ label, onClick, loading }) {
-    return (
-        <>
-            <button
-                type="button"
-                onClick={onClick}
-                disabled={loading}
-                style={{
-                    width: '100%', padding: '12px 20px', borderRadius: 10, marginBottom: 14,
-                    background: '#fff', border: '1.5px solid #E5E7EB',
-                    cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.65 : 1,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                    fontSize: 14, fontWeight: 600, color: '#374151',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.08)', transition: 'box-shadow 0.2s',
-                }}
-                onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.14)'; }}
-                onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.08)'; }}
-            >
-                <GoogleIcon />
-                {label}
-            </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-                <div style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
-                <span style={{ fontSize: 12, color: '#9CA3AF', whiteSpace: 'nowrap' }}>hoặc dùng email</span>
-                <div style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
-            </div>
-        </>
-    );
-}
 
 const SubmitButton = ({ loading, icon, label, loadingLabel }) => (
     <button type="submit" disabled={loading} style={{
@@ -134,8 +90,6 @@ function LoginForm() {
     const [error, setError] = useState(urlError ? (AUTH_ERRORS[urlError] || AUTH_ERRORS.Default) : '');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
-    const [googleOn, setGoogleOn] = useState(false); // Google có được cấu hình không
-
     // Login
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -154,28 +108,9 @@ function LoginForm() {
     const [newPass, setNewPass] = useState('');
     const [showNewPass, setShowNewPass] = useState(false);
 
-    // Kiểm tra Google OAuth đã cấu hình chưa
-    useEffect(() => {
-        fetch('/api/auth/google-status')
-            .then(r => r.json())
-            .then(d => setGoogleOn(!!d.configured))
-            .catch(() => setGoogleOn(false));
-    }, []);
-
     const switchTab = (t) => { setTab(t); setError(''); setSuccess(''); };
 
     /* ── Handlers ── */
-    const handleGoogleSignIn = async () => {
-        setError('');
-        setLoading(true);
-        try {
-            await signIn('google', { callbackUrl });
-        } catch {
-            setError('Không thể kết nối Google. Vui lòng thử lại.');
-            setLoading(false);
-        }
-    };
-
     const handleLogin = async (e) => {
         e.preventDefault();
         setError(''); setLoading(true);
@@ -293,13 +228,6 @@ function LoginForm() {
                 {/* ── ĐĂNG NHẬP ── */}
                 {tab === 'login' && (
                     <form onSubmit={handleLogin} noValidate>
-                        {googleOn && (
-                            <GoogleButton
-                                label="Tiếp tục với Google"
-                                onClick={handleGoogleSignIn}
-                                loading={loading}
-                            />
-                        )}
                         <div style={{ marginBottom: 16 }}>
                             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Email</label>
                             <input type="email" value={email} onChange={e => setEmail(e.target.value)}
@@ -322,13 +250,6 @@ function LoginForm() {
                 {/* ── ĐĂNG KÝ ── */}
                 {tab === 'register' && (
                     <form onSubmit={handleRegister} noValidate>
-                        {googleOn && (
-                            <GoogleButton
-                                label="Đăng ký bằng Google"
-                                onClick={handleGoogleSignIn}
-                                loading={loading}
-                            />
-                        )}
                         <div style={{ marginBottom: 14 }}>
                             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Họ tên *</label>
                             <input value={regName} onChange={e => setRegName(e.target.value)}
