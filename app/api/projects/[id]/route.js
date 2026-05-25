@@ -36,6 +36,22 @@ export const GET = withAuth(async (request, { params }) => {
         ORDER BY mp."createdAt" ASC
     `;
 
+    // Location fields (new columns — not yet in generated Prisma client)
+    const locRows = await prisma.$queryRaw`
+        SELECT latitude, longitude, "routeNotes", "siteContact", "siteContactPhone", "frontPhotos"
+        FROM "Project" WHERE id = ${project.id}
+    `;
+    const loc = locRows[0] || {};
+
+    // Recent check-ins
+    const checkIns = await prisma.$queryRaw`
+        SELECT id, type, "userName", lat, lng, address, notes, "createdAt"
+        FROM "ProjectCheckIn"
+        WHERE "projectId" = ${project.id}
+        ORDER BY "createdAt" DESC
+        LIMIT 30
+    `;
+
     // P&L
     const income = project.paidAmount ?? 0;
     const expense = project.spent ?? 0;
@@ -67,6 +83,14 @@ export const GET = withAuth(async (request, { params }) => {
     return NextResponse.json({
         ...project,
         materialPlans,
+        // Location (raw SQL supplement)
+        latitude: loc.latitude ?? null,
+        longitude: loc.longitude ?? null,
+        routeNotes: loc.routeNotes ?? '',
+        siteContact: loc.siteContact ?? '',
+        siteContactPhone: loc.siteContactPhone ?? '',
+        frontPhotos: loc.frontPhotos ?? [],
+        checkIns,
         pnl: { income, expense, profit, profitMargin, debtFromCustomer, debtToContractors },
         settlement,
     });

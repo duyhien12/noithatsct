@@ -112,6 +112,11 @@ export default function ProjectDetailPage() {
     const [matSearch, setMatSearch] = useState('');
     const [matStatusFilter, setMatStatusFilter] = useState('');
     const [matPoFilter, setMatPoFilter] = useState('');
+    // Location tab state
+    const [locEdit, setLocEdit] = useState(false);
+    const [locForm, setLocForm] = useState({ latitude: '', longitude: '', routeNotes: '', siteContact: '', siteContactPhone: '' });
+    const [locSaving, setLocSaving] = useState(false);
+    const [frontPhotoUploading, setFrontPhotoUploading] = useState(false);
     const fetchData = () => { fetch(`/api/projects/${id}`).then(r => r.ok ? r.json() : r.json().then(e => { throw new Error(e.error || `HTTP ${r.status}`); })).then(d => { setData(d); setLoading(false); }).catch(e => { console.error('[ProjectDetail]', e); setData({ _error: e.message }); setLoading(false); }); };
     useEffect(fetchData, [id]);
     useEffect(() => {
@@ -675,6 +680,112 @@ export default function ProjectDetailPage() {
         fetchData();
     };
 
+    // ─── Location helpers ────────────────────────────────────────────────────
+    const openLocEdit = () => {
+        setLocForm({
+            latitude: data?.latitude ?? '',
+            longitude: data?.longitude ?? '',
+            routeNotes: data?.routeNotes ?? '',
+            siteContact: data?.siteContact ?? '',
+            siteContactPhone: data?.siteContactPhone ?? '',
+        });
+        setLocEdit(true);
+    };
+    const captureGPS = () => {
+        if (!navigator.geolocation) return alert('Trình duyệt không hỗ trợ GPS');
+        navigator.geolocation.getCurrentPosition(
+            pos => setLocForm(f => ({ ...f, latitude: pos.coords.latitude.toFixed(6), longitude: pos.coords.longitude.toFixed(6) })),
+            err => alert('Không lấy được GPS: ' + err.message),
+            { timeout: 10000 }
+        );
+    };
+    const saveLocation = async () => {
+        setLocSaving(true);
+        const res = await fetch(`/api/projects/${id}/location`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                latitude: locForm.latitude !== '' ? locForm.latitude : null,
+                longitude: locForm.longitude !== '' ? locForm.longitude : null,
+                routeNotes: locForm.routeNotes,
+                siteContact: locForm.siteContact,
+                siteContactPhone: locForm.siteContactPhone,
+                frontPhotos: data?.frontPhotos || [],
+            }),
+        });
+        setLocSaving(false);
+        if (!res.ok) return alert('Lỗi lưu thông tin vị trí');
+        setLocEdit(false);
+        fetchData();
+    };
+    const handleFrontPhotoUpload = async (e) => {
+        const files = Array.from(e.target.files);
+        if (!files.length) return;
+        setFrontPhotoUploading(true);
+        const newPhotos = [...(data?.frontPhotos || [])];
+        for (const file of files) {
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('type', 'proofs');
+            const res = await fetch('/api/upload', { method: 'POST', body: fd });
+            if (res.ok) {
+                const uploaded = await res.json();
+                newPhotos.push({ url: uploaded.url, name: file.name, uploadedAt: new Date().toISOString() });
+            }
+        }
+        await fetch(`/api/projects/${id}/location`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                latitude: data?.latitude ?? null,
+                longitude: data?.longitude ?? null,
+                routeNotes: data?.routeNotes ?? '',
+                siteContact: data?.siteContact ?? '',
+                siteContactPhone: data?.siteContactPhone ?? '',
+                frontPhotos: newPhotos,
+            }),
+        });
+        setFrontPhotoUploading(false);
+        e.target.value = '';
+        fetchData();
+    };
+    const deleteFrontPhoto = async (idx) => {
+        if (!confirm('Xóa ảnh này?')) return;
+        const newPhotos = (data?.frontPhotos || []).filter((_, i) => i !== idx);
+        await fetch(`/api/projects/${id}/location`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                latitude: data?.latitude ?? null,
+                longitude: data?.longitude ?? null,
+                routeNotes: data?.routeNotes ?? '',
+                siteContact: data?.siteContact ?? '',
+                siteContactPhone: data?.siteContactPhone ?? '',
+                frontPhotos: newPhotos,
+            }),
+        });
+        fetchData();
+    };
+    const doCheckIn = async (type) => {
+        let lat = null, lng = null;
+        try {
+            const pos = await new Promise((resolve, reject) => {
+                if (!navigator.geolocation) return reject(new Error('Không hỗ trợ GPS'));
+                navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 });
+            });
+            lat = pos.coords.latitude;
+            lng = pos.coords.longitude;
+        } catch (_) { /* GPS không khả dụng */ }
+        const notes = window.prompt(`Ghi chú ${type === 'check_in' ? 'Check In' : 'Check Out'} (tùy chọn):`) ?? '';
+        const res = await fetch(`/api/projects/${id}/checkin`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type, lat, lng, address: '', notes }),
+        });
+        if (!res.ok) return alert('Lỗi ghi check-in');
+        fetchData();
+    };
+
     if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>;
     if (!data || data._error) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--status-danger)' }}>Lỗi tải dự án: {data?._error || 'Không xác định'}. <button className="btn btn-ghost" onClick={fetchData}>Thử lại</button></div>;
     const p = data;
@@ -688,6 +799,7 @@ export default function ProjectDetailPage() {
 
     const tabs = [
         { key: 'overview', label: 'Tổng quan', icon: '📋' },
+        { key: 'location', label: 'Vị trí', icon: '📍' },
         { key: 'logs', label: 'Nhật ký', icon: '📒', count: p.trackingLogs?.length },
         { key: 'milestones', label: 'Tiến độ', icon: '📊', count: p.milestones?.length },
         isXuongOrBGD && { key: 'hachtoan', label: 'Hạch toán', icon: '📊' },
@@ -821,12 +933,20 @@ export default function ProjectDetailPage() {
                                 })()}
                             </div>
                             <div className="project-header-progress" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
-                                <button className="btn btn-secondary btn-sm" onClick={openEdit}>✏️ Chỉnh sửa</button>
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                    <button className="btn btn-secondary btn-sm" onClick={openEdit}>✏️ Chỉnh sửa</button>
+                                    {(p.latitude && p.longitude) ? (
+                                        <a href={`https://www.google.com/maps/dir/?api=1&destination=${p.latitude},${p.longitude}`} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm" title={`GPS: ${p.latitude}, ${p.longitude}`}>🧭 Điều hướng</a>
+                                    ) : p.address ? (
+                                        <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address)}`} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" title="Tìm địa chỉ trên Google Maps">🗺 Bản đồ</a>
+                                    ) : null}
+                                </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                     <div style={{ fontSize: 28, fontWeight: 700 }}>{p.progress}%</div>
                                     <div className="progress-bar" style={{ width: 80 }}><div className="progress-fill" style={{ width: `${p.progress}%` }}></div></div>
                                 </div>
                             </div>
+                            {/* end project-header-progress */}
                         </div>
 
                         {/* Pipeline */}
@@ -868,6 +988,203 @@ export default function ProjectDetailPage() {
                     </button>
                 ))}
             </div>
+
+            {/* TAB: Vị trí */}
+            {tab === 'location' && (
+                <div>
+                    {/* Card 1: GPS & Address */}
+                    <div className="card" style={{ padding: 24, marginBottom: 16 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <span style={{ fontWeight: 700, fontSize: 16 }}>📍 Địa chỉ & GPS</span>
+                            {!locEdit ? (
+                                <button className="btn btn-secondary btn-sm" onClick={openLocEdit}>✏️ Chỉnh sửa</button>
+                            ) : (
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button className="btn btn-secondary btn-sm" onClick={() => setLocEdit(false)}>Hủy</button>
+                                    <button className="btn btn-primary btn-sm" onClick={saveLocation} disabled={locSaving}>{locSaving ? 'Đang lưu...' : '💾 Lưu'}</button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Address block */}
+                        <div style={{ padding: '12px 16px', background: 'var(--bg-primary)', borderRadius: 8, marginBottom: 16, borderLeft: '3px solid var(--accent-primary)' }}>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Địa chỉ dự án</div>
+                            <div style={{ fontWeight: 600, fontSize: 14 }}>{p.address || '—'}</div>
+                            {(p.latitude && p.longitude) && (
+                                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, fontFamily: 'monospace' }}>
+                                    📐 {Number(p.latitude).toFixed(6)}, {Number(p.longitude).toFixed(6)}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Map links */}
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                            {(p.latitude && p.longitude) && (
+                                <>
+                                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${p.latitude},${p.longitude}`} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm">🧭 Điều hướng tới đây</a>
+                                    <a href={`https://www.google.com/maps?q=${p.latitude},${p.longitude}`} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">🗺 Xem trên Maps</a>
+                                </>
+                            )}
+                            {p.address && (
+                                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address)}`} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">🔍 Tìm địa chỉ trên Maps</a>
+                            )}
+                        </div>
+
+                        {locEdit ? (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                                <div className="form-group">
+                                    <label className="form-label">Vĩ độ (Latitude)</label>
+                                    <input className="form-input" type="number" step="any" value={locForm.latitude} onChange={e => setLocForm(f => ({ ...f, latitude: e.target.value }))} placeholder="VD: 10.776809" />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Kinh độ (Longitude)</label>
+                                    <input className="form-input" type="number" step="any" value={locForm.longitude} onChange={e => setLocForm(f => ({ ...f, longitude: e.target.value }))} placeholder="VD: 106.700982" />
+                                </div>
+                                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                    <button className="btn btn-ghost btn-sm" type="button" onClick={captureGPS}>📡 Lấy GPS từ thiết bị hiện tại</button>
+                                    <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>Mở trên điện thoại để lấy tọa độ chính xác</span>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Người liên lạc tại công trình</label>
+                                    <input className="form-input" value={locForm.siteContact} onChange={e => setLocForm(f => ({ ...f, siteContact: e.target.value }))} placeholder="VD: Anh Minh - Quản lý công trường" />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Số điện thoại</label>
+                                    <input className="form-input" value={locForm.siteContactPhone} onChange={e => setLocForm(f => ({ ...f, siteContactPhone: e.target.value }))} placeholder="VD: 0901 234 567" />
+                                </div>
+                                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                    <label className="form-label">Ghi chú đường đi / Hướng dẫn vào công trình</label>
+                                    <textarea className="form-input" rows={4} value={locForm.routeNotes} onChange={e => setLocForm(f => ({ ...f, routeNotes: e.target.value }))} placeholder="VD: Từ ngã tư Bình Triệu đi thẳng 500m, rẽ trái vào hẻm 24, nhà cuối hẻm. Cổng màu xanh. Xe tải dưới 3.5 tấn mới vào được." />
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                {p.siteContact && (
+                                    <div style={{ padding: '12px 16px', background: 'var(--bg-primary)', borderRadius: 8 }}>
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>👤 Người liên lạc</div>
+                                        <div style={{ fontWeight: 600, fontSize: 14 }}>{p.siteContact}</div>
+                                        {p.siteContactPhone && (
+                                            <div style={{ marginTop: 4 }}>
+                                                <a href={`tel:${p.siteContactPhone}`} style={{ color: 'var(--accent-primary)', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>📞 {p.siteContactPhone}</a>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {p.routeNotes && (
+                                    <div style={{ padding: '12px 16px', background: 'var(--bg-primary)', borderRadius: 8, gridColumn: p.siteContact ? 'auto' : '1 / -1' }}>
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>🗺 Hướng dẫn đường đi</div>
+                                        <div style={{ fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap', color: 'var(--text-primary)' }}>{p.routeNotes}</div>
+                                    </div>
+                                )}
+                                {!p.siteContact && !p.routeNotes && !p.latitude && (
+                                    <div style={{ gridColumn: '1 / -1', color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0', fontSize: 13 }}>
+                                        Chưa có thông tin vị trí — bấm <strong>Chỉnh sửa</strong> để thêm GPS và hướng dẫn đường đi
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Card 2: Front-house Photos */}
+                    <div className="card" style={{ padding: 24, marginBottom: 16 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <span style={{ fontWeight: 700, fontSize: 16 }}>📸 Ảnh mặt tiền / Hiện trạng công trình</span>
+                            <label style={{ cursor: frontPhotoUploading ? 'not-allowed' : 'pointer' }}>
+                                <span className={`btn btn-sm ${frontPhotoUploading ? 'btn-secondary' : 'btn-primary'}`}>
+                                    {frontPhotoUploading ? '⏳ Đang upload...' : '+ Upload ảnh'}
+                                </span>
+                                <input type="file" multiple accept="image/*" style={{ display: 'none' }} disabled={frontPhotoUploading} onChange={handleFrontPhotoUpload} />
+                            </label>
+                        </div>
+                        {(p.frontPhotos?.length > 0) ? (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+                                {(p.frontPhotos || []).map((photo, idx) => (
+                                    <div key={idx} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', background: 'var(--bg-primary)', aspectRatio: '4/3' }}>
+                                        <img
+                                            src={photo.url}
+                                            alt={photo.name || `Ảnh ${idx + 1}`}
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', display: 'block' }}
+                                            onClick={() => window.open(photo.url, '_blank')}
+                                        />
+                                        <button
+                                            onClick={() => deleteFrontPhoto(idx)}
+                                            style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.65)', color: '#fff', border: 'none', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', fontSize: 16, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                            title="Xóa ảnh"
+                                        >×</button>
+                                        {photo.uploadedAt && (
+                                            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.6))', color: '#fff', fontSize: 10, padding: '12px 6px 4px' }}>
+                                                {fmtDate(photo.uploadedAt)}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '32px 0', fontSize: 13, border: '2px dashed var(--border-color)', borderRadius: 8 }}>
+                                📷 Chưa có ảnh — bấm "+ Upload ảnh" để thêm ảnh mặt tiền hoặc hiện trạng công trình
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Card 3: Check-in / Check-out */}
+                    <div className="card" style={{ padding: 24 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <span style={{ fontWeight: 700, fontSize: 16 }}>⏱ Lịch sử Check-in / Check-out</span>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button className="btn btn-sm" style={{ background: 'var(--status-success)', color: '#fff', border: 'none' }} onClick={() => doCheckIn('check_in')}>
+                                    📍 Check In
+                                </button>
+                                <button className="btn btn-secondary btn-sm" onClick={() => doCheckIn('check_out')}>
+                                    🚪 Check Out
+                                </button>
+                            </div>
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12, padding: '8px 12px', background: 'var(--bg-primary)', borderRadius: 6 }}>
+                            💡 Bấm Check In khi đến công trình, Check Out khi rời — hệ thống tự động ghi tọa độ GPS nếu trình duyệt cho phép
+                        </div>
+                        {(p.checkIns?.length > 0) ? (
+                            <div className="table-container">
+                                <table className="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: 120 }}>Loại</th>
+                                            <th>Người dùng</th>
+                                            <th>Thời gian</th>
+                                            <th>Tọa độ GPS</th>
+                                            <th>Ghi chú</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(p.checkIns || []).map(ci => (
+                                            <tr key={ci.id}>
+                                                <td>
+                                                    <span className={`badge ${ci.type === 'check_in' ? 'success' : 'muted'}`}>
+                                                        {ci.type === 'check_in' ? '📍 Check In' : '🚪 Check Out'}
+                                                    </span>
+                                                </td>
+                                                <td style={{ fontWeight: 600, fontSize: 13 }}>{ci.userName || '—'}</td>
+                                                <td style={{ fontSize: 12 }}>{new Date(ci.createdAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                                                <td style={{ fontSize: 12, fontFamily: 'monospace' }}>
+                                                    {(ci.lat && ci.lng) ? (
+                                                        <a href={`https://www.google.com/maps?q=${ci.lat},${ci.lng}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-primary)' }}>
+                                                            {Number(ci.lat).toFixed(5)}, {Number(ci.lng).toFixed(5)}
+                                                        </a>
+                                                    ) : '—'}
+                                                </td>
+                                                <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{ci.notes || '—'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <div style={{ color: 'var(--text-muted)', padding: '24px 0', textAlign: 'center', fontSize: 13 }}>
+                                Chưa có lịch sử check-in — bấm "📍 Check In" khi đến công trình
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* TAB: Nhật ký */}
             {tab === 'logs' && (
