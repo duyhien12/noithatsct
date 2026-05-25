@@ -693,10 +693,44 @@ export default function ProjectDetailPage() {
     };
     const captureGPS = () => {
         if (!navigator.geolocation) return alert('Trình duyệt không hỗ trợ GPS');
+        // Chrome/Firefox mobile yêu cầu HTTPS để dùng Geolocation API
+        if (typeof window !== 'undefined' && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+            alert(
+                '⚠️ Không thể lấy GPS qua HTTP.\n\n' +
+                'Trình duyệt điện thoại chỉ cho phép GPS khi dùng HTTPS.\n\n' +
+                'Cách nhập thủ công:\n' +
+                '1. Mở Google Maps trên điện thoại\n' +
+                '2. Nhấn giữ vào vị trí công trình\n' +
+                '3. Copy tọa độ (VD: 10.776809, 106.700982)\n' +
+                '4. Dán vào ô Vĩ độ / Kinh độ bên trên'
+            );
+            return;
+        }
         navigator.geolocation.getCurrentPosition(
             pos => setLocForm(f => ({ ...f, latitude: pos.coords.latitude.toFixed(6), longitude: pos.coords.longitude.toFixed(6) })),
-            err => alert('Không lấy được GPS: ' + err.message),
-            { timeout: 10000 }
+            err => {
+                let msg = '';
+                switch (err.code) {
+                    case 1: // PERMISSION_DENIED
+                        msg =
+                            '❌ Trình duyệt từ chối quyền truy cập vị trí.\n\n' +
+                            'Cách khắc phục trên Android:\n' +
+                            '• Chrome: Nhấn biểu tượng 🔒 trên thanh địa chỉ → Quyền → Vị trí → Cho phép\n' +
+                            '• Hoặc vào Cài đặt → Ứng dụng → Chrome → Quyền → Vị trí\n\n' +
+                            'Hoặc nhập tọa độ thủ công từ Google Maps.';
+                        break;
+                    case 2: // POSITION_UNAVAILABLE
+                        msg = '❌ Không xác định được vị trí. Vui lòng bật GPS trên điện thoại và thử lại.';
+                        break;
+                    case 3: // TIMEOUT
+                        msg = '❌ Hết thời gian chờ GPS. Hãy ra nơi thoáng hơn và thử lại.';
+                        break;
+                    default:
+                        msg = '❌ Không lấy được GPS: ' + err.message;
+                }
+                alert(msg);
+            },
+            { timeout: 10000, enableHighAccuracy: true, maximumAge: 0 }
         );
     };
     const saveLocation = async () => {
@@ -1041,8 +1075,22 @@ export default function ProjectDetailPage() {
                                     <input className="form-input" type="number" step="any" value={locForm.longitude} onChange={e => setLocForm(f => ({ ...f, longitude: e.target.value }))} placeholder="VD: 106.700982" />
                                 </div>
                                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                                    <button className="btn btn-ghost btn-sm" type="button" onClick={captureGPS}>📡 Lấy GPS từ thiết bị hiện tại</button>
-                                    <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>Mở trên điện thoại để lấy tọa độ chính xác</span>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                                        <button className="btn btn-ghost btn-sm" type="button" onClick={captureGPS}>📡 Lấy GPS từ thiết bị</button>
+                                        <a
+                                            href="https://maps.google.com"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="btn btn-ghost btn-sm"
+                                            style={{ textDecoration: 'none' }}
+                                        >🗺️ Mở Google Maps</a>
+                                    </div>
+                                    <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6, marginBottom: 0 }}>
+                                        💡 Trên điện thoại: Mở Google Maps → nhấn giữ vị trí → copy tọa độ → dán vào ô trên.
+                                        {typeof window !== 'undefined' && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' &&
+                                            <span style={{ color: '#e67e22', fontWeight: 600 }}> (GPS tự động không khả dụng qua HTTP)</span>
+                                        }
+                                    </p>
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Người liên lạc tại công trình</label>
