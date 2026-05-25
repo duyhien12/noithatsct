@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { LogIn, Eye, EyeOff, AlertCircle, UserPlus, KeyRound, CheckCircle } from 'lucide-react';
+import { LogIn, Eye, EyeOff, AlertCircle, UserPlus, CheckCircle } from 'lucide-react';
 
 /* ─── Constants ─────────────────────────────────────────────────── */
 const SCT_ORANGE = '#F47920';
@@ -103,11 +103,6 @@ function LoginForm() {
     const [regPassConfirm, setRegPassConfirm] = useState('');
     const [showRegPass, setShowRegPass] = useState(false);
 
-    // Forgot
-    const [forgotEmail, setForgotEmail] = useState('');
-    const [newPass, setNewPass] = useState('');
-    const [showNewPass, setShowNewPass] = useState(false);
-
     const switchTab = (t) => { setTab(t); setError(''); setSuccess(''); };
 
     /* ── Handlers ── */
@@ -142,30 +137,9 @@ function LoginForm() {
         }
     };
 
-    const handleForgot = async (e) => {
-        e.preventDefault();
-        setError(''); setSuccess('');
-        setLoading(true);
-        try {
-            const res = await fetch('/api/auth/reset-password', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: forgotEmail, newPassword: newPass }),
-            });
-            const data = await res.json();
-            if (!res.ok) { setError(data.error || 'Thất bại'); return; }
-            setSuccess('Mật khẩu đã được cập nhật! Đang chuyển về đăng nhập...');
-            setTimeout(() => switchTab('login'), 2000);
-        } catch {
-            setError('Lỗi kết nối. Vui lòng thử lại.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const tabs = [
         { key: 'login', label: 'Đăng nhập', icon: <LogIn size={14} /> },
         { key: 'register', label: 'Đăng ký', icon: <UserPlus size={14} /> },
-        { key: 'forgot', label: 'Quên MK', icon: <KeyRound size={14} /> },
     ];
 
     return (
@@ -296,31 +270,6 @@ function LoginForm() {
                     </form>
                 )}
 
-                {/* ── QUÊN MẬT KHẨU ── */}
-                {tab === 'forgot' && (
-                    <form onSubmit={handleForgot} noValidate>
-                        <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 16, lineHeight: 1.6 }}>
-                            Nhập email tài khoản và mật khẩu mới để đặt lại.
-                        </p>
-                        <div style={{ marginBottom: 14 }}>
-                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Email tài khoản *</label>
-                            <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
-                                placeholder="email@kientrucsct.com" required autoFocus style={inputStyle} />
-                        </div>
-                        <div style={{ marginBottom: 24 }}>
-                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Mật khẩu mới *</label>
-                            <PasswordInput
-                                value={newPass} onChange={e => setNewPass(e.target.value)}
-                                show={showNewPass} onToggle={() => setShowNewPass(v => !v)}
-                                placeholder="Ít nhất 6 ký tự"
-                            />
-                        </div>
-                        <SubmitButton
-                            loading={loading} icon={<KeyRound size={18} />}
-                            label="Đặt lại mật khẩu" loadingLabel="Đang xử lý..."
-                        />
-                    </form>
-                )}
             </div>
         </div>
     );
