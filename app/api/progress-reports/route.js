@@ -31,10 +31,11 @@ export const GET = withAuth(async (request) => {
  * Create progress report with mandatory photos
  * Auto-update ScheduleTask.progress + auto-create TrackingLog
  */
-export const POST = withAuth(async (request) => {
+export const POST = withAuth(async (request, context, session) => {
     const body = await request.json();
     const data = progressReportCreateSchema.parse(body);
-    const userName = request.headers.get('x-user-name') || 'Giám sát';
+    // Lấy tên từ session đã xác thực — không tin header do client gửi lên
+    const userName = session?.user?.name || 'Giám sát';
 
     // Fetch current task
     const task = await prisma.scheduleTask.findUnique({ where: { id: data.taskId } });

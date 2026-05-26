@@ -36,24 +36,34 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Loại không hợp lệ' }, { status: 400 });
         }
 
+        // Chặn path traversal: chỉ giữ lại tên file thuần (bỏ mọi thành phần thư mục)
+        const safeFilename = path.basename(filename);
+        if (!safeFilename || safeFilename !== filename) {
+            return NextResponse.json({ error: 'Filename không hợp lệ' }, { status: 400 });
+        }
+
         const buffer = Buffer.from(await file.arrayBuffer());
         const uploadDir = path.join(process.cwd(), 'public', 'uploads', type);
         await mkdir(uploadDir, { recursive: true });
-        await writeFile(path.join(uploadDir, filename), buffer);
+        await writeFile(path.join(uploadDir, safeFilename), buffer);
 
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
-        const url = `${baseUrl}/uploads/${type}/${filename}`;
+        const url = `${baseUrl}/uploads/${type}/${safeFilename}`;
 
         // Thumbnail nếu có
         let thumbnailUrl = '';
         const thumbFile = formData.get('thumbnail');
         const thumbFilename = formData.get('thumbnailFilename');
         if (thumbFile && thumbFilename) {
+            const safeThumbFilename = path.basename(thumbFilename);
+            if (!safeThumbFilename || safeThumbFilename !== thumbFilename) {
+                return NextResponse.json({ error: 'Thumbnail filename không hợp lệ' }, { status: 400 });
+            }
             const thumbDir = path.join(process.cwd(), 'public', 'uploads', type, 'thumbnails');
             await mkdir(thumbDir, { recursive: true });
             const thumbBuf = Buffer.from(await thumbFile.arrayBuffer());
-            await writeFile(path.join(thumbDir, thumbFilename), thumbBuf);
-            thumbnailUrl = `${baseUrl}/uploads/${type}/thumbnails/${thumbFilename}`;
+            await writeFile(path.join(thumbDir, safeThumbFilename), thumbBuf);
+            thumbnailUrl = `${baseUrl}/uploads/${type}/thumbnails/${safeThumbFilename}`;
         }
 
         return NextResponse.json({ url, thumbnailUrl });

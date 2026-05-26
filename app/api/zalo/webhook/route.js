@@ -3,11 +3,38 @@
  *
  * Webhook nhận tin nhắn từ Zalo OA.
  * - GET  : xác minh webhook (Zalo gửi hub.challenge)
- * - POST : xử lý sự kiện tin nhắn đến
+ * - POST : xử lý sự kiện tin nhắn đến (có xác minh HMAC-SHA256)
  */
 import { NextResponse } from 'next/server';
+import { createHmac } from 'crypto';
 import { sendZaloMessage } from '@/lib/zalo';
 import { handleBossMessage, isBoss } from '@/lib/zaloBot';
+
+/**
+ * Xác minh chữ ký HMAC-SHA256 từ Zalo.
+ * Zalo ký body bằng app_secret và gửi qua header X-Zalo-Signature.
+ */
+function verifyZaloSignature(rawBody, signature) {
+    const appSecret = process.env.ZALO_APP_SECRET;
+    if (!appSecret) {
+        // Nếu chưa cấu hình secret → từ chối luôn để tránh bypass
+        console.warn('[Zalo Webhook] ZALO_APP_SECRET chưa được cấu hình');
+        return false;
+    }
+    if (!signature) return false;
+
+    const expected = createHmac('sha256', appSecret)
+        .update(rawBody)
+        .digest('hex');
+
+    // So sánh constant-time để chống timing attack
+    if (expected.length !== signature.length) return false;
+    let diff = 0;
+    for (let i = 0; i < expected.length; i++) {
+        diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+    }
+    return diff === 0;
+}
 
 // ─── Webhook Verification (GET) ───────────────────────────────────────────────
 
@@ -29,6 +56,14 @@ export async function POST(request) {
 
     // Body rỗng hoặc không phải JSON (Zalo test ping) → trả 200 luôn
     if (!rawBody) return NextResponse.json({ error: 0 });
+
+    // Xác minh chữ ký HMAC-SHA256 từ Zalo
+    const signature = request.headers.get('x-zalo-signature');
+    if (!verifyZaloSignature(rawBody, signature)) {
+        console.warn('[Zalo Webhook] Chữ ký HMAC không hợp lệ — bỏ qua request');
+        // Trả 200 để Zalo không retry liên tục, nhưng không xử lý
+        return NextResponse.json({ error: 0 });
+    }
 
     let event;
     try {

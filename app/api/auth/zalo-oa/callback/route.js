@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
 import { saveZaloTokens } from '@/lib/zalo';
 
+/** Escape HTML để chống XSS khi nhúng dữ liệu vào HTML response */
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 /**
  * GET /api/auth/zalo-oa/callback
  * Zalo OA OAuth callback - nhận code từ Zalo, đổi lấy access_token rồi tự lưu vào DB
@@ -13,7 +23,7 @@ export async function GET(request) {
     if (error) {
         return htmlResponse(`
             <h2 style="color:red">❌ Lỗi xác thực Zalo OA</h2>
-            <p>${error}</p>
+            <p>${escapeHtml(error)}</p>
             <a href="/hr/accounts">← Quay lại</a>
         `);
     }
@@ -94,7 +104,7 @@ export async function GET(request) {
     } catch (err) {
         return htmlResponse(`
             <h2 style="color:red">❌ Lỗi kết nối</h2>
-            <p>${err.message}</p>
+            <p>${escapeHtml(err.message)}</p>
         `);
     }
 }
