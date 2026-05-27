@@ -24,6 +24,8 @@ export async function GET(request) {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dayAfter = new Date(today);
     dayAfter.setDate(dayAfter.getDate() + 2);
+    const threeDaysAgo = new Date(today);
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
 
     // Lấy tất cả nhân viên có Zalo ID
     const users = await prisma.user.findMany({
@@ -35,16 +37,16 @@ export async function GET(request) {
         return NextResponse.json({ message: 'Không có nhân viên nào đã liên kết Zalo', sent: 0 });
     }
 
-    const userMap = new Map(users.map(u => [u.email, u]));
     const results = [];
 
     for (const user of users) {
         const messages = [];
 
         // ── Công việc (WorkOrder) đến hạn hôm nay hoặc ngày mai
+        // assignee lưu tên người dùng, tìm bằng contains
         const workOrders = await prisma.workOrder.findMany({
             where: {
-                assignee: user.email,
+                assignee: { contains: user.name },
                 deletedAt: null,
                 status: { notIn: ['Hoàn thành', 'Đã huỷ'] },
                 dueDate: { gte: today, lt: dayAfter },
@@ -62,12 +64,10 @@ export async function GET(request) {
         }
 
         // ── Tiến độ dự án chưa cập nhật quá 3 ngày
-        const threeDaysAgo = new Date(today);
-        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-
+        // assignee lưu tên người dùng, tìm bằng contains
         const staleTasks = await prisma.scheduleTask.findMany({
             where: {
-                assignee: user.email,
+                assignee: { contains: user.name },
                 status: { notIn: ['Hoàn thành', 'Xác nhận hoàn thành'] },
                 progress: { lt: 100 },
                 updatedAt: { lt: threeDaysAgo },
@@ -85,10 +85,11 @@ export async function GET(request) {
         }
 
         // ── Phiếu đề xuất / kiến nghị chưa được phản hồi (dành cho người tạo)
+        // submittedBy lưu email, status ban đầu là 'Mới' hoặc 'Đang xem xét'
         const pendingProposals = await prisma.proposal.findMany({
             where: {
-                createdBy: user.name,
-                status: 'Chờ phản hồi',
+                submittedBy: user.email,
+                status: { in: ['Mới', 'Đang xem xét'] },
                 createdAt: { lt: threeDaysAgo },
             },
             select: { title: true, createdAt: true },

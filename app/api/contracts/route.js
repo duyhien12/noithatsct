@@ -1,7 +1,7 @@
 import { withAuth } from '@/lib/apiHandler';
 import { parsePagination, paginatedResponse } from '@/lib/pagination';
 import prisma from '@/lib/prisma';
-import { generateCode } from '@/lib/generateCode';
+import { withCodeRetry } from '@/lib/generateCode';
 import { NextResponse } from 'next/server';
 import { contractCreateSchema } from '@/lib/validations/contract';
 
@@ -71,10 +71,10 @@ export const POST = withAuth(async (request) => {
     const body = await request.json();
     const { paymentPhases, ...validated } = contractCreateSchema.parse(body);
 
-    const code = await generateCode('contract', 'HD');
     const contractValue = Number(validated.contractValue) || 0;
 
-    const result = await prisma.$transaction(async (tx) => {
+    // withCodeRetry bao toàn bộ transaction để retry nếu trùng mã
+    const result = await withCodeRetry('contract', 'HD', (code) => prisma.$transaction(async (tx) => {
         const contract = await tx.contract.create({
             data: {
                 code,
@@ -168,7 +168,7 @@ export const POST = withAuth(async (request) => {
             where: { id: contract.id },
             include: { payments: true },
         });
-    });
+    }));
 
     return NextResponse.json(result, { status: 201 });
 });

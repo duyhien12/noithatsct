@@ -1,7 +1,7 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { parsePagination, paginatedResponse } from '@/lib/pagination';
-import { generateCode } from '@/lib/generateCode';
+import { withCodeRetry } from '@/lib/generateCode';
 import { NextResponse } from 'next/server';
 import { transactionCreateSchema } from '@/lib/validations/transaction';
 
@@ -64,17 +64,18 @@ export const POST = withAuth(async (request) => {
     const body = await request.json();
     const validated = transactionCreateSchema.parse(body);
 
-    const code = await generateCode('transaction', 'GD');
-    const tx = await prisma.transaction.create({
-        data: {
-            code,
-            type: validated.type,
-            description: validated.description,
-            amount: validated.amount,
-            category: validated.category,
-            date: validated.date || new Date(),
-            projectId: validated.projectId,
-        },
-    });
+    const tx = await withCodeRetry('transaction', 'GD', (code) =>
+        prisma.transaction.create({
+            data: {
+                code,
+                type: validated.type,
+                description: validated.description,
+                amount: validated.amount,
+                category: validated.category,
+                date: validated.date || new Date(),
+                projectId: validated.projectId,
+            },
+        })
+    );
     return NextResponse.json(tx, { status: 201 });
 });

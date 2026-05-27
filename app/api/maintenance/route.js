@@ -1,6 +1,6 @@
 import { withAuth } from '@/lib/apiHandler';
 import { parsePagination, paginatedResponse } from '@/lib/pagination';
-import { generateCode } from '@/lib/generateCode';
+import { withCodeRetry } from '@/lib/generateCode';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 
@@ -76,32 +76,32 @@ export const POST = withAuth(async (request) => {
     const isRepeatIssue = !!previous;
     const repeatCount = previous ? (previous.repeatCount + 1) : 0;
 
-    const code = await generateCode('maintenanceRecord', 'BD');
-
-    const record = await prisma.maintenanceRecord.create({
-        data: {
-            code,
-            title: title.trim(),
-            type: type || 'Bảo hành',
-            category: category || 'Khác',
-            priority: priority || 'Trung bình',
-            status: status || 'Tiếp nhận',
-            description: description || '',
-            notes: notes || '',
-            assignee: assignee || '',
-            reportedBy: reportedBy || '',
-            slaDeadline,
-            scheduledDate: scheduledDate ? new Date(scheduledDate) : null,
-            nextScheduleDate: nextScheduleDate ? new Date(nextScheduleDate) : null,
-            warrantyEndDate: warrantyEndDate ? new Date(warrantyEndDate) : null,
-            estimatedCost: Number(estimatedCost) || 0,
-            isRepeatIssue,
-            repeatCount,
-            parentIssueId: previous?.id ?? null,
-            projectId,
-        },
-        include: { project: { select: { name: true, code: true } } },
-    });
+    const record = await withCodeRetry('maintenanceRecord', 'BD', (code) =>
+        prisma.maintenanceRecord.create({
+            data: {
+                code,
+                title: title.trim(),
+                type: type || 'Bảo hành',
+                category: category || 'Khác',
+                priority: priority || 'Trung bình',
+                status: status || 'Tiếp nhận',
+                description: description || '',
+                notes: notes || '',
+                assignee: assignee || '',
+                reportedBy: reportedBy || '',
+                slaDeadline,
+                scheduledDate: scheduledDate ? new Date(scheduledDate) : null,
+                nextScheduleDate: nextScheduleDate ? new Date(nextScheduleDate) : null,
+                warrantyEndDate: warrantyEndDate ? new Date(warrantyEndDate) : null,
+                estimatedCost: Number(estimatedCost) || 0,
+                isRepeatIssue,
+                repeatCount,
+                parentIssueId: previous?.id ?? null,
+                projectId,
+            },
+            include: { project: { select: { name: true, code: true } } },
+        })
+    );
 
     return NextResponse.json(record, { status: 201 });
 });

@@ -142,6 +142,12 @@ export const DELETE = withAuth(async (request, { params }) => {
             // Xưởng & nhật ký công việc (optional FK → set null)
             await tx.workshopTask.updateMany({ where: { projectId: id }, data: { projectId: null } });
             await tx.workLogEntry.updateMany({ where: { projectId: id }, data: { projectId: null } });
+            // Bảo hành & hậu mãi
+            await tx.maintenanceRecord.deleteMany({ where: { projectId: id } });
+            // Check-in công trình
+            await tx.projectCheckIn.deleteMany({ where: { projectId: id } });
+            // Lệnh sản xuất (cascade → floors → rooms → items)
+            await tx.productionOrder.deleteMany({ where: { projectId: id } });
             await tx.project.delete({ where: { id } });
         });
     } catch (e) {

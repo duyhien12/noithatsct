@@ -1,7 +1,7 @@
 import { withAuth } from '@/lib/apiHandler';
 import { parsePagination, paginatedResponse } from '@/lib/pagination';
 import prisma from '@/lib/prisma';
-import { generateCode } from '@/lib/generateCode';
+import { withCodeRetry } from '@/lib/generateCode';
 import { NextResponse } from 'next/server';
 import { employeeCreateSchema } from '@/lib/validations/employee';
 
@@ -43,9 +43,8 @@ export const GET = withAuth(async (request) => {
 export const POST = withAuth(async (request) => {
     const body = await request.json();
     const data = employeeCreateSchema.parse(body);
-    const code = await generateCode('employee', 'NV');
-    const employee = await prisma.employee.create({
-        data: { code, ...data },
-    });
+    const employee = await withCodeRetry('employee', 'NV', (code) =>
+        prisma.employee.create({ data: { code, ...data } })
+    );
     return NextResponse.json(employee, { status: 201 });
 });

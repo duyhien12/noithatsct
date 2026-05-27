@@ -26,7 +26,8 @@ export const PUT = withAuth(async (request, { params }) => {
 
     const report = await prisma.progressReport.findUnique({ where: { id } });
     if (!report) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    if (report.status !== 'Đã duyệt' && report.status !== 'Chờ duyệt') {
+    // Chỉ cho phép duyệt/từ chối báo cáo đang ở trạng thái 'Chờ duyệt'
+    if (report.status !== 'Chờ duyệt') {
         return NextResponse.json({ error: 'Báo cáo đã được xử lý' }, { status: 400 });
     }
 

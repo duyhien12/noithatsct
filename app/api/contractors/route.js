@@ -1,7 +1,7 @@
 import { withAuth } from '@/lib/apiHandler';
 import { parsePagination, paginatedResponse } from '@/lib/pagination';
 import prisma from '@/lib/prisma';
-import { generateCode } from '@/lib/generateCode';
+import { withCodeRetry } from '@/lib/generateCode';
 import { NextResponse } from 'next/server';
 import { contractorCreateSchema } from '@/lib/validations/contractor';
 
@@ -27,9 +27,8 @@ export const GET = withAuth(async (request) => {
 export const POST = withAuth(async (request) => {
     const body = await request.json();
     const data = contractorCreateSchema.parse(body);
-    const code = await generateCode('contractor', 'TT');
-    const contractor = await prisma.contractor.create({
-        data: { code, ...data },
-    });
+    const contractor = await withCodeRetry('contractor', 'TT', (code) =>
+        prisma.contractor.create({ data: { code, ...data } })
+    );
     return NextResponse.json(contractor, { status: 201 });
 });

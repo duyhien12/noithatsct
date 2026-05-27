@@ -1,6 +1,6 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
-import { generateCode } from '@/lib/generateCode';
+import { withCodeRetry } from '@/lib/generateCode';
 import { NextResponse } from 'next/server';
 
 export const GET = withAuth(async (request) => {
@@ -38,22 +38,23 @@ export const POST = withAuth(async (request) => {
     const remaining = plan.quantity - plan.orderedQty;
     const overBudget = requestedQty > remaining;
 
-    const code = await generateCode('materialRequisition', 'YC');
-    const req = await prisma.materialRequisition.create({
-        data: {
-            code,
-            materialPlanId,
-            projectId,
-            requestedQty: Number(requestedQty),
-            requestedDate: requestedDate ? new Date(requestedDate) : null,
-            notes: notes || '',
-            createdBy: createdBy || '',
-            status: overBudget ? 'Vượt dự toán - Chờ duyệt' : 'Chờ xử lý',
-        },
-        include: {
-            materialPlan: { include: { product: { select: { name: true, unit: true } } } },
-        },
-    });
+    const req = await withCodeRetry('materialRequisition', 'YC', (code) =>
+        prisma.materialRequisition.create({
+            data: {
+                code,
+                materialPlanId,
+                projectId,
+                requestedQty: Number(requestedQty),
+                requestedDate: requestedDate ? new Date(requestedDate) : null,
+                notes: notes || '',
+                createdBy: createdBy || '',
+                status: overBudget ? 'Vượt dự toán - Chờ duyệt' : 'Chờ xử lý',
+            },
+            include: {
+                materialPlan: { include: { product: { select: { name: true, unit: true } } } },
+            },
+        })
+    );
 
     return NextResponse.json({ ...req, overBudget }, { status: 201 });
 });

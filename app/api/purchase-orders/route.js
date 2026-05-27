@@ -1,7 +1,7 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { parsePagination, paginatedResponse } from '@/lib/pagination';
-import { generateCode } from '@/lib/generateCode';
+import { withCodeRetry } from '@/lib/generateCode';
 import { NextResponse } from 'next/server';
 import { purchaseOrderCreateSchema } from '@/lib/validations/purchaseOrder';
 
@@ -97,24 +97,25 @@ export const POST = withAuth(async (request, context, session) => {
         }
     }
 
-    const code = await generateCode('purchaseOrder', 'PO');
     const status = needsApproval ? 'Chờ duyệt vượt định mức' : (poData.status || 'Chờ duyệt');
-    const order = await prisma.purchaseOrder.create({
-        data: {
-            code,
-            supplier: poData.supplier,
-            totalAmount: poData.totalAmount,
-            paidAmount: poData.paidAmount,
-            status,
-            notes: poData.notes,
-            projectId: poData.projectId || null,
-            orderDate: poData.orderDate || new Date(),
-            deliveryDate: poData.deliveryDate || null,
-            receivedDate: poData.receivedDate || null,
-            createdByRole: session?.user?.role || '',
-            items: items ? { create: items } : undefined,
-        },
-        include: { items: true, project: { select: { name: true, code: true } } },
-    });
+    const order = await withCodeRetry('purchaseOrder', 'PO', (code) =>
+        prisma.purchaseOrder.create({
+            data: {
+                code,
+                supplier: poData.supplier,
+                totalAmount: poData.totalAmount,
+                paidAmount: poData.paidAmount,
+                status,
+                notes: poData.notes,
+                projectId: poData.projectId || null,
+                orderDate: poData.orderDate || new Date(),
+                deliveryDate: poData.deliveryDate || null,
+                receivedDate: poData.receivedDate || null,
+                createdByRole: session?.user?.role || '',
+                items: items ? { create: items } : undefined,
+            },
+            include: { items: true, project: { select: { name: true, code: true } } },
+        })
+    );
     return NextResponse.json({ ...order, warnings, needsApproval });
 });
