@@ -381,7 +381,7 @@ export default function ProductDetailPage() {
                                 <tbody>
                                     {bom.length === 0 && (
                                         <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, opacity: 0.4, fontSize: 13 }}>
-                                            Chưa có vật tư thành phần. Nhấn "+ Thêm thành phần" để khai báo định mức.
+                                            Chưa có vật tư thành phần. Nhấn &quot;+ Thêm thành phần&quot; để khai báo định mức.
                                         </td></tr>
                                     )}
                                     {bom.map(item => (
@@ -469,7 +469,7 @@ export default function ProductDetailPage() {
 
                     {attributes.length === 0 && !showAttrForm && (
                         <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--bg-card)', borderRadius: 8 }}>
-                            Chưa có thuộc tính nào — bấm "+ Thêm thuộc tính" để khai báo biến thể
+                            Chưa có thuộc tính nào — bấm &quot;+ Thêm thuộc tính&quot; để khai báo biến thể
                         </div>
                     )}
 

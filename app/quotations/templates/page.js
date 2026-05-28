@@ -298,7 +298,7 @@ export default function QuotationTemplatesPage() {
                     <div style={{ padding: 40, textAlign: 'center' }}>Đang tải...</div>
                 ) : templates.length === 0 ? (
                     <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-                        Chưa có mẫu nào. Bấm "+ Tạo mẫu mới" hoặc lưu mẫu từ trang tạo báo giá.
+                        Chưa có mẫu nào. Bấm &quot;+ Tạo mẫu mới&quot; hoặc lưu mẫu từ trang tạo báo giá.
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>

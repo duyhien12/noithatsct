@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useRole } from '@/contexts/RoleContext';
 
 const fmtShort = (n) => {
@@ -358,7 +359,7 @@ export default function WorkshopDashboard() {
                             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#dc2626' }}>🕐 Rủi ro giao hàng — Dự án cần chú ý</h3>
                             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Dự án có endDate trong 14 ngày tới và tiến độ &lt; 80%</div>
                         </div>
-                        <a href="/projects" style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>Xem dự án →</a>
+                        <Link href="/projects" style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>Xem dự án →</Link>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
                         {deliveryRisks.map(p => {
@@ -532,7 +533,7 @@ export default function WorkshopDashboard() {
                 <div className="card">
                     <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h3>Dự án đang thi công</h3>
-                        <a href="/projects" style={{ fontSize: 12, color: 'var(--primary)', textDecoration: 'none' }}>Xem tất cả →</a>
+                        <Link href="/projects" style={{ fontSize: 12, color: 'var(--primary)', textDecoration: 'none' }}>Xem tất cả →</Link>
                     </div>
                     {projectsInProgress.length === 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 120, color: 'var(--text-muted)', fontSize: 13, gap: 8 }}>

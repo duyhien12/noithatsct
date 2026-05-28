@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useRole } from '@/contexts/RoleContext';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
@@ -506,7 +507,7 @@ export default function Dashboard() {
                             Sản phẩm hết hàng
                             <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 20, height: 20, background: '#dc2626', color: '#fff', borderRadius: 99, fontSize: 10, fontWeight: 700 }}>{data.lowStockProducts.length}</span>
                         </div>
-                        <a href="/products" style={{ fontSize: 12, color: '#dc2626', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 500 }}>Xem tất cả <Icons.ArrowRight /></a>
+                        <Link href="/products" style={{ fontSize: 12, color: '#dc2626', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 500 }}>Xem tất cả <Icons.ArrowRight /></Link>
                     </div>
                     <div style={{ padding: '12px 18px', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                         {data.lowStockProducts.map(p => (

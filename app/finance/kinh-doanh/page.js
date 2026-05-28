@@ -841,7 +841,7 @@ export default function KinhDoanhCostPage() {
                                     </table>
 
                                     <div style={{ marginTop: 10, padding: '8px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, fontSize: 11, color: '#92400e' }}>
-                                        ⚠️ Áp dụng sẽ <strong>ghi đè</strong> dữ liệu đang có (cột "Hiện có"). Dữ liệu nhập tay sẽ bị thay thế.
+                                        ⚠️ Áp dụng sẽ <strong>ghi đè</strong> dữ liệu đang có (cột &quot;Hiện có&quot;). Dữ liệu nhập tay sẽ bị thay thế.
                                         Các tháng không có dữ liệu từ hệ thống sẽ giữ nguyên.
                                     </div>
                                 </>

@@ -400,8 +400,8 @@ export default function TongHopPage() {
 
                     {/* Ghi chú loại trừ */}
                     <div style={{ padding: '10px 14px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, fontSize: 11, color: '#92400e', marginBottom: 16 }}>
-                        <strong>Lưu ý loại trừ nội bộ:</strong> Doanh thu nội bộ xưởng (thu từ KD) và chi phí "Trả xưởng sản xuất" của KD là <em>cùng 1 giao dịch</em> nhìn từ 2 phía.
-                        Khi hợp nhất, cả 2 dòng này được loại trừ để tránh tính trùng. Số liệu cột "Hợp nhất" phản ánh doanh thu &amp; chi phí thực với khách hàng bên ngoài.
+                        <strong>Lưu ý loại trừ nội bộ:</strong> Doanh thu nội bộ xưởng (thu từ KD) và chi phí &quot;Trả xưởng sản xuất&quot; của KD là <em>cùng 1 giao dịch</em> nhìn từ 2 phía.
+                        Khi hợp nhất, cả 2 dòng này được loại trừ để tránh tính trùng. Số liệu cột &quot;Hợp nhất&quot; phản ánh doanh thu &amp; chi phí thực với khách hàng bên ngoài.
                     </div>
 
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'right' }}>

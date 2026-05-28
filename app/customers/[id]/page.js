@@ -637,7 +637,7 @@ export default function CustomerDetailPage() {
                         <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
                             <div style={{ fontSize: 32, marginBottom: 12 }}>📅</div>
                             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Chưa có lịch tiến độ</div>
-                            <div style={{ fontSize: 13, marginBottom: 16 }}>Nhấn "Nhập từ mẫu tiến độ" để tạo lịch với ngày tháng cụ thể</div>
+                            <div style={{ fontSize: 13, marginBottom: 16 }}>Nhấn &quot;Nhập từ mẫu tiến độ&quot; để tạo lịch với ngày tháng cụ thể</div>
                             <button className="btn btn-primary btn-sm" onClick={openTemplateModal}>📅 Nhập từ mẫu tiến độ</button>
                         </div>
                     )}

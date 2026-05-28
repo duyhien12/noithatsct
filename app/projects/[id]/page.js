@@ -1169,7 +1169,7 @@ export default function ProjectDetailPage() {
                             </div>
                         ) : (
                             <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '32px 0', fontSize: 13, border: '2px dashed var(--border-color)', borderRadius: 8 }}>
-                                📷 Chưa có ảnh — bấm "+ Upload ảnh" để thêm ảnh mặt tiền hoặc hiện trạng công trình
+                                📷 Chưa có ảnh — bấm &quot;+ Upload ảnh&quot; để thêm ảnh mặt tiền hoặc hiện trạng công trình
                             </div>
                         )}
                     </div>
@@ -1227,7 +1227,7 @@ export default function ProjectDetailPage() {
                             </div>
                         ) : (
                             <div style={{ color: 'var(--text-muted)', padding: '24px 0', textAlign: 'center', fontSize: 13 }}>
-                                Chưa có lịch sử check-in — bấm "📍 Check In" khi đến công trình
+                                Chưa có lịch sử check-in — bấm &quot;📍 Check In&quot; khi đến công trình
                             </div>
                         )}
                     </div>
@@ -1784,7 +1784,7 @@ export default function ProjectDetailPage() {
                             </div>
                         );
                     })}
-                    {p.purchaseOrders.length === 0 && <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Chưa có đơn mua hàng — Tạo PO từ Tab Vật tư hoặc bấm "+ Tạo PO mới"</div>}
+                    {p.purchaseOrders.length === 0 && <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Chưa có đơn mua hàng — Tạo PO từ Tab Vật tư hoặc bấm &quot;+ Tạo PO mới&quot;</div>}
                 </div>
             )}
 
@@ -2225,7 +2225,7 @@ export default function ProjectDetailPage() {
                                                         onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
                                                         onMouseLeave={e => e.currentTarget.style.background = 'rgba(35,64,147,0.04)'}>
                                                         <span style={{ fontSize: 16 }}>✏️</span>
-                                                        <span>Dùng: <strong>"{supplierSearch}"</strong></span>
+                                                        <span>Dùng: <strong>&quot;{supplierSearch}&quot;</strong></span>
                                                         <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4 }}>(nhập thủ công)</span>
                                                     </div>
                                                     {suppliers.filter(s => { const q = supplierSearch.toLowerCase(); return s.name?.toLowerCase().includes(q) || s.code?.toLowerCase().includes(q); }).slice(0, 15).map(s => (
@@ -2343,7 +2343,7 @@ export default function ProjectDetailPage() {
                         <div className="modal-body">
                             <div style={{ padding: '8px 14px', background: grn.po.deliveryType === 'Giao thẳng dự án' ? 'rgba(14,165,233,0.08)' : 'var(--surface-alt)', borderRadius: 8, marginBottom: 16, fontSize: 13, borderLeft: `3px solid ${grn.po.deliveryType === 'Giao thẳng dự án' ? 'var(--status-info)' : 'var(--border-color)'}` }}>
                                 <strong>{grn.po.deliveryType === 'Giao thẳng dự án' ? '🏗 Giao thẳng công trình' : '🏢 Nhập kho công ty'}</strong>
-                                {grn.po.deliveryType === 'Giao thẳng dự án' && <div style={{ fontSize: 12, marginTop: 2, color: 'var(--text-muted)' }}>Số lượng nhận sẽ cập nhật cột "Đã nhận" trong Tab Vật tư. Không ảnh hưởng tồn kho tổng.</div>}
+                                {grn.po.deliveryType === 'Giao thẳng dự án' && <div style={{ fontSize: 12, marginTop: 2, color: 'var(--text-muted)' }}>Số lượng nhận sẽ cập nhật cột &quot;Đã nhận&quot; trong Tab Vật tư. Không ảnh hưởng tồn kho tổng.</div>}
                                 <div style={{ marginTop: 4, fontSize: 12 }}>NCC: <strong>{grn.po.supplier}</strong> · {grn.po.deliveryAddress && <span>📍 {grn.po.deliveryAddress}</span>}</div>
                             </div>
                             <table className="data-table">

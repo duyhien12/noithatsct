@@ -288,7 +288,7 @@ export default function EditQuotationPage() {
                 )}
                 {isConfirmed && (
                     <div style={{ padding: '10px 16px', background: 'rgba(22,163,74,0.08)', border: '1px solid rgba(22,163,74,0.3)', borderRadius: 8, marginBottom: 12, fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>✅ Khách hàng đã xác nhận báo giá. Sửa sẽ tự động chuyển về "Gửi KH" và tăng phiên bản.</span>
+                        <span>✅ Khách hàng đã xác nhận báo giá. Sửa sẽ tự động chuyển về &quot;Gửi KH&quot; và tăng phiên bản.</span>
                         <button className="btn btn-primary btn-sm" onClick={handleGoToContract} style={{ whiteSpace: 'nowrap', marginLeft: 12 }}>📋 Tạo hợp đồng</button>
                     </div>
                 )}

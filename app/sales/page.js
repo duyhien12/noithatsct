@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useRole } from '@/contexts/RoleContext';
 
 const fmtShort = (n) => {
@@ -147,7 +148,7 @@ export default function SalesDashboard() {
                 <div className="card">
                     <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h3>Follow-up sắp tới</h3>
-                        <a href="/customers" style={{ fontSize: 12, color: 'var(--primary)', textDecoration: 'none' }}>Xem tất cả →</a>
+                        <Link href="/customers" style={{ fontSize: 12, color: 'var(--primary)', textDecoration: 'none' }}>Xem tất cả →</Link>
                     </div>
                     {upcomingFollowUps.length === 0 ? (
                         <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px 0', fontSize: 13 }}>
@@ -183,7 +184,7 @@ export default function SalesDashboard() {
             <div className="card" style={{ marginTop: 16 }}>
                 <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3>Khách hàng mới nhất</h3>
-                    <a href="/customers" style={{ fontSize: 12, color: 'var(--primary)', textDecoration: 'none' }}>Xem tất cả →</a>
+                    <Link href="/customers" style={{ fontSize: 12, color: 'var(--primary)', textDecoration: 'none' }}>Xem tất cả →</Link>
                 </div>
 
                 {/* Desktop */}

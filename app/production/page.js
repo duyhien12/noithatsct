@@ -164,7 +164,7 @@ export default function ProductionListPage() {
                 <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca3af' }}>
                     <Factory size={48} style={{ marginBottom: 12, opacity: 0.3 }} />
                     <p style={{ fontSize: 15, marginBottom: 4 }}>Chưa có đơn sản xuất nào</p>
-                    <p style={{ fontSize: 13 }}>Nhấn "+ Dữ liệu mẫu" để tạo demo, hoặc "+ Thêm đơn sản xuất" để bắt đầu.</p>
+                    <p style={{ fontSize: 13 }}>Nhấn &quot;+ Dữ liệu mẫu&quot; để tạo demo, hoặc &quot;+ Thêm đơn sản xuất&quot; để bắt đầu.</p>
                 </div>
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>

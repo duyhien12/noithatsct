@@ -286,7 +286,7 @@ export default function ScheduleTemplatesPage() {
                                     <button type="button" className="btn btn-ghost btn-sm" onClick={addItem} style={{ fontSize: 12 }}>+ Thêm</button>
                                 </div>
                                 {items.length === 0 ? (
-                                    <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Bấm "+ Thêm" để thêm hạng mục</div>
+                                    <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Bấm &quot;+ Thêm&quot; để thêm hạng mục</div>
                                 ) : (
                                     <div style={{ maxHeight: 400, overflow: 'auto' }}>
                                         <table className="data-table" style={{ marginBottom: 0 }}>

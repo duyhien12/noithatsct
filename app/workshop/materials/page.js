@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRole } from '@/contexts/RoleContext';
+import Link from 'next/link';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const fmtShort = (n) => {
@@ -101,7 +102,7 @@ export default function MaterialsPage() {
                             <input type="checkbox" checked={filterLow} onChange={e => setFilterLow(e.target.checked)} />
                             <span style={{ color: filterLow ? '#dc2626' : 'inherit', fontWeight: filterLow ? 600 : 400 }}>Chỉ sắp hết</span>
                         </label>
-                        <a href="/products" className="btn btn-ghost btn-sm">Quản lý sản phẩm →</a>
+                        <Link href="/products" className="btn btn-ghost btn-sm">Quản lý sản phẩm →</Link>
                     </div>
                 </div>
                 <div className="filter-bar" style={{ borderBottom: '1px solid var(--border)' }}>

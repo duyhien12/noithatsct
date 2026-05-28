@@ -147,7 +147,7 @@ export default function CreateContractPage() {
                 <div className="card-header"><h3>📄 Tạo từ báo giá (tùy chọn)</h3></div>
                 <div className="card-body">
                     {availableQuotations.length === 0 ? (
-                        <p style={{ color: 'var(--text-muted)', margin: 0 }}>Chưa có báo giá nào ở trạng thái "Hợp đồng". Bạn vẫn có thể tạo hợp đồng thủ công bên dưới.</p>
+                        <p style={{ color: 'var(--text-muted)', margin: 0 }}>Chưa có báo giá nào ở trạng thái &quot;Hợp đồng&quot;. Bạn vẫn có thể tạo hợp đồng thủ công bên dưới.</p>
                     ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
                             {availableQuotations.map(q => (

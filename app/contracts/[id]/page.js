@@ -540,7 +540,7 @@ export default function ContractDetailPage() {
                                     </>
                                 ) : (
                                     <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
-                                        Chưa có lịch thanh toán. Bấm <strong>"✏️ Sửa đợt TT"</strong> để tạo.
+                                        Chưa có lịch thanh toán. Bấm <strong>&quot;✏️ Sửa đợt TT&quot;</strong> để tạo.
                                     </div>
                                 )
                             )}

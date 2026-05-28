@@ -23,9 +23,7 @@ async function generateThumbnail(buffer, mimeType) {
 // Stream Web ReadableStream → busboy via PassThrough (no size limit)
 function parseMultipart(webStream, contentType) {
     return new Promise((resolve, reject) => {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const Busboy = require('busboy');
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { PassThrough } = require('stream');
 
         const bb = Busboy({ headers: { 'content-type': contentType }, limits: {} });
