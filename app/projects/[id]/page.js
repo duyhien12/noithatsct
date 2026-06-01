@@ -37,7 +37,7 @@ export default function ProjectDetailPage() {
     const router = useRouter();
     const { data: session } = useSession();
     const [data, setData] = useState(null);
-    const [tab, setTab] = useState('overview');
+    const [tab, setTab] = useState('documents');
     const [docSubTab, setDocSubTab] = useState('documents');
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState(null);
@@ -834,13 +834,11 @@ export default function ProjectDetailPage() {
     const isXuongOrBGD = ['xuong', 'ban_gd', 'giam_doc', 'pho_gd'].includes(userRole);
 
     const tabs = [
-        { key: 'overview', label: 'Tổng quan', icon: '📋' },
-        { key: 'milestones', label: 'Tiến độ', icon: '📊', count: p.milestones?.length },
-        isXuongOrBGD && { key: 'hachtoan', label: 'Hạch toán', icon: '📊' },
-        !isXuong && { key: 'budget', label: 'Dự trù kinh phí', icon: '💰' },
         { key: 'documents', label: 'Tài liệu', icon: '📁', count: p.documents?.length },
-        { key: 'logs', label: 'Nhật ký lắp đặt', icon: '📷' },
-        { key: 'chat', label: 'Nhận xét', icon: '💬' },
+        { key: 'milestones', label: 'Tiến độ', icon: '📊', count: p.milestones?.length },
+        { key: 'logs', label: 'Nhật ký', icon: '📷' },
+        isXuongOrBGD && { key: 'hachtoan', label: 'Hạch toán', icon: '📊' },
+        { key: 'chat', label: 'Ghi chú', icon: '💬' },
     ].filter(Boolean);
 
     return (
