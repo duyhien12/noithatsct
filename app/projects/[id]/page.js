@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import DocumentManager from '@/components/documents/DocumentManager';
 import ScheduleManager from '@/components/schedule/ScheduleManager';
 import ProjectChatTab from '@/components/project/ProjectChatTab';
+import ProjectDiaryTab from '@/components/project/ProjectDiaryTab';
 import BudgetLockBar from '@/components/budget/BudgetLockBar';
 import VarianceTable from '@/components/budget/VarianceTable';
 import ProfitabilityWidget from '@/components/budget/ProfitabilityWidget';
@@ -37,6 +38,7 @@ export default function ProjectDetailPage() {
     const { data: session } = useSession();
     const [data, setData] = useState(null);
     const [tab, setTab] = useState('overview');
+    const [docSubTab, setDocSubTab] = useState('documents');
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState(null);
     const [msSheet, setMsSheet] = useState(null);
@@ -833,18 +835,11 @@ export default function ProjectDetailPage() {
 
     const tabs = [
         { key: 'overview', label: 'Tổng quan', icon: '📋' },
-        { key: 'location', label: 'Vị trí', icon: '📍' },
-        { key: 'logs', label: 'Nhật ký', icon: '📒', count: p.trackingLogs?.length },
         { key: 'milestones', label: 'Tiến độ', icon: '📊', count: p.milestones?.length },
         isXuongOrBGD && { key: 'hachtoan', label: 'Hạch toán', icon: '📊' },
         !isXuong && { key: 'budget', label: 'Dự trù kinh phí', icon: '💰' },
-        { key: 'contracts', label: 'Hợp đồng', icon: '📝', count: p.contracts?.length },
-        { key: 'workorders', label: 'Phiếu CV', icon: '📋', count: p.workOrders?.length },
-        { key: 'materials', label: 'Vật tư', icon: '🧱', count: p.materialPlans?.length },
-        { key: 'purchase', label: 'Mua hàng', icon: '🛒', count: p.purchaseOrders?.length },
-        { key: 'contractors', label: 'Thầu phụ', icon: '👷', count: p.contractorPays?.length },
-        { key: 'finance', label: 'Tài chính', icon: '💰' },
         { key: 'documents', label: 'Tài liệu', icon: '📁', count: p.documents?.length },
+        { key: 'logs', label: 'Nhật ký lắp đặt', icon: '📷' },
         { key: 'chat', label: 'Nhận xét', icon: '💬' },
     ].filter(Boolean);
 
@@ -1023,8 +1018,8 @@ export default function ProjectDetailPage() {
                 ))}
             </div>
 
-            {/* TAB: Vị trí */}
-            {tab === 'location' && (
+            {/* TAB: Vị trí — nằm trong sub-tab của Tài liệu */}
+            {tab === 'documents' && docSubTab === 'location' && (
                 <div>
                     {/* Card 1: GPS & Address */}
                     <div className="card" style={{ padding: 24, marginBottom: 16 }}>
@@ -1234,28 +1229,6 @@ export default function ProjectDetailPage() {
                 </div>
             )}
 
-            {/* TAB: Nhật ký */}
-            {tab === 'logs' && (
-                <div className="card" style={{ padding: 24 }}>
-                    <div className="card-header"><span className="card-title">📒 Nhật ký theo dõi</span><button className="btn btn-primary btn-sm" onClick={() => setModal('log')}>+ Ghi chú</button></div>
-                    {(p.trackingLogs || []).map(log => (
-                        <div key={log.id} style={{ display: 'flex', gap: 14, padding: '14px 0', borderBottom: '1px solid var(--border-light)' }}>
-                            <div style={{ width: 42, height: 42, borderRadius: 10, background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-                                {log.type === 'Điện thoại' ? '📞' : log.type === 'Gặp mặt' ? '🤝' : log.type === 'Email' ? '📧' : '💬'}
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 14, fontWeight: 600 }}>{log.content}</div>
-                                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, display: 'flex', gap: 12 }}>
-                                    <span>{log.createdBy || 'N/A'}</span>
-                                    <span>{fmtDate(log.createdAt)}</span>
-                                    <span className="badge muted" style={{ fontSize: 10 }}>{log.type}</span>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                    {!(p.trackingLogs?.length) && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có nhật ký theo dõi</div>}
-                </div>
-            )}
 
             {/* TAB: Nhận xét (chat) */}
             {tab === 'chat' && (
@@ -1336,20 +1309,15 @@ export default function ProjectDetailPage() {
                             ))}
                             {!(p.transactions?.length) && <div style={{ color: 'var(--text-muted)', padding: 20, textAlign: 'center', fontSize: 13 }}>Chưa có giao dịch</div>}
                         </div>
-                        <div className="card" style={{ gridColumn: '1 / -1' }}>
-                            <div className="card-header"><span className="card-title">📝 Nhật ký theo dõi</span>{(p.trackingLogs?.length || 0) > 5 && <button className="btn btn-ghost btn-sm" onClick={() => setTab('logs')} style={{ fontSize: 12 }}>Xem tất cả ({p.trackingLogs.length}) →</button>}</div>
-                            {(p.trackingLogs || []).slice(0, 5).map(log => (
-                                <div key={log.id} style={{ display: 'flex', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border-light)' }}>
-                                    <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
-                                        {log.type === 'Điện thoại' ? '📞' : log.type === 'Gặp mặt' ? '🤝' : log.type === 'Email' ? '📧' : '💬'}
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: 13, fontWeight: 600 }}>{log.content}</div>
-                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{log.createdBy} • {fmtDate(log.createdAt)} • {log.type}</div>
-                                    </div>
-                                </div>
-                            ))}
-                            {(!p.trackingLogs || p.trackingLogs.length === 0) && <div style={{ color: 'var(--text-muted)', padding: 20, textAlign: 'center', fontSize: 13 }}>Chưa có nhật ký</div>}
+                        <div className="card" style={{ gridColumn: '1 / -1', cursor: 'pointer' }} onClick={() => setTab('logs')}>
+                            <div className="card-header">
+                                <span className="card-title">📷 Nhật ký lắp đặt</span>
+                                <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }}>Xem nhật ký →</button>
+                            </div>
+                            <div style={{ color: 'var(--text-muted)', padding: '12px 0', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 20 }}>📷</span>
+                                <span>Ghi lại tiến độ thi công hàng ngày bằng ảnh — bấm để xem và đăng nhật ký</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1831,8 +1799,32 @@ export default function ProjectDetailPage() {
                 </div>
             )}
 
-            {/* TAB: Tài liệu */}
-            {tab === 'documents' && <DocumentManager projectId={id} onRefresh={fetchData} />}
+            {/* TAB: Tài liệu (gồm sub-tab Vị trí) */}
+            {tab === 'documents' && (
+                <div>
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+                        {[{ key: 'documents', label: '📁 Tài liệu' }, { key: 'location', label: '📍 Vị trí' }].map(t => (
+                            <button key={t.key} onClick={() => setDocSubTab(t.key)} style={{ padding: '6px 16px', borderRadius: 8, border: '1px solid var(--border-light)', background: docSubTab === t.key ? 'var(--accent-primary)' : 'var(--bg-secondary)', color: docSubTab === t.key ? '#fff' : 'var(--text-primary)', fontWeight: docSubTab === t.key ? 600 : 400, cursor: 'pointer', fontSize: 13 }}>{t.label}</button>
+                        ))}
+                    </div>
+                    {docSubTab === 'documents' && <DocumentManager projectId={id} onRefresh={fetchData} />}
+                </div>
+            )}
+
+            {/* TAB: Nhật ký lắp đặt (ảnh hàng ngày) */}
+            {tab === 'logs' && (
+                <div className="card" style={{ padding: 20 }}>
+                    <div className="card-header" style={{ marginBottom: 16 }}>
+                        <span className="card-title">📷 Nhật ký lắp đặt</span>
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Ghi lại tiến độ thi công hàng ngày bằng ảnh</span>
+                    </div>
+                    <ProjectDiaryTab
+                        projectId={id}
+                        currentUserName={session?.user?.name || session?.user?.email}
+                        currentUserRole={userRole}
+                    />
+                </div>
+            )}
 
             {/* MODALS */}
 
