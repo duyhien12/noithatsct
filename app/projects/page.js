@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRole } from '@/contexts/RoleContext';
 
@@ -62,13 +62,14 @@ export default function ProjectsPage() {
     const [projectsXD, setProjectsXD] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
-    const [filterStatus, setFilterStatus] = useState('');
+    const [filterPhase, setFilterPhase] = useState('');
     const [filterType, setFilterType] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [showXDTable, setShowXDTable] = useState(false);
     const [customers, setCustomers] = useState([]);
     const [dragId, setDragId] = useState(null);
     const [dropTarget, setDropTarget] = useState(null);
+    const [openPhaseId, setOpenPhaseId] = useState(null);
     const isDragging = useRef(false);
     const { role, email } = useRole();
     const canSeeXD = role !== 'xuong' || email === 'buihoa@kientrucsct.com';
@@ -90,7 +91,6 @@ export default function ProjectsPage() {
         setLoading(true);
         const params = new URLSearchParams();
         if (search) params.set('search', search);
-        if (filterStatus) params.set('status', filterStatus);
         if (filterType) params.set('type', filterType);
         params.set('limit', '200');
         Promise.all([
@@ -103,8 +103,15 @@ export default function ProjectsPage() {
         });
     };
 
+    useEffect(() => {
+        if (!openPhaseId) return;
+        const close = () => setOpenPhaseId(null);
+        document.addEventListener('click', close);
+        return () => document.removeEventListener('click', close);
+    }, [openPhaseId]);
+
     useEffect(() => { fetch('/api/customers?limit=1000').then(r => r.json()).then(d => setCustomers(d.data || [])); }, []);
-    useEffect(() => { fetchProjects(); }, [search, filterStatus, filterType]);
+    useEffect(() => { fetchProjects(); }, [search, filterType]);
 
     const handleDelete = async (id, e) => {
         e.stopPropagation();
@@ -136,6 +143,11 @@ export default function ProjectsPage() {
         fetchProjects();
     };
 
+    const updatePhase = async (id, phase, setter) => {
+        setter(prev => prev.map(p => p.id === id ? { ...p, phase } : p));
+        await fetch(`/api/projects/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phase }) });
+    };
+
     const onDragStart = (e, id) => { setDragId(id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id); e.stopPropagation(); };
     const onDragEnd   = () => { setDragId(null); setDropTarget(null); };
 
@@ -146,10 +158,17 @@ export default function ProjectsPage() {
     const totalProfit    = allProjects.reduce((s, p) => s + (p.profit || 0), 0);
     const atRiskCount    = allProjects.filter(p => p.risks?.length > 0).length;
 
+    const PHASE_OPTIONS = ['Sản xuất lắp đặt', 'Bảo hành bảo dưỡng', 'Khách hết bảo hành'];
+    const PHASE_STYLE = {
+        'Sản xuất lắp đặt':   { bg: '#dbeafe', color: '#1d4ed8', border: '#93c5fd' },
+        'Bảo hành bảo dưỡng': { bg: '#fef9c3', color: '#a16207', border: '#fde047' },
+        'Khách hết bảo hành': { bg: '#f0fdf4', color: '#15803d', border: '#86efac' },
+    };
+
     // Project row for desktop table
-    const ProjectRow = ({ p, dept }) => {
-        const hasRisks   = p.risks?.length > 0;
-        const rowBg      = hasRisks && p.healthScore < 35
+    const ProjectRow = ({ p, dept, stt, setter }) => {
+        const hasRisks = p.risks?.length > 0;
+        const rowBg    = hasRisks && p.healthScore < 35
             ? 'rgba(220,38,38,0.025)'
             : hasRisks ? 'rgba(217,119,6,0.02)' : undefined;
 
@@ -160,79 +179,79 @@ export default function ProjectsPage() {
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
                 onMouseLeave={e => e.currentTarget.style.background = rowBg || 'transparent'}
             >
-                {/* Mã */}
-                <td className="accent" style={{ fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>{p.code}</td>
+                {/* STT */}
+                <td style={{ fontWeight: 600, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', width: 40 }}>{stt}</td>
 
-                {/* Dự án + Loại + KH (tablet sub) */}
-                <td className="primary" style={{ maxWidth: 200 }}>
-                    <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>
-                        <span style={{ background: 'var(--bg-secondary)', padding: '1px 5px', borderRadius: 4, marginRight: 4 }}>{p.type}</span>
-                        <span className="col-tablet-show">{p.customer?.name}</span>
+                {/* Dự án */}
+                <td style={{ minWidth: 180 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>{p.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                        <span style={{ fontWeight: 600, color: 'var(--accent)', marginRight: 5 }}>{p.code}</span>
+                        {p.customer?.name}
                     </div>
-                </td>
-
-                {/* KH */}
-                <td className="col-tablet-hide" style={{ fontSize: 12 }}>{p.customer?.name}</td>
-
-                {/* Giá trị HĐ + Đã thu (stacked) */}
-                <td style={{ minWidth: 110 }}>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>{fmtShort(p.contractValue)}</div>
-                    <div style={{ fontSize: 11, color: p.paidAmount > 0 ? 'var(--status-success)' : 'var(--text-muted)', marginTop: 1 }}>
-                        Thu: {fmtShort(p.paidAmount)}
-                    </div>
-                </td>
-
-                {/* Chi phí + Lợi nhuận (stacked) */}
-                <td className="col-laptop-hide" style={{ minWidth: 110 }}>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                        Chi: {fmtShort(p.spent)}
-                    </div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: (p.profit || 0) >= 0 ? 'var(--status-success)' : '#dc2626', marginTop: 1 }}>
-                        LN: {fmtShort(p.profit)}
-                        {p.margin !== null && (
-                            <span style={{
-                                fontSize: 10, marginLeft: 4,
-                                color: p.margin < 0 ? '#dc2626' : p.margin < 10 ? '#d97706' : '#16a34a',
-                            }}>({p.margin}%)</span>
-                        )}
-                    </div>
-                </td>
-
-                {/* Health Score */}
-                <td className="col-laptop-hide" style={{ minWidth: 80 }}>
-                    {<HealthDot score={p.healthScore ?? 100} />}
-                </td>
-
-                {/* Risk badges */}
-                <td className="col-laptop-hide" style={{ minWidth: 110 }}>
-                    {p.risks?.length > 0
-                        ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                    {hasRisks && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, marginTop: 3 }}>
                             {p.risks.map((r, i) => <RiskBadge key={i} risk={r} />)}
-                          </div>
-                        : <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>—</span>
-                    }
+                        </div>
+                    )}
                 </td>
 
-                {/* Tiến độ */}
-                <td className="col-tablet-hide" style={{ minWidth: 100 }}>
+                {/* Quá trình */}
+                <td style={{ minWidth: 180 }} onClick={e => e.stopPropagation()}>
+                    <div style={{ position: 'relative', marginBottom: 6 }}>
+                        {(() => {
+                            const cur = p.phase || 'Sản xuất lắp đặt';
+                            const s = PHASE_STYLE[cur];
+                            const open = openPhaseId === p.id;
+                            return <>
+                                <button
+                                    onClick={e => { e.stopPropagation(); setOpenPhaseId(open ? null : p.id); }}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: 6,
+                                        padding: '4px 12px', borderRadius: 20, cursor: 'pointer',
+                                        border: `1.5px solid ${s.border}`,
+                                        background: s.bg, color: s.color,
+                                        fontSize: 12, fontWeight: 700,
+                                        whiteSpace: 'nowrap', maxWidth: 'none',
+                                    }}
+                                >
+                                    {cur} <span style={{ fontSize: 9, opacity: 0.7 }}>▼</span>
+                                </button>
+                                {open && (
+                                    <div style={{
+                                        position: 'absolute', top: '110%', left: 0, zIndex: 999,
+                                        background: 'var(--bg-primary)', border: '1px solid var(--border-light)',
+                                        borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                                        overflow: 'hidden', minWidth: 200,
+                                    }}>
+                                        {PHASE_OPTIONS.map(o => {
+                                            const active = cur === o;
+                                            const os = PHASE_STYLE[o];
+                                            return (
+                                                <div key={o} onClick={() => { updatePhase(p.id, o, setter); setOpenPhaseId(null); }} style={{
+                                                    padding: '8px 14px', cursor: 'pointer', fontSize: 12, fontWeight: active ? 700 : 500,
+                                                    background: active ? os.bg : 'transparent',
+                                                    color: active ? os.color : 'var(--text-secondary)',
+                                                    borderLeft: active ? `3px solid ${os.border}` : '3px solid transparent',
+                                                    whiteSpace: 'nowrap',
+                                                }}>{o}</div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </>;
+                        })()}
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <div className="progress-bar" style={{ flex: 1 }}>
-                            <div className="progress-fill" style={{
-                                width: `${p.progress}%`,
-                                background: healthColor(p.healthScore ?? 100),
-                            }} />
+                            <div className="progress-fill" style={{ width: `${p.progress}%`, background: healthColor(p.healthScore ?? 100) }} />
                         </div>
-                        <span style={{ fontSize: 11, whiteSpace: 'nowrap', fontWeight: 600, color: healthColor(p.healthScore ?? 100) }}>{p.progress}%</span>
+                        <span style={{ fontSize: 11, whiteSpace: 'nowrap', fontWeight: 700, color: healthColor(p.healthScore ?? 100) }}>{p.progress}%</span>
+                        <span className={`badge ${stColor[p.status] || 'badge-default'}`} style={{ fontSize: 10 }}>{p.status}</span>
                     </div>
                     {p.wsProgress !== null && (
                         <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>Xưởng: {p.wsProgress}%</div>
                     )}
-                </td>
-
-                {/* Trạng thái */}
-                <td>
-                    <span className={`badge ${stColor[p.status] || 'badge-default'}`} style={{ fontSize: 11 }}>{p.status}</span>
                 </td>
 
                 {/* Actions */}
@@ -318,7 +337,7 @@ export default function ProjectsPage() {
         </div>
     );
 
-    const TableSection = ({ projects, dept }) => (
+    const TableSection = ({ projects, dept, setter }) => (
         <div
             style={{ borderTop: '1px solid var(--border-light)', background: dropTarget === dept ? (dept === 'xay_dung' ? '#e8f4fd' : '#fff8f0') : 'transparent', transition: 'background .2s' }}
             onDragOver={e => { e.preventDefault(); setDropTarget(dept); }}
@@ -335,22 +354,16 @@ export default function ProjectsPage() {
                     <table className="data-table projects-table">
                         <thead>
                             <tr>
-                                <th style={{ minWidth: 60 }}>Mã</th>
-                                <th style={{ minWidth: 160 }}>Dự án</th>
-                                <th className="col-tablet-hide">Khách hàng</th>
-                                <th style={{ minWidth: 110 }}>HĐ / Đã thu</th>
-                                <th className="col-laptop-hide" style={{ minWidth: 110 }}>Chi phí / LN</th>
-                                <th className="col-laptop-hide" style={{ minWidth: 80 }}>Health</th>
-                                <th className="col-laptop-hide" style={{ minWidth: 110 }}>Rủi ro</th>
-                                <th className="col-tablet-hide" style={{ minWidth: 100 }}>Tiến độ</th>
-                                <th>TT</th>
+                                <th style={{ width: 40, textAlign: 'center' }}>STT</th>
+                                <th style={{ minWidth: 200 }}>Dự án</th>
+                                <th style={{ minWidth: 280 }}>Quá trình</th>
                                 <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             {projects.length === 0
-                                ? <tr><td colSpan={10} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>Không có dự án</td></tr>
-                                : projects.map(p => <ProjectRow key={p.id} p={p} dept={dept} />)
+                                ? <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>Không có dự án</td></tr>
+                                : projects.map((p, i) => <ProjectRow key={p.id} p={p} dept={dept} stt={i + 1} setter={setter} />)
                             }
                         </tbody>
                     </table>
@@ -409,11 +422,11 @@ export default function ProjectsPage() {
                         <option value="">Tất cả loại</option>
                         {visibleTypes.map(t => <option key={t}>{t}</option>)}
                     </select>
-                    <select className="form-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                        <option value="">Tất cả TT</option>
-                        <option>Khảo sát</option><option>Thiết kế</option><option>Chuẩn bị thi công</option>
-                        <option>Đang thi công</option><option>Thi công</option>
-                        <option>Nghiệm thu</option><option>Bàn giao</option><option>Hoàn thành</option>
+                    <select className="form-select" value={filterPhase} onChange={e => setFilterPhase(e.target.value)} style={{ minWidth: 180 }}>
+                        <option value="">Tất cả quá trình</option>
+                        <option value="Sản xuất lắp đặt">Sản xuất lắp đặt</option>
+                        <option value="Bảo hành bảo dưỡng">Bảo hành bảo dưỡng</option>
+                        <option value="Khách hết bảo hành">Khách hết bảo hành</option>
                     </select>
                     <button className="btn btn-primary" onClick={() => { setForm(f => ({ ...f, type: visibleTypes[0] || 'Thiết kế kiến trúc' })); setShowModal(true); }}>+ Thêm DA</button>
                 </div>
@@ -438,7 +451,7 @@ export default function ProjectsPage() {
                                 </span>
                             )}
                         </button>
-                        {showXDTable && <TableSection projects={projectsXD} dept="xay_dung" />}
+                        {showXDTable && <TableSection projects={filterPhase ? projectsXD.filter(p => (p.phase || 'Sản xuất lắp đặt') === filterPhase) : projectsXD} dept="xay_dung" setter={setProjectsXD} />}
                     </div>
                 )}
 
@@ -455,7 +468,7 @@ export default function ProjectsPage() {
                             )}
                         </h3>
                     </div>
-                    <TableSection projects={projectsKD} dept="kinh_doanh" />
+                    <TableSection projects={filterPhase ? projectsKD.filter(p => (p.phase || 'Sản xuất lắp đặt') === filterPhase) : projectsKD} dept="kinh_doanh" setter={setProjectsKD} />
                 </div>}
             </>)}
 
