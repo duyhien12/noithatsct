@@ -291,7 +291,7 @@ export default function TimelinePage() {
 
                             {/* Sticky header */}
                             <div style={{ display: 'flex', borderBottom: '2px solid var(--border)', background: 'var(--bg-secondary)', position: 'sticky', top: 0, zIndex: 20 }}>
-                                <div style={{ minWidth: LEFT_W, padding: '10px 14px', fontSize: 12, fontWeight: 700, borderRight: '2px solid var(--border)', flexShrink: 0, position: 'sticky', left: 0, zIndex: 21, background: 'var(--bg-secondary)' }}>
+                                <div style={{ minWidth: LEFT_W, padding: '10px 14px', fontSize: 12, fontWeight: 700, borderRight: '2px solid var(--border)', flexShrink: 0, position: 'sticky', left: 0, zIndex: 50, background: 'var(--bg-secondary, #ffffff)' }}>
                                     Hạng mục / Phụ trách
                                 </div>
                                 <div style={{ display: 'flex' }}>
@@ -378,7 +378,7 @@ export default function TimelinePage() {
                                                 onClick={() => toggleCollapse(projectName)}
                                                 style={{ display: 'flex', height: GROUP_H, background: pDone ? 'rgba(22,163,74,0.06)' : 'rgba(37,99,235,0.05)', borderBottom: '1px solid var(--border-light)', cursor: 'pointer' }}
                                             >
-                                                <div style={{ minWidth: LEFT_W, padding: '5px 10px', fontSize: 12, fontWeight: 700, color: pLate ? '#dc2626' : pDone ? '#16a34a' : '#1d4ed8', borderRight: '2px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5, position: 'sticky', left: 0, zIndex: 9, background: pDone ? 'rgba(240,253,244,1)' : 'rgba(239,246,255,1)' }}>
+                                                <div style={{ minWidth: LEFT_W, padding: '5px 10px', fontSize: 12, fontWeight: 700, color: pLate ? '#dc2626' : pDone ? '#16a34a' : '#1d4ed8', borderRight: '2px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5, position: 'sticky', left: 0, zIndex: 30, background: pDone ? '#f0fdf4' : '#eff6ff' }}>
                                                     <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 12, flexShrink: 0 }}>{isCollapsed ? '▶' : '▼'}</span>
                                                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>📁 {projectName}</span>
                                                     <span style={{ fontSize: 10, fontWeight: 700, flexShrink: 0, marginLeft: 2 }}>{pPct}%</span>
@@ -425,7 +425,7 @@ export default function TimelinePage() {
                                                         onMouseLeave={e => e.currentTarget.style.background = isCritical ? 'rgba(251,191,36,0.025)' : 'transparent'}>
 
                                                         {/* Left pane */}
-                                                        <div style={{ minWidth: LEFT_W - 3, padding: '7px 12px', paddingLeft: 12 + indent, borderRight: '2px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, position: 'sticky', left: 0, zIndex: 7, background: isCritical ? 'rgba(255,251,235,1)' : 'var(--bg)' }}>
+                                                        <div style={{ minWidth: LEFT_W - 3, padding: '7px 12px', paddingLeft: 12 + indent, borderRight: '2px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, position: 'sticky', left: 0, zIndex: 20, background: isCritical ? '#fffbeb' : 'var(--bg-card, #ffffff)' }}>
                                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                                 <div style={{ fontSize: 12, fontWeight: task.level === 0 ? 700 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isOverdue ? '#dc2626' : 'var(--text-primary)' }}>
                                                                     {task.isLocked && '🔒 '}{task.title}
