@@ -14,6 +14,33 @@ const STATUS_BG = {
     'Tạm dừng':      '#f3f4f6',
 };
 
+// Màu theo loại hạng mục (match theo tên, không phân biệt hoa/thường, có dấu/không dấu)
+const TASK_TYPE_COLORS = [
+    { test: n => /vẽ\s*cnc|ve\s*cnc/i.test(n),                        color: '#15803d', bg: '#dcfce7' }, // xanh lá
+    { test: n => /^vẽ$|^ve$/i.test(n.trim()),                         color: '#65a30d', bg: '#ecfccb' }, // xanh lá nhạt
+    { test: n => /gia\s*công|gia\s*cong/i.test(n),                    color: '#0284c7', bg: '#e0f2fe' }, // xanh da trời
+    { test: n => /lắp\s*ráp\s*tại\s*xưởng|lap\s*rap\s*tai\s*xuong/i.test(n), color: '#7c3aed', bg: '#ede9fe' }, // tím
+    { test: n => /lắp\s*đặt\s*tại\s*công\s*trình|lap\s*dat\s*tai\s*cong\s*trinh/i.test(n), color: '#dc2626', bg: '#fee2e2' }, // đỏ
+    { test: n => /^lắp$|^lap$/i.test(n.trim()),                       color: '#9333ea', bg: '#f3e8ff' }, // tím nhạt
+    { test: n => /hoàn\s*thiện|hoan\s*thien/i.test(n),                color: '#0891b2', bg: '#cffafe' }, // cyan
+    { test: n => /sơn|son/i.test(n),                                   color: '#ea580c', bg: '#ffedd5' }, // cam
+    { test: n => /điện|dien/i.test(n),                                 color: '#ca8a04', bg: '#fef9c3' }, // vàng
+    { test: n => /nước|nuoc/i.test(n),                                 color: '#0369a1', bg: '#dbeafe' }, // xanh nước
+];
+
+function getTaskTypeColor(task) {
+    // Ưu tiên màu người dùng đặt trong DB
+    if (task.color && task.color !== '') {
+        const hex = task.color;
+        return { color: hex, bg: hex + '22' };
+    }
+    const name = (task.title || task.name || '');
+    for (const { test, color, bg } of TASK_TYPE_COLORS) {
+        if (test(name)) return { color, bg };
+    }
+    return null;
+}
+
 const ROW_H   = 52;
 const GROUP_H = 30;
 const LEFT_W  = 260;
@@ -226,14 +253,23 @@ export default function TimelinePage() {
                             <input type="checkbox" checked={showDeps} onChange={e => setShowDeps(e.target.checked)} />
                             Dependencies
                         </label>
-                        <div style={{ display: 'flex', gap: 10, fontSize: 11, color: 'var(--text-muted)', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: 8, fontSize: 11, color: 'var(--text-muted)', alignItems: 'center', flexWrap: 'wrap' }}>
+                            {[
+                                { color: '#15803d', bg: '#dcfce7', label: 'Vẽ CNC' },
+                                { color: '#0284c7', bg: '#e0f2fe', label: 'Gia công' },
+                                { color: '#7c3aed', bg: '#ede9fe', label: 'Lắp ráp xưởng' },
+                                { color: '#dc2626', bg: '#fee2e2', label: 'Lắp đặt CT' },
+                                { color: '#ea580c', bg: '#ffedd5', label: 'Sơn' },
+                            ].map(({ color, bg, label }) => (
+                                <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                                    <span style={{ width: 22, height: 10, background: bg, border: `1.5px solid ${color}`, display: 'inline-block', borderRadius: 3 }} />
+                                    <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+                                </span>
+                            ))}
+                            <span style={{ width: 1, height: 14, background: 'var(--border-light)', display: 'inline-block', margin: '0 2px' }} />
                             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                 <span style={{ width: 20, height: 5, background: 'rgba(148,163,184,0.4)', border: '1px solid #94a3b8', display: 'inline-block', borderRadius: 2 }} />
-                                Kế hoạch
-                            </span>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <span style={{ width: 20, height: 10, background: '#dbeafe', border: '1.5px solid #2563eb', display: 'inline-block', borderRadius: 2 }} />
-                                Thực tế
+                                KH
                             </span>
                             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                 <span style={{ width: 8, height: 8, background: '#dc2626', display: 'inline-block', transform: 'rotate(45deg)' }} />
@@ -242,10 +278,6 @@ export default function TimelinePage() {
                             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                 <span style={{ width: 20, height: 10, background: 'rgba(251,191,36,0.2)', border: '1.5px solid #f59e0b', display: 'inline-block', borderRadius: 2 }} />
                                 Critical
-                            </span>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <span style={{ width: 18, height: 1.5, background: '#94a3b8', borderTop: '1.5px dashed #94a3b8', display: 'inline-block' }} />
-                                Dependency
                             </span>
                         </div>
                         {lastSync && (
@@ -405,19 +437,25 @@ export default function TimelinePage() {
                                                 const bp         = getBarPx(task);
                                                 const isOverdue  = task.deadline && new Date(task.deadline) < now && task.status !== 'Hoàn thành';
                                                 const isCritical = criticalIds.has(task.id);
-                                                const barColor   = isOverdue ? '#dc2626' : (STATUS_COLOR[task.status] || '#2563eb');
-                                                const barBg      = isOverdue ? '#fee2e2' : (STATUS_BG[task.status]  || '#dbeafe');
+                                                const typeColor  = getTaskTypeColor(task);
+                                                const barColor   = isOverdue
+                                                    ? (typeColor ? typeColor.color : '#dc2626')
+                                                    : (typeColor ? typeColor.color : (STATUS_COLOR[task.status] || '#2563eb'));
+                                                const barBg      = isOverdue
+                                                    ? (typeColor ? typeColor.bg : '#fee2e2')
+                                                    : (typeColor ? typeColor.bg : (STATUS_BG[task.status] || '#dbeafe'));
                                                 const deadlineX  = task.deadline
                                                     ? Math.max(0, daysBetween(minDate, new Date(task.deadline))) * DAY_W + DAY_W / 2
                                                     : null;
                                                 const daysLate   = isOverdue ? daysBetween(new Date(task.deadline), now) : 0;
                                                 const indent     = (task.level || 0) * 12;
+                                                const rowBorderColor = isCritical ? '#f59e0b' : (typeColor ? typeColor.color : 'transparent');
 
                                                 return (
                                                     <div key={task.id} style={{
                                                         display: 'flex', height: ROW_H,
                                                         borderBottom: '1px solid var(--border-light)',
-                                                        borderLeft: `3px solid ${isCritical ? '#f59e0b' : 'transparent'}`,
+                                                        borderLeft: `3px solid ${rowBorderColor}`,
                                                         background: isCritical ? 'rgba(251,191,36,0.025)' : 'transparent',
                                                         transition: 'background 0.12s',
                                                     }}
@@ -425,7 +463,7 @@ export default function TimelinePage() {
                                                         onMouseLeave={e => e.currentTarget.style.background = isCritical ? 'rgba(251,191,36,0.025)' : 'transparent'}>
 
                                                         {/* Left pane */}
-                                                        <div style={{ minWidth: LEFT_W - 3, padding: '7px 12px', paddingLeft: 12 + indent, borderRight: '2px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, position: 'sticky', left: 0, zIndex: 20, background: isCritical ? '#fffbeb' : 'var(--bg-card, #ffffff)' }}>
+                                                        <div style={{ minWidth: LEFT_W - 3, padding: '7px 12px', paddingLeft: 12 + indent, borderRight: `2px solid ${typeColor ? typeColor.color + '55' : 'var(--border)'}`, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, position: 'sticky', left: 0, zIndex: 20, background: isCritical ? '#fffbeb' : 'var(--bg-card, #ffffff)' }}>
                                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                                 <div style={{ fontSize: 12, fontWeight: task.level === 0 ? 700 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isOverdue ? '#dc2626' : 'var(--text-primary)' }}>
                                                                     {task.isLocked && '🔒 '}{task.title}
