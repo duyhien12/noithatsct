@@ -836,7 +836,7 @@ export default function ProjectDetailPage() {
     const tabs = [
         { key: 'documents', label: 'Tài liệu', icon: '📁', count: p.documents?.length },
         { key: 'milestones', label: 'Tiến độ', icon: '📊', count: p.milestones?.length },
-        { key: 'logs', label: 'Nhật ký', icon: '📷' },
+        { key: 'logs', label: 'Nhật ký lắp đặt', icon: '📷' },
         isXuongOrBGD && { key: 'hachtoan', label: 'Hạch toán', icon: '📊' },
         { key: 'chat', label: 'Ghi chú', icon: '💬' },
     ].filter(Boolean);
