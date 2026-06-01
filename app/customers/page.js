@@ -27,6 +27,7 @@ export default function CustomersPage() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [filterSource, setFilterSource] = useState('');
+    const [filterStage, setFilterStage] = useState('');
     const [view, setView] = useState('kanban');
     const [showModal, setShowModal] = useState(false);
     const [showXDBoard, setShowXDBoard] = useState(false);
@@ -59,6 +60,7 @@ export default function CustomersPage() {
 
     const applyFilter = (list) => list.filter(c => {
         if (filterSource && c.source !== filterSource) return false;
+        if (filterStage && (c.pipelineStage || 'Tư vấn') !== filterStage) return false;
         if (search && !c.name.toLowerCase().includes(search.toLowerCase()) && !(c.code || '').toLowerCase().includes(search.toLowerCase()) && !(c.phone || '').includes(search)) return false;
         return true;
     });
@@ -125,6 +127,10 @@ export default function CustomersPage() {
                     {/* Row 1: Search + filters */}
                     <div style={{ display: 'flex', gap: 8, flex: 1, flexWrap: 'wrap' }}>
                         <input type="text" className="form-input" placeholder="🔍 Tìm tên, mã, SĐT..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+                        <select className="form-select" value={filterStage} onChange={e => setFilterStage(e.target.value)} style={{ minWidth: 0, flex: '0 0 auto', width: 'auto' }}>
+                            <option value="">Tất cả giai đoạn</option>
+                            {PIPELINE.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+                        </select>
                         <select className="form-select" value={filterSource} onChange={e => setFilterSource(e.target.value)} style={{ minWidth: 0, flex: '0 0 auto', width: 'auto' }}>
                             <option value="">Tất cả nguồn</option>
                             {SOURCES.map(s => <option key={s}>{s}</option>)}
@@ -257,12 +263,12 @@ export default function CustomersPage() {
                     {view === 'table' && (
                     <div className="desktop-table-view">
                         <div className="table-container"><table className="data-table">
-                            <thead><tr><th>Mã</th><th>Tên KH</th><th>SĐT</th><th>Giai đoạn KD</th><th>Nguồn</th><th>Giá trị deal</th><th>Doanh thu</th><th>DA</th><th></th></tr></thead>
-                            <tbody>{filtered.map(c => {
+                            <thead><tr><th>STT</th><th>Tên KH</th><th>SĐT</th><th>Giai đoạn KD</th><th>Nguồn</th><th>Giá trị deal</th><th>Doanh thu</th><th>DA</th><th></th></tr></thead>
+                            <tbody>{filtered.map((c, idx) => {
                                 const stage = PIPELINE.find(p => p.key === (c.pipelineStage || 'Khách nội thất')) || PIPELINE[0];
                                 return (
                                     <tr key={c.id} onClick={() => router.push(`/customers/${c.id}`)} style={{ cursor: 'pointer' }}>
-                                        <td className="accent">{c.code}</td>
+                                        <td className="accent">{idx + 1}</td>
                                         <td className="primary">{c.name}</td>
                                         <td>{c.phone}</td>
                                         <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, padding: '2px 10px', borderRadius: 12, background: stage.bg, color: stage.color }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: stage.color }} />{stage.label}</span></td>
