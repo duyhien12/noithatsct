@@ -459,7 +459,7 @@ export default function ProjectsPage() {
                 {role !== 'xay_dung' && <div className="card">
                     <div className="card-header">
                         <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            💼 Phòng kinh doanh đặt hàng xưởng nội thất
+                            💼 Đơn hàng xưởng sản xuất
                             <span style={{ background: '#fde8d0', color: '#e67e22', fontSize: 11, fontWeight: 700, padding: '1px 8px', borderRadius: 8 }}>{projectsKD.length}</span>
                             {projectsKD.some(p => p.risks?.length > 0) && (
                                 <span style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626', fontSize: 10, fontWeight: 700, padding: '1px 8px', borderRadius: 8 }}>
