@@ -12,8 +12,8 @@ const fmtShort = (n) => {
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
 
 const PIPELINE = [
-    { key: 'Tư vấn', label: 'Khách chăm sóc', color: '#3b82f6', bg: '#dbeafe' },
     { key: 'Tiềm năng', label: 'Khách tiềm năng', color: '#10b981', bg: '#d1fae5' },
+    { key: 'Tư vấn', label: 'Khách chăm sóc', color: '#3b82f6', bg: '#dbeafe' },
     { key: 'Báo giá', label: 'Khách ưu tiên', color: '#8b5cf6', bg: '#ede9fe' },
     { key: 'Thi công', label: 'Khách hợp đồng', color: '#f97316', bg: '#ffedd5' },
     { key: 'Khách huỷ', label: 'Khách hoàn thành', color: '#6b7280', bg: '#f3f4f6' },
