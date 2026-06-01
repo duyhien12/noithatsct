@@ -49,6 +49,7 @@ export default function TimelinePage() {
     const [collapsedProjects, setCollapsedProjects] = useState(new Set());
     const [lastSync,          setLastSync]          = useState(null);
     const intervalRef = useRef(null);
+    const scrollRef   = useRef(null);
 
     const toggleCollapse = (name) => setCollapsedProjects(prev => {
         const next = new Set(prev);
@@ -102,6 +103,15 @@ export default function TimelinePage() {
     const headerDays  = Array.from({ length: totalDays }, (_, i) => {
         const d = new Date(minDate); d.setDate(d.getDate() + i); return d;
     });
+
+    // Scroll đến hôm nay sau khi render xong
+    useEffect(() => {
+        if (!scrollRef.current || loading) return;
+        const el = scrollRef.current;
+        const todayPx = LEFT_W + todayOffset * DAY_W;
+        const center  = todayPx - el.clientWidth / 2 + DAY_W / 2;
+        el.scrollLeft = Math.max(0, center);
+    }, [loading, todayOffset]);
 
     // ── Grouping by project ─────────────────────────────────
     const groupedRaw = {};
@@ -276,7 +286,7 @@ export default function TimelinePage() {
                 </div>
             ) : (
                 <div className="card" style={{ overflow: 'hidden', padding: 0 }}>
-                    <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
+                    <div ref={scrollRef} style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
                         <div style={{ minWidth: totalDays * DAY_W + LEFT_W }}>
 
                             {/* Sticky header */}
