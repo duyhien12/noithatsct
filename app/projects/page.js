@@ -201,7 +201,7 @@ export default function ProjectsPage() {
                     <div style={{ position: 'relative', marginBottom: 6 }}>
                         {(() => {
                             const cur = p.phase || 'Đơn hàng đang sản xuất';
-                            const s = PHASE_STYLE[cur];
+                            const s = PHASE_STYLE[cur] || PHASE_STYLE['Đơn hàng đang sản xuất'];
                             const open = openPhaseId === p.id;
                             return <>
                                 <button
