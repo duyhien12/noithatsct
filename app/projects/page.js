@@ -158,11 +158,11 @@ export default function ProjectsPage() {
     const totalProfit    = allProjects.reduce((s, p) => s + (p.profit || 0), 0);
     const atRiskCount    = allProjects.filter(p => p.risks?.length > 0).length;
 
-    const PHASE_OPTIONS = ['Sản xuất lắp đặt', 'Bảo hành bảo dưỡng', 'Khách hết bảo hành'];
+    const PHASE_OPTIONS = ['Đơn hàng đang sản xuất', 'Đơn hàng đang bảo hành', 'Đơn hàng hết bảo hành'];
     const PHASE_STYLE = {
-        'Sản xuất lắp đặt':   { bg: '#dbeafe', color: '#1d4ed8', border: '#93c5fd' },
-        'Bảo hành bảo dưỡng': { bg: '#fef9c3', color: '#a16207', border: '#fde047' },
-        'Khách hết bảo hành': { bg: '#f0fdf4', color: '#15803d', border: '#86efac' },
+        'Đơn hàng đang sản xuất': { bg: '#dbeafe', color: '#1d4ed8', border: '#93c5fd' },
+        'Đơn hàng đang bảo hành': { bg: '#fef9c3', color: '#a16207', border: '#fde047' },
+        'Đơn hàng hết bảo hành':  { bg: '#f0fdf4', color: '#15803d', border: '#86efac' },
     };
 
     // Project row for desktop table
@@ -200,7 +200,7 @@ export default function ProjectsPage() {
                 <td style={{ minWidth: 180 }} onClick={e => e.stopPropagation()}>
                     <div style={{ position: 'relative', marginBottom: 6 }}>
                         {(() => {
-                            const cur = p.phase || 'Sản xuất lắp đặt';
+                            const cur = p.phase || 'Đơn hàng đang sản xuất';
                             const s = PHASE_STYLE[cur];
                             const open = openPhaseId === p.id;
                             return <>
@@ -424,9 +424,9 @@ export default function ProjectsPage() {
                     </select>
                     <select className="form-select" value={filterPhase} onChange={e => setFilterPhase(e.target.value)} style={{ minWidth: 180 }}>
                         <option value="">Tất cả quá trình</option>
-                        <option value="Sản xuất lắp đặt">Sản xuất lắp đặt</option>
-                        <option value="Bảo hành bảo dưỡng">Bảo hành bảo dưỡng</option>
-                        <option value="Khách hết bảo hành">Khách hết bảo hành</option>
+                        <option value="Đơn hàng đang sản xuất">Đơn hàng đang sản xuất</option>
+                        <option value="Đơn hàng đang bảo hành">Đơn hàng đang bảo hành</option>
+                        <option value="Đơn hàng hết bảo hành">Đơn hàng hết bảo hành</option>
                     </select>
                     <button className="btn btn-primary" onClick={() => { setForm(f => ({ ...f, type: visibleTypes[0] || 'Thiết kế kiến trúc' })); setShowModal(true); }}>+ Thêm DA</button>
                 </div>
@@ -451,7 +451,7 @@ export default function ProjectsPage() {
                                 </span>
                             )}
                         </button>
-                        {showXDTable && <TableSection projects={filterPhase ? projectsXD.filter(p => (p.phase || 'Sản xuất lắp đặt') === filterPhase) : projectsXD} dept="xay_dung" setter={setProjectsXD} />}
+                        {showXDTable && <TableSection projects={filterPhase ? projectsXD.filter(p => (p.phase || 'Đơn hàng đang sản xuất') === filterPhase) : projectsXD} dept="xay_dung" setter={setProjectsXD} />}
                     </div>
                 )}
 
@@ -468,7 +468,7 @@ export default function ProjectsPage() {
                             )}
                         </h3>
                     </div>
-                    <TableSection projects={filterPhase ? projectsKD.filter(p => (p.phase || 'Sản xuất lắp đặt') === filterPhase) : projectsKD} dept="kinh_doanh" setter={setProjectsKD} />
+                    <TableSection projects={filterPhase ? projectsKD.filter(p => (p.phase || 'Đơn hàng đang sản xuất') === filterPhase) : projectsKD} dept="kinh_doanh" setter={setProjectsKD} />
                 </div>}
             </>)}
 
