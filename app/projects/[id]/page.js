@@ -832,7 +832,9 @@ export default function ProjectDetailPage() {
     const userRole = session?.user?.role || '';
     const isXuong = userRole === 'xuong';
     const isXuongOrBGD = ['xuong', 'ban_gd', 'giam_doc', 'pho_gd'].includes(userRole);
-    const canSeeBudgetEstimate = ['xay_dung', 'ban_gd', 'giam_doc', 'pho_gd'].includes(userRole);
+    const userEmail = session?.user?.email || '';
+    const canSeeBudgetEstimate = ['xay_dung', 'ban_gd', 'giam_doc', 'pho_gd'].includes(userRole)
+        || userEmail === 'buihoa@kientrucsct.com';
 
     const tabs = [
         { key: 'documents', label: 'Tài liệu', icon: '📁', count: p.documents?.length },
