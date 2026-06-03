@@ -107,6 +107,8 @@ export default function CustomerDetailPage() {
     const [sendingComment, setSendingComment] = useState(false);
     const [pendingAttachments, setPendingAttachments] = useState([]);
     const [uploadingFile, setUploadingFile] = useState(false);
+    const [editingCommentId, setEditingCommentId] = useState(null);
+    const [editingCommentText, setEditingCommentText] = useState('');
     const commentsEndRef = useRef(null);
     const fileInputRef = useRef(null);
 
@@ -167,6 +169,30 @@ export default function CustomerDetailPage() {
     const deleteComment = async (commentId) => {
         setComments(prev => prev.filter(c => c.id !== commentId));
         await fetch(`/api/customers/${id}/comments/${commentId}`, { method: 'DELETE' });
+    };
+
+    const startEditComment = (cm) => {
+        setEditingCommentId(cm.id);
+        setEditingCommentText(cm.content || '');
+    };
+
+    const cancelEditComment = () => {
+        setEditingCommentId(null);
+        setEditingCommentText('');
+    };
+
+    const saveEditComment = async (commentId) => {
+        if (!editingCommentText.trim()) return;
+        const res = await fetch(`/api/customers/${id}/comments/${commentId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: editingCommentText }),
+        });
+        if (res.ok) {
+            const updated = await res.json();
+            setComments(prev => prev.map(c => c.id === commentId ? { ...c, content: updated.content } : c));
+            cancelEditComment();
+        }
     };
 
     const addTrackingLog = async () => {
@@ -855,6 +881,7 @@ export default function CustomerDetailPage() {
                         )}
                         {comments.map(cm => {
                             const isMe = cm.author === session?.user?.name;
+                            const isEditing = editingCommentId === cm.id;
                             let attachList = [];
                             try { attachList = cm.attachments ? JSON.parse(cm.attachments) : []; } catch {}
                             const hasContent = cm.content?.trim();
@@ -865,44 +892,67 @@ export default function CustomerDetailPage() {
                                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3, textAlign: isMe ? 'right' : 'left' }}>
                                             {cm.author || 'Ẩn danh'} · {timeAgo(cm.createdAt)}
                                         </div>
-                                        {hasContent && (
-                                            <div style={{
-                                                background: isMe ? 'var(--primary)' : 'var(--bg-secondary)',
-                                                color: isMe ? '#fff' : 'var(--text-primary)',
-                                                padding: '8px 12px', borderRadius: isMe ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
-                                                fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                                                border: isMe ? 'none' : '1px solid var(--border-light)',
-                                                marginBottom: attachList.length ? 6 : 0,
-                                            }}>
-                                                {cm.content}
-                                            </div>
-                                        )}
-                                        {attachList.length > 0 && (
+                                        {isEditing ? (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                                {attachList.map((att, i) => {
-                                                    const isImg = att.type?.startsWith('image/');
-                                                    return isImg ? (
-                                                        <a key={i} href={att.url} target="_blank" rel="noreferrer" style={{ display: 'block', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border-light)', maxWidth: 220 }}>
-                                                            <img src={att.url} alt={att.name} style={{ width: '100%', display: 'block', objectFit: 'cover' }} />
-                                                        </a>
-                                                    ) : (
-                                                        <a key={i} href={att.url} target="_blank" rel="noreferrer" style={{
-                                                            display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
-                                                            borderRadius: 10, background: isMe ? 'var(--primary)' : 'var(--bg-secondary)',
-                                                            border: isMe ? 'none' : '1px solid var(--border-light)',
-                                                            color: isMe ? '#fff' : 'var(--text-primary)',
-                                                            fontSize: 12, textDecoration: 'none', wordBreak: 'break-all',
-                                                        }}>
-                                                            <span style={{ fontSize: 18, flexShrink: 0 }}>📎</span>
-                                                            <span>{att.name}</span>
-                                                        </a>
-                                                    );
-                                                })}
+                                                <textarea
+                                                    autoFocus
+                                                    className="form-input"
+                                                    value={editingCommentText}
+                                                    onChange={e => setEditingCommentText(e.target.value)}
+                                                    onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveEditComment(cm.id); } if (e.key === 'Escape') cancelEditComment(); }}
+                                                    rows={3}
+                                                    style={{ fontSize: 13, resize: 'none', minWidth: 260 }}
+                                                />
+                                                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                                                    <button className="btn btn-ghost btn-sm" onClick={cancelEditComment}>Hủy</button>
+                                                    <button className="btn btn-primary btn-sm" onClick={() => saveEditComment(cm.id)}>Lưu</button>
+                                                </div>
                                             </div>
+                                        ) : (
+                                            <>
+                                                {hasContent && (
+                                                    <div style={{
+                                                        background: isMe ? 'var(--primary)' : 'var(--bg-secondary)',
+                                                        color: isMe ? '#fff' : 'var(--text-primary)',
+                                                        padding: '8px 12px', borderRadius: isMe ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
+                                                        fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                                                        border: isMe ? 'none' : '1px solid var(--border-light)',
+                                                        marginBottom: attachList.length ? 6 : 0,
+                                                    }}>
+                                                        {cm.content}
+                                                    </div>
+                                                )}
+                                                {attachList.length > 0 && (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                        {attachList.map((att, i) => {
+                                                            const isImg = att.type?.startsWith('image/');
+                                                            return isImg ? (
+                                                                <a key={i} href={att.url} target="_blank" rel="noreferrer" style={{ display: 'block', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border-light)', maxWidth: 220 }}>
+                                                                    <img src={att.url} alt={att.name} style={{ width: '100%', display: 'block', objectFit: 'cover' }} />
+                                                                </a>
+                                                            ) : (
+                                                                <a key={i} href={att.url} target="_blank" rel="noreferrer" style={{
+                                                                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
+                                                                    borderRadius: 10, background: isMe ? 'var(--primary)' : 'var(--bg-secondary)',
+                                                                    border: isMe ? 'none' : '1px solid var(--border-light)',
+                                                                    color: isMe ? '#fff' : 'var(--text-primary)',
+                                                                    fontSize: 12, textDecoration: 'none', wordBreak: 'break-all',
+                                                                }}>
+                                                                    <span style={{ fontSize: 18, flexShrink: 0 }}>📎</span>
+                                                                    <span>{att.name}</span>
+                                                                </a>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
                                     </div>
-                                    {isMe && (
-                                        <button onClick={() => deleteComment(cm.id)} title="Xóa" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 14, padding: '4px', alignSelf: 'center', flexShrink: 0 }}>×</button>
+                                    {isMe && !isEditing && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignSelf: 'center', flexShrink: 0 }}>
+                                            <button onClick={() => startEditComment(cm)} title="Sửa" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 13, padding: '3px 4px', lineHeight: 1 }}>✏️</button>
+                                            <button onClick={() => deleteComment(cm.id)} title="Xóa" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 14, padding: '3px 4px', lineHeight: 1 }}>×</button>
+                                        </div>
                                     )}
                                 </div>
                             );
