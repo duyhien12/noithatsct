@@ -832,11 +832,13 @@ export default function ProjectDetailPage() {
     const userRole = session?.user?.role || '';
     const isXuong = userRole === 'xuong';
     const isXuongOrBGD = ['xuong', 'ban_gd', 'giam_doc', 'pho_gd'].includes(userRole);
+    const canSeeBudgetEstimate = ['xay_dung', 'ban_gd', 'giam_doc', 'pho_gd'].includes(userRole);
 
     const tabs = [
         { key: 'documents', label: 'Tài liệu', icon: '📁', count: p.documents?.length },
         { key: 'milestones', label: 'Tiến độ', icon: '📊', count: p.milestones?.length },
         { key: 'logs', label: 'Nhật ký lắp đặt', icon: '📷' },
+        canSeeBudgetEstimate && { key: 'budget', label: 'Dự trù kinh phí', icon: '💰' },
         isXuongOrBGD && { key: 'hachtoan', label: 'Hạch toán', icon: '📊' },
         { key: 'chat', label: 'Ghi chú', icon: '💬' },
     ].filter(Boolean);
