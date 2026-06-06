@@ -213,7 +213,7 @@ export default function WorkersPage() {
     };
 
     useEffect(() => {
-        if (role && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd'].includes(role)) {
+        if (role && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd', 'hanh_chinh_kt'].includes(role)) {
             router.replace('/');
             return;
         }
