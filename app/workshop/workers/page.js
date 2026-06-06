@@ -35,7 +35,8 @@ export default function WorkersPage() {
     const [saving, setSaving] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [attendTarget, setAttendTarget] = useState(null);
-    const [attendForm, setAttendForm] = useState({ hoursWorked: 8, notes: '' });
+    const [attendForm, setAttendForm] = useState({ hoursWorked: 8, mealsCount: 0, notes: '' });
+    const [showMealSummary, setShowMealSummary] = useState(false);
     const [userList, setUserList] = useState([]);
     const [nameSuggest, setNameSuggest] = useState([]);
     const [showSuggest, setShowSuggest] = useState(false);
@@ -159,8 +160,8 @@ export default function WorkersPage() {
     };
 
     useEffect(() => {
-        if (showSummary || showPayroll) fetchMonthlySummary(summaryMonth);
-    }, [summaryMonth, showSummary, showPayroll]);
+        if (showSummary || showPayroll || showMealSummary) fetchMonthlySummary(summaryMonth);
+    }, [summaryMonth, showSummary, showPayroll, showMealSummary]);
 
     // Khởi tạo bảng thanh toán lương từ dữ liệu chấm công
     useEffect(() => {
@@ -278,7 +279,7 @@ export default function WorkersPage() {
     const openAttend = (w) => {
         const existing = attendance.find(a => a.workerId === w.id);
         setAttendTarget(w);
-        setAttendForm({ hoursWorked: existing?.hoursWorked ?? 8, notes: existing?.notes ?? '' });
+        setAttendForm({ hoursWorked: existing?.hoursWorked ?? 8, mealsCount: existing?.mealsCount ?? 0, notes: existing?.notes ?? '' });
     };
 
     const handleAttend = async () => {
@@ -647,6 +648,11 @@ export default function WorkersPage() {
                                                                 <span style={{ padding: '2px 10px', borderRadius: 20, background: '#dcfce7', color: '#15803d', fontSize: 12, fontWeight: 700 }}>
                                                                     ✓ {rec.hoursWorked}h
                                                                 </span>
+                                                                {rec.mealsCount > 0 && (
+                                                                    <span style={{ padding: '2px 8px', borderRadius: 20, background: '#fef3c7', color: '#92400e', fontSize: 11, fontWeight: 700 }}>
+                                                                        🍚 {rec.mealsCount}
+                                                                    </span>
+                                                                )}
                                                                 {(rec.worker?.hourlyRate || w.hourlyRate) > 0 && (
                                                                     <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                                                                         {new Intl.NumberFormat('vi-VN').format((rec.hoursWorked / 8) * (rec.worker?.hourlyRate || w.hourlyRate))}đ
@@ -764,6 +770,13 @@ export default function WorkersPage() {
                     onClick={() => setShowPayroll(v => !v)}
                 >
                     📋 {showPayroll ? 'Ẩn' : 'Xem'} bảng thanh toán lương
+                </button>
+                <button
+                    className={`btn btn-sm ${showMealSummary ? 'btn-primary' : 'btn-ghost'}`}
+                    style={{ fontWeight: 600, ...(showMealSummary ? { background: '#d97706', borderColor: '#d97706' } : {}) }}
+                    onClick={() => setShowMealSummary(v => !v)}
+                >
+                    🍚 {showMealSummary ? 'Ẩn' : 'Xem'} bảng chấm cơm tháng
                 </button>
             </div>
 
@@ -1548,6 +1561,190 @@ tfoot .lbl{text-align:center;color:#ea580c;font-size:7.5pt}
                 );
             })()}
 
+            {/* Bảng tổng hợp chấm cơm tháng */}
+            {showMealSummary && (() => {
+                const [y, m] = summaryMonth.split('-').map(Number);
+                const daysInMonth = new Date(y, m, 0).getDate();
+                const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+                const dayOfWeek = (day) => new Date(y, m - 1, day).getDay();
+                const isWeekend = (day) => { const d = dayOfWeek(day); return d === 0 || d === 6; };
+
+                // meal lookup: {workerId: {day: mealsCount}}
+                const byWorkerDayMeal = {};
+                summaryAttendance.forEach(a => {
+                    if (!byWorkerDayMeal[a.workerId]) byWorkerDayMeal[a.workerId] = {};
+                    const day = new Date(a.date).getUTCDate();
+                    byWorkerDayMeal[a.workerId][day] = a.mealsCount || 0;
+                });
+
+                const summaryWorkers = workers.filter(w =>
+                    w.status !== 'Nghỉ việc' || byWorkerDayMeal[w.id]
+                );
+
+                const workerMealTotal = (w) =>
+                    Object.values(byWorkerDayMeal[w.id] || {}).reduce((s, n) => s + n, 0);
+
+                const dayMealTotal = (day) =>
+                    summaryWorkers.reduce((s, w) => s + (byWorkerDayMeal[w.id]?.[day] || 0), 0);
+
+                const grandMealTotal = summaryWorkers.reduce((s, w) => s + workerMealTotal(w), 0);
+
+                const prevMonth = () => { const d = new Date(y, m - 2, 1); setSummaryMonth(d.toISOString().slice(0, 7)); };
+                const nextMonth = () => { const d = new Date(y, m, 1); setSummaryMonth(d.toISOString().slice(0, 7)); };
+
+                const MEAL_LABEL = { 0: '', 1: '1', 2: '2' };
+                const MEAL_BG = { 0: 'transparent', 1: '#fef9c3', 2: '#fef3c7' };
+                const MEAL_COLOR = { 0: 'transparent', 1: '#92400e', 2: '#d97706' };
+
+                const exportMealPDF = () => {
+                    const monthStr = `${String(m).padStart(2, '0')}/${y}`;
+                    const dayHeaders = days.map(d =>
+                        `<th style="min-width:18px;font-size:7pt;${isWeekend(d) ? 'color:#dc2626;background:#fff5f5' : ''}">${d}</th>`
+                    ).join('');
+
+                    const bodyRows = summaryWorkers.map((w, idx) => {
+                        const total = workerMealTotal(w);
+                        const cells = days.map(d => {
+                            const n = byWorkerDayMeal[w.id]?.[d] || 0;
+                            const bg = n === 2 ? '#fef3c7' : n === 1 ? '#fef9c3' : '';
+                            return `<td style="text-align:center;font-size:8pt;${bg ? `background:${bg}` : ''}">${n > 0 ? n : ''}</td>`;
+                        }).join('');
+                        return `<tr style="background:${idx % 2 === 0 ? '#fff' : '#fafafa'}">
+                            <td style="text-align:center">${idx + 1}</td>
+                            <td style="padding-left:6px;font-weight:600">${w.name}</td>
+                            ${cells}
+                            <td style="text-align:center;font-weight:700;background:#fef3c7;color:#d97706">${total > 0 ? total : ''}</td>
+                        </tr>`;
+                    }).join('');
+
+                    const totalCells = days.map(d =>
+                        `<td style="text-align:center;font-weight:700">${dayMealTotal(d) || ''}</td>`
+                    ).join('');
+
+                    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Bảng Chấm Cơm Tháng ${monthStr}</title>
+<style>
+@page{size:A4 landscape;margin:8mm}*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Times New Roman',Times,serif;font-size:9pt}
+.hdr{margin-bottom:6px}.co{font-size:10pt;font-weight:bold;text-transform:uppercase}
+.title{text-align:center;font-size:11pt;font-weight:bold;text-transform:uppercase;margin:4px 0}
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid #000;padding:2px 2px;vertical-align:middle}
+th{background:#fef3c7;font-weight:bold;text-align:center}
+tfoot td{font-weight:bold;background:#fef3c7}
+</style></head><body>
+<div class="hdr"><div class="co">Công ty TNHH kiến trúc đô thị SCT — Xưởng Nội Thất</div></div>
+<div class="title">Bảng tổng hợp chấm cơm tháng ${monthStr}</div>
+<table style="margin-top:8px">
+<thead><tr>
+  <th style="width:24px">STT</th>
+  <th style="min-width:80px;text-align:left;padding-left:6px">Họ và tên</th>
+  ${dayHeaders}
+  <th style="min-width:30px;background:#d97706;color:#fff">Tổng</th>
+</tr></thead>
+<tbody>${bodyRows}</tbody>
+<tfoot><tr>
+  <td colspan="2" style="text-align:center">TỔNG</td>
+  ${totalCells}
+  <td style="text-align:center">${grandMealTotal || ''}</td>
+</tr></tfoot>
+</table></body></html>`;
+                    const pw = window.open('', '_blank', 'width=1100,height=800');
+                    pw.document.write(html); pw.document.close(); pw.focus();
+                    setTimeout(() => pw.print(), 600);
+                };
+
+                return (
+                    <div className="card" style={{ overflow: 'hidden' }}>
+                        <div className="card-header" style={{ flexWrap: 'wrap', gap: 8 }}>
+                            <h3 style={{ margin: 0 }}>🍚 Bảng tổng hợp chấm cơm tháng</h3>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                <button className="btn btn-ghost btn-sm" onClick={prevMonth}>◀</button>
+                                <input type="month" value={summaryMonth} onChange={e => setSummaryMonth(e.target.value)}
+                                    style={{ padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 600 }} />
+                                <button className="btn btn-ghost btn-sm" onClick={nextMonth}>▶</button>
+                                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                                    Tổng: <strong style={{ color: '#d97706' }}>{grandMealTotal} bữa</strong>
+                                </span>
+                                <button className="btn btn-sm" style={{ background: '#dc2626', color: '#fff', border: 'none', fontWeight: 600 }}
+                                    onClick={exportMealPDF} disabled={loadingSummary}>
+                                    🖨️ Xuất PDF
+                                </button>
+                            </div>
+                        </div>
+                        {loadingSummary ? (
+                            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
+                        ) : (
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                    <thead>
+                                        <tr style={{ background: '#fef3c7' }}>
+                                            <th style={{ padding: '8px 12px', textAlign: 'left', position: 'sticky', left: 0, background: '#fef3c7', zIndex: 2, whiteSpace: 'nowrap', minWidth: 130, borderBottom: '2px solid #d97706', borderRight: '1px solid #d97706' }}>
+                                                Họ tên
+                                            </th>
+                                            {days.map(d => (
+                                                <th key={d} style={{
+                                                    padding: '5px 3px', textAlign: 'center', minWidth: 24,
+                                                    borderBottom: '2px solid #d97706',
+                                                    color: isWeekend(d) ? '#dc2626' : '#92400e',
+                                                    background: isWeekend(d) ? '#fff5f5' : '#fef3c7',
+                                                    fontWeight: isWeekend(d) ? 700 : 400, fontSize: 11,
+                                                }}>
+                                                    {d}
+                                                </th>
+                                            ))}
+                                            <th style={{ padding: '8px 10px', textAlign: 'center', borderBottom: '2px solid #d97706', borderLeft: '2px solid #d97706', whiteSpace: 'nowrap', color: '#d97706', fontWeight: 800, background: '#fef3c7' }}>Tổng bữa</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {summaryWorkers.map((w, idx) => {
+                                            const mealMap = byWorkerDayMeal[w.id] || {};
+                                            const total = workerMealTotal(w);
+                                            return (
+                                                <tr key={w.id} style={{ background: idx % 2 === 0 ? '#fff' : '#fffbeb' }}>
+                                                    <td style={{ padding: '6px 12px', position: 'sticky', left: 0, background: idx % 2 === 0 ? '#fff' : '#fffbeb', zIndex: 1, fontWeight: 600, borderRight: '1px solid var(--border)' }}>
+                                                        {w.name}
+                                                    </td>
+                                                    {days.map(d => {
+                                                        const n = mealMap[d] || 0;
+                                                        return (
+                                                            <td key={d} style={{ textAlign: 'center', padding: '4px 2px', background: n > 0 ? MEAL_BG[n] : 'transparent', color: MEAL_COLOR[n], fontWeight: n > 0 ? 700 : 400, fontSize: 12 }}>
+                                                                {n > 0 ? n : ''}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    <td style={{ textAlign: 'center', fontWeight: 800, color: '#d97706', background: '#fef3c7', borderLeft: '2px solid #d97706', padding: '6px 10px' }}>
+                                                        {total > 0 ? total : '—'}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr style={{ background: '#fff7ed', borderTop: '2px solid #d97706' }}>
+                                            <td style={{ padding: '6px 12px', fontWeight: 700, position: 'sticky', left: 0, background: '#fff7ed', zIndex: 1, borderRight: '1px solid var(--border)' }}>
+                                                Tổng mỗi ngày
+                                            </td>
+                                            {days.map(d => {
+                                                const t = dayMealTotal(d);
+                                                return (
+                                                    <td key={d} style={{ textAlign: 'center', fontWeight: 700, color: t > 0 ? '#d97706' : 'var(--text-muted)', padding: '5px 2px' }}>
+                                                        {t > 0 ? t : ''}
+                                                    </td>
+                                                );
+                                            })}
+                                            <td style={{ textAlign: 'center', fontWeight: 800, color: '#d97706', background: '#fef3c7', borderLeft: '2px solid #d97706', padding: '6px 10px' }}>
+                                                {grandMealTotal}
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
+
             {/* Danh sách tăng ca */}
             {showOvertimeList && (() => {
                 const [oy, om] = overtimeMonth.split('-').map(Number);
@@ -1763,6 +1960,21 @@ tfoot .lbl{text-align:center;color:#ea580c;font-size:7.5pt}
                                         <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>({attendForm.hoursWorked}h / 8h × {new Intl.NumberFormat('vi-VN').format(attendTarget.hourlyRate)}đ/ngày)</span>
                                     </div>
                                 )}
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">🍚 Số bữa ăn</label>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    {[0, 1, 2].map(n => (
+                                        <button key={n} type="button"
+                                            onClick={() => setAttendForm(f => ({ ...f, mealsCount: n }))}
+                                            style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: '2px solid', cursor: 'pointer', fontWeight: 700, fontSize: 13,
+                                                borderColor: attendForm.mealsCount === n ? '#d97706' : 'var(--border)',
+                                                background: attendForm.mealsCount === n ? '#fef3c7' : 'transparent',
+                                                color: attendForm.mealsCount === n ? '#92400e' : 'var(--text-secondary)' }}>
+                                            {n === 0 ? 'Không ăn' : n === 1 ? '🍚 1 bữa' : '🍚🍚 2 bữa'}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Ghi chú</label>

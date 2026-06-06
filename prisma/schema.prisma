@@ -1235,6 +1235,7 @@ model WorkshopAttendance {
   worker      WorkshopWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
   date        DateTime
   hoursWorked Float          @default(8)
+  mealsCount  Int            @default(0)
   notes       String         @default("")
   createdAt   DateTime       @default(now())
   @@index([workerId])

@@ -31,7 +31,7 @@ export const GET = withAuth(async (req) => {
 
 export const POST = withAuth(async (req) => {
     const body = await req.json();
-    const { workerId, date, hoursWorked, notes } = body;
+    const { workerId, date, hoursWorked, mealsCount, notes } = body;
 
     if (!workerId || !date) {
         return NextResponse.json({ error: 'Thiếu thông tin' }, { status: 400 });
@@ -46,16 +46,19 @@ export const POST = withAuth(async (req) => {
     }
 
     const hours = Number(hoursWorked) > 0 ? Number(hoursWorked) : 8;
+    const meals = Math.min(2, Math.max(0, Number(mealsCount) || 0));
     const record = await prisma.workshopAttendance.upsert({
         where: { workerId_date: { workerId, date: new Date(date) } },
         create: {
             workerId,
             date: new Date(date),
             hoursWorked: hours,
+            mealsCount: meals,
             notes: notes?.trim() || '',
         },
         update: {
             hoursWorked: hours,
+            mealsCount: meals,
             notes: notes?.trim() || '',
         },
         include: { worker: { select: { id: true, name: true } } },
