@@ -88,7 +88,7 @@ const menuItems = [
             { href: '/workshop/tasks', icon: Wrench, label: 'Công việc xưởng',
               roles: [...BAN_GD, ...VIEWER, 'xuong'] },
             { href: '/workshop/workers', icon: HardHat, label: 'Nhân công',
-              roles: [...BAN_GD, ...VIEWER, 'xuong'] },
+              roles: [...BAN_GD, ...VIEWER, 'xuong', 'hanh_chinh_kt'] },
             { href: '/workshop/expenses', icon: Banknote, label: 'Tài chính xưởng',
               roles: [...BAN_GD, ...VIEWER, 'xuong', 'ke_toan', 'hanh_chinh_kt'] },
             { href: '/workshop/pl', icon: TrendingUp, label: 'P&L Xưởng',
