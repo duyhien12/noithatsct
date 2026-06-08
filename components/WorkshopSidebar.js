@@ -89,10 +89,23 @@ const NHAN_VIEN_MENU = [
 
 export default function WorkshopSidebar({ isOpen, onClose }) {
     const pathname = usePathname();
-    const { roleInfo, isXuongNhanVien, department, isPhamDuong, canSwitchRole, viewAsRole, setViewAsRole, actualRole, role } = useRole();
+    const { roleInfo, isXuongNhanVien, department, isPhamDuong, canSwitchRole, viewAsRole, setViewAsRole, actualRole, role, email } = useRole();
     const [showDeptPicker, setShowDeptPicker] = useState(false);
 
-    const menuItems = isXuongNhanVien ? NHAN_VIEN_MENU : FULL_MENU;
+    const isVanToan = email === 'vantoan@kientrucsct.com';
+    const menuItems = isXuongNhanVien
+        ? (isVanToan
+            ? [
+                ...NHAN_VIEN_MENU,
+                {
+                    section: 'Kho & Mua sắm',
+                    items: [
+                        { href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho' },
+                    ],
+                },
+              ]
+            : NHAN_VIEN_MENU)
+        : FULL_MENU;
 
     const handleNavClick = () => {
         if (window.innerWidth <= 768) onClose();
