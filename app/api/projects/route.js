@@ -82,6 +82,7 @@ function computeProjectMetrics(p) {
         wsProgress,
         healthScore,
         risks,
+        hasContract: (p.contracts || []).length > 0,
         // strip heavy relation arrays before sending to client
         contracts: undefined,
         expenses: undefined,

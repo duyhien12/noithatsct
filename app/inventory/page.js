@@ -307,6 +307,9 @@ export default function InventoryPage() {
 
     const reorderList = stockData.products.filter(p => p.needsReorder);
 
+    // Chỉ cho gắn dự án đã có hợp đồng
+    const contractProjects = projects.filter(p => p.hasContract);
+
     return (
         <div>
             {/* ── KPI Cards ── */}
@@ -733,7 +736,10 @@ export default function InventoryPage() {
                                     <label className="form-label">Dự án</label>
                                     <select className="form-select" value={editForm.projectId} onChange={e => setEditForm(f => ({ ...f, projectId: e.target.value }))}>
                                         <option value="">— Không gắn DA —</option>
-                                        {projects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+                                        {(editForm.projectId && !contractProjects.some(p => p.id === editForm.projectId)
+                                            ? [...contractProjects, projects.find(p => p.id === editForm.projectId)].filter(Boolean)
+                                            : contractProjects
+                                        ).map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
                                     </select>
                                 </div>
                             </div>
@@ -861,7 +867,7 @@ export default function InventoryPage() {
                                     <label className="form-label">Dự án (tuỳ chọn)</label>
                                     <select className="form-select" value={form.projectId} onChange={e => setFormSynced(f => ({ ...f, projectId: e.target.value }))}>
                                         <option value="">— Không gắn DA —</option>
-                                        {projects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+                                        {contractProjects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
                                     </select>
                                 </div>
                             </div>
