@@ -1,8 +1,24 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import { DndContext, closestCenter } from '@dnd-kit/core';
+import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const fmtN = (n) => n ? new Intl.NumberFormat('vi-VN').format(Math.round(n)) : '';
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+
+// Drag handle component for dnd-kit sortable rows
+const DragHandle = ({ id }) => {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    cursor: 'grab',
+  };
+  return (
+    <span {...attributes} {...listeners} ref={setNodeRef} style={style}>☰</span>
+  );
+};
 
 // ─── Parse sheet Excel (format "theo doi san xuất") ──────────────────────────
 function parseProductionExcel(XLSX, ws) {
@@ -247,15 +263,103 @@ export default function ProductionCostTable({ projectId }) {
         load();
     };
 
-    const handleDeleteAll = async () => {
-        if (!items.length || !confirm(`Xóa toàn bộ ${items.length} dòng? Không thể hoàn tác.`)) return;
-        setDeleting(true);
-        await fetch(`/api/production-costs?projectId=${projectId}`, { method: 'DELETE' });
-        load();
-        setDeleting(false);
-    };
+    const handleDragEnd = async (event) => {
+  const { active, over } = event;
+  if (!over || active.id === over.id) return;
+  // find group containing the active item
+  const group = sortedGroups.find(g => g.items.some(i => i.id === active.id));
+  if (!group) return;
+  const oldIndex = group.items.findIndex(i => i.id === active.id);
+  const newIndex = group.items.findIndex(i => i.id === over.id);
+  const newOrder = arrayMove(group.items, oldIndex, newIndex);
+  // Update sortOrder locally
+  const updatedItems = items.map(i => {
+    const found = newOrder.findIndex(ni => ni.id === i.id);
+    if (found !== -1) {
+      return { ...i, sortOrder: found + 1 };
+    }
+    return i;
+  });
+  setItems(updatedItems);
+  // Persist changes
+  await Promise.all(updatedItems.map(i =>
+    fetch(`/api/production-costs/${i.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(i),
+    })
+  ));
+  load();
+};
+const handleDeleteAll = async () => {
+  if (!items.length || !confirm(`Xóa toàn bộ ${items.length} dòng? Không thể hoàn tác.`)) return;
+  setDeleting(true);
+  await fetch(`/api/production-costs?projectId=${projectId}`, { method: 'DELETE' });
+  load();
+  setDeleting(false);
+};
 
-    // ─── Print ─────────────────────────────────────────────────────────────
+        // ─── Add row functionality ─────────────────────────────────────────────────────
+    const handleAddRow = async () => {
+        const newItem = {
+            groupOrder: 0,
+            sortOrder: (items.filter(i => i.groupOrder === 0).length + 1),
+            name: '',
+            productCode: '',
+            spec: '',
+            unit: '',
+            quantity: 0,
+            dimLength: 0,
+            dimWidth: 0,
+            dimHeight: 0,
+            dimTotal: 0,
+            unitPrice: 0,
+            productionAmount: 0,
+            salePrice: 0,
+            groupName: ''
+        };
+        await fetch('/api/production-costs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ projectId, ...newItem })
+        });
+        load();
+    };
+    // ─── Row ordering handlers ─────────────────────────────────────────────────────
+const handleMove = async (id, direction) => {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    const groupItems = items.filter(i => i.groupOrder === item.groupOrder);
+    const sorted = groupItems.slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const curIdx = sorted.findIndex(i => i.id === id);
+    const targetIdx = direction === 'up' ? curIdx - 1 : curIdx + 1;
+    if (targetIdx < 0 || targetIdx >= sorted.length) return;
+    const targetItem = sorted[targetIdx];
+    // swap sortOrder locally
+    const updatedItems = items.map(i => {
+        if (i.id === item.id) return { ...i, sortOrder: targetItem.sortOrder };
+        if (i.id === targetItem.id) return { ...i, sortOrder: item.sortOrder };
+        return i;
+    });
+    setItems(updatedItems);
+    // persist changes
+    await Promise.all([
+        fetch(`/api/production-costs/${item.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...item, sortOrder: targetItem.sortOrder })
+        }),
+        fetch(`/api/production-costs/${targetItem.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...targetItem, sortOrder: item.sortOrder })
+        })
+    ]);
+    load();
+};
+const handleMoveUp = (id) => handleMove(id, 'up');
+const handleMoveDown = (id) => handleMove(id, 'down');
+// ─── Print ─────────────────────────────────────────────────────────────
     const handlePrint = () => {
         const content = printRef.current?.innerHTML;
         if (!content) return;
@@ -288,6 +392,7 @@ export default function ProductionCostTable({ projectId }) {
                         style={{ padding: '7px 14px', fontSize: 13, fontWeight: 600, border: '1px solid #2563eb', borderRadius: 8, background: '#fff', cursor: 'pointer', color: '#2563eb', display: 'flex', alignItems: 'center', gap: 5 }}>
                         📊 Nhập từ Excel
                     </label>
+                    <button onClick={handleAddRow} style={{ padding: '7px 14px', fontSize: 13, fontWeight: 600, border: '1px solid #2563eb', borderRadius: 8, background: '#fff', cursor: 'pointer', color: '#2563eb', marginLeft: 8 }}>➕ Thêm dòng</button>
                     {!!items.length && <button onClick={handlePrint}
                         style={{ padding: '7px 14px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border-light)', borderRadius: 8, background: 'var(--bg-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
                         🖨️ In / PDF
@@ -311,6 +416,7 @@ export default function ProductionCostTable({ projectId }) {
                             {/* Row 1 */}
                             <tr>
                                 <th rowSpan={2} style={{ ...TH, width: 36 }}>STT</th>
+<th rowSpan={2} style={{ ...TH, width: 30 }}></th>
                                 <th rowSpan={2} style={{ ...TH, minWidth: 160 }}>Tên vật liệu<br />(Phụ kiện)</th>
                                 <th colSpan={2} style={TH}>Chi tiết</th>
                                 <th rowSpan={2} style={{ ...TH, width: 46 }}>ĐVT</th>
@@ -331,58 +437,51 @@ export default function ProductionCostTable({ projectId }) {
                                 <th style={{ ...TH, width: 46 }}>Tổng</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            {sortedGroups.map((g, gi) => {
-                                const groupTotal = g.items.reduce((s, i) => s + (Number(i.productionAmount) || 0), 0);
-                                const pct = grandTotal > 0 ? ((groupTotal / grandTotal) * 100).toFixed(1) : '0';
-                                return [
-                                    /* group header row */
-                                    <tr key={`g-${gi}`} style={GH}>
-                                        <td style={{ ...GH, textAlign: 'center', fontWeight: 700 }}>{ROMAN[g.order - 1] || g.order}</td>
-                                        <td style={{ ...GH, fontWeight: 700, textTransform: 'uppercase' }} colSpan={5}>{g.name}</td>
-                                        <td style={GH} colSpan={4} />
-                                        <td style={GH} />
-                                        <td style={{ ...GH, textAlign: 'right', fontWeight: 700 }}>{fmtN(groupTotal)}</td>
-                                        <td style={{ ...GH, textAlign: 'center', fontWeight: 700 }}>{pct}%</td>
-                                        <td style={GH} />
-                                        <td style={{ ...C, background: '#fde68a' }} className="no-print" />
-                                    </tr>,
-                                    /* item rows */
-                                    ...g.items.map((item, ii) => (
-                                        <tr key={item.id} style={{ background: ii % 2 === 0 ? '#fff' : '#fafafa' }}>
-                                            <td style={{ ...C, textAlign: 'center', color: '#666' }}>{item.sortOrder || ii + 1}</td>
-                                            <td style={{ ...C, paddingLeft: 12, padding: '2px 4px' }}>{editCell(item.id, 'name', item.name, true)}</td>
-                                            <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'productCode', item.productCode, true)}</td>
-                                            <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'spec', item.spec, true)}</td>
-                                            <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'unit', item.unit, true)}</td>
-                                            <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'quantity', item.quantity)}</td>
-                                            <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'dimLength', item.dimLength)}</td>
-                                            <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'dimWidth', item.dimWidth)}</td>
-                                            <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'dimHeight', item.dimHeight)}</td>
-                                            <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'dimTotal', item.dimTotal)}</td>
-                                            <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'unitPrice', item.unitPrice)}</td>
-                                            <td style={{ ...C, textAlign: 'right', fontWeight: 600 }}>{fmtN(item.productionAmount)}</td>
-                                            <td style={{ ...C, textAlign: 'center', color: '#9ca3af', fontSize: 10 }} />
-                                            <td style={{ ...C, padding: '2px 4px' }}>{editCell(item.id, 'salePrice', item.salePrice)}</td>
-                                            <td style={{ ...C, textAlign: 'center', padding: 2 }} className="no-print">
-                                                <button onClick={() => handleDelete(item.id)} title="Xóa"
-                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 13, padding: '1px 4px' }}>🗑</button>
-                                            </td>
-                                        </tr>
-                                    )),
-                                ];
-                            })}
-                            {/* Total row */}
-                            <tr style={{ background: '#1e3a5f', color: '#fff', fontWeight: 700 }}>
-                                <td colSpan={6} style={{ ...C, textAlign: 'center', letterSpacing: 1, color: '#fff', background: '#1e3a5f', fontSize: 12 }}>TỔNG CỘNG</td>
-                                <td colSpan={4} style={{ ...C, background: '#1e3a5f' }} />
-                                <td style={{ ...C, background: '#1e3a5f' }} />
-                                <td style={{ ...C, textAlign: 'right', color: '#fff', background: '#1e3a5f', fontSize: 13 }}>{fmtN(grandTotal)}</td>
-                                <td style={{ ...C, textAlign: 'center', color: '#fff', background: '#1e3a5f' }}>100%</td>
-                                <td style={{ ...C, background: '#1e3a5f' }} />
-                                <td style={{ ...C, background: '#1e3a5f' }} className="no-print" />
-                            </tr>
-                        </tbody>
+<tbody>
+  {items.map(item => (
+    <tr key={item.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+      {/* STT */}
+      <td style={{ ...C, textAlign: 'right', fontWeight: 600 }}>{item.sortOrder}</td>
+      {/* Empty column */}
+      <td style={{ ...C }} />
+      {/* Tên vật liệu */}
+      <td style={{ ...C, fontWeight: 500 }}>{item.name}</td>
+      {/* Mã SP */}
+      <td style={{ ...C }}>{item.productCode}</td>
+      {/* KT */}
+      <td style={{ ...C }}>{item.spec}</td>
+      {/* ĐVT */}
+      <td style={{ ...C, textAlign: 'center' }}>{item.unit}</td>
+      {/* SL */}
+      <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.quantity)}</td>
+      {/* Kích thước */}
+      <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.dimLength)}</td>
+      <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.dimWidth)}</td>
+      <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.dimHeight)}</td>
+      <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.dimTotal)}</td>
+      {/* Đơn giá */}
+      <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.unitPrice)}</td>
+      {/* Thành tiền */}
+      <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.productionAmount)}</td>
+      {/* Tỉ xuất % - placeholder */}
+      <td style={{ ...C, textAlign: 'center' }}>—</td>
+      {/* GIÁ BÁN */}
+      <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.salePrice)}</td>
+      {/* Drag handle */}
+      <td style={{ textAlign: 'center', padding: 2 }} className="no-print"><DragHandle id={item.id} /></td>
+    </tr>
+  ))}
+  {/* Total row */}
+  <tr style={{ background: '#1e3a5f', color: '#fff', fontWeight: 700 }}>
+        <td colSpan={6} style={{ ...C, textAlign: 'center', letterSpacing: 1, color: '#fff', background: '#1e3a5f', fontSize: 12 }}>TỔNG CỘNG</td>
+        <td colSpan={5} style={{ ...C, background: '#1e3a5f' }} />
+        <td style={{ ...C, background: '#1e3a5f' }} />
+        <td style={{ ...C, textAlign: 'right', color: '#fff', background: '#1e3a5f', fontSize: 13 }}>{fmtN(grandTotal)}</td>
+        <td style={{ ...C, textAlign: 'center', color: '#fff', background: '#1e3a5f' }}>100%</td>
+        <td style={{ ...C, background: '#1e3a5f' }} />
+        <td style={{ ...C, background: '#1e3a5f' }} className="no-print" />
+  </tr>
+</tbody>
                     </table>
                 </div>
             )}

@@ -4518,6 +4518,45 @@ select.form-input-compact {
 }
 
 /* ========================================
+   TAB BAR (dùng trong inventory)
+   ======================================== */
+.tab-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.tab-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.tab-item:hover {
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+}
+
+.tab-item.active {
+  background: var(--accent-gradient);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(28,58,107,0.18);
+}
+
+/* ========================================
    TAB BAR SCROLL - dùng cho inline tab bars
    ======================================== */
 .tab-bar-scroll {
@@ -4703,5 +4742,148 @@ select.form-input-compact {
 
   .page-header-left p {
     font-size: 12px !important;
+  }
+
+  /* Main content — đúng chiều cao header mobile */
+  .main-content {
+    margin-left: 0 !important;
+    padding-top: 56px !important;
+  }
+
+  /* card-header: tab + button xếp dọc */
+  .card-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding-bottom: 12px !important;
+  }
+
+  /* tab-bar scroll ngang */
+  .tab-bar {
+    display: flex !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    gap: 4px !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .tab-bar::-webkit-scrollbar { display: none; }
+
+  .tab-bar .tab-item {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    font-size: 12px !important;
+    padding: 7px 12px !important;
+  }
+
+  /* Nút nhập/xuất kho - toàn chiều rộng */
+  .card-header > .btn {
+    width: 100% !important;
+    justify-content: center !important;
+    min-height: 44px !important;
+  }
+
+  /* form-row → 1 cột trên mobile */
+  .form-row {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+}
+
+/* ========================================
+   MOBILE MODAL — FULL SCREEN BOTTOM SHEET
+   ======================================== */
+@media (max-width: 768px) {
+  /* Overlay căn dưới thay vì giữa */
+  .modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  /* Modal content: bottom sheet */
+  .modal-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: calc(100dvh - 56px - env(safe-area-inset-top, 0px)) !important;
+    border-radius: 20px 20px 0 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    animation: slideUp 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    margin: 0 !important;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0.7; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+
+  /* Handle bar */
+  .modal-content::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    background: var(--border-color);
+    border-radius: 2px;
+    margin: 10px auto 0;
+    flex-shrink: 0;
+  }
+
+  /* modal-header compact */
+  .modal-header {
+    padding: 12px 18px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .modal-header h3 {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+  }
+
+  .modal-close {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 20px !important;
+  }
+
+  /* modal-body cuộn được */
+  .modal-body {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    flex: 1 !important;
+    padding: 14px 16px !important;
+  }
+
+  /* modal-footer cố định đáy, cách bottom nav */
+  .modal-footer {
+    flex-shrink: 0 !important;
+    padding: 12px 16px calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+    gap: 10px !important;
+    flex-direction: row !important;
+  }
+
+  .modal-footer .btn {
+    flex: 1 !important;
+    justify-content: center !important;
+    min-height: 48px !important;
+  }
+
+  /* form trong modal */
+  .modal-body .form-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .modal-body input,
+  .modal-body select,
+  .modal-body textarea {
+    font-size: 16px !important;
+    min-height: 46px !important;
+  }
+
+  /* Dropdown sản phẩm trong modal */
+  .modal-body [style*="position: absolute"] {
+    max-height: 200px !important;
   }
 }

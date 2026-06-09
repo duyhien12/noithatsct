@@ -6,6 +6,19 @@ const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency:
 const fmtNum = (n, dec = 1) => n == null ? '—' : Number(n).toFixed(dec).replace(/\.0$/, '');
 const fmtDate = (d) => new Date(d).toLocaleDateString('vi-VN');
 
+// Detect mobile viewport (≤768px) — toggles bảng ↔ thẻ
+function useIsMobile() {
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 768px)');
+        const onChange = () => setIsMobile(mq.matches);
+        onChange();
+        mq.addEventListener('change', onChange);
+        return () => mq.removeEventListener('change', onChange);
+    }, []);
+    return isMobile;
+}
+
 const EMPTY_FORM = {
     type: 'Nhập', productId: '', warehouseId: '', quantity: '',
     unit: '', note: '', projectId: '', date: new Date().toISOString().split('T')[0],
@@ -154,6 +167,7 @@ function AllocationTab() {
 export default function InventoryPage() {
     const { data: session } = useSession();
     const isXayDung = session?.user?.role === 'xay_dung';
+    const isMobile = useIsMobile();
 
     const [activeTab, setActiveTab] = useState('stock');
     const [txData, setTxData] = useState({ transactions: [], warehouses: [] });
@@ -393,6 +407,70 @@ export default function InventoryPage() {
                         </div>
                         {loading ? (
                             <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
+                        ) : isMobile ? (
+                            <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                {stockFiltered.length === 0 && (
+                                    <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Không có mã hàng</div>
+                                )}
+                                {stockFiltered.map(p => {
+                                    const isOut = p.stock <= 0;
+                                    const isLow = p.minStock > 0 && p.stock <= p.minStock;
+                                    const needsReorder = p.needsReorder;
+                                    const price = p.salePrice > 0 ? p.salePrice : Math.round((p.importPrice || 0) * 1.08);
+                                    return (
+                                        <div key={p.id} style={{
+                                            border: '1px solid var(--border-color)', borderRadius: 10, padding: 12,
+                                            borderLeft: `4px solid ${needsReorder || isOut ? '#dc2626' : isLow ? '#d97706' : '#16a34a'}`,
+                                            background: 'var(--bg-card)',
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                                                <div style={{ minWidth: 0, flex: 1 }}>
+                                                    <div style={{ fontSize: 11, color: 'var(--accent-primary)', fontWeight: 600 }}>
+                                                        {needsReorder && '🚨 '}{p.code}
+                                                    </div>
+                                                    <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', wordBreak: 'break-word' }}>{p.name}</div>
+                                                </div>
+                                                <button onClick={async () => {
+                                                    if (!confirm(`Xóa "${p.name}" khỏi kho?`)) return;
+                                                    await fetch(`/api/products/${p.id}`, { method: 'DELETE' });
+                                                    fetchStock(true);
+                                                }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16, padding: 4, flexShrink: 0 }} title="Xóa">🗑</button>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 10 }}>
+                                                <div>
+                                                    <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Tồn kho</div>
+                                                    <div style={{ fontWeight: 700, fontSize: 15, color: isOut ? '#dc2626' : isLow ? '#d97706' : 'var(--text-primary)' }}>{p.stock} <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-muted)' }}>{p.unit}</span></div>
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Đặt trước</div>
+                                                    <div style={{ fontWeight: 600, fontSize: 15, color: (p.reservedQty > 0) ? '#2563eb' : 'var(--text-muted)' }}>{analyticsLoaded ? (p.reservedQty > 0 ? fmtNum(p.reservedQty, 1) : '—') : '…'}</div>
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Khả dụng</div>
+                                                    <div style={{ fontWeight: 600, fontSize: 15, color: (p.availableQty !== undefined && p.availableQty <= 0) ? '#dc2626' : '#16a34a' }}>{analyticsLoaded ? fmtNum(p.availableQty ?? p.stock, 1) : '…'}</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--border-light)', fontSize: 12 }}>
+                                                <span style={{ color: 'var(--text-muted)' }}>
+                                                    {analyticsLoaded && p.daysToStockout != null && (
+                                                        <span style={{ color: daysColor(p.daysToStockout), fontWeight: 600 }}>Hết sau {p.daysToStockout} ngày </span>
+                                                    )}
+                                                    {analyticsLoaded && <TrendBadge trend={p.trend || 'stable'} c30={p.consumption30d || 0} cp30={p.consumptionPrev30d || 0} />}
+                                                </span>
+                                                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{fmt((p.stock || 0) * price)}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {stockFiltered.length > 0 && (
+                                    <div style={{ padding: '4px 4px 0', fontSize: 12, color: 'var(--text-muted)', textAlign: 'right' }}>
+                                        {stockFiltered.length} mã · Tổng {fmt(stockFiltered.reduce((s, p) => {
+                                            const price = p.salePrice > 0 ? p.salePrice : Math.round((p.importPrice || 0) * 1.08);
+                                            return s + (p.stock || 0) * price;
+                                        }, 0))}
+                                    </div>
+                                )}
+                            </div>
                         ) : (
                             <div className="table-container">
                                 <table className="data-table">
@@ -512,6 +590,53 @@ export default function InventoryPage() {
                         </div>
                         {loading ? (
                             <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
+                        ) : isMobile ? (
+                            <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                {txData.transactions.map(t => {
+                                    const isImport = t.type === 'Nhập';
+                                    return (
+                                        <div key={t.id} style={{
+                                            border: '1px solid var(--border-color)', borderRadius: 10, padding: 12,
+                                            borderLeft: `4px solid ${isImport ? 'var(--status-success)' : 'var(--status-warning)'}`,
+                                            background: 'var(--bg-card)',
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                                                <div style={{ minWidth: 0, flex: 1 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                        <span className="accent" style={{ fontSize: 12, fontWeight: 600 }}>{t.code}</span>
+                                                        <span className={`badge ${isImport ? 'success' : 'warning'}`} style={{ fontSize: 11 }}>{t.type}</span>
+                                                    </div>
+                                                    <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', marginTop: 4, wordBreak: 'break-word' }}>{t.product?.name}</div>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                                                    <button onClick={() => {
+                                                        setEditTx(t);
+                                                        setEditForm({ type: t.type, quantity: t.quantity, unit: t.unit, note: t.note || '',
+                                                            date: new Date(t.date).toISOString().split('T')[0],
+                                                            warehouseId: t.warehouse?.id || '', projectId: t.project?.id || '' });
+                                                    }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', fontSize: 16, padding: 4 }} title="Sửa">✏️</button>
+                                                    <button onClick={async () => {
+                                                        if (!confirm(`Xóa phiếu ${t.code}? Tồn kho sẽ được hoàn tác.`)) return;
+                                                        await fetch(`/api/inventory/${t.id}`, { method: 'DELETE' });
+                                                        fetchTx(); fetchStock(true);
+                                                    }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16, padding: 4 }} title="Xóa">🗑</button>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                                                <span style={{ fontWeight: 700, fontSize: 16, color: isImport ? 'var(--status-success)' : 'var(--status-warning)' }}>
+                                                    {isImport ? '+' : '-'}{t.quantity} {t.unit}
+                                                </span>
+                                                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmtDate(t.date)}</span>
+                                            </div>
+                                            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-light)', fontSize: 12, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                <span>🏭 {t.warehouse?.name || '—'}</span>
+                                                {t.project?.name && <span>🗂 {t.project.name}</span>}
+                                                {t.note && <span>📝 {t.note}</span>}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         ) : (
                             <div className="table-container">
                                 <table className="data-table">
