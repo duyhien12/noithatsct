@@ -130,7 +130,7 @@ const DEPT_VIEWS = [
 
 export default function Sidebar({ isOpen, onClose }) {
     const pathname = usePathname();
-    const { role, roleInfo, canViewDashboard, isPhamDuong, canSwitchRole, viewAsRole, setViewAsRole, actualRole } = useRole();
+    const { role, roleInfo, canViewDashboard, isPhamDuong, canSwitchRole, viewAsRole, setViewAsRole, actualRole, isXuongNhanVien } = useRole();
     const { data: session } = useSession();
     const isNgocBinh = session?.user?.email === 'ngocbinh@kientrucsct.com';
     const [showDeptPicker, setShowDeptPicker] = useState(false);
@@ -169,7 +169,10 @@ export default function Sidebar({ isOpen, onClose }) {
                         }
                     }
                     if (section.isDashboard && !canViewDashboard) return null;
-                    const visibleItems = section.items.filter(item => !item.roles || item.roles.includes(role));
+                    const visibleItems = section.items.filter(item => {
+                        if (isXuongNhanVien && item.href === '/production') return false;
+                        return !item.roles || item.roles.includes(role);
+                    });
                     if (visibleItems.length === 0) return null;
                     return (
                         <div className="nav-section" key={section.section}>

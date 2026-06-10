@@ -82,7 +82,6 @@ const NHAN_VIEN_MENU = [
             { href: '/workshop/workers', icon: Users, label: 'Nhân công' },
             { href: '/workshop/work-log', icon: BookOpen, label: 'Nhật ký công việc' },
             { href: '/workshop/timeline', icon: BarChart2, label: 'Tiến độ (Gantt)' },
-            { href: '/production', icon: Factory, label: 'Quản lý sản xuất' },
         ],
     },
 ];

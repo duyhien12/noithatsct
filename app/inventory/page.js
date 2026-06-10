@@ -22,8 +22,48 @@ function useIsMobile() {
 const EMPTY_FORM = {
     type: 'Nhập', productId: '', warehouseId: '', quantity: '',
     unit: '', note: '', projectId: '', date: new Date().toISOString().split('T')[0],
-    importPrice: '',
+    importPrice: '', images: [],
 };
+
+function PhotoStrip({ images, onChange }) {
+    const inputRef = useRef(null);
+    const [uploading, setUploading] = useState(false);
+    const list = Array.isArray(images) ? images : (() => { try { return JSON.parse(images || '[]'); } catch { return []; } })();
+
+    const handleFile = async (file) => {
+        if (!file) return;
+        setUploading(true);
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch('/api/upload?type=proofs', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.url) onChange([...list, data.url]);
+        setUploading(false);
+    };
+
+    return (
+        <div>
+            <label className="form-label">Ảnh đính kèm</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 6 }}>
+                {list.map((url, i) => (
+                    <div key={i} style={{ position: 'relative', width: 72, height: 72 }}>
+                        <img src={url} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer' }}
+                            onClick={() => window.open(url, '_blank')} />
+                        <button onClick={() => onChange(list.filter((_, j) => j !== i))}
+                            style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: '#dc2626', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                    </div>
+                ))}
+                <button onClick={() => inputRef.current?.click()}
+                    style={{ width: 72, height: 72, borderRadius: 8, border: '2px dashed var(--border)', background: 'var(--bg-secondary)', cursor: uploading ? 'default' : 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 11, color: 'var(--text-muted)' }}>
+                    {uploading ? '⏳' : '📷'}
+                    <span>{uploading ? 'Đang tải' : 'Thêm ảnh'}</span>
+                </button>
+                <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }}
+                    onChange={e => { handleFile(e.target.files[0]); e.target.value = ''; }} />
+            </div>
+        </div>
+    );
+}
 
 // Days-to-stockout color
 function daysColor(d) {
@@ -178,6 +218,8 @@ export default function InventoryPage() {
     const [loading, setLoading] = useState(true);
     const [filterType, setFilterType] = useState('');
     const [filterWarehouse, setFilterWarehouse] = useState('');
+    const [filterDateFrom, setFilterDateFrom] = useState('');
+    const [filterDateTo, setFilterDateTo] = useState('');
     const [stockSearch, setStockSearch] = useState('');
     const [stockFilter, setStockFilter] = useState(''); // '' | 'reorder' | 'low'
     const [showModal, setShowModal] = useState(false);
@@ -204,19 +246,21 @@ export default function InventoryPage() {
 
     const fetchTx = useCallback(async () => {
         setLoading(true);
-        const p = new URLSearchParams({ limit: 200 });
+        const p = new URLSearchParams({ limit: 500 });
         if (filterType) p.set('type', filterType);
         if (filterWarehouse) p.set('warehouseId', filterWarehouse);
+        if (filterDateFrom) p.set('dateFrom', filterDateFrom);
+        if (filterDateTo) p.set('dateTo', filterDateTo);
         const res = await fetch(`/api/inventory?${p}`);
         const d = await res.json();
         setTxData({ transactions: d.data || [], warehouses: d.warehouses || [] });
         setLoading(false);
-    }, [filterType, filterWarehouse]);
+    }, [filterType, filterWarehouse, filterDateFrom, filterDateTo]);
 
     useEffect(() => {
         if (activeTab === 'stock') fetchStock(true);
         else if (activeTab === 'history') fetchTx();
-    }, [activeTab, filterType, filterWarehouse]);
+    }, [activeTab, filterType, filterWarehouse, filterDateFrom, filterDateTo]);
 
     useEffect(() => {
         fetch('/api/inventory/stock').then(r => r.json()).then(d => setStockData(d));
@@ -284,7 +328,7 @@ export default function InventoryPage() {
             }
             const res = await fetch('/api/inventory', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...f, productId, quantity: Number(f.quantity) }),
+                body: JSON.stringify({ ...f, productId, quantity: Number(f.quantity), images: f.images || [] }),
             });
             if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Lỗi tạo phiếu'); }
             setSaving(false); setShowModal(false);
@@ -580,107 +624,156 @@ export default function InventoryPage() {
                 {/* ── TAB: Lịch sử ── */}
                 {activeTab === 'history' && (
                     <>
-                        <div className="filter-bar" style={{ borderBottom: '1px solid var(--border)' }}>
-                            <select className="form-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
-                                <option value="">Tất cả</option>
+                        <div className="filter-bar" style={{ borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 8 }}>
+                            <select className="form-select" value={filterType} onChange={e => setFilterType(e.target.value)} style={{ minWidth: 120 }}>
+                                <option value="">Tất cả loại</option>
                                 <option value="Nhập">Nhập kho</option>
                                 <option value="Xuất">Xuất kho</option>
                             </select>
-                            <select className="form-select" value={filterWarehouse} onChange={e => setFilterWarehouse(e.target.value)}>
+                            <select className="form-select" value={filterWarehouse} onChange={e => setFilterWarehouse(e.target.value)} style={{ minWidth: 130 }}>
                                 <option value="">Tất cả kho</option>
                                 {txData.warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                             </select>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Từ</span>
+                                <input type="date" className="form-input" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} style={{ width: 140 }} />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Đến</span>
+                                <input type="date" className="form-input" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} style={{ width: 140 }} />
+                            </div>
+                            {(filterDateFrom || filterDateTo) && (
+                                <button onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); }}
+                                    style={{ fontSize: 12, color: '#6b7280', background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                    ✕ Xóa ngày
+                                </button>
+                            )}
                         </div>
                         {loading ? (
                             <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
-                        ) : isMobile ? (
-                            <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                {txData.transactions.map(t => {
-                                    const isImport = t.type === 'Nhập';
-                                    return (
-                                        <div key={t.id} style={{
-                                            border: '1px solid var(--border-color)', borderRadius: 10, padding: 12,
-                                            borderLeft: `4px solid ${isImport ? 'var(--status-success)' : 'var(--status-warning)'}`,
-                                            background: 'var(--bg-card)',
-                                        }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                                                <div style={{ minWidth: 0, flex: 1 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                                        <span className="accent" style={{ fontSize: 12, fontWeight: 600 }}>{t.code}</span>
-                                                        <span className={`badge ${isImport ? 'success' : 'warning'}`} style={{ fontSize: 11 }}>{t.type}</span>
-                                                    </div>
-                                                    <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', marginTop: 4, wordBreak: 'break-word' }}>{t.product?.name}</div>
-                                                </div>
-                                                <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                                                    <button onClick={() => {
-                                                        setEditTx(t);
-                                                        setEditForm({ type: t.type, quantity: t.quantity, unit: t.unit, note: t.note || '',
-                                                            date: new Date(t.date).toISOString().split('T')[0],
-                                                            warehouseId: t.warehouse?.id || '', projectId: t.project?.id || '' });
-                                                    }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', fontSize: 16, padding: 4 }} title="Sửa">✏️</button>
-                                                    <button onClick={async () => {
-                                                        if (!confirm(`Xóa phiếu ${t.code}? Tồn kho sẽ được hoàn tác.`)) return;
-                                                        await fetch(`/api/inventory/${t.id}`, { method: 'DELETE' });
-                                                        fetchTx(); fetchStock(true);
-                                                    }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16, padding: 4 }} title="Xóa">🗑</button>
-                                                </div>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                                                <span style={{ fontWeight: 700, fontSize: 16, color: isImport ? 'var(--status-success)' : 'var(--status-warning)' }}>
-                                                    {isImport ? '+' : '-'}{t.quantity} {t.unit}
-                                                </span>
-                                                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmtDate(t.date)}</span>
-                                            </div>
-                                            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-light)', fontSize: 12, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                <span>🏭 {t.warehouse?.name || '—'}</span>
-                                                {t.project?.name && <span>🗂 {t.project.name}</span>}
-                                                {t.note && <span>📝 {t.note}</span>}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            <div className="table-container">
-                                <table className="data-table">
-                                    <thead>
-                                        <tr><th>Mã PK</th><th>Loại</th><th>Sản phẩm</th><th>SL</th><th>Kho</th><th>Dự án</th><th>Ghi chú</th><th>Ngày</th><th style={{ width: 40 }}></th></tr>
-                                    </thead>
-                                    <tbody>
-                                        {txData.transactions.map(t => (
-                                            <tr key={t.id}>
-                                                <td className="accent">{t.code}</td>
-                                                <td><span className={`badge ${t.type === 'Nhập' ? 'badge-success' : 'badge-warning'}`}>{t.type}</span></td>
-                                                <td className="primary">{t.product?.name}</td>
-                                                <td style={{ fontWeight: 600, color: t.type === 'Nhập' ? 'var(--status-success)' : 'var(--status-warning)' }}>
-                                                    {t.type === 'Nhập' ? '+' : '-'}{t.quantity} {t.unit}
-                                                </td>
-                                                <td style={{ fontSize: 13 }}>{t.warehouse?.name}</td>
-                                                <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.project?.name || '—'}</td>
-                                                <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.note}</td>
-                                                <td style={{ fontSize: 12 }}>{fmtDate(t.date)}</td>
-                                                <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                                    <button onClick={() => {
-                                                        setEditTx(t);
-                                                        setEditForm({ type: t.type, quantity: t.quantity, unit: t.unit, note: t.note || '',
-                                                            date: new Date(t.date).toISOString().split('T')[0],
-                                                            warehouseId: t.warehouse?.id || '', projectId: t.project?.id || '' });
-                                                    }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', fontSize: 14, padding: '2px 5px' }} title="Sửa">✏️</button>
-                                                    <button onClick={async () => {
-                                                        if (!confirm(`Xóa phiếu ${t.code}? Tồn kho sẽ được hoàn tác.`)) return;
-                                                        await fetch(`/api/inventory/${t.id}`, { method: 'DELETE' });
-                                                        fetchTx(); fetchStock(true);
-                                                    }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14, padding: '2px 5px' }} title="Xóa">🗑</button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                        {!loading && txData.transactions.length === 0 && (
+                        ) : txData.transactions.length === 0 ? (
                             <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Chưa có giao dịch kho</div>
-                        )}
+                        ) : (() => {
+                            // Group by date
+                            const groups = [];
+                            const seen = {};
+                            txData.transactions.forEach(t => {
+                                const dk = new Date(t.date).toDateString();
+                                if (!seen[dk]) { seen[dk] = true; groups.push({ dateKey: dk, date: t.date, items: [] }); }
+                                groups[groups.length - 1].items.push(t);
+                            });
+
+                            const openEdit = (t) => {
+                                setEditTx(t);
+                                setEditForm({
+                                    type: t.type, quantity: t.quantity, unit: t.unit, note: t.note || '',
+                                    date: new Date(t.date).toISOString().split('T')[0],
+                                    warehouseId: t.warehouse?.id || '', projectId: t.project?.id || '',
+                                    images: (() => { try { return JSON.parse(t.images || '[]'); } catch { return []; } })(),
+                                });
+                            };
+                            const doDelete = async (t) => {
+                                if (!confirm(`Xóa phiếu ${t.code}? Tồn kho sẽ được hoàn tác.`)) return;
+                                await fetch(`/api/inventory/${t.id}`, { method: 'DELETE' });
+                                fetchTx(); fetchStock(true);
+                            };
+
+                            if (isMobile) {
+                                return (
+                                    <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                        {groups.map(g => (
+                                            <div key={g.dateKey}>
+                                                <div style={{ padding: '10px 4px 6px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.3, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <span style={{ flex: 1, borderBottom: '1px solid var(--border)', paddingBottom: 4 }}>
+                                                        📅 {fmtDate(g.date)}
+                                                        <span style={{ fontWeight: 400, marginLeft: 6 }}>({g.items.length} phiếu)</span>
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                                                    {g.items.map(t => {
+                                                        const isImport = t.type === 'Nhập';
+                                                        return (
+                                                            <div key={t.id} style={{ border: '1px solid var(--border-color)', borderRadius: 10, padding: 12, borderLeft: `4px solid ${isImport ? 'var(--status-success)' : 'var(--status-warning)'}`, background: 'var(--bg-card)' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                                                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                                            <span className="accent" style={{ fontSize: 12, fontWeight: 600 }}>{t.code}</span>
+                                                                            <span className={`badge ${isImport ? 'success' : 'warning'}`} style={{ fontSize: 11 }}>{t.type}</span>
+                                                                        </div>
+                                                                        <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', marginTop: 4, wordBreak: 'break-word' }}>{t.product?.name}</div>
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                                                                        <button onClick={() => openEdit(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', fontSize: 16, padding: 4 }} title="Sửa">✏️</button>
+                                                                        <button onClick={() => doDelete(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16, padding: 4 }} title="Xóa">🗑</button>
+                                                                    </div>
+                                                                </div>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                                                                    <span style={{ fontWeight: 700, fontSize: 16, color: isImport ? 'var(--status-success)' : 'var(--status-warning)' }}>
+                                                                        {isImport ? '+' : '-'}{t.quantity} {t.unit}
+                                                                    </span>
+                                                                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>🏭 {t.warehouse?.name || '—'}</span>
+                                                                </div>
+                                                                {(t.project?.name || t.note) && (
+                                                                    <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                                        {t.project?.name && <span>🗂 {t.project.name}</span>}
+                                                                        {t.note && <span>📝 {t.note}</span>}
+                                                                    </div>
+                                                                )}
+                                                                {(() => { try { const imgs = JSON.parse(t.images || '[]'); return imgs.length > 0 ? <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>{imgs.map((url, i) => <img key={i} src={url} alt="" onClick={() => window.open(url, '_blank')} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer' }} />)}</div> : null; } catch { return null; } })()}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div className="table-container">
+                                    <table className="data-table">
+                                        <thead>
+                                            <tr><th>Mã PK</th><th>Loại</th><th>Sản phẩm</th><th>SL</th><th>Kho</th><th>Dự án</th><th>Ghi chú</th><th>Ảnh</th><th style={{ width: 64 }}></th></tr>
+                                        </thead>
+                                        <tbody>
+                                            {groups.map(g => (
+                                                <>
+                                                    <tr key={g.dateKey + '_hdr'}>
+                                                        <td colSpan={9} style={{ padding: '10px 16px 6px', background: 'var(--bg-hover)', borderTop: '2px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+                                                            <span style={{ fontWeight: 700, fontSize: 12, color: 'var(--text-muted)', letterSpacing: 0.3 }}>
+                                                                📅 {fmtDate(g.date)}
+                                                            </span>
+                                                            <span style={{ marginLeft: 10, fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>{g.items.length} phiếu</span>
+                                                        </td>
+                                                    </tr>
+                                                    {g.items.map(t => (
+                                                        <tr key={t.id}>
+                                                            <td className="accent">{t.code}</td>
+                                                            <td><span className={`badge ${t.type === 'Nhập' ? 'badge-success' : 'badge-warning'}`}>{t.type}</span></td>
+                                                            <td className="primary">{t.product?.name}</td>
+                                                            <td style={{ fontWeight: 600, color: t.type === 'Nhập' ? 'var(--status-success)' : 'var(--status-warning)' }}>
+                                                                {t.type === 'Nhập' ? '+' : '-'}{t.quantity} {t.unit}
+                                                            </td>
+                                                            <td style={{ fontSize: 13 }}>{t.warehouse?.name}</td>
+                                                            <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.project?.name || '—'}</td>
+                                                            <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.note || '—'}</td>
+                                                            <td>
+                                                                {(() => { try { const imgs = JSON.parse(t.images || '[]'); return imgs.length > 0 ? <div style={{ display: 'flex', gap: 3 }}>{imgs.slice(0, 3).map((url, i) => <img key={i} src={url} alt="" onClick={() => window.open(url, '_blank')} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 5, border: '1px solid var(--border)', cursor: 'pointer' }} />)}{imgs.length > 3 && <span style={{ fontSize: 11, color: 'var(--text-muted)', alignSelf: 'center' }}>+{imgs.length - 3}</span>}</div> : <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>; } catch { return null; } })()}
+                                                            </td>
+                                                            <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                                <button onClick={() => openEdit(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', fontSize: 14, padding: '2px 5px' }} title="Sửa">✏️</button>
+                                                                <button onClick={() => doDelete(t)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14, padding: '2px 5px' }} title="Xóa">🗑</button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            );
+                        })()}
                     </>
                 )}
 
@@ -746,6 +839,9 @@ export default function InventoryPage() {
                             <div className="form-group">
                                 <label className="form-label">Ghi chú</label>
                                 <input className="form-input" value={editForm.note} onChange={e => setEditForm(f => ({ ...f, note: e.target.value }))} />
+                            </div>
+                            <div className="form-group">
+                                <PhotoStrip images={editForm.images || []} onChange={imgs => setEditForm(f => ({ ...f, images: imgs }))} />
                             </div>
                         </div>
                         <div className="modal-footer">
@@ -874,6 +970,9 @@ export default function InventoryPage() {
                             <div className="form-group">
                                 <label className="form-label">Ghi chú</label>
                                 <input className="form-input" value={form.note} onChange={e => setFormSynced(f => ({ ...f, note: e.target.value }))} />
+                            </div>
+                            <div className="form-group">
+                                <PhotoStrip images={form.images || []} onChange={imgs => setFormSynced(f => ({ ...f, images: imgs }))} />
                             </div>
                         </div>
                         {submitError && <div style={{ padding: '6px 20px', color: '#dc2626', fontSize: 13 }}>{submitError}</div>}

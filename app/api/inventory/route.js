@@ -11,11 +11,18 @@ export const GET = withAuth(async (request) => {
     const warehouseId = searchParams.get('warehouseId');
     const productId = searchParams.get('productId');
     const search = searchParams.get('search') || '';
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
 
     const where = {};
     if (type) where.type = type;
     if (warehouseId) where.warehouseId = warehouseId;
     if (productId) where.productId = productId;
+    if (dateFrom || dateTo) {
+        where.date = {};
+        if (dateFrom) where.date.gte = new Date(dateFrom + 'T00:00:00');
+        if (dateTo) where.date.lte = new Date(dateTo + 'T23:59:59');
+    }
     if (search) {
         where.OR = [
             { code: { contains: search } },
@@ -60,6 +67,7 @@ export const POST = withAuth(async (request) => {
                 quantity: qty,
                 unit: data.unit || '',
                 note: data.note || '',
+                images: Array.isArray(data.images) ? JSON.stringify(data.images) : (data.images || '[]'),
                 date: data.date ? new Date(data.date + 'T00:00:00') : new Date(),
                 productId: data.productId,
                 warehouseId: data.warehouseId,
