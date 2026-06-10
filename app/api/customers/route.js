@@ -13,12 +13,14 @@ export const GET = withAuth(async (request) => {
     const status = searchParams.get('status');
     const search = searchParams.get('search');
 
-    const dept = searchParams.get('dept'); // 'xay_dung' | 'kinh_doanh' | null (all)
+    const dept = searchParams.get('dept'); // 'xay_dung' | 'kinh_doanh' | 'thiet_ke' | null (all)
     const where = {};
     if (dept === 'xay_dung') {
         where.createdByRole = 'xay_dung';
     } else if (dept === 'kinh_doanh') {
         where.NOT = { createdByRole: 'xay_dung' };
+    } else if (dept === 'thiet_ke') {
+        where.createdByRole = 'thiet_ke';
     }
     if (type) where.type = type;
     if (status) where.status = status;

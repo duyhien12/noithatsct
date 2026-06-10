@@ -24,6 +24,7 @@ const SOURCES = ['Facebook', 'Zalo', 'Website', 'Instagram', 'Giới thiệu', '
 export default function CustomersPage() {
     const [customers, setCustomers] = useState([]);
     const [customersXD, setCustomersXD] = useState([]);
+    const [customersTK, setCustomersTK] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [filterSource, setFilterSource] = useState('');
@@ -37,7 +38,8 @@ export default function CustomersPage() {
     const isDragging = useRef(false);
     const router = useRouter();
     const { role, email } = useRole();
-    const canSeeXD = role !== 'xuong' || email === 'buihoa@kientrucsct.com';
+    const isThietKe = role === 'thiet_ke';
+    const canSeeXD = !isThietKe && (role !== 'xuong' || email === 'buihoa@kientrucsct.com');
 
     useEffect(() => {
         if (email === 'buihoa@kientrucsct.com') setShowXDBoard(true);
@@ -47,13 +49,19 @@ export default function CustomersPage() {
 
     const fetchCustomers = async () => {
         setLoading(true);
-        const [r1, r2] = await Promise.all([
-            fetch('/api/customers?dept=kinh_doanh&limit=1000'),
-            fetch('/api/customers?dept=xay_dung&limit=1000'),
-        ]);
-        const [d1, d2] = await Promise.all([r1.json(), r2.json()]);
-        setCustomers(d1.data || []);
-        setCustomersXD(d2.data || []);
+        if (isThietKe) {
+            const r = await fetch('/api/customers?dept=thiet_ke&limit=1000');
+            const d = await r.json();
+            setCustomersTK(d.data || []);
+        } else {
+            const [r1, r2] = await Promise.all([
+                fetch('/api/customers?dept=kinh_doanh&limit=1000'),
+                fetch('/api/customers?dept=xay_dung&limit=1000'),
+            ]);
+            const [d1, d2] = await Promise.all([r1.json(), r2.json()]);
+            setCustomers(d1.data || []);
+            setCustomersXD(d2.data || []);
+        }
         setLoading(false);
     };
     useEffect(() => { fetchCustomers(); }, []);
@@ -67,6 +75,7 @@ export default function CustomersPage() {
 
     const filtered = applyFilter(customers);
     const filteredXD = applyFilter(customersXD);
+    const filteredTK = applyFilter(customersTK);
 
     const handleSubmit = async () => {
         if (!form.name.trim()) return alert('Vui lòng nhập tên khách hàng');
@@ -101,7 +110,7 @@ export default function CustomersPage() {
     const onDragLeave = () => { setDragOver(null); };
     const onDrop = (e, stage) => { e.preventDefault(); setDragOver(null); const droppedId = e.dataTransfer.getData('text/plain') || dragId; if (droppedId) { moveTo(droppedId, stage); setDragId(null); } };
 
-    const allCustomers = [...customers, ...customersXD];
+    const allCustomers = isThietKe ? customersTK : [...customers, ...customersXD];
     const stats = {
         total: allCustomers.length,
         leads: allCustomers.filter(c => c.pipelineStage === 'Tư vấn').length,
@@ -150,6 +159,56 @@ export default function CustomersPage() {
             {loading ? <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (<>
                 {/* ========= KANBAN VIEW - desktop only ========= */}
                 {view === 'kanban' && (<>
+                {/* --- Bảng Phòng Thiết Kế --- */}
+                {isThietKe && (<>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#16a085' }}>✏️ Khách hàng Phòng Thiết Kế</span>
+                    <span style={{ background: '#d1fae5', color: '#065f46', fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 8 }}>{filteredTK.length}</span>
+                </div>
+                <div className="desktop-table-view kanban-board" style={{ gap: 6, paddingBottom: 20, minHeight: 400, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                    {visiblePipeline.map(stage => {
+                        const cards = filteredTK.filter(c => (c.pipelineStage || 'Tư vấn') === stage.key);
+                        const stageValue = cards.reduce((s, c) => s + (c.estimatedValue || 0), 0);
+                        const isOver = dragOver === ('tk_' + stage.key);
+                        return (
+                            <div key={stage.key}
+                                className="kanban-column"
+                                onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver('tk_' + stage.key); }}
+                                onDragLeave={onDragLeave}
+                                onDrop={e => { e.preventDefault(); setDragOver(null); const id = e.dataTransfer.getData('text/plain') || dragId; if (id) { moveTo(id, stage.key); setDragId(null); } }}
+                                style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', background: isOver ? stage.bg : 'var(--bg-secondary)', borderRadius: 10, border: isOver ? `2px dashed ${stage.color}` : '1px solid var(--border-light)', transition: 'all .2s' }}>
+                                <div style={{ padding: '10px 10px 6px', borderBottom: '2px solid ' + stage.color }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: stage.color, flexShrink: 0 }} />
+                                        <span style={{ fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stage.label}</span>
+                                        <span style={{ background: stage.bg, color: stage.color, fontSize: 10, fontWeight: 700, padding: '0 6px', borderRadius: 8, flexShrink: 0 }}>{cards.length}</span>
+                                    </div>
+                                    {stageValue > 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{fmtShort(stageValue)}</div>}
+                                </div>
+                                <div style={{ flex: 1, padding: 6, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    {cards.map(c => (
+                                        <div key={c.id}
+                                            draggable
+                                            onDragStart={e => onDragStart(e, c.id)}
+                                            onDragEnd={onDragEnd}
+                                            onClick={() => { if (!isDragging.current) router.push(`/customers/${c.id}`); }}
+                                            style={{ background: dragId === c.id ? stage.bg : 'var(--bg-card)', borderRadius: 8, padding: '8px 10px', cursor: 'grab', border: '1px solid var(--border-light)', boxShadow: '0 1px 2px rgba(0,0,0,.05)', transition: 'all .15s', opacity: dragId === c.id ? 0.5 : 1, WebkitTapHighlightColor: 'transparent' }}>
+                                            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.phone && <div>📱 {c.phone}</div>}</div>
+                                            {(c.estimatedValue > 0 || c.projects?.length > 0) && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, paddingTop: 4, borderTop: '1px solid var(--border-light)', fontSize: 10 }}>
+                                                {c.estimatedValue > 0 ? <span style={{ fontWeight: 700, color: 'var(--status-success)' }}>{fmtShort(c.estimatedValue)}</span> : <span />}
+                                                {c.projects?.length > 0 && <span style={{ background: 'var(--bg-primary)', padding: '0 4px', borderRadius: 4 }}>🏗️{c.projects.length}</span>}
+                                            </div>}
+                                        </div>
+                                    ))}
+                                    {cards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 11, textAlign: 'center', padding: 16, opacity: 0.5 }}>Kéo thả vào đây</div>}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+                </>)}
+
                 {/* --- Bảng Phòng Xây Dựng (ẩn với role xuong) --- */}
                 {canSeeXD && <div className="desktop-table-view" style={{ marginBottom: 8 }}>
                     <button
@@ -205,6 +264,7 @@ export default function CustomersPage() {
                 </div>}
 
                 {/* --- Bảng Phòng Kinh Doanh --- */}
+                {!isThietKe && <>
                 <div className="desktop-table-view" style={{ marginBottom: 6 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                         <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-primary)' }}>💼 Khách hàng Phòng Kinh Doanh</span>
@@ -255,6 +315,7 @@ export default function CustomersPage() {
                         );
                     })}
                 </div>
+                </>}
                 </>)}
 
                 {/* ========= TABLE VIEW (Desktop when selected) + Card list (Mobile always) ========= */}

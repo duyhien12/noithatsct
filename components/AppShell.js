@@ -7,6 +7,7 @@ import { useRole } from '@/contexts/RoleContext';
 import Sidebar from '@/components/Sidebar';
 import SalesSidebar from '@/components/SalesSidebar';
 import WorkshopSidebar from '@/components/WorkshopSidebar';
+import DesignSidebar from '@/components/DesignSidebar';
 import Header from '@/components/Header';
 import MobileBottomNav from '@/components/MobileBottomNav';
 
@@ -50,6 +51,7 @@ export default function AppShell({ children }) {
     let SidebarComponent = Sidebar;
     if (role === 'kinh_doanh') SidebarComponent = SalesSidebar;
     else if (role === 'xuong') SidebarComponent = WorkshopSidebar;
+    else if (role === 'thiet_ke') SidebarComponent = DesignSidebar;
 
     return (
         <div className="app-layout">

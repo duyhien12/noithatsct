@@ -60,6 +60,7 @@ const stColor = { 'Khảo sát': 'badge-default', 'Thiết kế': 'badge-info', 
 export default function ProjectsPage() {
     const [projectsKD, setProjectsKD] = useState([]);
     const [projectsXD, setProjectsXD] = useState([]);
+    const [projectsTK, setProjectsTK] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [filterPhase, setFilterPhase] = useState('');
@@ -72,7 +73,8 @@ export default function ProjectsPage() {
     const [openPhaseId, setOpenPhaseId] = useState(null);
     const isDragging = useRef(false);
     const { role, email } = useRole();
-    const canSeeXD = role !== 'xuong' || email === 'buihoa@kientrucsct.com';
+    const isThietKe = role === 'thiet_ke';
+    const canSeeXD = !isThietKe && (role !== 'xuong' || email === 'buihoa@kientrucsct.com');
 
     useEffect(() => { if (email === 'buihoa@kientrucsct.com') setShowXDTable(true); }, [email]);
 
@@ -93,14 +95,21 @@ export default function ProjectsPage() {
         if (search) params.set('search', search);
         if (filterType) params.set('type', filterType);
         params.set('limit', '200');
-        Promise.all([
-            fetch(`/api/projects?dept=kinh_doanh&${params}`).then(r => r.json()),
-            fetch(`/api/projects?dept=xay_dung&${params}`).then(r => r.json()),
-        ]).then(([d1, d2]) => {
-            setProjectsKD(d1.data || []);
-            setProjectsXD(d2.data || []);
-            setLoading(false);
-        });
+        if (isThietKe) {
+            fetch(`/api/projects?${params}`).then(r => r.json()).then(d => {
+                setProjectsTK(d.data || []);
+                setLoading(false);
+            });
+        } else {
+            Promise.all([
+                fetch(`/api/projects?dept=kinh_doanh&${params}`).then(r => r.json()),
+                fetch(`/api/projects?dept=xay_dung&${params}`).then(r => r.json()),
+            ]).then(([d1, d2]) => {
+                setProjectsKD(d1.data || []);
+                setProjectsXD(d2.data || []);
+                setLoading(false);
+            });
+        }
     };
 
     useEffect(() => {
@@ -455,8 +464,72 @@ export default function ProjectsPage() {
                     </div>
                 )}
 
+                {/* Bảng Phòng Thiết Kế */}
+                {isThietKe && (
+                    <div className="card">
+                        <div className="card-header">
+                            <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                ✏️ Khách hàng
+                                <span style={{ background: '#d1fae5', color: '#065f46', fontSize: 11, fontWeight: 700, padding: '1px 8px', borderRadius: 8 }}>{projectsTK.length}</span>
+                            </h3>
+                        </div>
+                        <div className="desktop-table-view">
+                            <div className="table-container">
+                                <table className="data-table projects-table">
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: 40, textAlign: 'center' }}>STT</th>
+                                            <th style={{ minWidth: 200 }}>Dự án</th>
+                                            <th style={{ minWidth: 160 }}>Trạng thái</th>
+                                            <th style={{ minWidth: 160 }}>Tiến độ</th>
+                                            <th>Thiết kế viên</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {allProjects.length === 0
+                                            ? <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>Không có dự án</td></tr>
+                                            : projectsTK.map((p, i) => (
+                                                <tr key={p.id} onClick={() => router.push(`/projects/${p.id}`)} style={{ cursor: 'pointer' }}
+                                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                    <td style={{ fontWeight: 600, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>{i + 1}</td>
+                                                    <td style={{ minWidth: 180 }}>
+                                                        <div style={{ fontWeight: 700, fontSize: 13 }}>{p.name}</div>
+                                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                                            <span style={{ fontWeight: 600, color: 'var(--accent)', marginRight: 5 }}>{p.code}</span>
+                                                            {p.customer?.name}
+                                                        </div>
+                                                        {p.risks?.length > 0 && (
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, marginTop: 3 }}>
+                                                                {p.risks.map((r, ri) => <RiskBadge key={ri} risk={r} />)}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td><span className={`badge ${stColor[p.status] || 'badge-default'}`}>{p.status}</span></td>
+                                                    <td>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                            <div className="progress-bar" style={{ flex: 1 }}>
+                                                                <div className="progress-fill" style={{ width: `${p.progress}%`, background: healthColor(p.healthScore ?? 100) }} />
+                                                            </div>
+                                                            <span style={{ fontSize: 11, fontWeight: 700, color: healthColor(p.healthScore ?? 100), whiteSpace: 'nowrap' }}>{p.progress}%</span>
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{p.designer || '—'}</td>
+                                                </tr>
+                                            ))
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div className="mobile-card-list">
+                            {projectsTK.map(p => <ProjectCard key={p.id} p={p} dept="thiet_ke" />)}
+                        </div>
+                    </div>
+                )}
+
                 {/* Bảng Phòng Kinh Doanh */}
-                {role !== 'xay_dung' && <div className="card">
+                {!isThietKe && role !== 'xay_dung' && <div className="card">
                     <div className="card-header">
                         <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             💼 Đơn hàng xưởng sản xuất
