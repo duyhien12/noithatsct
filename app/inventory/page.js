@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
 import { useSession } from 'next-auth/react';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
@@ -750,8 +750,8 @@ export default function InventoryPage() {
                                         </thead>
                                         <tbody>
                                             {groups.map(g => (
-                                                <>
-                                                    <tr key={g.dateKey + '_hdr'}>
+                                                <Fragment key={g.dateKey}>
+                                                    <tr>
                                                         <td colSpan={9} style={{ padding: '10px 16px 6px', background: 'var(--bg-hover)', borderTop: '2px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
                                                             <span style={{ fontWeight: 700, fontSize: 12, color: 'var(--text-muted)', letterSpacing: 0.3 }}>
                                                                 📅 {fmtDate(g.date)}
@@ -779,7 +779,7 @@ export default function InventoryPage() {
                                                             </td>
                                                         </tr>
                                                     ))}
-                                                </>
+                                                </Fragment>
                                             ))}
                                         </tbody>
                                     </table>
