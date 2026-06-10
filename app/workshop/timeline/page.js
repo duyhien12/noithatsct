@@ -52,6 +52,7 @@ const ACT_H    = 16;
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '—';
 const daysBetween = (a, b) => Math.round((b - a) / (1000 * 60 * 60 * 24));
+const addDays = (date, days) => { const d = new Date(date); d.setDate(d.getDate() + days); return d; };
 
 // Map ScheduleTask → display shape expected by the chart
 function mapTask(t) {
@@ -76,14 +77,20 @@ export default function TimelinePage() {
     const [hideDoneProjects,  setHideDoneProjects]  = useState(false);
     const [collapsedProjects, setCollapsedProjects] = useState(new Set());
     const [lastSync,          setLastSync]          = useState(null);
-    const intervalRef = useRef(null);
-    const scrollRef   = useRef(null);
+    const intervalRef    = useRef(null);
+    const scrollRef      = useRef(null);
+    const dragRef        = useRef(null);
+    const dragPreviewRef = useRef(null);
+    const [dragPreview, setDragPreviewState] = useState(null);
+    const setDragPreview = useCallback((val) => { dragPreviewRef.current = val; setDragPreviewState(val); }, []);
 
     const toggleCollapse = (name) => setCollapsedProjects(prev => {
         const next = new Set(prev);
         next.has(name) ? next.delete(name) : next.add(name);
         return next;
     });
+
+    const fetchDataRef = useRef(null);
 
     const fetchData = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
@@ -100,11 +107,79 @@ export default function TimelinePage() {
         if (!silent) setLoading(false);
     }, [filterProjectType]);
 
+    useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+
     useEffect(() => {
         fetchData();
         intervalRef.current = setInterval(() => fetchData(true), 30000);
         return () => clearInterval(intervalRef.current);
     }, [fetchData]);
+
+    // ── Drag handlers ────────────────────────────────────────
+    const handleBarMouseDown = useCallback((e, task, type) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        dragRef.current = {
+            id: task.id,
+            type,
+            startX: e.clientX,
+            origStart: task.startDate ? new Date(task.startDate) : null,
+            origEnd:   task.deadline  ? new Date(task.deadline)  : null,
+        };
+        document.body.style.cursor     = type === 'move' ? 'grabbing' : 'col-resize';
+        document.body.style.userSelect = 'none';
+    }, []);
+
+    useEffect(() => {
+        const onMouseMove = (e) => {
+            if (!dragRef.current) return;
+            const { type, startX, origStart, origEnd, id } = dragRef.current;
+            const deltaDays = Math.round((e.clientX - startX) / DAY_W);
+            let s = origStart ? new Date(origStart) : null;
+            let ed = origEnd ? new Date(origEnd) : null;
+            if (type === 'move') {
+                if (s)  s  = addDays(s,  deltaDays);
+                if (ed) ed = addDays(ed, deltaDays);
+            } else if (type === 'resize-left') {
+                if (s && ed) s = new Date(Math.min(addDays(s, deltaDays).getTime(), ed.getTime() - 86400000));
+            } else if (type === 'resize-right') {
+                if (ed && s) ed = new Date(Math.max(addDays(ed, deltaDays).getTime(), s.getTime() + 86400000));
+            }
+            const preview = { id, startDate: s?.toISOString() ?? null, endDate: ed?.toISOString() ?? null };
+            dragPreviewRef.current = preview;
+            setDragPreviewState(preview);
+        };
+
+        const onMouseUp = async () => {
+            if (!dragRef.current) return;
+            dragRef.current = null;
+            document.body.style.cursor     = '';
+            document.body.style.userSelect = '';
+            const preview = dragPreviewRef.current;
+            dragPreviewRef.current = null;
+            setDragPreviewState(null);
+            if (!preview) return;
+            try {
+                const body = {};
+                if (preview.startDate) body.startDate = preview.startDate;
+                if (preview.endDate)   body.endDate   = preview.endDate;
+                await fetch(`/api/schedule-tasks/${preview.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                fetchDataRef.current?.(true);
+            } catch {}
+        };
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup',   onMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup',   onMouseUp);
+        };
+    }, []);
 
     // ── Section matcher ─────────────────────────────────────
     const SECTIONS = [
@@ -451,8 +526,11 @@ export default function TimelinePage() {
 
                                             {/* Task rows — hidden when collapsed */}
                                             {!isCollapsed && gt.map(task => {
-                                                const bp         = getBarPx(task);
-                                                const isOverdue  = task.deadline && new Date(task.deadline) < now && task.status !== 'Hoàn thành';
+                                                const taskForRender = dragPreview?.id === task.id
+                                                    ? { ...task, startDate: dragPreview.startDate, deadline: dragPreview.endDate }
+                                                    : task;
+                                                const bp         = getBarPx(taskForRender);
+                                                const isOverdue  = taskForRender.deadline && new Date(taskForRender.deadline) < now && task.status !== 'Hoàn thành';
                                                 const isCritical = criticalIds.has(task.id);
                                                 const typeColor  = getTaskTypeColor(task);
                                                 const barColor   = isOverdue
@@ -461,10 +539,10 @@ export default function TimelinePage() {
                                                 const barBg      = isOverdue
                                                     ? (typeColor ? typeColor.bg : '#fee2e2')
                                                     : (typeColor ? typeColor.bg : (STATUS_BG[task.status] || '#dbeafe'));
-                                                const deadlineX  = task.deadline
-                                                    ? Math.max(0, daysBetween(minDate, new Date(task.deadline))) * DAY_W + DAY_W / 2
+                                                const deadlineX  = taskForRender.deadline
+                                                    ? Math.max(0, daysBetween(minDate, new Date(taskForRender.deadline))) * DAY_W + DAY_W / 2
                                                     : null;
-                                                const daysLate   = isOverdue ? daysBetween(new Date(task.deadline), now) : 0;
+                                                const daysLate   = isOverdue ? daysBetween(new Date(taskForRender.deadline), now) : 0;
                                                 const indent     = (task.level || 0) * 12;
                                                 const rowBorderColor = isCritical ? '#f59e0b' : (typeColor ? typeColor.color : 'transparent');
 
@@ -518,14 +596,24 @@ export default function TimelinePage() {
 
                                                             {/* Actual bar */}
                                                             {bp && (
-                                                                <div style={{
-                                                                    position: 'absolute', left: bp.x, top: ACT_TOP, height: ACT_H, width: bp.w,
-                                                                    borderRadius: 5, background: barBg, overflow: 'hidden',
-                                                                    border: `2px solid ${isCritical ? '#f59e0b' : barColor}`,
-                                                                    boxShadow: isCritical
-                                                                        ? '0 0 0 2px rgba(251,191,36,0.25), 0 1px 4px rgba(0,0,0,0.08)'
-                                                                        : '0 1px 3px rgba(0,0,0,0.08)',
-                                                                }} title={`${task.title}\n${fmtDate(task.startDate)} → ${fmtDate(task.deadline)}\nTiến độ: ${task.progress}%${isOverdue ? `\n⚠️ Trễ ${daysLate} ngày` : ''}`}>
+                                                                <div
+                                                                    style={{
+                                                                        position: 'absolute', left: bp.x, top: ACT_TOP, height: ACT_H, width: bp.w,
+                                                                        borderRadius: 5, background: barBg, overflow: 'hidden',
+                                                                        border: `2px solid ${isCritical ? '#f59e0b' : barColor}`,
+                                                                        boxShadow: isCritical
+                                                                            ? '0 0 0 2px rgba(251,191,36,0.25), 0 1px 4px rgba(0,0,0,0.08)'
+                                                                            : '0 1px 3px rgba(0,0,0,0.08)',
+                                                                        cursor: dragPreview?.id === task.id ? 'grabbing' : 'grab',
+                                                                        opacity: dragPreview?.id === task.id ? 0.82 : 1,
+                                                                    }}
+                                                                    title={`${task.title}\n${fmtDate(taskForRender.startDate)} → ${fmtDate(taskForRender.deadline)}\nTiến độ: ${task.progress}%${isOverdue ? `\n⚠️ Trễ ${daysLate} ngày` : ''}`}
+                                                                    onMouseDown={e => handleBarMouseDown(e, task, 'move')}
+                                                                >
+                                                                    <div
+                                                                        style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 6, cursor: 'col-resize', zIndex: 3 }}
+                                                                        onMouseDown={e => { e.stopPropagation(); handleBarMouseDown(e, task, 'resize-left'); }}
+                                                                    />
                                                                     <div style={{
                                                                         position: 'absolute', left: 0, top: 0, bottom: 0,
                                                                         width: `${task.progress}%`,
@@ -538,6 +626,10 @@ export default function TimelinePage() {
                                                                     }}>
                                                                         {task.title}
                                                                     </span>
+                                                                    <div
+                                                                        style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 6, cursor: 'col-resize', zIndex: 3 }}
+                                                                        onMouseDown={e => { e.stopPropagation(); handleBarMouseDown(e, task, 'resize-right'); }}
+                                                                    />
                                                                 </div>
                                                             )}
 
