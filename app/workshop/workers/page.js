@@ -22,7 +22,7 @@ const EMPTY_FORM = { name: '', workerType: 'Thợ chính', skill: '', phone: '',
 
 export default function WorkersPage() {
     const router = useRouter();
-    const { role } = useRole();
+    const { role, isXuongNhanVien } = useRole();
     const [workers, setWorkers] = useState([]);
     const [workerTasks, setWorkerTasks] = useState({});
     const [attendance, setAttendance] = useState([]);
@@ -36,7 +36,7 @@ export default function WorkersPage() {
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [attendTarget, setAttendTarget] = useState(null);
     const [attendForm, setAttendForm] = useState({ hoursWorked: 8, mealsCount: 0, notes: '' });
-    const [showMealSummary, setShowMealSummary] = useState(false);
+    const [showMealSummary, setShowMealSummary] = useState(isXuongNhanVien);
     const [userList, setUserList] = useState([]);
     const [nameSuggest, setNameSuggest] = useState([]);
     const [showSuggest, setShowSuggest] = useState(false);
@@ -49,7 +49,7 @@ export default function WorkersPage() {
     const [newTaskForm, setNewTaskForm] = useState({ title: '', projectId: '', deadline: '', category: 'Lắp ghép tại xưởng' });
 
     // ── Tổng hợp tháng ───────────────────────────────────────────────────────
-    const [showSummary, setShowSummary] = useState(false);
+    const [showSummary, setShowSummary] = useState(isXuongNhanVien);
     const [summaryMonth, setSummaryMonth] = useState(() => new Date().toISOString().slice(0, 7));
     const [summaryAttendance, setSummaryAttendance] = useState([]);
     const [summaryOvertimes, setSummaryOvertimes] = useState([]);
@@ -470,7 +470,7 @@ export default function WorkersPage() {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* KPI */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 }}>
+            {!isXuongNhanVien && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 }}>
                 <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #2563eb' }}>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>👷 Nhân công hoạt động</div>
                     <div style={{ fontSize: 28, fontWeight: 800, color: '#2563eb' }}>{activeCount}</div>
@@ -494,10 +494,10 @@ export default function WorkersPage() {
                     <div style={{ fontSize: 20, fontWeight: 800, color: '#8b5cf6' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(monthlyPayroll / 1e6))}tr</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>× 26 ngày/tháng</div>
                 </div>
-            </div>
+            </div>}
 
             {/* Idle alert */}
-            {idleWorkers.length > 0 && (
+            {!isXuongNhanVien && idleWorkers.length > 0 && (
                 <div style={{ padding: '10px 16px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 700, color: '#b45309', fontSize: 13, flexShrink: 0 }}>
                         ⚠ {idleWorkers.length} thợ đang rảnh việc
@@ -514,7 +514,7 @@ export default function WorkersPage() {
                 </div>
             )}
 
-            <div className="card">
+            {!isXuongNhanVien && <div className="card">
                 <div className="card-header">
                     <h3>Danh sách nhân công</h3>
                     <button className="btn btn-primary" onClick={openAdd}>+ Thêm thợ</button>
@@ -746,7 +746,7 @@ export default function WorkersPage() {
                     </div>
                     </>
                 )}
-            </div>
+            </div>}
 
             {/* Nút toggle */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -757,20 +757,20 @@ export default function WorkersPage() {
                 >
                     📊 {showSummary ? 'Ẩn' : 'Xem'} bảng tổng hợp tháng
                 </button>
-                <button
+                {!isXuongNhanVien && <button
                     className={`btn btn-sm ${showOvertimeList ? 'btn-primary' : 'btn-ghost'}`}
                     style={{ fontWeight: 600, ...(showOvertimeList ? { background: '#f59e0b', borderColor: '#f59e0b' } : {}) }}
                     onClick={() => setShowOvertimeList(v => !v)}
                 >
                     ⏰ {showOvertimeList ? 'Ẩn' : 'Xem'} danh sách tăng ca
-                </button>
-                <button
+                </button>}
+                {!isXuongNhanVien && <button
                     className={`btn btn-sm ${showPayroll ? 'btn-primary' : 'btn-ghost'}`}
                     style={{ fontWeight: 600, ...(showPayroll ? { background: '#059669', borderColor: '#059669' } : {}) }}
                     onClick={() => setShowPayroll(v => !v)}
                 >
                     📋 {showPayroll ? 'Ẩn' : 'Xem'} bảng thanh toán lương
-                </button>
+                </button>}
                 <button
                     className={`btn btn-sm ${showMealSummary ? 'btn-primary' : 'btn-ghost'}`}
                     style={{ fontWeight: 600, ...(showMealSummary ? { background: '#d97706', borderColor: '#d97706' } : {}) }}
