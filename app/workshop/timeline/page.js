@@ -41,14 +41,14 @@ function getTaskTypeColor(task) {
     return null;
 }
 
-const ROW_H   = 52;
-const GROUP_H = 30;
+const ROW_H   = 32;
+const GROUP_H = 26;
 const LEFT_W  = 260;
-const DAY_W   = 36;
-const BASE_TOP = 10;
-const BASE_H   = 7;
-const ACT_TOP  = 22;
-const ACT_H    = 20;
+const DAY_W   = 32;
+const BASE_TOP = 5;
+const BASE_H   = 4;
+const ACT_TOP  = 8;
+const ACT_H    = 16;
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '—';
 const daysBetween = (a, b) => Math.round((b - a) / (1000 * 60 * 60 * 24));
@@ -70,6 +70,7 @@ export default function TimelinePage() {
     const [filterProject,     setFilterProject]     = useState('');
     const [filterStatus,      setFilterStatus]      = useState('');
     const [filterProjectType, setFilterProjectType] = useState('Thi công nội thất');
+    const [filterSection,     setFilterSection]     = useState('');
     const [showBaseline,      setShowBaseline]      = useState(true);
     const [showDeps,          setShowDeps]          = useState(true);
     const [hideDoneProjects,  setHideDoneProjects]  = useState(false);
@@ -105,11 +106,23 @@ export default function TimelinePage() {
         return () => clearInterval(intervalRef.current);
     }, [fetchData]);
 
+    // ── Section matcher ─────────────────────────────────────
+    const SECTIONS = [
+        { value: 've-cnc',       label: 'Vẽ CNC',                   test: n => /vẽ\s*cnc|ve\s*cnc/i.test(n) },
+        { value: 'gia-cong',     label: 'Gia công nguội',            test: n => /gia\s*công|gia\s*cong/i.test(n) },
+        { value: 'lap-rap-xuong',label: 'Lắp ráp tại xưởng',        test: n => /lắp\s*ráp\s*tại\s*xưởng|lap\s*rap\s*tai\s*xuong/i.test(n) },
+        { value: 'lap-dat-ct',   label: 'Lắp đặt tại công trình',   test: n => /lắp\s*đặt\s*tại\s*công\s*trình|lap\s*dat\s*tai\s*cong\s*trinh/i.test(n) },
+    ];
+
     // ── Filter ──────────────────────────────────────────────
     const filtered = tasks.filter(t => {
         if (filterProject && t.projectId !== filterProject) return false;
         if (filterStatus  && t.status !== filterStatus)     return false;
         if (!t.startDate && !t.deadline) return false;
+        if (filterSection) {
+            const sec = SECTIONS.find(s => s.value === filterSection);
+            if (sec && !sec.test(t.title || t.name || '')) return false;
+        }
         return true;
     });
 
@@ -236,8 +249,12 @@ export default function TimelinePage() {
                         <option value="">Tất cả trạng thái</option>
                         {['Chưa bắt đầu', 'Đang thực hiện', 'Hoàn thành', 'Tạm dừng'].map(s => <option key={s}>{s}</option>)}
                     </select>
-                    {(filterProject || filterStatus || filterProjectType !== 'Thi công nội thất') && (
-                        <button className="btn btn-ghost btn-sm" onClick={() => { setFilterProject(''); setFilterStatus(''); setFilterProjectType('Thi công nội thất'); }}>✕ Xóa lọc</button>
+                    <select className="form-select" value={filterSection} onChange={e => setFilterSection(e.target.value)} style={{ fontSize: 13 }}>
+                        <option value="">Tất cả phần</option>
+                        {SECTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    </select>
+                    {(filterProject || filterStatus || filterSection || filterProjectType !== 'Thi công nội thất') && (
+                        <button className="btn btn-ghost btn-sm" onClick={() => { setFilterProject(''); setFilterStatus(''); setFilterSection(''); setFilterProjectType('Thi công nội thất'); }}>✕ Xóa lọc</button>
                     )}
 
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -410,18 +427,18 @@ export default function TimelinePage() {
                                                 onClick={() => toggleCollapse(projectName)}
                                                 style={{ display: 'flex', height: GROUP_H, background: pDone ? 'rgba(22,163,74,0.06)' : 'rgba(37,99,235,0.05)', borderBottom: '1px solid var(--border-light)', cursor: 'pointer' }}
                                             >
-                                                <div style={{ minWidth: LEFT_W, padding: '5px 10px', fontSize: 12, fontWeight: 700, color: pLate ? '#dc2626' : pDone ? '#16a34a' : '#1d4ed8', borderRight: '2px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5, position: 'sticky', left: 0, zIndex: 30, background: pDone ? '#f0fdf4' : '#eff6ff' }}>
-                                                    <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 12, flexShrink: 0 }}>{isCollapsed ? '▶' : '▼'}</span>
+                                                <div style={{ minWidth: LEFT_W, padding: '0 8px', fontSize: 11, fontWeight: 700, color: pLate ? '#dc2626' : pDone ? '#16a34a' : '#1d4ed8', borderRight: '2px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, position: 'sticky', left: 0, zIndex: 30, background: pDone ? '#f0fdf4' : '#eff6ff', height: GROUP_H }}>
+                                                    <span style={{ fontSize: 9, color: 'var(--text-muted)', width: 10, flexShrink: 0 }}>{isCollapsed ? '▶' : '▼'}</span>
                                                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>📁 {projectName}</span>
-                                                    <span style={{ fontSize: 10, fontWeight: 700, flexShrink: 0, marginLeft: 2 }}>{pPct}%</span>
-                                                    {pLate && <span style={{ fontSize: 10, background: '#fee2e2', color: '#dc2626', padding: '1px 5px', borderRadius: 4, fontWeight: 700, flexShrink: 0 }}>Trễ</span>}
-                                                    {pDone && <span style={{ fontSize: 10, background: '#dcfce7', color: '#16a34a', padding: '1px 5px', borderRadius: 4, fontWeight: 700, flexShrink: 0 }}>✓ Xong</span>}
-                                                    <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>{gt.length} hạng mục</span>
+                                                    <span style={{ fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{pPct}%</span>
+                                                    {pLate && <span style={{ fontSize: 9, background: '#fee2e2', color: '#dc2626', padding: '1px 4px', borderRadius: 3, fontWeight: 700, flexShrink: 0 }}>Trễ</span>}
+                                                    {pDone && <span style={{ fontSize: 9, background: '#dcfce7', color: '#16a34a', padding: '1px 4px', borderRadius: 3, fontWeight: 700, flexShrink: 0 }}>✓</span>}
+                                                    <span style={{ fontSize: 9, color: 'var(--text-muted)', flexShrink: 0 }}>{gt.length}</span>
                                                 </div>
                                                 <div style={{ flex: 1, position: 'relative' }}>
                                                     {pX !== null && pW !== null && (
                                                         <div style={{
-                                                            position: 'absolute', left: pX, top: 8, height: 14, width: pW,
+                                                            position: 'absolute', left: pX, top: 6, height: 12, width: pW,
                                                             borderRadius: 3,
                                                             background: pDone ? 'rgba(22,163,74,0.15)' : pLate ? 'rgba(220,38,38,0.12)' : 'rgba(37,99,235,0.10)',
                                                             border: `1px solid ${pDone ? 'rgba(22,163,74,0.35)' : pLate ? 'rgba(220,38,38,0.3)' : 'rgba(37,99,235,0.2)'}`,
@@ -463,23 +480,19 @@ export default function TimelinePage() {
                                                         onMouseLeave={e => e.currentTarget.style.background = isCritical ? 'rgba(251,191,36,0.025)' : 'transparent'}>
 
                                                         {/* Left pane */}
-                                                        <div style={{ minWidth: LEFT_W - 3, padding: '7px 12px', paddingLeft: 12 + indent, borderRight: `2px solid ${typeColor ? typeColor.color + '55' : 'var(--border)'}`, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, position: 'sticky', left: 0, zIndex: 20, background: isCritical ? '#fffbeb' : 'var(--bg-card, #ffffff)' }}>
+                                                        <div style={{ minWidth: LEFT_W - 3, padding: '0 8px', paddingLeft: 8 + indent, borderRight: `2px solid ${typeColor ? typeColor.color + '55' : 'var(--border)'}`, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5, position: 'sticky', left: 0, zIndex: 20, background: isCritical ? '#fffbeb' : 'var(--bg-card, #ffffff)', height: ROW_H }}>
+                                                            {task.isLocked && <span style={{ fontSize: 9, flexShrink: 0 }}>🔒</span>}
                                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                                                <div style={{ fontSize: 12, fontWeight: task.level === 0 ? 700 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isOverdue ? '#dc2626' : 'var(--text-primary)' }}>
-                                                                    {task.isLocked && '🔒 '}{task.title}
+                                                                <div style={{ fontSize: 11, fontWeight: task.level === 0 ? 700 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isOverdue ? '#dc2626' : 'var(--text-primary)', lineHeight: 1.2 }}>
+                                                                    {task.title}
                                                                 </div>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                                                                    {task.wbs && (
-                                                                        <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{task.wbs}</span>
-                                                                    )}
-                                                                    {task.assignee && (
-                                                                        <span style={{ fontSize: 10, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                            👤 {task.assignee}
-                                                                        </span>
-                                                                    )}
-                                                                </div>
+                                                                {task.assignee && (
+                                                                    <div style={{ fontSize: 9, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2, marginTop: 1 }}>
+                                                                        {task.assignee}
+                                                                    </div>
+                                                                )}
                                                             </div>
-                                                            <span style={{ padding: '2px 6px', borderRadius: 6, background: barBg, color: barColor, fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+                                                            <span style={{ padding: '1px 5px', borderRadius: 4, background: barBg, color: barColor, fontSize: 9, fontWeight: 700, flexShrink: 0 }}>
                                                                 {task.progress}%
                                                             </span>
                                                         </div>
@@ -532,28 +545,19 @@ export default function TimelinePage() {
                                                             {isOverdue && deadlineX !== null && (
                                                                 <>
                                                                     <div style={{
-                                                                        position: 'absolute', left: deadlineX - 6, top: ACT_TOP,
-                                                                        width: 12, height: 12, background: '#dc2626',
+                                                                        position: 'absolute', left: deadlineX - 5, top: ACT_TOP + 1,
+                                                                        width: 10, height: 10, background: '#dc2626',
                                                                         transform: 'rotate(45deg)', zIndex: 7,
                                                                         boxShadow: '0 0 0 2px rgba(220,38,38,0.25)',
                                                                     }} title={`Trễ ${daysLate} ngày kể từ ${fmtDate(task.deadline)}`} />
                                                                     <div style={{
-                                                                        position: 'absolute', left: deadlineX + 8, top: ACT_TOP + 1,
-                                                                        fontSize: 9, fontWeight: 800, color: '#dc2626',
+                                                                        position: 'absolute', left: deadlineX + 7, top: ACT_TOP + 2,
+                                                                        fontSize: 8, fontWeight: 800, color: '#dc2626',
                                                                         whiteSpace: 'nowrap', zIndex: 7,
                                                                     }}>+{daysLate}d</div>
                                                                 </>
                                                             )}
 
-                                                            {/* Date label */}
-                                                            {showBaseline && bp && task.startDate && task.deadline && (
-                                                                <div style={{
-                                                                    position: 'absolute', left: bp.x + 2, top: ACT_TOP + ACT_H + 2,
-                                                                    fontSize: 8, color: 'rgba(148,163,184,0.9)', whiteSpace: 'nowrap',
-                                                                }}>
-                                                                    {fmtDate(task.startDate)} → {fmtDate(task.deadline)}
-                                                                </div>
-                                                            )}
                                                         </div>
                                                     </div>
                                                 );
