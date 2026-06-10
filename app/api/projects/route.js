@@ -101,8 +101,9 @@ export const GET = withAuth(async (request) => {
     const dept   = searchParams.get('dept');
 
     const where = {};
-    if (dept === 'xay_dung')    where.createdByRole = 'xay_dung';
-    else if (dept === 'kinh_doanh') where.NOT = { createdByRole: 'xay_dung' };
+    if (dept === 'xay_dung')      where.createdByRole = 'xay_dung';
+    else if (dept === 'thiet_ke') where.createdByRole = 'thiet_ke';
+    else if (dept === 'kinh_doanh') where.NOT = { createdByRole: { in: ['xay_dung', 'thiet_ke'] } };
     if (type)   where.type   = type;
     if (status) where.status = status;
     if (search) where.name   = { contains: search };

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRole } from '@/contexts/RoleContext';
 
 const STATUS_COLOR = {
     'Chưa bắt đầu': '#d97706',
@@ -65,6 +66,8 @@ function mapTask(t) {
 }
 
 export default function TimelinePage() {
+    const { role } = useRole();
+    const isThietKe = role === 'thiet_ke';
     const [tasks, setTasks]       = useState([]);
     const [projects, setProjects] = useState([]);
     const [loading, setLoading]   = useState(true);
@@ -95,7 +98,12 @@ export default function TimelinePage() {
     const fetchData = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
-            const qs = filterProjectType ? `?projectType=${encodeURIComponent(filterProjectType)}` : '';
+            let qs;
+            if (isThietKe) {
+                qs = '?dept=thiet_ke';
+            } else {
+                qs = filterProjectType ? `?projectType=${encodeURIComponent(filterProjectType)}` : '';
+            }
             const [t, p] = await Promise.all([
                 fetch(`/api/schedule-tasks/all${qs}`).then(r => r.json()),
                 fetch('/api/projects?limit=200').then(r => r.json()),
@@ -105,7 +113,7 @@ export default function TimelinePage() {
             setLastSync(new Date());
         } catch {}
         if (!silent) setLoading(false);
-    }, [filterProjectType]);
+    }, [filterProjectType, isThietKe]);
 
     useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
 
@@ -308,14 +316,16 @@ export default function TimelinePage() {
             {/* Toolbar */}
             <div className="card" style={{ padding: '12px 16px' }}>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, fontSize: 14 }}>🗓️ Tiến độ Gantt xưởng</span>
+                    <span style={{ fontWeight: 700, fontSize: 14 }}>{isThietKe ? '🎨 Tiến độ Gantt Thiết Kế' : '🗓️ Tiến độ Gantt xưởng'}</span>
 
+                    {!isThietKe && (
                     <select className="form-select" value={filterProjectType} onChange={e => { setFilterProjectType(e.target.value); setFilterProject(''); }} style={{ fontSize: 13 }}>
                         <option value="">Tất cả loại dự án</option>
                         <option value="Thi công nội thất">🪑 Nội thất</option>
                         <option value="Xây dựng">🏗️ Xây dựng</option>
                         <option value="Thiết kế">🎨 Thiết kế</option>
                     </select>
+                    )}
                     <select className="form-select" value={filterProject} onChange={e => setFilterProject(e.target.value)} style={{ fontSize: 13, maxWidth: 200 }}>
                         <option value="">Tất cả dự án</option>
                         {projects.filter(p => !filterProjectType || p.type === filterProjectType).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}

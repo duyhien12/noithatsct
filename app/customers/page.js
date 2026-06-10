@@ -19,6 +19,22 @@ const PIPELINE = [
     { key: 'Khách huỷ', label: 'Khách hoàn thành', color: '#6b7280', bg: '#f3f4f6' },
 ];
 
+const PIPELINE_TK = [
+    { key: 'Ưu tiên', label: 'Khách ưu tiên', color: '#8b5cf6', bg: '#ede9fe' },
+    { key: 'Hợp đồng', label: 'Khách hợp đồng', color: '#f97316', bg: '#ffedd5' },
+    { key: 'Hoàn thành', label: 'Khách hoàn thành', color: '#10b981', bg: '#d1fae5' },
+    { key: 'Huỷ', label: 'Khách huỷ', color: '#ef4444', bg: '#fee2e2' },
+];
+
+// Map stage cũ (kinh doanh) → stage TK khi hiển thị kanban TK
+const TK_STAGE_MAP = {
+    'Tư vấn': 'Ưu tiên',
+    'Tiềm năng': 'Ưu tiên',
+    'Báo giá': 'Ưu tiên',
+    'Thi công': 'Hợp đồng',
+    'Khách huỷ': 'Hoàn thành',
+};
+
 const SOURCES = ['Facebook', 'Zalo', 'Website', 'Instagram', 'Giới thiệu', 'Đối tác'];
 
 export default function CustomersPage() {
@@ -80,10 +96,15 @@ export default function CustomersPage() {
     const handleSubmit = async () => {
         if (!form.name.trim()) return alert('Vui lòng nhập tên khách hàng');
         if (!form.phone.trim()) return alert('Vui lòng nhập số điện thoại');
-        const res = await fetch('/api/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, status: 'Khách hàng' }) });
+        const defaultStage = isThietKe ? 'Ưu tiên' : 'Tư vấn';
+        const submitData = { ...form, status: 'Khách hàng' };
+        if (isThietKe && !PIPELINE_TK.find(p => p.key === submitData.pipelineStage)) {
+            submitData.pipelineStage = 'Ưu tiên';
+        }
+        const res = await fetch('/api/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(submitData) });
         if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi tạo khách hàng'); }
         setShowModal(false);
-        setForm({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: 'Tư vấn', taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0 });
+        setForm({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: defaultStage, taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0 });
         fetchCustomers();
     };
 
@@ -166,8 +187,11 @@ export default function CustomersPage() {
                     <span style={{ background: '#d1fae5', color: '#065f46', fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 8 }}>{filteredTK.length}</span>
                 </div>
                 <div className="desktop-table-view kanban-board" style={{ gap: 6, paddingBottom: 20, minHeight: 400, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                    {visiblePipeline.map(stage => {
-                        const cards = filteredTK.filter(c => (c.pipelineStage || 'Tư vấn') === stage.key);
+                    {PIPELINE_TK.map(stage => {
+                        const cards = filteredTK.filter(c => {
+                            const s = c.pipelineStage || 'Ưu tiên';
+                            return (TK_STAGE_MAP[s] || s) === stage.key;
+                        });
                         const stageValue = cards.reduce((s, c) => s + (c.estimatedValue || 0), 0);
                         const isOver = dragOver === ('tk_' + stage.key);
                         return (

@@ -98,7 +98,7 @@ export default function ProjectsPage() {
         if (filterType) params.set('type', filterType);
         params.set('limit', '200');
         if (isThietKe) {
-            fetch(`/api/projects?${params}`).then(r => r.json()).then(d => {
+            fetch(`/api/projects?dept=thiet_ke&${params}`).then(r => r.json()).then(d => {
                 setProjectsTK(d.data || []);
                 setLoading(false);
             });
@@ -125,7 +125,7 @@ export default function ProjectsPage() {
         const url = isThietKe ? '/api/customers?dept=thiet_ke&limit=1000' : '/api/customers?limit=1000';
         fetch(url).then(r => r.json()).then(d => setCustomers(d.data || []));
     }, []);
-    useEffect(() => { fetchProjects(); }, [search, filterType]);
+    useEffect(() => { fetchProjects(); }, [search, filterType, isThietKe]);
 
     const handleDelete = async (id, e) => {
         e.stopPropagation();
@@ -165,8 +165,8 @@ export default function ProjectsPage() {
     const onDragStart = (e, id) => { setDragId(id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id); e.stopPropagation(); };
     const onDragEnd   = () => { setDragId(null); setDropTarget(null); };
 
-    const allProjects    = [...projectsKD, ...projectsXD];
-    const activeCount    = allProjects.filter(p => ['Thi công', 'Đang thi công', 'Chuẩn bị thi công'].includes(p.status)).length;
+    const allProjects    = isThietKe ? projectsTK : [...projectsKD, ...projectsXD];
+    const activeCount    = allProjects.filter(p => ['Thi công', 'Đang thi công', 'Chuẩn bị thi công', 'Thiết kế'].includes(p.status)).length;
     const totalContract  = allProjects.reduce((s, p) => s + (p.contractValue || 0), 0);
     const totalPaid      = allProjects.reduce((s, p) => s + (p.paidAmount || 0), 0);
     const totalProfit    = allProjects.reduce((s, p) => s + (p.profit || 0), 0);
@@ -491,7 +491,7 @@ export default function ProjectsPage() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {allProjects.length === 0
+                                        {projectsTK.length === 0
                                             ? <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>Không có dự án</td></tr>
                                             : projectsTK.map((p, i) => (
                                                 <tr key={p.id} onClick={() => router.push(`/projects/${p.id}`)} style={{ cursor: 'pointer' }}

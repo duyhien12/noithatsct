@@ -7,11 +7,14 @@ export const GET = withAuth(async (req) => {
     const projectId   = searchParams.get('projectId');
     const status      = searchParams.get('status');
     const projectType = searchParams.get('projectType');
+    const dept        = searchParams.get('dept');
 
     const where = {};
     if (projectId) where.projectId = projectId;
     if (status)    where.status = status;
-    if (projectType) {
+    if (dept === 'thiet_ke') {
+        where.project = { type: { in: ['Thiết kế kiến trúc', 'Thiết kế nội thất'] }, deletedAt: null };
+    } else if (projectType) {
         where.project = { type: projectType, deletedAt: null };
     } else {
         where.project = { deletedAt: null };
