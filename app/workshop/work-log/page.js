@@ -478,7 +478,7 @@ function WorkSummaryTable({ entries, workers, weekNum, weekStart, weekEnd }) {
 
 export default function WorkLogPage() {
     const router = useRouter();
-    const { role } = useRole();
+    const { role, isXuongNhanVien } = useRole();
     const [entries, setEntries] = useState([]);
     const [workers, setWorkers] = useState([]);
     const [projects, setProjects] = useState([]);
@@ -605,13 +605,13 @@ export default function WorkLogPage() {
                         <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={() => setWeekStart(getWeekStart(new Date()))}>Tuần này</button>
                     </div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
-                        <span className="desktop-table-view">💡 Nhấn vào ô để thêm/sửa</span>
+                        {!isXuongNhanVien && <span className="desktop-table-view">💡 Nhấn vào ô để thêm/sửa</span>}
                         <button className="btn btn-ghost btn-sm" onClick={fetchAll}>🔄 Làm mới</button>
                     </div>
                 </div>
 
                 {/* Quick Actions bar */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', background: '#f8fafc', borderBottom: '1px solid var(--border-light)', flexWrap: 'wrap' }}>
+                {!isXuongNhanVien && <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', background: '#f8fafc', borderBottom: '1px solid var(--border-light)', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', flexShrink: 0 }}>Thao tác nhanh:</span>
                     <button
                         onClick={() => openQuick(CATEGORIES.find(c => c.key === 'Nhân công nghỉ'), 'Sáng')}
@@ -628,7 +628,7 @@ export default function WorkLogPage() {
                         style={{ padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: `1.5px solid ${showSync ? '#2563eb' : '#93c5fd'}`, background: showSync ? '#dbeafe' : '#eff6ff', color: '#1d4ed8' }}>
                         🔗 Đồng bộ từ Tasks {activeTasks.length > 0 && `(${activeTasks.length})`}
                     </button>
-                </div>
+                </div>}
 
                 {/* Task sync panel */}
                 {showSync && (
@@ -709,8 +709,8 @@ export default function WorkLogPage() {
                                             {CATEGORIES.map((cat) => {
                                                 const shiftEntries = getCell(day, cat.key, shift);
                                                 const isViecKhac = cat.key === 'Việc khác';
-                                                const tdStyle = { padding: '4px 8px', border: '1px solid var(--border-light)', verticalAlign: 'top', cursor: 'pointer', borderTop: si === 1 ? '1px dashed var(--border)' : undefined };
-                                                const onClick = (e) => openEdit(day, cat, shift, e);
+                                                const tdStyle = { padding: '4px 8px', border: '1px solid var(--border-light)', verticalAlign: 'top', cursor: isXuongNhanVien ? 'default' : 'pointer', borderTop: si === 1 ? '1px dashed var(--border)' : undefined };
+                                                const onClick = isXuongNhanVien ? undefined : (e) => openEdit(day, cat, shift, e);
 
                                                 if (cat.singleCol) {
                                                     return (
@@ -778,10 +778,10 @@ export default function WorkLogPage() {
                                         {isToday && <span style={{ fontSize: 10, background: '#f59e0b', color: '#fff', padding: '1px 6px', borderRadius: 8 }}>Hôm nay</span>}
                                         {hasMorning && <span style={{ fontSize: 10, background: '#fefce8', color: '#854d0e', padding: '1px 5px', borderRadius: 6, border: '1px solid #fde68a' }}>Sáng</span>}
                                         {hasAfternoon && <span style={{ fontSize: 10, background: '#fff7ed', color: '#9a3412', padding: '1px 5px', borderRadius: 6, border: '1px solid #fed7aa' }}>Chiều</span>}
-                                        <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                                        {!isXuongNhanVien && <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
                                             <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 8px' }} onClick={(e) => openEdit(day, CATEGORIES[0], 'Sáng', e)}>☀ Sáng</button>
                                             <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 8px' }} onClick={(e) => openEdit(day, CATEGORIES[0], 'Chiều', e)}>🌙 Chiều</button>
-                                        </div>
+                                        </div>}
                                     </div>
                                     {dayEntries.length === 0
                                         ? <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Không có việc</div>
@@ -799,7 +799,7 @@ export default function WorkLogPage() {
                                                         <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 8, background: cat?.color || '#f3f4f6', color: '#374151', flexShrink: 0 }}>{cat?.label}</span>
                                                     </div>
                                                     {(() => { const w = parseWorkers(entry.mainWorkers); return w.length > 0 ? <div style={{ fontSize: 11, color: '#374151', marginBottom: 4 }}>👷 {w.join(', ')}</div> : null; })()}
-                                                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                                    {!isXuongNhanVien && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                                                         <button onClick={(e) => { e.stopPropagation(); openEdit(day, cat || CATEGORIES[0], entryShift, e); }}
                                                             style={{ padding: '3px 10px', borderRadius: 12, border: '1px solid var(--border)', background: '#f8fafc', fontSize: 11, cursor: 'pointer', fontWeight: 500 }}>
                                                             ✏ Sửa
@@ -808,7 +808,7 @@ export default function WorkLogPage() {
                                                             style={{ padding: '3px 10px', borderRadius: 12, border: '1px solid #fde68a', background: '#fefce8', color: '#854d0e', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
                                                             🔄 Đổi ca → {entryShift === 'Sáng' ? 'Chiều' : 'Sáng'}
                                                         </button>
-                                                    </div>
+                                                    </div>}
                                                 </div>
                                             );
                                         })
