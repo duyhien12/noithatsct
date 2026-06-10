@@ -307,8 +307,8 @@ export default function InventoryPage() {
 
     const reorderList = stockData.products.filter(p => p.needsReorder);
 
-    // Chỉ cho gắn dự án đã có hợp đồng
-    const contractProjects = projects.filter(p => p.hasContract);
+    // Chỉ cho gắn dự án đang sản xuất (KD dept, phase đang sản xuất)
+    const contractProjects = projects.filter(p => p.createdByRole !== 'xay_dung' && (p.phase || 'Đơn hàng đang sản xuất') === 'Đơn hàng đang sản xuất');
 
     return (
         <div>

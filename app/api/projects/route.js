@@ -83,6 +83,7 @@ function computeProjectMetrics(p) {
         healthScore,
         risks,
         hasContract: (p.contracts || []).length > 0,
+        hasInteriorContract: (p.contracts || []).some(c => c.type && c.type.toLowerCase().includes('nội thất')),
         // strip heavy relation arrays before sending to client
         contracts: undefined,
         expenses: undefined,
@@ -113,7 +114,7 @@ export const GET = withAuth(async (request) => {
                 customer: { select: { name: true } },
                 contracts: {
                     where: { deletedAt: null },
-                    select: { contractValue: true, paidAmount: true, status: true },
+                    select: { contractValue: true, paidAmount: true, status: true, type: true },
                 },
                 expenses: {
                     where: { deletedAt: null },
