@@ -82,7 +82,9 @@ export default function ProjectsPage() {
         ? ['Thi công nội thất']
         : role === 'xay_dung'
             ? ALL_PROJECT_TYPES.filter(t => t !== 'Thi công nội thất')
-            : ALL_PROJECT_TYPES;
+            : isThietKe
+                ? ['Thiết kế kiến trúc', 'Thiết kế nội thất']
+                : ALL_PROJECT_TYPES;
 
     const [form, setForm] = useState({ name: '', type: visibleTypes[0] || 'Thiết kế kiến trúc', status: 'Khảo sát', address: '', area: '', floors: '', budget: '', customerId: '', designer: '', supervisor: '' });
     const [submitting, setSubmitting] = useState(false);
@@ -119,7 +121,10 @@ export default function ProjectsPage() {
         return () => document.removeEventListener('click', close);
     }, [openPhaseId]);
 
-    useEffect(() => { fetch('/api/customers?limit=1000').then(r => r.json()).then(d => setCustomers(d.data || [])); }, []);
+    useEffect(() => {
+        const url = isThietKe ? '/api/customers?dept=thiet_ke&limit=1000' : '/api/customers?limit=1000';
+        fetch(url).then(r => r.json()).then(d => setCustomers(d.data || []));
+    }, []);
     useEffect(() => { fetchProjects(); }, [search, filterType]);
 
     const handleDelete = async (id, e) => {
