@@ -22,7 +22,7 @@ function useIsMobile() {
 const EMPTY_FORM = {
     type: 'Nhập', productId: '', warehouseId: '', quantity: '',
     unit: '', note: '', projectId: '', date: new Date().toISOString().split('T')[0],
-    importPrice: '', images: [],
+    importPrice: '', images: [], _freeText: '',
 };
 
 function PhotoStrip({ images, onChange }) {
@@ -294,28 +294,40 @@ export default function InventoryPage() {
     };
 
     const handleProductSelect = (val) => {
-        if (val.startsWith('wi__')) {
+        if (val === '__free__') {
+            setFormSynced(f => ({ ...f, productId: '', _workItemId: '', _freeText: productSearch.trim() }));
+        } else if (val.startsWith('wi__')) {
             const wiId = val.slice(4);
             const wi = workItems.find(w => w.id === wiId);
             const hmtcCode = `HMTC_${wiId.slice(0, 8)}`;
             const existingProduct = stockData.products.find(p => p.code === hmtcCode);
-            setFormSynced(f => ({ ...f, productId: '', _workItemId: wiId, unit: wi?.unit || '', importPrice: existingProduct?.importPrice || '' }));
+            setFormSynced(f => ({ ...f, productId: '', _workItemId: wiId, _freeText: '', unit: wi?.unit || '', importPrice: existingProduct?.importPrice || '' }));
         } else {
             const p = allProducts.find(p => p.id === val);
-            setFormSynced(f => ({ ...f, productId: val, _workItemId: '', unit: p?.unit || '', importPrice: p?.importPrice || '' }));
+            setFormSynced(f => ({ ...f, productId: val, _workItemId: '', _freeText: '', unit: p?.unit || '', importPrice: p?.importPrice || '' }));
         }
     };
 
     const handleSubmit = async () => {
         const f = formRef.current;
         setSubmitError('');
-        if (!f.productId && !f._workItemId) { setSubmitError('Vui lòng chọn sản phẩm'); return; }
+        if (!f.productId && !f._workItemId && !f._freeText) { setSubmitError('Vui lòng chọn hoặc nhập tên sản phẩm'); return; }
         if (!f.warehouseId) { setSubmitError('Vui lòng chọn kho'); return; }
         if (!f.quantity) { setSubmitError('Vui lòng nhập số lượng'); return; }
         setSaving(true);
         try {
             let productId = f.productId;
-            if (f._workItemId) {
+            if (f._freeText) {
+                const slug = f._freeText.trim().toUpperCase().replace(/[^A-Z0-9]/g, '_').slice(0, 20);
+                const code = `EXT_${slug}`;
+                const res = await fetch('/api/products/ensure', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, name: f._freeText.trim(), unit: f.unit || '', supplier: 'Bên ngoài', importPrice: Number(f.importPrice) || 0 }),
+                });
+                const d = await res.json();
+                if (!d.id) throw new Error('Không thể tạo sản phẩm: ' + (d.error || ''));
+                productId = d.id;
+            } else if (f._workItemId) {
                 const wi = workItems.find(w => w.id === f._workItemId);
                 const code = `HMTC_${f._workItemId.slice(0, 8)}`;
                 const res = await fetch('/api/products/ensure', {
@@ -890,26 +902,29 @@ export default function InventoryPage() {
                                 <label className="form-label">Sản phẩm *</label>
                                 <input className="form-input" placeholder="🔍 Gõ để tìm sản phẩm..."
                                     value={productSearch}
-                                    onChange={e => { setProductSearch(e.target.value); setShowProductDrop(true); }}
+                                    onChange={e => { setProductSearch(e.target.value); setShowProductDrop(true); if (!e.target.value) setFormSynced(f => ({ ...f, productId: '', _workItemId: '', _freeText: '' })); }}
                                     onFocus={() => setShowProductDrop(true)}
                                     onBlur={() => setTimeout(() => setShowProductDrop(false), 180)}
                                     autoComplete="off" />
-                                {(form.productId || form._workItemId) && !showProductDrop && (
+                                {(form.productId || form._workItemId || form._freeText) && !showProductDrop && (
                                     <div style={{ fontSize: 12, color: '#16a34a', marginTop: 3, fontWeight: 600 }}>
-                                        ✓ {form._workItemId
-                                            ? workItems.find(w => w.id === form._workItemId)?.name
-                                            : allProducts.find(p => p.id === form.productId)?.name}
+                                        ✓ {form._freeText
+                                            ? <span>{form._freeText} <span style={{ fontWeight: 400, color: '#6b7280' }}>(sản phẩm mới)</span></span>
+                                            : form._workItemId
+                                                ? workItems.find(w => w.id === form._workItemId)?.name
+                                                : allProducts.find(p => p.id === form.productId)?.name}
                                     </div>
                                 )}
                                 {showProductDrop && (() => {
                                     const q = productSearch.toLowerCase();
                                     const filteredProducts = allProducts.filter(p => !q || p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q));
                                     const filteredWork = workItems.filter(w => !q || w.name.toLowerCase().includes(q));
-                                    if (!filteredProducts.length && !filteredWork.length) return null;
+                                    const hasAny = filteredProducts.length > 0 || filteredWork.length > 0;
+                                    if (!hasAny && !productSearch.trim()) return null;
                                     return (
                                         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--border-color)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.13)', zIndex: 200, maxHeight: 260, overflowY: 'auto' }}>
                                             {filteredProducts.length > 0 && <>
-                                                <div style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, color: '#6b7280', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>SẢN PHẨM</div>
+                                                <div style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, color: '#6b7280', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>SẢN PHẨM TRONG KHO</div>
                                                 {filteredProducts.map(p => (
                                                     <div key={p.id} onMouseDown={() => { handleProductSelect(p.id); setProductSearch(p.name); setShowProductDrop(false); }}
                                                         style={{ padding: '8px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f3f4f6' }}
@@ -930,6 +945,16 @@ export default function InventoryPage() {
                                                     </div>
                                                 ))}
                                             </>}
+                                            {productSearch.trim() && (
+                                                <div onMouseDown={() => { handleProductSelect('__free__'); setShowProductDrop(false); }}
+                                                    style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, borderTop: hasAny ? '1px solid #e5e7eb' : 'none', background: '#fffbeb', display: 'flex', alignItems: 'center', gap: 8 }}
+                                                    onMouseEnter={e => e.currentTarget.style.background = '#fef3c7'}
+                                                    onMouseLeave={e => e.currentTarget.style.background = '#fffbeb'}>
+                                                    <span style={{ fontSize: 16 }}>➕</span>
+                                                    <span>Dùng tên: <strong>"{productSearch.trim()}"</strong></span>
+                                                    <span style={{ marginLeft: 'auto', fontSize: 11, color: '#92400e', background: '#fde68a', borderRadius: 4, padding: '1px 6px' }}>Sản phẩm mới</span>
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })()}
@@ -979,7 +1004,7 @@ export default function InventoryPage() {
                         <div className="modal-footer">
                             <button className="btn btn-ghost" onClick={() => setShowModal(false)}>Hủy</button>
                             <button className="btn btn-primary" onClick={handleSubmit}
-                                disabled={saving || (!form.productId && !form._workItemId) || !form.warehouseId || !form.quantity}>
+                                disabled={saving || (!form.productId && !form._workItemId && !form._freeText) || !form.warehouseId || !form.quantity}>
                                 {saving ? 'Đang lưu...' : `Tạo phiếu ${form.type}`}
                             </button>
                         </div>
