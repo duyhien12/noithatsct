@@ -438,41 +438,49 @@ const handleMoveDown = (id) => handleMove(id, 'down');
                             </tr>
                         </thead>
 <tbody>
-  {items.map(item => (
-    <tr key={item.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-      {/* STT */}
-      <td style={{ ...C, textAlign: 'right', fontWeight: 600 }}>{item.sortOrder}</td>
-      {/* Empty column */}
-      <td style={{ ...C }} />
-      {/* Tên vật liệu */}
-      <td style={{ ...C, fontWeight: 500 }}>{item.name}</td>
-      {/* Mã SP */}
-      <td style={{ ...C }}>{item.productCode}</td>
-      {/* KT */}
-      <td style={{ ...C }}>{item.spec}</td>
-      {/* ĐVT */}
-      <td style={{ ...C, textAlign: 'center' }}>{item.unit}</td>
-      {/* SL */}
-      <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.quantity)}</td>
-      {/* Kích thước */}
-      <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.dimLength)}</td>
-      <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.dimWidth)}</td>
-      <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.dimHeight)}</td>
-      <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.dimTotal)}</td>
-      {/* Đơn giá */}
-      <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.unitPrice)}</td>
-      {/* Thành tiền */}
-      <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.productionAmount)}</td>
-      {/* Tỉ xuất % - placeholder */}
-      <td style={{ ...C, textAlign: 'center' }}>—</td>
-      {/* GIÁ BÁN */}
-      <td style={{ ...C, textAlign: 'right' }}>{fmtN(item.salePrice)}</td>
-      {/* Drag handle */}
-      <td style={{ textAlign: 'center', padding: 2 }} className="no-print"><DragHandle id={item.id} /></td>
-    </tr>
-  ))}
-  {/* Total row */}
-  <tr style={{ background: '#1e3a5f', color: '#fff', fontWeight: 700 }}>
+    {sortedGroups.map((group, gIdx) => {
+        const groupItems = group.items.slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        const groupTotal = groupItems.reduce((s, i) => s + (Number(i.productionAmount) || 0), 0);
+        return (
+            <Fragment key={`g_${group.order}_${group.name || gIdx}`}>
+                {group.name && (
+                    <tr style={GH}>
+                        <td style={{ ...C, textAlign: 'center', fontWeight: 700 }}>{ROMAN[gIdx] || (gIdx + 1)}</td>
+                        <td style={C} />
+                        <td colSpan={10} style={{ ...C, fontWeight: 700 }}>{group.name}</td>
+                        <td style={{ ...C, textAlign: 'right', fontWeight: 700 }}>{fmtN(groupTotal)}</td>
+                        <td style={C} />
+                        <td style={C} />
+                        <td style={C} className="no-print" />
+                    </tr>
+                )}
+                {groupItems.map((item, iIdx) => (
+                    <tr key={item.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                        <td style={{ ...C, textAlign: 'right', color: '#666' }}>{iIdx + 1}</td>
+                        <td style={{ ...C, textAlign: 'center', cursor: 'grab', color: '#9ca3af', fontSize: 13 }} className="no-print">☰</td>
+                        <td style={C}>{editCell(item.id, 'name', item.name, true)}</td>
+                        <td style={C}>{editCell(item.id, 'productCode', item.productCode, true)}</td>
+                        <td style={C}>{editCell(item.id, 'spec', item.spec, true)}</td>
+                        <td style={{ ...C, textAlign: 'center' }}>{editCell(item.id, 'unit', item.unit, true)}</td>
+                        <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'quantity', item.quantity)}</td>
+                        <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'dimLength', item.dimLength)}</td>
+                        <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'dimWidth', item.dimWidth)}</td>
+                        <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'dimHeight', item.dimHeight)}</td>
+                        <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'dimTotal', item.dimTotal)}</td>
+                        <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'unitPrice', item.unitPrice)}</td>
+                        <td style={{ ...C, textAlign: 'right', fontWeight: 600, color: '#1e3a5f' }}>{fmtN(item.productionAmount)}</td>
+                        <td style={{ ...C, textAlign: 'center', color: '#9ca3af' }}>—</td>
+                        <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'salePrice', item.salePrice)}</td>
+                        <td style={{ ...C, textAlign: 'center', padding: 2 }} className="no-print">
+                            <button onClick={() => handleDelete(item.id)} title="Xóa dòng"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 13, lineHeight: 1 }}>🗑</button>
+                        </td>
+                    </tr>
+                ))}
+            </Fragment>
+        );
+    })}
+    <tr style={{ background: '#1e3a5f', color: '#fff', fontWeight: 700 }}>
         <td colSpan={6} style={{ ...C, textAlign: 'center', letterSpacing: 1, color: '#fff', background: '#1e3a5f', fontSize: 12 }}>TỔNG CỘNG</td>
         <td colSpan={5} style={{ ...C, background: '#1e3a5f' }} />
         <td style={{ ...C, background: '#1e3a5f' }} />
@@ -480,7 +488,7 @@ const handleMoveDown = (id) => handleMove(id, 'down');
         <td style={{ ...C, textAlign: 'center', color: '#fff', background: '#1e3a5f' }}>100%</td>
         <td style={{ ...C, background: '#1e3a5f' }} />
         <td style={{ ...C, background: '#1e3a5f' }} className="no-print" />
-  </tr>
+    </tr>
 </tbody>
                     </table>
                 </div>
