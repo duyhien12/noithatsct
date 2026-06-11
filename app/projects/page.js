@@ -534,20 +534,23 @@ export default function ProjectsPage() {
                 )}
 
                 {/* Bảng Phòng Kinh Doanh */}
-                {!isThietKe && role !== 'xay_dung' && <div className="card">
-                    <div className="card-header">
-                        <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            💼 Đơn hàng xưởng sản xuất
-                            <span style={{ background: '#fde8d0', color: '#e67e22', fontSize: 11, fontWeight: 700, padding: '1px 8px', borderRadius: 8 }}>{projectsKD.filter(p => (p.phase || 'Đơn hàng đang sản xuất') === 'Đơn hàng đang sản xuất').length}</span>
-                            {projectsKD.filter(p => (p.phase || 'Đơn hàng đang sản xuất') === 'Đơn hàng đang sản xuất').some(p => p.risks?.length > 0) && (
-                                <span style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626', fontSize: 10, fontWeight: 700, padding: '1px 8px', borderRadius: 8 }}>
-                                    ⚠ {projectsKD.filter(p => (p.phase || 'Đơn hàng đang sản xuất') === 'Đơn hàng đang sản xuất' && p.risks?.length > 0).length} rủi ro
-                                </span>
-                            )}
-                        </h3>
-                    </div>
-                    <TableSection projects={projectsKD.filter(p => (p.phase || 'Đơn hàng đang sản xuất') === 'Đơn hàng đang sản xuất')} dept="kinh_doanh" setter={setProjectsKD} />
-                </div>}
+                {!isThietKe && role !== 'xay_dung' && (() => {
+                    const filteredKD = filterPhase ? projectsKD.filter(p => (p.phase || 'Đơn hàng đang sản xuất') === filterPhase) : projectsKD;
+                    return <div className="card">
+                        <div className="card-header">
+                            <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                💼 Đơn hàng xưởng sản xuất
+                                <span style={{ background: '#fde8d0', color: '#e67e22', fontSize: 11, fontWeight: 700, padding: '1px 8px', borderRadius: 8 }}>{filteredKD.length}</span>
+                                {filteredKD.some(p => p.risks?.length > 0) && (
+                                    <span style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626', fontSize: 10, fontWeight: 700, padding: '1px 8px', borderRadius: 8 }}>
+                                        ⚠ {filteredKD.filter(p => p.risks?.length > 0).length} rủi ro
+                                    </span>
+                                )}
+                            </h3>
+                        </div>
+                        <TableSection projects={filteredKD} dept="kinh_doanh" setter={setProjectsKD} />
+                    </div>;
+                })()}
             </>)}
 
             {/* Modal tạo dự án */}

@@ -8,6 +8,7 @@ const DESIGN_ROLES = ['xay_dung', 'thiet_ke', 'ky_thuat'];
 
 const ALLOWED_EMAIL = 'ngocbinh@kientrucsct.com';
 const BAN_GD_ROLES = ['ban_gd', 'giam_doc', 'pho_gd'];
+const DESIGN_DEPT_ROLES = ['thiet_ke'];
 
 const STAGES = [
     { key: 'ks_do_dac',       label: 'KS đo đạc biên trạng',              pct: 2  },
@@ -1061,7 +1062,7 @@ export default function LuongPage() {
     const router = useRouter();
     const [tab, setTab] = useState('du_an');
 
-    const canAccess = session?.user?.email === ALLOWED_EMAIL || BAN_GD_ROLES.includes(session?.user?.role);
+    const canAccess = session?.user?.email === ALLOWED_EMAIL || BAN_GD_ROLES.includes(session?.user?.role) || DESIGN_DEPT_ROLES.includes(session?.user?.role);
 
     useEffect(() => {
         if (status === 'loading') return;

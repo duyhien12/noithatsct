@@ -571,7 +571,9 @@ export default function BudgetEstimateTable({ projectId, refreshKey, onRefresh }
         : buildRows(data.items);
 
     // Stats for import modal
-    const matchedCount   = importFormat === 'quotation' ? importRows.filter(r => r.qty > 0 && r.salePrice > 0).length : importRows.filter(r => r.matched).length;
+    const matchedCount   = importFormat === 'quotation'
+        ? importRows.filter(r => r.qty > 0 && r.salePrice > 0).length
+        : importRows.filter(r => r.matched).length;
     const unmatchedCount = importFormat === 'quotation' ? 0 : importRows.filter(r => !r.matched).length;
 
     return (
@@ -666,7 +668,7 @@ export default function BudgetEstimateTable({ projectId, refreshKey, onRefresh }
                             {importFormat === 'quotation' && (
                                 <>
                                     <span style={{ fontSize: 12, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '3px 10px', color: '#15803d' }}>
-                                        Tổng DT: {fmt(importRows.reduce((s, r) => s + r.qty * r.salePrice, 0))}đ
+                                        Tổng: {fmt(importRows.reduce((s, r) => s + r.qty * r.salePrice, 0))}đ
                                     </span>
                                     <span style={{ fontSize: 12, background: '#fef9f0', border: '1px solid #fde68a', borderRadius: 6, padding: '3px 10px', color: '#92400e' }}>
                                         Tổng Xưởng (65%): {fmt(importRows.reduce((s, r) => s + r.qty * r.price, 0))}đ

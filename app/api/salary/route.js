@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export const GET = withAuth(async () => {
     const projects = await prisma.project.findMany({
+        where: { createdByRole: 'thiet_ke' },
         select: {
             id: true,
             code: true,
