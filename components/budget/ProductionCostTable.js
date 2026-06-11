@@ -1,24 +1,49 @@
 'use client';
 import { useState, useEffect, useRef, Fragment } from 'react';
-import { DndContext, closestCenter } from '@dnd-kit/core';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
 const fmtN = (n) => n ? new Intl.NumberFormat('vi-VN').format(Math.round(n)) : '';
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
-// Drag handle component for dnd-kit sortable rows
-const DragHandle = ({ id }) => {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    cursor: 'grab',
-  };
-  return (
-    <span {...attributes} {...listeners} ref={setNodeRef} style={style}>☰</span>
-  );
-};
+function SortableRow({ item, iIdx, C, fmtN: fmt, editCell, handleDelete }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+    const style = {
+        transform: CSS.Translate.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        borderBottom: '1px solid #e5e7eb',
+        background: isDragging ? '#f0f7ff' : undefined,
+    };
+    return (
+        <tr ref={setNodeRef} style={style}>
+            <td style={{ ...C, textAlign: 'right', color: '#666' }}>{iIdx + 1}</td>
+            <td style={C}>{editCell(item.id, 'name', item.name, true)}</td>
+            <td style={C}>{editCell(item.id, 'productCode', item.productCode, true)}</td>
+            <td style={C}>{editCell(item.id, 'spec', item.spec, true)}</td>
+            <td style={{ ...C, textAlign: 'center' }}>{editCell(item.id, 'unit', item.unit, true)}</td>
+            <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'quantity', item.quantity)}</td>
+            <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'dimLength', item.dimLength)}</td>
+            <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'dimWidth', item.dimWidth)}</td>
+            <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'dimHeight', item.dimHeight)}</td>
+            <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'dimTotal', item.dimTotal)}</td>
+            <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'unitPrice', item.unitPrice)}</td>
+            <td style={{ ...C, textAlign: 'right', fontWeight: 600, color: '#1e3a5f' }}>{fmt(item.productionAmount)}</td>
+            <td style={{ ...C, textAlign: 'center', color: '#9ca3af' }}>—</td>
+            <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'salePrice', item.salePrice)}</td>
+            <td style={{ ...C, textAlign: 'center', padding: '2px 4px' }} className="no-print">
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    <span {...attributes} {...listeners}
+                        style={{ cursor: isDragging ? 'grabbing' : 'grab', color: '#9ca3af', fontSize: 13, lineHeight: 1, userSelect: 'none', padding: '2px 4px', display: 'block' }}
+                        title="Kéo để di chuyển">☰</span>
+                    <button onClick={() => handleDelete(item.id)} title="Xóa dòng"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 11, lineHeight: 1, padding: '2px 4px' }}>🗑</button>
+                </div>
+            </td>
+        </tr>
+    );
+}
 
 // ─── Parse sheet Excel (format "theo doi san xuất") ──────────────────────────
 function parseProductionExcel(XLSX, ws) {
@@ -123,6 +148,7 @@ export default function ProductionCostTable({ projectId }) {
     const xlsxWbRef = useRef(null);
     const fileRef = useRef(null);
     const printRef = useRef(null);
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
     const load = () => {
         setLoading(true);
@@ -263,34 +289,6 @@ export default function ProductionCostTable({ projectId }) {
         load();
     };
 
-    const handleDragEnd = async (event) => {
-  const { active, over } = event;
-  if (!over || active.id === over.id) return;
-  // find group containing the active item
-  const group = sortedGroups.find(g => g.items.some(i => i.id === active.id));
-  if (!group) return;
-  const oldIndex = group.items.findIndex(i => i.id === active.id);
-  const newIndex = group.items.findIndex(i => i.id === over.id);
-  const newOrder = arrayMove(group.items, oldIndex, newIndex);
-  // Update sortOrder locally
-  const updatedItems = items.map(i => {
-    const found = newOrder.findIndex(ni => ni.id === i.id);
-    if (found !== -1) {
-      return { ...i, sortOrder: found + 1 };
-    }
-    return i;
-  });
-  setItems(updatedItems);
-  // Persist changes
-  await Promise.all(updatedItems.map(i =>
-    fetch(`/api/production-costs/${i.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(i),
-    })
-  ));
-  load();
-};
 const handleDeleteAll = async () => {
   if (!items.length || !confirm(`Xóa toàn bộ ${items.length} dòng? Không thể hoàn tác.`)) return;
   setDeleting(true);
@@ -301,30 +299,48 @@ const handleDeleteAll = async () => {
 
         // ─── Add row functionality ─────────────────────────────────────────────────────
     const handleAddRow = async () => {
+        const maxSort = Math.max(0, ...items.map(i => i.sortOrder || 0));
         const newItem = {
-            groupOrder: 0,
-            sortOrder: (items.filter(i => i.groupOrder === 0).length + 1),
-            name: '',
-            productCode: '',
-            spec: '',
-            unit: '',
-            quantity: 0,
-            dimLength: 0,
-            dimWidth: 0,
-            dimHeight: 0,
-            dimTotal: 0,
-            unitPrice: 0,
-            productionAmount: 0,
-            salePrice: 0,
-            groupName: ''
+            groupOrder: 0, groupName: '',
+            sortOrder: maxSort + 1,
+            name: '', productCode: '', spec: '', unit: '',
+            quantity: 0, dimLength: 0, dimWidth: 0, dimHeight: 0, dimTotal: 0,
+            unitPrice: 0, productionAmount: 0, salePrice: 0,
         };
         await fetch('/api/production-costs', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ projectId, ...newItem })
+            body: JSON.stringify({ projectId, items: [newItem] }),
         });
         load();
     };
+    // ─── Drag-and-drop reorder ─────────────────────────────────────────────────────
+    const handleDragEnd = async (event) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+        const activeItem = items.find(i => i.id === active.id);
+        const overItem = items.find(i => i.id === over.id);
+        if (!activeItem || !overItem || activeItem.groupOrder !== overItem.groupOrder) return;
+        const groupItems = items.filter(i => i.groupOrder === activeItem.groupOrder)
+            .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        const oldIndex = groupItems.findIndex(i => i.id === active.id);
+        const newIndex = groupItems.findIndex(i => i.id === over.id);
+        const newOrder = arrayMove(groupItems, oldIndex, newIndex);
+        const updatedItems = items.map(item => {
+            const idx = newOrder.findIndex(ni => ni.id === item.id);
+            return idx !== -1 ? { ...item, sortOrder: idx + 1 } : item;
+        });
+        setItems(updatedItems);
+        await Promise.all(newOrder.map((item, idx) =>
+            fetch(`/api/production-costs/${item.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...item, sortOrder: idx + 1 }),
+            })
+        ));
+        load();
+    };
+
     // ─── Row ordering handlers ─────────────────────────────────────────────────────
 const handleMove = async (id, direction) => {
     const item = items.find(i => i.id === id);
@@ -392,7 +408,6 @@ const handleMoveDown = (id) => handleMove(id, 'down');
                         style={{ padding: '7px 14px', fontSize: 13, fontWeight: 600, border: '1px solid #2563eb', borderRadius: 8, background: '#fff', cursor: 'pointer', color: '#2563eb', display: 'flex', alignItems: 'center', gap: 5 }}>
                         📊 Nhập từ Excel
                     </label>
-                    <button onClick={handleAddRow} style={{ padding: '7px 14px', fontSize: 13, fontWeight: 600, border: '1px solid #2563eb', borderRadius: 8, background: '#fff', cursor: 'pointer', color: '#2563eb', marginLeft: 8 }}>➕ Thêm dòng</button>
                     {!!items.length && <button onClick={handlePrint}
                         style={{ padding: '7px 14px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border-light)', borderRadius: 8, background: 'var(--bg-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
                         🖨️ In / PDF
@@ -405,18 +420,14 @@ const handleMoveDown = (id) => handleMove(id, 'down');
             </div>
 
             {/* Table */}
-            {!items.length ? (
-                <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', border: '2px dashed var(--border-light)', borderRadius: 10, fontSize: 13 }}>
-                    Chưa có dữ liệu. Nhập từ file Excel theo dõi sản xuất.
-                </div>
-            ) : (
+            {true && (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <div ref={printRef} style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                         <thead>
                             {/* Row 1 */}
                             <tr>
                                 <th rowSpan={2} style={{ ...TH, width: 36 }}>STT</th>
-<th rowSpan={2} style={{ ...TH, width: 30 }}></th>
                                 <th rowSpan={2} style={{ ...TH, minWidth: 160 }}>Tên vật liệu<br />(Phụ kiện)</th>
                                 <th colSpan={2} style={TH}>Chi tiết</th>
                                 <th rowSpan={2} style={{ ...TH, width: 46 }}>ĐVT</th>
@@ -446,7 +457,6 @@ const handleMoveDown = (id) => handleMove(id, 'down');
                 {group.name && (
                     <tr style={GH}>
                         <td style={{ ...C, textAlign: 'center', fontWeight: 700 }}>{ROMAN[gIdx] || (gIdx + 1)}</td>
-                        <td style={C} />
                         <td colSpan={10} style={{ ...C, fontWeight: 700 }}>{group.name}</td>
                         <td style={{ ...C, textAlign: 'right', fontWeight: 700 }}>{fmtN(groupTotal)}</td>
                         <td style={C} />
@@ -454,44 +464,38 @@ const handleMoveDown = (id) => handleMove(id, 'down');
                         <td style={C} className="no-print" />
                     </tr>
                 )}
-                {groupItems.map((item, iIdx) => (
-                    <tr key={item.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                        <td style={{ ...C, textAlign: 'right', color: '#666' }}>{iIdx + 1}</td>
-                        <td style={{ ...C, textAlign: 'center', cursor: 'grab', color: '#9ca3af', fontSize: 13 }} className="no-print">☰</td>
-                        <td style={C}>{editCell(item.id, 'name', item.name, true)}</td>
-                        <td style={C}>{editCell(item.id, 'productCode', item.productCode, true)}</td>
-                        <td style={C}>{editCell(item.id, 'spec', item.spec, true)}</td>
-                        <td style={{ ...C, textAlign: 'center' }}>{editCell(item.id, 'unit', item.unit, true)}</td>
-                        <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'quantity', item.quantity)}</td>
-                        <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'dimLength', item.dimLength)}</td>
-                        <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'dimWidth', item.dimWidth)}</td>
-                        <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'dimHeight', item.dimHeight)}</td>
-                        <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'dimTotal', item.dimTotal)}</td>
-                        <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'unitPrice', item.unitPrice)}</td>
-                        <td style={{ ...C, textAlign: 'right', fontWeight: 600, color: '#1e3a5f' }}>{fmtN(item.productionAmount)}</td>
-                        <td style={{ ...C, textAlign: 'center', color: '#9ca3af' }}>—</td>
-                        <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'salePrice', item.salePrice)}</td>
-                        <td style={{ ...C, textAlign: 'center', padding: 2 }} className="no-print">
-                            <button onClick={() => handleDelete(item.id)} title="Xóa dòng"
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 13, lineHeight: 1 }}>🗑</button>
-                        </td>
-                    </tr>
-                ))}
+                <SortableContext items={groupItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                    {groupItems.map((item, iIdx) => (
+                        <SortableRow key={item.id} item={item} iIdx={iIdx}
+                            C={C} fmtN={fmtN} editCell={editCell} handleDelete={handleDelete} />
+                    ))}
+                </SortableContext>
             </Fragment>
         );
     })}
-    <tr style={{ background: '#1e3a5f', color: '#fff', fontWeight: 700 }}>
-        <td colSpan={6} style={{ ...C, textAlign: 'center', letterSpacing: 1, color: '#fff', background: '#1e3a5f', fontSize: 12 }}>TỔNG CỘNG</td>
-        <td colSpan={5} style={{ ...C, background: '#1e3a5f' }} />
-        <td style={{ ...C, background: '#1e3a5f' }} />
-        <td style={{ ...C, textAlign: 'right', color: '#fff', background: '#1e3a5f', fontSize: 13 }}>{fmtN(grandTotal)}</td>
-        <td style={{ ...C, textAlign: 'center', color: '#fff', background: '#1e3a5f' }}>100%</td>
-        <td style={{ ...C, background: '#1e3a5f' }} />
-        <td style={{ ...C, background: '#1e3a5f' }} className="no-print" />
+    {!!items.length && (
+        <tr style={{ background: '#1e3a5f', color: '#fff', fontWeight: 700 }}>
+            <td colSpan={5} style={{ ...C, textAlign: 'center', letterSpacing: 1, color: '#fff', background: '#1e3a5f', fontSize: 12 }}>TỔNG CỘNG</td>
+            <td colSpan={5} style={{ ...C, background: '#1e3a5f' }} />
+            <td style={{ ...C, background: '#1e3a5f' }} />
+            <td style={{ ...C, textAlign: 'right', color: '#fff', background: '#1e3a5f', fontSize: 13 }}>{fmtN(grandTotal)}</td>
+            <td style={{ ...C, textAlign: 'center', color: '#fff', background: '#1e3a5f' }}>100%</td>
+            <td style={{ ...C, background: '#1e3a5f' }} />
+            <td style={{ ...C, background: '#1e3a5f' }} className="no-print" />
+        </tr>
+    )}
+    <tr onClick={handleAddRow} className="no-print"
+        style={{ cursor: 'pointer', borderBottom: '1px dashed #d1d5db', background: '#f9fafb' }}
+        onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
+        onMouseLeave={e => e.currentTarget.style.background = '#f9fafb'}>
+        <td colSpan={15} style={{ ...C, border: '1px dashed #d1d5db', textAlign: 'center', color: '#2563eb', fontSize: 12, fontWeight: 600, padding: '6px' }}>
+            ＋ Thêm dòng
+        </td>
     </tr>
 </tbody>
                     </table>
                 </div>
+                </DndContext>
             )}
 
             {/* Import modal */}
