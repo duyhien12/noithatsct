@@ -7,12 +7,19 @@ export const GET = withAuth(async (req) => {
     const start = searchParams.get('start');
     const end = searchParams.get('end');
 
+    const projectId = searchParams.get('projectId');
+
     const where = {};
     if (start && end) {
         where.date = {
             gte: new Date(start),
             lte: new Date(end + 'T23:59:59'),
         };
+    } else if (start) {
+        where.date = { gte: new Date(start) };
+    }
+    if (projectId) {
+        where.projectId = projectId;
     }
 
     const entries = await prisma.workLogEntry.findMany({
