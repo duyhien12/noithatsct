@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Trash2, Edit3, Check, X, TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -10,10 +10,38 @@ const C = { padding: '8px 10px', border: '1px solid transparent', borderRadius: 
 const TARGET = 0.18;
 
 // ─── inline input cell ────────────────────────────────────────────
-function EditCell({ value, onChange, type = 'text', style = {} }) {
+function EditCell({ value, onChange, type = 'text', style = {}, placeholder }) {
+    const [local, setLocal] = useState(value ?? '');
+    const composing = useRef(false);
+    const focused = useRef(false);
+
+    useEffect(() => {
+        if (!focused.current) setLocal(value ?? '');
+    }, [value]);
+
     return (
-        <input type={type} value={value ?? ''} onChange={e => onChange(e.target.value)}
-            style={{ width: '100%', padding: '5px 7px', border: '1px solid #e5e7eb', borderRadius: 5, fontSize: 12, background: 'white', color: '#111827', fontFamily: 'inherit', boxSizing: 'border-box', ...style }} />
+        <input
+            type={type}
+            value={local}
+            placeholder={placeholder}
+            onFocus={() => { focused.current = true; }}
+            onBlur={e => {
+                focused.current = false;
+                composing.current = false;
+                onChange(e.target.value);
+            }}
+            onCompositionStart={() => { composing.current = true; }}
+            onCompositionEnd={e => {
+                composing.current = false;
+                setLocal(e.target.value);
+                onChange(e.target.value);
+            }}
+            onChange={e => {
+                setLocal(e.target.value);
+                if (!composing.current) onChange(e.target.value);
+            }}
+            style={{ width: '100%', padding: '5px 7px', border: '1px solid #e5e7eb', borderRadius: 5, fontSize: 12, background: 'white', color: '#111827', fontFamily: 'inherit', boxSizing: 'border-box', ...style }}
+        />
     );
 }
 
