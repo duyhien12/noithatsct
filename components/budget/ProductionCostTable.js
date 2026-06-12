@@ -249,11 +249,11 @@ export default function ProductionCostTable({ projectId }) {
         if (field === 'quantity' || field === 'unitPrice') {
             updated.productionAmount = (field === 'quantity' ? newVal : item.quantity) * (field === 'unitPrice' ? newVal : item.unitPrice);
         }
-        await fetch(`/api/production-costs/${id}`, {
+        setItems(prev => prev.map(i => i.id === id ? updated : i));
+        fetch(`/api/production-costs/${id}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updated),
         });
-        load();
     };
 
     const editCell = (id, field, value, isText = false) => {
@@ -320,24 +320,54 @@ const handleDeleteAll = async () => {
         if (!over || active.id === over.id) return;
         const activeItem = items.find(i => i.id === active.id);
         const overItem = items.find(i => i.id === over.id);
-        if (!activeItem || !overItem || activeItem.groupOrder !== overItem.groupOrder) return;
-        const groupItems = items.filter(i => i.groupOrder === activeItem.groupOrder)
-            .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-        const oldIndex = groupItems.findIndex(i => i.id === active.id);
-        const newIndex = groupItems.findIndex(i => i.id === over.id);
-        const newOrder = arrayMove(groupItems, oldIndex, newIndex);
-        const updatedItems = items.map(item => {
-            const idx = newOrder.findIndex(ni => ni.id === item.id);
-            return idx !== -1 ? { ...item, sortOrder: idx + 1 } : item;
-        });
-        setItems(updatedItems);
-        await Promise.all(newOrder.map((item, idx) =>
-            fetch(`/api/production-costs/${item.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...item, sortOrder: idx + 1 }),
-            })
-        ));
+        if (!activeItem || !overItem) return;
+
+        if (activeItem.groupOrder === overItem.groupOrder) {
+            // Cùng nhóm: đổi thứ tự trong nhóm
+            const groupItems = items.filter(i => i.groupOrder === activeItem.groupOrder)
+                .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+            const oldIndex = groupItems.findIndex(i => i.id === active.id);
+            const newIndex = groupItems.findIndex(i => i.id === over.id);
+            const newOrder = arrayMove(groupItems, oldIndex, newIndex);
+            const updatedItems = items.map(item => {
+                const idx = newOrder.findIndex(ni => ni.id === item.id);
+                return idx !== -1 ? { ...item, sortOrder: idx + 1 } : item;
+            });
+            setItems(updatedItems);
+            await Promise.all(newOrder.map((item, idx) =>
+                fetch(`/api/production-costs/${item.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...item, sortOrder: idx + 1 }),
+                })
+            ));
+        } else {
+            // Khác nhóm: chuyển item sang nhóm đích
+            const targetGroupItems = items.filter(i => i.groupOrder === overItem.groupOrder)
+                .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+            const insertIdx = targetGroupItems.findIndex(i => i.id === overItem.id);
+            const movedItem = { ...activeItem, groupOrder: overItem.groupOrder, groupName: overItem.groupName };
+            const newTargetItems = [
+                ...targetGroupItems.slice(0, insertIdx),
+                movedItem,
+                ...targetGroupItems.slice(insertIdx),
+            ];
+            const updatedItems = items
+                .filter(i => i.id !== activeItem.id)
+                .map(item => {
+                    const idx = newTargetItems.findIndex(ni => ni.id === item.id);
+                    return idx !== -1 ? { ...item, sortOrder: idx + 1 } : item;
+                })
+                .concat({ ...movedItem, sortOrder: insertIdx + 1 });
+            setItems(updatedItems);
+            await Promise.all(newTargetItems.map((item, idx) =>
+                fetch(`/api/production-costs/${item.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...item, groupOrder: overItem.groupOrder, groupName: overItem.groupName, sortOrder: idx + 1 }),
+                })
+            ));
+        }
         load();
     };
 
@@ -449,6 +479,7 @@ const handleMoveDown = (id) => handleMove(id, 'down');
                             </tr>
                         </thead>
 <tbody>
+    <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
     {sortedGroups.map((group, gIdx) => {
         const groupItems = group.items.slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
         const groupTotal = groupItems.reduce((s, i) => s + (Number(i.productionAmount) || 0), 0);
@@ -464,15 +495,14 @@ const handleMoveDown = (id) => handleMove(id, 'down');
                         <td style={C} className="no-print" />
                     </tr>
                 )}
-                <SortableContext items={groupItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
-                    {groupItems.map((item, iIdx) => (
-                        <SortableRow key={item.id} item={item} iIdx={iIdx}
-                            C={C} fmtN={fmtN} editCell={editCell} handleDelete={handleDelete} />
-                    ))}
-                </SortableContext>
+                {groupItems.map((item, iIdx) => (
+                    <SortableRow key={item.id} item={item} iIdx={iIdx}
+                        C={C} fmtN={fmtN} editCell={editCell} handleDelete={handleDelete} />
+                ))}
             </Fragment>
         );
     })}
+    </SortableContext>
     {!!items.length && (
         <tr style={{ background: '#1e3a5f', color: '#fff', fontWeight: 700 }}>
             <td colSpan={5} style={{ ...C, textAlign: 'center', letterSpacing: 1, color: '#fff', background: '#1e3a5f', fontSize: 12 }}>TỔNG CỘNG</td>
