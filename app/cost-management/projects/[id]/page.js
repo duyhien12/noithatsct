@@ -13,7 +13,7 @@ const TARGET = 0.18;
 function EditCell({ value, onChange, type = 'text', style = {} }) {
     return (
         <input type={type} value={value ?? ''} onChange={e => onChange(e.target.value)}
-            style={{ width: '100%', padding: '5px 7px', border: '1px solid #e5e7eb', borderRadius: 5, fontSize: 12, background: 'white', color: '#111827', boxSizing: 'border-box', ...style }} />
+            style={{ width: '100%', padding: '5px 7px', border: '1px solid #e5e7eb', borderRadius: 5, fontSize: 12, background: 'white', color: '#111827', fontFamily: 'inherit', boxSizing: 'border-box', ...style }} />
     );
 }
 
