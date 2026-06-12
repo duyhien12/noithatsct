@@ -490,7 +490,9 @@ const handleMoveDown = (id) => handleMove(id, 'down');
                         <td style={{ ...C, textAlign: 'center', fontWeight: 700 }}>{ROMAN[gIdx] || (gIdx + 1)}</td>
                         <td colSpan={10} style={{ ...C, fontWeight: 700 }}>{group.name}</td>
                         <td style={{ ...C, textAlign: 'right', fontWeight: 700 }}>{fmtN(groupTotal)}</td>
-                        <td style={C} />
+                        <td style={{ ...C, textAlign: 'center', fontWeight: 700, color: '#1e3a5f' }}>
+                            {grandTotal > 0 ? (groupTotal / grandTotal * 100).toFixed(1) + '%' : '—'}
+                        </td>
                         <td style={C} />
                         <td style={C} className="no-print" />
                     </tr>
