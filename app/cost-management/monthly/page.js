@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Trash2, Edit3, Check, X } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Edit3, Check, X, RefreshCw } from 'lucide-react';
 
 const fmt = (n) => n ? new Intl.NumberFormat('vi-VN').format(Math.round(n)) : '—';
 const toNum = (v) => Number(v) || 0;
@@ -29,6 +29,11 @@ export default function MonthlyPage() {
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState(blank);
+
+    function openForm() {
+        setForm(f => ({ ...f, machineDepreciation: f.machineDepreciation || totalMachineDepr || '' }));
+        setShowForm(true);
+    }
     const [saving, setSaving] = useState(false);
     const [editId, setEditId] = useState(null);
     const [editForm, setEditForm] = useState({});
@@ -38,7 +43,7 @@ export default function MonthlyPage() {
         setLoading(true);
         const [mRes, machRes] = await Promise.all([
             fetch('/api/cost-mgmt/monthly'),
-            fetch('/api/cost-mgmt/machines'),
+            fetch('/api/workshop/assets?assetType=Máy móc - Thiết bị'),
         ]);
         setRows(await mRes.json());
         setMachines(await machRes.json());
@@ -47,7 +52,16 @@ export default function MonthlyPage() {
 
     useEffect(() => { load(); }, [load]);
 
-    const totalMachineDepr = machines.filter(m => m.status === 'Đang dùng').reduce((s, m) => s + toNum(m.monthlyDepreciation), 0);
+    const totalMachineDepr = machines.filter(m => m.status === 'Đang dùng')
+        .reduce((s, m) => s + Math.round(toNum(m.originalCost) * toNum(m.depreciationRate) / 12), 0);
+
+    async function syncDepreciation(row) {
+        await fetch(`/api/cost-mgmt/monthly/${row.id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...row, machineDepreciation: 0 }) // 0 → backend tự lấy từ máy
+        });
+        load();
+    }
 
     async function create() {
         if (!form.month) return;
@@ -79,7 +93,7 @@ export default function MonthlyPage() {
                         Khấu hao máy hiện tại (tự động): <strong style={{ color: '#7c3aed' }}>{fmt(totalMachineDepr)}đ/tháng</strong>
                     </p>
                 </div>
-                <button onClick={() => setShowForm(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: 'none', background: '#f97316', color: 'white', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
+                <button onClick={openForm} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: 'none', background: '#f97316', color: 'white', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
                     <Plus size={14} /> Thêm tháng
                 </button>
             </div>
@@ -95,8 +109,8 @@ export default function MonthlyPage() {
                         {FIELDS.map(f => (
                             <div key={f.key}>
                                 <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 3 }}>{f.label} (đ)</label>
-                                <input type="number" value={f.key === 'machineDepreciation' ? (form.machineDepreciation || totalMachineDepr) : form[f.key]}
-                                    placeholder={f.key === 'machineDepreciation' ? String(totalMachineDepr) : ''}
+                                <input type="number" value={form[f.key]}
+                                    placeholder={f.key === 'machineDepreciation' ? (totalMachineDepr ? String(totalMachineDepr) : 'Tự động') : ''}
                                     onChange={e => setForm(v => ({ ...v, [f.key]: e.target.value }))}
                                     style={{ width: '100%', padding: '7px 9px', borderRadius: 7, border: '1px solid #e5e7eb', fontSize: 12, boxSizing: 'border-box', textAlign: 'right' }} />
                             </div>
@@ -187,6 +201,7 @@ export default function MonthlyPage() {
                                         <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 600, color: '#7c3aed' }}>{fmt(dgKhSqm)}đ</td>
                                         <td style={{ padding: '9px 8px' }}>
                                             <div style={{ display: 'flex', gap: 3 }}>
+                                                <button onClick={() => syncDepreciation(r)} title="Sync khấu hao từ máy" style={{ padding: '4px 7px', borderRadius: 5, border: '1px solid #e5e7eb', background: 'white', cursor: 'pointer', color: '#7c3aed' }}><RefreshCw size={12} /></button>
                                                 <button onClick={() => { setEditId(r.id); setEditForm({ ...r }); }} style={{ padding: '4px 7px', borderRadius: 5, border: '1px solid #e5e7eb', background: 'white', cursor: 'pointer', color: '#6b7280' }}><Edit3 size={12} /></button>
                                                 <button onClick={() => del(r.id)} style={{ padding: '4px 7px', borderRadius: 5, border: 'none', background: '#fef2f2', cursor: 'pointer', color: '#dc2626' }}><Trash2 size={12} /></button>
                                             </div>

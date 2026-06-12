@@ -3,6 +3,14 @@ import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { ensureTables, newId, toNum } from '@/lib/costMgmt';
 
+async function calcMachineDeprFromAssets() {
+    const machines = await prisma.fixedAsset.findMany({
+        where: { assetType: 'Máy móc - Thiết bị', status: 'Đang dùng' },
+        select: { originalCost: true, depreciationRate: true },
+    }).catch(() => []);
+    return machines.reduce((s, m) => s + Math.round(toNum(m.originalCost) * toNum(m.depreciationRate) / 12), 0);
+}
+
 export const GET = withAuth(async () => {
     await ensureTables();
     const rows = await prisma.$queryRaw`SELECT * FROM "CostMonthly" ORDER BY month DESC`;
@@ -24,6 +32,11 @@ export const POST = withAuth(async (req) => {
     const fields = ['electric','water','rent','management','maintenance','tools','other','machineDepreciation','capacitySqm','machineHours'];
     const vals = {};
     fields.forEach(f => vals[f] = toNum(b[f]));
+
+    // Tự động lấy khấu hao từ Tài sản cố định loại Máy móc đang dùng nếu không nhập thủ công
+    if (!vals.machineDepreciation) {
+        vals.machineDepreciation = await calcMachineDeprFromAssets();
+    }
 
     // Tổng CP xưởng = tất cả ngoài machineDepreciation + machineDepreciation
     const totalCost = vals.electric + vals.water + vals.rent + vals.management + vals.maintenance + vals.tools + vals.other + vals.machineDepreciation;
