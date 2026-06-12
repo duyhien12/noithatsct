@@ -45,6 +45,7 @@ const FULL_MENU = [
             { href: '/workshop/timeline', icon: BarChart2, label: 'Tiến độ (Gantt)' },
             { href: '/work-orders', icon: Clock, label: 'Phiếu công việc' },
             { href: '/production', icon: Factory, label: 'Quản lý sản xuất' },
+            { href: '/cost-management', icon: BarChart2, label: 'Giá thành xưởng' },
         ],
     },
     {

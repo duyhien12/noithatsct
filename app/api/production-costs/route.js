@@ -23,9 +23,11 @@ async function ensureTable() {
             "unitPrice"        DOUBLE PRECISION NOT NULL DEFAULT 0,
             "productionAmount" DOUBLE PRECISION NOT NULL DEFAULT 0,
             "salePrice"        DOUBLE PRECISION NOT NULL DEFAULT 0,
+            "autoPercent"      DOUBLE PRECISION NOT NULL DEFAULT 0,
             "createdAt"        TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     `.catch(() => {});
+    await prisma.$executeRaw`ALTER TABLE "ProductionCostItem" ADD COLUMN IF NOT EXISTS "autoPercent" DOUBLE PRECISION NOT NULL DEFAULT 0`.catch(() => {});
     await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "ProductionCostItem_projectId_idx" ON "ProductionCostItem"("projectId")`.catch(() => {});
 }
 
@@ -51,6 +53,7 @@ export const GET = withAuth(async (request) => {
         unitPrice: Number(i.unitPrice),
         productionAmount: Number(i.productionAmount),
         salePrice: Number(i.salePrice),
+        autoPercent: Number(i.autoPercent ?? 0),
         groupOrder: Number(i.groupOrder),
         sortOrder: Number(i.sortOrder),
     })));
@@ -73,14 +76,14 @@ export const POST = withAuth(async (request) => {
         await prisma.$executeRaw`
             INSERT INTO "ProductionCostItem"
                 ("id","projectId","groupName","groupOrder","sortOrder","name","productCode","spec","unit",
-                 "quantity","dimLength","dimWidth","dimHeight","dimTotal","unitPrice","productionAmount","salePrice")
+                 "quantity","dimLength","dimWidth","dimHeight","dimTotal","unitPrice","productionAmount","salePrice","autoPercent")
             VALUES (
                 ${id}, ${projectId},
                 ${item.groupName || ''}, ${Number(item.groupOrder) || 0}, ${Number(item.sortOrder) || 0},
                 ${item.name || ''}, ${item.productCode || ''}, ${item.spec || ''}, ${item.unit || ''},
                 ${qty}, ${Number(item.dimLength) || 0}, ${Number(item.dimWidth) || 0},
                 ${Number(item.dimHeight) || 0}, ${Number(item.dimTotal) || 0},
-                ${price}, ${amount}, ${Number(item.salePrice) || 0}
+                ${price}, ${amount}, ${Number(item.salePrice) || 0}, ${Number(item.autoPercent) || 0}
             )
         `;
         created.push(id);

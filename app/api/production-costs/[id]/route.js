@@ -25,7 +25,8 @@ export const PUT = withAuth(async (request, context) => {
             "dimTotal"         = ${Number(body.dimTotal) || 0},
             "unitPrice"        = ${price},
             "productionAmount" = ${amount},
-            "salePrice"        = ${Number(body.salePrice) || 0}
+            "salePrice"        = ${Number(body.salePrice) || 0},
+            "autoPercent"      = ${Number(body.autoPercent) || 0}
         WHERE "id" = ${id}
     `;
     return NextResponse.json({ ok: true });

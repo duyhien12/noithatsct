@@ -7,7 +7,7 @@ import { CSS } from '@dnd-kit/utilities';
 const fmtN = (n) => n ? new Intl.NumberFormat('vi-VN').format(Math.round(n)) : '';
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
-function SortableRow({ item, iIdx, C, fmtN: fmt, editCell, handleDelete }) {
+function SortableRow({ item, iIdx, C, fmtN: fmt, editCell, handleDelete, effectiveAmount, startEdit, isEditingAutoPercent }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
     const style = {
         transform: CSS.Translate.toString(transform),
@@ -28,8 +28,16 @@ function SortableRow({ item, iIdx, C, fmtN: fmt, editCell, handleDelete }) {
             <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'dimWidth', item.dimWidth)}</td>
             <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'dimHeight', item.dimHeight)}</td>
             <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'dimTotal', item.dimTotal)}</td>
-            <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'unitPrice', item.unitPrice)}</td>
-            <td style={{ ...C, textAlign: 'right', fontWeight: 600, color: '#1e3a5f' }}>{fmt(item.productionAmount)}</td>
+            <td style={{ ...C, textAlign: 'right' }}>
+                {(Number(item.autoPercent) > 0 || isEditingAutoPercent)
+                    ? editCell(item.id, 'autoPercent', item.autoPercent, false, `${item.autoPercent || 0}%`)
+                    : editCell(item.id, 'unitPrice', item.unitPrice)
+                }
+            </td>
+            <td style={{ ...C, textAlign: 'right', fontWeight: 600, color: Number(item.autoPercent) > 0 ? '#7c3aed' : '#1e3a5f' }}>
+                {fmt(effectiveAmount)}
+                {Number(item.autoPercent) > 0 && <span style={{ fontSize: 9, color: '#7c3aed', display: 'block', fontWeight: 400 }}>tự động</span>}
+            </td>
             <td style={{ ...C, textAlign: 'center', color: '#9ca3af' }}>—</td>
             <td style={{ ...C, textAlign: 'right' }}>{editCell(item.id, 'salePrice', item.salePrice)}</td>
             <td style={{ ...C, textAlign: 'center', padding: '2px 4px' }} className="no-print">
@@ -40,6 +48,16 @@ function SortableRow({ item, iIdx, C, fmtN: fmt, editCell, handleDelete }) {
                     <button onClick={() => handleDelete(item.id)} title="Xóa dòng"
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 11, lineHeight: 1, padding: '2px 4px' }}>🗑</button>
                 </div>
+            </td>
+            <td style={{ ...C, textAlign: 'center', padding: '2px 4px' }} className="no-print">
+                <button
+                    onClick={() => startEdit(item.id, 'autoPercent', item.autoPercent)}
+                    title={Number(item.autoPercent) > 0 ? `Đang tính tự động ${item.autoPercent}% — nhấn để sửa` : 'Đặt tính tự động theo %'}
+                    style={{ background: 'none', border: '1px solid', borderRadius: 4, cursor: 'pointer', fontSize: 10, lineHeight: 1, padding: '2px 5px',
+                        color: Number(item.autoPercent) > 0 ? '#7c3aed' : '#9ca3af',
+                        borderColor: Number(item.autoPercent) > 0 ? '#7c3aed' : '#e5e7eb' }}>
+                    {Number(item.autoPercent) > 0 ? `${item.autoPercent}%` : '%'}
+                </button>
             </td>
         </tr>
     );
@@ -165,7 +183,9 @@ export default function ProductionCostTable({ projectId }) {
         groups[key].items.push(item);
     });
     const sortedGroups = Object.values(groups).sort((a, b) => a.order - b.order);
-    const grandTotal = items.reduce((s, i) => s + (Number(i.productionAmount) || 0), 0);
+    const baseTotal = items.filter(i => !(Number(i.autoPercent) > 0)).reduce((s, i) => s + (Number(i.productionAmount) || 0), 0);
+    const getEffectiveAmount = (item) => Number(item.autoPercent) > 0 ? Number(item.autoPercent) / 100 * baseTotal : (Number(item.productionAmount) || 0);
+    const grandTotal = items.reduce((s, i) => s + getEffectiveAmount(i), 0);
 
     // ─── Parse Excel file ──────────────────────────────────────────────────
     const handleFile = async (e) => {
@@ -230,7 +250,7 @@ export default function ProductionCostTable({ projectId }) {
     };
 
     // ─── Inline edit ───────────────────────────────────────────────────────
-    const NUM_FIELDS = new Set(['quantity', 'unitPrice', 'salePrice', 'dimLength', 'dimWidth', 'dimHeight', 'dimTotal']);
+    const NUM_FIELDS = new Set(['quantity', 'unitPrice', 'salePrice', 'dimLength', 'dimWidth', 'dimHeight', 'dimTotal', 'autoPercent']);
 
     const startEdit = (id, field, val) => { setEditingCell({ id, field }); setEditValue(String(val ?? '')); };
     const saveEdit = async () => {
@@ -249,6 +269,10 @@ export default function ProductionCostTable({ projectId }) {
         if (field === 'quantity' || field === 'unitPrice') {
             updated.productionAmount = (field === 'quantity' ? newVal : item.quantity) * (field === 'unitPrice' ? newVal : item.unitPrice);
         }
+        if (field === 'autoPercent') {
+            const baseT = items.filter(i => !(Number(i.autoPercent) > 0)).reduce((s, i) => s + (Number(i.productionAmount) || 0), 0);
+            updated.productionAmount = newVal / 100 * baseT;
+        }
         setItems(prev => prev.map(i => i.id === id ? updated : i));
         fetch(`/api/production-costs/${id}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -256,7 +280,7 @@ export default function ProductionCostTable({ projectId }) {
         });
     };
 
-    const editCell = (id, field, value, isText = false) => {
+    const editCell = (id, field, value, isText = false, customDisplay = null) => {
         if (editingCell?.id === id && editingCell?.field === field) {
             return (
                 <input autoFocus type={isText ? 'text' : 'number'} value={editValue}
@@ -272,6 +296,14 @@ export default function ProductionCostTable({ projectId }) {
                 <span onClick={() => startEdit(id, field, value)} title="Nhấn để sửa"
                     style={{ cursor: 'pointer', display: 'block', textDecoration: 'underline dotted #bbb' }}>
                     {value || <span style={{ color: '#bbb', fontSize: 10 }}>—</span>}
+                </span>
+            );
+        }
+        if (customDisplay != null) {
+            return (
+                <span onClick={() => startEdit(id, field, value)} title="Nhấn để sửa %"
+                    style={{ cursor: 'pointer', display: 'block', textAlign: 'right', color: '#7c3aed', fontWeight: 700, textDecoration: 'underline dotted #7c3aed' }}>
+                    {customDisplay}
                 </span>
             );
         }
@@ -468,6 +500,7 @@ const handleMoveDown = (id) => handleMove(id, 'down');
                                 <th rowSpan={2} style={{ ...TH, width: 60 }}>Tỉ xuất %</th>
                                 <th rowSpan={2} style={{ ...TH, width: 90 }}>GIÁ BÁN</th>
                                 <th rowSpan={2} style={{ ...TH, width: 32 }} className="no-print" />
+                                <th rowSpan={2} style={{ ...TH, width: 32 }} className="no-print" />
                             </tr>
                             <tr>
                                 <th style={{ ...TH, width: 60 }}>Mã SP</th>
@@ -482,7 +515,7 @@ const handleMoveDown = (id) => handleMove(id, 'down');
     <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
     {sortedGroups.map((group, gIdx) => {
         const groupItems = group.items.slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-        const groupTotal = groupItems.reduce((s, i) => s + (Number(i.productionAmount) || 0), 0);
+        const groupTotal = groupItems.reduce((s, i) => s + getEffectiveAmount(i), 0);
         return (
             <Fragment key={`g_${group.order}_${group.name || gIdx}`}>
                 {group.name && (
@@ -495,11 +528,14 @@ const handleMoveDown = (id) => handleMove(id, 'down');
                         </td>
                         <td style={C} />
                         <td style={C} className="no-print" />
+                        <td style={C} className="no-print" />
                     </tr>
                 )}
                 {groupItems.map((item, iIdx) => (
                     <SortableRow key={item.id} item={item} iIdx={iIdx}
-                        C={C} fmtN={fmtN} editCell={editCell} handleDelete={handleDelete} />
+                        C={C} fmtN={fmtN} editCell={editCell} handleDelete={handleDelete}
+                        effectiveAmount={getEffectiveAmount(item)} startEdit={startEdit}
+                        isEditingAutoPercent={editingCell?.id === item.id && editingCell?.field === 'autoPercent'} />
                 ))}
             </Fragment>
         );
@@ -514,13 +550,14 @@ const handleMoveDown = (id) => handleMove(id, 'down');
             <td style={{ ...C, textAlign: 'center', color: '#fff', background: '#1e3a5f' }}>100%</td>
             <td style={{ ...C, background: '#1e3a5f' }} />
             <td style={{ ...C, background: '#1e3a5f' }} className="no-print" />
+            <td style={{ ...C, background: '#1e3a5f' }} className="no-print" />
         </tr>
     )}
     <tr onClick={handleAddRow} className="no-print"
         style={{ cursor: 'pointer', borderBottom: '1px dashed #d1d5db', background: '#f9fafb' }}
         onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
         onMouseLeave={e => e.currentTarget.style.background = '#f9fafb'}>
-        <td colSpan={15} style={{ ...C, border: '1px dashed #d1d5db', textAlign: 'center', color: '#2563eb', fontSize: 12, fontWeight: 600, padding: '6px' }}>
+        <td colSpan={16} style={{ ...C, border: '1px dashed #d1d5db', textAlign: 'center', color: '#2563eb', fontSize: 12, fontWeight: 600, padding: '6px' }}>
             ＋ Thêm dòng
         </td>
     </tr>

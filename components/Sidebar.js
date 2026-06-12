@@ -65,6 +65,8 @@ const menuItems = [
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH] },
             { href: '/finance/tong-hop', icon: BookMarked, label: 'Báo cáo tổng hợp 2 phòng',
               roles: [...BAN_GD, ...KE_TOAN] },
+            { href: '/cost-management', icon: Factory, label: 'Giá thành xưởng',
+              roles: [...BAN_GD, ...KE_TOAN, ...KY_THUAT] },
         ],
     },
     {
