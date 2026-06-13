@@ -11,6 +11,7 @@ import { useState } from 'react';
 const DEPT_VIEWS = [
     { key: 'ban_gd',         label: 'Ban GĐ',     icon: '👑' },
     { key: 'kinh_doanh',    label: 'Kinh doanh', icon: '💼' },
+    { key: 'marketing',     label: 'Marketing',  icon: '📣' },
     { key: 'xay_dung',      label: 'Xây dựng',   icon: '🏗️' },
     { key: 'hanh_chinh_kt', label: 'Hành chính', icon: '📊' },
     { key: 'xuong',         label: 'Xưởng',      icon: '🪚' },

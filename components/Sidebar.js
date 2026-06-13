@@ -16,7 +16,8 @@ import { useState } from 'react';
 const BAN_GD     = ['ban_gd', 'giam_doc', 'pho_gd'];           // Ban giám đốc (cả cũ lẫn mới)
 const KY_THUAT   = ['xay_dung', 'thiet_ke', 'xuong', 'ky_thuat']; // Kỹ thuật / xưởng
 const KE_TOAN    = ['hanh_chinh_kt', 'ke_toan'];                // Kế toán / hành chính
-const KINH_DOANH = ['kinh_doanh', 'marketing'];                 // Kinh doanh / marketing
+const KINH_DOANH = ['kinh_doanh'];                              // Kinh doanh
+const MARKETING  = ['marketing'];                               // Marketing (chỉ xem KH, Dự án, Tác vụ, Đề xuất)
 const VIEWER     = ['viewer'];                                   // Chỉ xem
 
 const menuItems = [
@@ -32,7 +33,7 @@ const menuItems = [
         section: 'Khách hàng & Bán hàng',
         items: [
             { href: '/customers', icon: Users, label: 'Khách hàng',
-              roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER, 'xay_dung', 'thiet_ke'] },
+              roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...MARKETING, ...VIEWER, 'xay_dung', 'thiet_ke'] },
             { href: '/quotations', icon: ClipboardList, label: 'Báo giá',
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER, 'xay_dung', 'thiet_ke'] },
             { href: '/contracts', icon: FileText, label: 'Hợp đồng',
@@ -43,8 +44,10 @@ const menuItems = [
         section: 'Dự án & Thi công',
         items: [
             { href: '/projects', icon: Building2, label: 'Dự án & Tiến độ' },
-            { href: '/work-orders', icon: Wrench, label: 'Phiếu công việc' },
-            { href: '/schedule-templates', icon: CalendarDays, label: 'Mẫu tiến độ' },
+            { href: '/work-orders', icon: Wrench, label: 'Phiếu công việc',
+              roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...KY_THUAT, ...VIEWER] },
+            { href: '/schedule-templates', icon: CalendarDays, label: 'Mẫu tiến độ',
+              roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...KY_THUAT, ...VIEWER] },
             { href: '/products', icon: Package, label: 'Sản phẩm & Vật tư',
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER, 'xay_dung', 'thiet_ke'] },
         ],
@@ -125,6 +128,7 @@ const menuItems = [
 const DEPT_VIEWS = [
     { key: 'ban_gd',        label: 'Ban GĐ',      icon: '👑' },
     { key: 'kinh_doanh',   label: 'Kinh doanh',  icon: '💼' },
+    { key: 'marketing',    label: 'Marketing',   icon: '📣' },
     { key: 'xay_dung',     label: 'Xây dựng',    icon: '🏗️' },
     { key: 'thiet_ke',     label: 'Thiết kế',    icon: '✏️' },
     { key: 'hanh_chinh_kt',label: 'Hành chính',  icon: '📊' },
