@@ -1531,6 +1531,7 @@ model ProductionPlanStep {
   stage       ProductionPlanStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
   name        String
   sortOrder   Int      @default(0)
+  startDate   DateTime?
   deadline    DateTime?
   completed   Boolean  @default(false)
   completedAt DateTime?

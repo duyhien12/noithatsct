@@ -65,6 +65,20 @@ export default function ProductionPlanPanel({ projectId }) {
         });
     }
 
+    async function setStartDate(step, value) {
+        setPlan(p => ({
+            ...p,
+            stages: p.stages.map(s => ({
+                ...s,
+                steps: s.steps.map(st => st.id === step.id ? { ...st, startDate: value || null } : st),
+            })),
+        }));
+        await fetch(`/api/production-plan/steps/${step.id}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ startDate: value || null }),
+        });
+    }
+
     async function addStep(stageId) {
         if (!newStepName.trim()) return;
         await fetch(`/api/production-plan/stages/${stageId}/steps`, {
@@ -158,17 +172,31 @@ export default function ProductionPlanPanel({ projectId }) {
                                             </div>
                                         )}
                                     </div>
-                                    <input
-                                        type="date"
-                                        value={fmtDateInput(step.deadline)}
-                                        onChange={e => setDeadline(step, e.target.value)}
-                                        style={{
-                                            padding: '5px 8px', borderRadius: 6, fontSize: 12,
-                                            border: `1px solid ${overdue ? '#dc2626' : '#e5e7eb'}`,
-                                            color: overdue ? '#dc2626' : '#374151',
-                                            background: overdue ? '#fef2f2' : 'white',
-                                        }}
-                                    />
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                        <input
+                                            type="date"
+                                            value={fmtDateInput(step.startDate)}
+                                            onChange={e => setStartDate(step, e.target.value)}
+                                            title="Ngày bắt đầu"
+                                            style={{
+                                                padding: '5px 8px', borderRadius: 6, fontSize: 12,
+                                                border: '1px solid #e5e7eb', color: '#374151', background: 'white',
+                                            }}
+                                        />
+                                        <span style={{ fontSize: 11, color: '#9ca3af' }}>→</span>
+                                        <input
+                                            type="date"
+                                            value={fmtDateInput(step.deadline)}
+                                            onChange={e => setDeadline(step, e.target.value)}
+                                            title="Ngày kết thúc"
+                                            style={{
+                                                padding: '5px 8px', borderRadius: 6, fontSize: 12,
+                                                border: `1px solid ${overdue ? '#dc2626' : '#e5e7eb'}`,
+                                                color: overdue ? '#dc2626' : '#374151',
+                                                background: overdue ? '#fef2f2' : 'white',
+                                            }}
+                                        />
+                                    </div>
                                     <button onClick={() => deleteStep(step.id)} style={{ padding: '3px 4px', border: 'none', background: 'transparent', color: '#d1d5db', cursor: 'pointer', flexShrink: 0 }}>
                                         <Trash2 size={13} />
                                     </button>

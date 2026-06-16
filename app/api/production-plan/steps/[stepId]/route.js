@@ -16,6 +16,9 @@ export const PATCH = withAuth(async (req, { params }, session) => {
     if (body.deadline !== undefined) {
         updateData.deadline = body.deadline ? new Date(body.deadline) : null;
     }
+    if (body.startDate !== undefined) {
+        updateData.startDate = body.startDate ? new Date(body.startDate) : null;
+    }
     if (body.notes !== undefined) updateData.notes = body.notes;
     if (body.name !== undefined) updateData.name = body.name;
 
