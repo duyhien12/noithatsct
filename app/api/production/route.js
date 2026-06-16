@@ -16,7 +16,39 @@ export const GET = withAuth(async (req) => {
         },
         orderBy: { createdAt: 'desc' }
     });
-    return NextResponse.json(orders);
+
+    const projectIds = orders.map(o => o.projectId);
+    const planSteps = projectIds.length > 0 ? await prisma.productionPlanStep.findMany({
+        where: {
+            completed: false,
+            deadline: { not: null },
+            stage: { plan: { projectId: { in: projectIds } } },
+        },
+        orderBy: { deadline: 'asc' },
+        select: {
+            name: true, deadline: true,
+            stage: { select: { plan: { select: { projectId: true } } } },
+        },
+    }) : [];
+
+    const nearestDeadlineByProject = {};
+    const now = new Date();
+    for (const step of planSteps) {
+        const projectId = step.stage.plan.projectId;
+        if (nearestDeadlineByProject[projectId]) continue;
+        nearestDeadlineByProject[projectId] = {
+            stepName: step.name,
+            deadline: step.deadline,
+            overdue: step.deadline < now,
+        };
+    }
+
+    const ordersWithDeadline = orders.map(o => ({
+        ...o,
+        nearestDeadline: nearestDeadlineByProject[o.projectId] || null,
+    }));
+
+    return NextResponse.json(ordersWithDeadline);
 });
 
 export const POST = withAuth(async (req, ctx, session) => {

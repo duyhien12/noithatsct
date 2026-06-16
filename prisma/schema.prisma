@@ -104,6 +104,7 @@ model Project {
   materialPlans   MaterialPlan[]
   productionCosts ProductionCostItem[]
   productionOrders ProductionOrder[]
+  productionPlan  ProductionPlan?
   purchaseOrders  PurchaseOrder[]
   requisitions    MaterialRequisition[]
   expenses        ProjectExpense[]
@@ -1502,6 +1503,42 @@ model ProductionItem {
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
   @@index([roomId])
+}
+
+model ProductionPlan {
+  id        String   @id @default(cuid())
+  projectId String   @unique
+  project   Project  @relation(fields: [projectId], references: [id])
+  stages    ProductionPlanStage[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProductionPlanStage {
+  id        String   @id @default(cuid())
+  planId    String
+  plan      ProductionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  key       String
+  name      String
+  sortOrder Int      @default(0)
+  steps     ProductionPlanStep[]
+  @@index([planId])
+}
+
+model ProductionPlanStep {
+  id          String   @id @default(cuid())
+  stageId     String
+  stage       ProductionPlanStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  name        String
+  sortOrder   Int      @default(0)
+  deadline    DateTime?
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+  completedBy String   @default("")
+  notes       String   @default("") @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([stageId])
 }
 
 // ============ BẢO DƯỠNG & HẬU MÃI ============

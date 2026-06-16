@@ -3,8 +3,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
     Factory, ArrowLeft, Plus, Trash2, ChevronDown,
-    BarChart2, Filter, X, Edit3, Check, Circle, ChevronUp
+    BarChart2, Filter, X, Edit3, Check, Circle, ChevronUp, ListChecks, GitBranch
 } from 'lucide-react';
+import ProductionPlanPanel from './ProductionPlanPanel';
 
 // ── helpers ────────────────────────────────────────────────────
 function getStatus(item) {
@@ -161,6 +162,7 @@ export default function ProductionDetailPage() {
     const [newRoomName, setNewRoomName]   = useState('');
     const [addingItemRoom, setAddingItemRoom]   = useState(null);
     const [newItemName, setNewItemName]   = useState('');
+    const [tab, setTab] = useState('checklist');
 
     useEffect(() => {
         const check = () => setIsMobile(window.innerWidth < 680);
@@ -324,6 +326,30 @@ export default function ProductionDetailPage() {
                     <span style={{ fontSize: 11, color: '#6b7280' }}>{totalDone}/{total}</span>
                 </div>
             </div>
+
+            {/* ── Tab switcher ── */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+                <button onClick={() => setTab('checklist')} style={{
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                    fontSize: 13, fontWeight: 600,
+                    background: tab === 'checklist' ? '#2563eb' : '#f3f4f6',
+                    color: tab === 'checklist' ? 'white' : '#6b7280',
+                }}>
+                    <ListChecks size={14} /> Checklist sản phẩm
+                </button>
+                <button onClick={() => setTab('plan')} style={{
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                    fontSize: 13, fontWeight: 600,
+                    background: tab === 'plan' ? '#2563eb' : '#f3f4f6',
+                    color: tab === 'plan' ? 'white' : '#6b7280',
+                }}>
+                    <GitBranch size={14} /> Kế hoạch BC sản xuất
+                </button>
+            </div>
+
+            {tab === 'plan' && <ProductionPlanPanel projectId={order.project.id} />}
+
+            {tab === 'checklist' && <>
 
             {/* ── Stats collapsible ── */}
             <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 10, marginBottom: 12, overflow: 'hidden' }}>
@@ -576,6 +602,7 @@ export default function ProductionDetailPage() {
                     </>
                 )}
             </div>
+            </>}
         </div>
     );
 }

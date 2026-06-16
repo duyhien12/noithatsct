@@ -182,7 +182,7 @@ export default function WorkshopDashboard() {
 
     const { kpi = {}, chartData, recentTasks, projectsInProgress, lowStockProducts, plSummary,
             stagePipeline = [], idleWorkers = [], inventoryForecast = [], equipmentAlerts = [],
-            deliveryRisks = [], machineStatus = [], overdueWorkOrders = [] } = data;
+            deliveryRisks = [], machineStatus = [], overdueWorkOrders = [], planDeadlines = [] } = data;
 
     if (!kpi || data.error) return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400, color: 'var(--text-muted)' }}>
@@ -347,6 +347,40 @@ export default function WorkshopDashboard() {
                                 </div>
                             );
                         })}
+                    </div>
+                </div>
+            )}
+
+            {/* Production Plan Deadlines Panel */}
+            {planDeadlines.length > 0 && (
+                <div className="card" style={{ padding: '14px 20px', borderLeft: '4px solid #d97706' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#b45309' }}>📅 Deadline kế hoạch sản xuất ({planDeadlines.length})</h3>
+                        <Link href="/production?tab=plan" style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>Xem tất cả →</Link>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {planDeadlines.map(d => (
+                            <div key={d.stepId}
+                                onClick={() => d.orderId && router.push(`/production/${d.orderId}`)}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8,
+                                    background: d.overdue ? '#fef2f2' : '#fffbeb',
+                                    border: `1px solid ${d.overdue ? '#fca5a5' : '#fde68a'}`,
+                                    cursor: d.orderId ? 'pointer' : 'default',
+                                }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {d.stepName}
+                                    </div>
+                                    <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>
+                                        {d.projectName} · {d.stageName}
+                                    </div>
+                                </div>
+                                <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: d.overdue ? '#dc2626' : '#b45309' }}>
+                                    {d.overdue ? 'Quá hạn' : fmtDate(d.deadline)}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}

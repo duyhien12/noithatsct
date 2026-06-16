@@ -19,6 +19,7 @@ export const GET = withAuth(async () => {
     });
 
     const deadline14d = new Date(now.getTime() + 14 * 86400000);
+    const deadline7d  = new Date(now.getTime() + 7 * 86400000);
 
     const [
         activeWorkersCount,
@@ -39,6 +40,7 @@ export const GET = withAuth(async () => {
         machineStatusRaw,
         stageAvgAge,
         overdueWorkOrdersRaw,
+        planDeadlineStepsRaw,
     ] = await Promise.all([
         prisma.workshopWorker.count({ where: { status: 'Hoạt động' } }),
 
@@ -158,6 +160,31 @@ export const GET = withAuth(async () => {
             take: 5,
             select: { id: true, code: true, title: true, dueDate: true, assignee: true, priority: true, status: true, project: { select: { name: true, code: true } } },
         }),
+
+        // Production plan steps with upcoming/overdue deadlines
+        prisma.productionPlanStep.findMany({
+            where: { completed: false, deadline: { not: null, lte: deadline7d } },
+            orderBy: { deadline: 'asc' },
+            take: 8,
+            select: {
+                id: true, name: true, deadline: true,
+                stage: {
+                    select: {
+                        name: true,
+                        plan: {
+                            select: {
+                                project: {
+                                    select: {
+                                        id: true, code: true, name: true,
+                                        productionOrders: { select: { id: true }, take: 1 },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        }),
     ]);
 
     // Idle workers: active workers with no 'Đang làm' task assigned
@@ -238,6 +265,21 @@ export const GET = withAuth(async () => {
         .sort((a, b) => b.shortage - a.shortage)
         .slice(0, 8);
 
+    const planDeadlines = planDeadlineStepsRaw.map(s => {
+        const project = s.stage.plan.project;
+        return {
+            stepId: s.id,
+            stepName: s.name,
+            stageName: s.stage.name,
+            deadline: s.deadline,
+            overdue: s.deadline < now,
+            projectId: project.id,
+            projectCode: project.code,
+            projectName: project.name,
+            orderId: project.productionOrders[0]?.id || null,
+        };
+    });
+
     return Response.json({
         kpi: {
             activeWorkers: activeWorkersCount,
@@ -273,5 +315,6 @@ export const GET = withAuth(async () => {
         deliveryRisks: deliveryRisksRaw,
         machineStatus,
         overdueWorkOrders: overdueWorkOrdersRaw,
+        planDeadlines,
     });
 });
