@@ -140,7 +140,7 @@ export default function CostDashboard() {
                         </thead>
                         <tbody>
                             {projects.length === 0 && (
-                                <tr><td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>Chưa có công trình nào. Nhấn "Công trình mới" để bắt đầu.</td></tr>
+                                <tr><td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>Chưa có công trình nào. Nhấn &quot;Công trình mới&quot; để bắt đầu.</td></tr>
                             )}
                             {projects.map(p => {
                                 const isGood = p.profitPct >= target;

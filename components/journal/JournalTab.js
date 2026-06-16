@@ -198,7 +198,7 @@ export default function JournalTab({ projectId }) {
                     {entries.length === 0 && (
                         <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
                             <div style={{ fontSize: 40, marginBottom: 8 }}>📝</div>
-                            <div>Chưa có nhật ký — bấm "Ghi nhật ký" để bắt đầu</div>
+                            <div>Chưa có nhật ký — bấm &quot;Ghi nhật ký&quot; để bắt đầu</div>
                         </div>
                     )}
                     {entries.map(entry => (

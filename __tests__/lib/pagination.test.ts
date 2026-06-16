@@ -20,10 +20,10 @@ describe('parsePagination', () => {
         expect(result.page).toBe(1);
     });
 
-    it('enforces max limit 100', () => {
-        const params = new URLSearchParams('limit=500');
+    it('enforces max limit 500', () => {
+        const params = new URLSearchParams('limit=1000');
         const result = parsePagination(params);
-        expect(result.limit).toBe(100);
+        expect(result.limit).toBe(500);
     });
 });
 

@@ -85,7 +85,7 @@ export default function MachinesPage() {
                             )}
                             {!loading && machines.length === 0 && (
                                 <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>
-                                    Chưa có máy móc nào. Vào <strong>Tài sản cố định</strong> → thêm tài sản loại "Máy móc - Thiết bị".
+                                    Chưa có máy móc nào. Vào <strong>Tài sản cố định</strong> → thêm tài sản loại &quot;Máy móc - Thiết bị&quot;.
                                 </td></tr>
                             )}
                             {machines.map(m => {

@@ -951,7 +951,7 @@ export default function InventoryPage() {
                                                     onMouseEnter={e => e.currentTarget.style.background = '#fef3c7'}
                                                     onMouseLeave={e => e.currentTarget.style.background = '#fffbeb'}>
                                                     <span style={{ fontSize: 16 }}>➕</span>
-                                                    <span>Dùng tên: <strong>"{productSearch.trim()}"</strong></span>
+                                                    <span>Dùng tên: <strong>&quot;{productSearch.trim()}&quot;</strong></span>
                                                     <span style={{ marginLeft: 'auto', fontSize: 11, color: '#92400e', background: '#fde68a', borderRadius: 4, padding: '1px 6px' }}>Sản phẩm mới</span>
                                                 </div>
                                             )}
