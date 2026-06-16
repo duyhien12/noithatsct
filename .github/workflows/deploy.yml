@@ -62,7 +62,8 @@ jobs:
         run: |
           echo "==> Disk usage before cleanup:"
           df -h /
-          docker system prune -af --volumes --filter "until=24h"
+          docker system prune -af --filter "until=24h"
+          docker volume prune -af
           npm cache clean --force
           echo "==> Disk usage after cleanup:"
           df -h /
