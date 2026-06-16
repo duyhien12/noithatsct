@@ -58,6 +58,15 @@ jobs:
           DATABASE_URL="$DB_URL" npx prisma migrate resolve --applied 20260217185441_enhance_all || true
           DATABASE_URL="$DB_URL" npx prisma migrate deploy
 
+      - name: Free up disk space
+        run: |
+          echo "==> Disk usage before cleanup:"
+          df -h /
+          docker system prune -af --volumes --filter "until=24h"
+          npm cache clean --force
+          echo "==> Disk usage after cleanup:"
+          df -h /
+
       - name: Build and deploy app
         run: |
           docker compose -p noithatsct -f docker-compose.prod.yml build app
