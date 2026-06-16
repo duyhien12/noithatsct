@@ -1,8 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Factory, Plus, Trash2, ChevronRight, Search, X, ListChecks, GitBranch } from 'lucide-react';
-import { PRODUCTION_PLAN_TEMPLATE } from '@/lib/productionPlanTemplate';
+import { useRouter } from 'next/navigation';
+import { Factory, Plus, Trash2, ChevronRight, Search, X } from 'lucide-react';
 
 function getItemStatus(item) {
     if (item.stepSiteInstall) return 'Hoàn thành';
@@ -35,26 +34,6 @@ const STATUS_STYLE = {
 };
 
 const STATUS_FILTERS = ['Chưa làm', 'Đang sản xuất', 'Sẵn sàng vận chuyển', 'Hoàn thành'];
-
-const STAGE_OPTIONS = PRODUCTION_PLAN_TEMPLATE.map(s => ({ key: s.key, name: s.name }));
-
-const PLAN_STATUS_OPTIONS = [
-    { value: 'pending',   label: 'Chưa làm' },
-    { value: 'overdue',   label: 'Quá hạn' },
-    { value: 'completed', label: 'Hoàn thành' },
-];
-
-function planRowStatus(row) {
-    if (row.completed) return 'completed';
-    if (row.overdue) return 'overdue';
-    return 'pending';
-}
-
-const PLAN_STATUS_STYLE = {
-    pending:   { color: '#6b7280', bg: '#f3f4f6', label: 'Chưa làm' },
-    overdue:   { color: '#dc2626', bg: '#fee2e2', label: 'Quá hạn' },
-    completed: { color: '#16a34a', bg: '#dcfce7', label: 'Hoàn thành' },
-};
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 
@@ -198,130 +177,8 @@ function OrdersTable({ orders, router, handleDelete }) {
     );
 }
 
-function PlanTable({ router }) {
-    const [rows, setRows] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [stageFilter, setStageFilter] = useState('');
-    const [statusFilter, setStatusFilter] = useState('');
-
-    useEffect(() => {
-        (async () => {
-            setLoading(true);
-            const res = await fetch('/api/production-plan');
-            const data = await res.json();
-            setRows(Array.isArray(data) ? data : []);
-            setLoading(false);
-        })();
-    }, []);
-
-    const filtered = useMemo(() => {
-        return rows.filter(r => {
-            if (search) {
-                const q = search.trim().toLowerCase();
-                const hay = `${r.projectCode} ${r.projectName}`.toLowerCase();
-                if (!hay.includes(q)) return false;
-            }
-            if (stageFilter && r.stageKey !== stageFilter) return false;
-            if (statusFilter && planRowStatus(r) !== statusFilter) return false;
-            return true;
-        });
-    }, [rows, search, stageFilter, statusFilter]);
-
-    const hasFilter = search || stageFilter || statusFilter;
-
-    if (loading) return (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca3af', fontSize: 13 }}>Đang tải...</div>
-    );
-
-    return (
-        <>
-            {/* Filters */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
-                <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
-                    <Search size={14} color="#9ca3af" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
-                    <input
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        placeholder="Tìm theo mã hoặc tên nhà..."
-                        style={{ width: '100%', padding: '8px 10px 8px 32px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13 }}
-                    />
-                </div>
-                <select
-                    value={stageFilter}
-                    onChange={e => setStageFilter(e.target.value)}
-                    style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, background: 'white' }}
-                >
-                    <option value="">Tất cả giai đoạn</option>
-                    {STAGE_OPTIONS.map(s => <option key={s.key} value={s.key}>{s.name}</option>)}
-                </select>
-                <select
-                    value={statusFilter}
-                    onChange={e => setStatusFilter(e.target.value)}
-                    style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13, background: 'white' }}
-                >
-                    <option value="">Tất cả trạng thái</option>
-                    {PLAN_STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-                {hasFilter && (
-                    <button onClick={() => { setSearch(''); setStageFilter(''); setStatusFilter(''); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '8px 12px', borderRadius: 8, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 13, cursor: 'pointer' }}>
-                        <X size={13} /> Xoá lọc
-                    </button>
-                )}
-            </div>
-
-            {/* Table */}
-            <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-                <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                        <thead>
-                            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e5e7eb' }}>
-                                <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Mã</th>
-                                <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, color: '#374151', minWidth: 160 }}>Tên nhà</th>
-                                <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Giai đoạn</th>
-                                <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, color: '#374151', minWidth: 180 }}>Bước</th>
-                                <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Deadline</th>
-                                <th style={{ padding: '11px 14px', textAlign: 'center', fontWeight: 600, color: '#374151' }}>Trạng thái</th>
-                                <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Hoàn thành bởi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filtered.length === 0 && (
-                                <tr><td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>Không có dữ liệu phù hợp.</td></tr>
-                            )}
-                            {filtered.map(row => {
-                                const st = planRowStatus(row);
-                                return (
-                                    <tr key={row.id} style={{ borderBottom: '1px solid #f3f4f6', cursor: row.orderId ? 'pointer' : 'default' }}
-                                        onClick={() => row.orderId && router.push(`/production/${row.orderId}`)}
-                                        onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
-                                        onMouseLeave={e => e.currentTarget.style.background = 'white'}>
-                                        <td style={{ padding: '10px 14px', color: '#6b7280', fontWeight: 500, whiteSpace: 'nowrap' }}>{row.projectCode}</td>
-                                        <td style={{ padding: '10px 14px', color: '#111827', fontWeight: 600 }}>{row.projectName}</td>
-                                        <td style={{ padding: '10px 14px', color: '#374151' }}>{row.stageName}</td>
-                                        <td style={{ padding: '10px 14px', color: row.completed ? '#9ca3af' : '#111827', textDecoration: row.completed ? 'line-through' : 'none' }}>{row.name}</td>
-                                        <td style={{ padding: '10px 14px', color: st === 'overdue' ? '#dc2626' : '#374151', fontWeight: st === 'overdue' ? 700 : 400 }}>{fmtDate(row.deadline)}</td>
-                                        <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                                            <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 20, fontWeight: 600, whiteSpace: 'nowrap', background: PLAN_STATUS_STYLE[st].bg, color: PLAN_STATUS_STYLE[st].color }}>
-                                                {PLAN_STATUS_STYLE[st].label}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: '10px 14px', color: '#6b7280' }}>{row.completedBy || '—'}</td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </>
-    );
-}
-
 export default function ProductionListPage() {
     const router = useRouter();
-    const searchParams = useSearchParams();
     const [orders, setOrders] = useState([]);
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -329,7 +186,6 @@ export default function ProductionListPage() {
     const [creating, setCreating] = useState(false);
     const [showNewForm, setShowNewForm] = useState(false);
     const [selectedProjectId, setSelectedProjectId] = useState('');
-    const [tab, setTab] = useState(searchParams.get('tab') === 'plan' ? 'plan' : 'orders');
 
     const fetchAll = useCallback(async () => {
         setLoading(true);
@@ -451,28 +307,7 @@ export default function ProductionListPage() {
                 </div>
             )}
 
-            {/* Tab switcher */}
-            <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-                <button onClick={() => setTab('orders')} style={{
-                    display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                    fontSize: 13, fontWeight: 600,
-                    background: tab === 'orders' ? '#2563eb' : '#f3f4f6',
-                    color: tab === 'orders' ? 'white' : '#6b7280',
-                }}>
-                    <ListChecks size={14} /> Quản lý sản xuất
-                </button>
-                <button onClick={() => setTab('plan')} style={{
-                    display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                    fontSize: 13, fontWeight: 600,
-                    background: tab === 'plan' ? '#2563eb' : '#f3f4f6',
-                    color: tab === 'plan' ? 'white' : '#6b7280',
-                }}>
-                    <GitBranch size={14} /> Kế hoạch BC sản xuất
-                </button>
-            </div>
-
-            {tab === 'orders' && <OrdersTable orders={orders} router={router} handleDelete={handleDelete} />}
-            {tab === 'plan' && <PlanTable router={router} />}
+            <OrdersTable orders={orders} router={router} handleDelete={handleDelete} />
         </div>
     );
 }

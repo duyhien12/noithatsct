@@ -42,5 +42,7 @@ export const GET = withAuth(async (req, { params }) => {
         });
     }
 
-    return NextResponse.json(plan);
+    const order = await prisma.productionOrder.findFirst({ where: { projectId }, select: { id: true } });
+
+    return NextResponse.json({ ...plan, orderId: order?.id || null });
 });
