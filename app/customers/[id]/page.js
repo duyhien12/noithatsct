@@ -55,6 +55,19 @@ const STATUS_OPTIONS = [
     { key: 'done',        label: 'Hoàn thành',     color: '#10b981', bg: '#d1fae5' },
 ];
 
+const CARE_PLAN_ITEMS = [
+    { id: 'cp1', wbs: '1',   name: 'Tiếp nhận thông tin',                              level: 0, duration: 3,  color: '#3b82f6' },
+    { id: 'cp2', wbs: '1.1', name: 'Tiếp nhận & xin thông tin 3D và kỹ thuật nhà',    level: 1, duration: 3,  color: '', parentId: 'cp1' },
+    { id: 'cp3', wbs: '2',   name: 'Báo giá',                                          level: 0, duration: 7,  color: '#8b5cf6', predecessorId: 'cp1' },
+    { id: 'cp4', wbs: '2.1', name: 'Lấy thông tin làm báo giá',                       level: 1, duration: 2,  color: '', parentId: 'cp3' },
+    { id: 'cp5', wbs: '2.2', name: 'Check giá đơn vị đối tác',                        level: 1, duration: 2,  color: '', predecessorId: 'cp4', parentId: 'cp3' },
+    { id: 'cp6', wbs: '2.3', name: 'Tính giá thành',                                  level: 1, duration: 3,  color: '', predecessorId: 'cp5', parentId: 'cp3' },
+    { id: 'cp7', wbs: '3',   name: 'Hẹn lịch làm việc khách hàng',                   level: 0, duration: 7,  color: '#10b981', predecessorId: 'cp3' },
+    { id: 'cp8', wbs: '3.1', name: 'Kiểm soát 3D nếu của mình thiết kế',             level: 1, duration: 2,  color: '', parentId: 'cp7' },
+    { id: 'cp9', wbs: '3.2', name: 'Lên lịch hẹn các bộ phận liên quan',             level: 1, duration: 2,  color: '', predecessorId: 'cp8', parentId: 'cp7' },
+    { id: 'cp10', wbs: '3.3', name: 'Chuẩn bị vật liệu theo 3D để tư vấn',          level: 1, duration: 3,  color: '', predecessorId: 'cp9', parentId: 'cp7' },
+];
+
 function defaultProcess() {
     return Object.fromEntries(PROCESS_STEP_DEFS.map(s => [s.key, { status: 'pending', date: '', notes: '', person: '' }]));
 }
@@ -100,6 +113,9 @@ export default function CustomerDetailPage() {
     const [scheduleSDate, setScheduleSDate] = useState(() => new Date().toISOString().split('T')[0]);
     const [tplPreview, setTplPreview] = useState(null);
     const [loadingTpl, setLoadingTpl] = useState(false);
+    const [showCarePlanModal, setShowCarePlanModal] = useState(false);
+    const [carePlanStartDate, setCarePlanStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [scheduleView, setScheduleView] = useState('both');
 
     // Comments
     const [comments, setComments] = useState([]);
@@ -288,6 +304,35 @@ export default function CustomerDetailPage() {
 
     const removeSchedule = () => {
         setProcessForm(prev => { const { _schedule, ...rest } = prev; return rest; });
+    };
+
+    const applyCarePlan = () => {
+        const items = calculateScheduleDates(CARE_PLAN_ITEMS, carePlanStartDate);
+        setProcessForm(prev => ({
+            ...prev,
+            _schedule: { templateName: 'Kế hoạch chăm sóc khách ưu tiên', startDate: carePlanStartDate, items },
+        }));
+        setShowCarePlanModal(false);
+    };
+
+    const addScheduleRow = (level = 1) => {
+        const items = processForm._schedule?.items || [];
+        const last = items[items.length - 1];
+        const startDate = last?.endDate || new Date().toISOString().split('T')[0];
+        const newItem = { id: `row_${Date.now()}`, wbs: '', name: 'Hạng mục mới', level, duration: 1, color: level === 0 ? '#6b7280' : '', startDate, endDate: startDate, status: 'pending', notes: '' };
+        setProcessForm(prev => ({
+            ...prev,
+            _schedule: { ...prev._schedule, items: [...prev._schedule.items, newItem] },
+        }));
+        setExpandedScheduleIdx(items.length);
+    };
+
+    const deleteScheduleRow = (idx) => {
+        setProcessForm(prev => ({
+            ...prev,
+            _schedule: { ...prev._schedule, items: prev._schedule.items.filter((_, i) => i !== idx) },
+        }));
+        if (expandedScheduleIdx === idx) setExpandedScheduleIdx(null);
     };
 
     const updateScheduleStatus = (idx, status) => {
@@ -653,6 +698,7 @@ export default function CustomerDetailPage() {
                     <div className="card-header" style={{ flexWrap: 'wrap', gap: 8 }}>
                         <span className="card-title">🔄 Quy trình bán hàng</span>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => setShowCarePlanModal(true)}>⭐ KH chăm sóc ưu tiên</button>
                             <button className="btn btn-secondary btn-sm" onClick={openTemplateModal}>📅 Nhập từ mẫu tiến độ</button>
                             <button className="btn btn-primary btn-sm" onClick={saveProcess} disabled={savingProcess}>
                                 {savingProcess ? 'Đang lưu...' : '💾 Lưu quy trình'}
@@ -705,21 +751,31 @@ export default function CustomerDetailPage() {
                                     <div style={{ flex: 1, minWidth: 80, height: 6, background: 'var(--border-light)', borderRadius: 3, overflow: 'hidden' }}>
                                         <div style={{ height: '100%', width: `${pctDone}%`, background: pctDone === 100 ? '#10b981' : '#f59e0b', borderRadius: 3, transition: 'width .3s' }} />
                                     </div>
+                                    {/* View toggle */}
+                                    <div style={{ display: 'flex', gap: 2, background: 'var(--bg-primary)', borderRadius: 8, padding: 2, border: '1px solid var(--border-light)' }}>
+                                        {[['both', '⊞ Cả hai'], ['table', '☰ Cột'], ['gantt', '▬ Gantt']].map(([v, l]) => (
+                                            <button key={v} onClick={() => setScheduleView(v)}
+                                                style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, border: 'none', cursor: 'pointer', background: scheduleView === v ? 'var(--primary)' : 'transparent', color: scheduleView === v ? '#fff' : 'var(--text-muted)', fontWeight: scheduleView === v ? 700 : 400, transition: 'all .15s' }}>
+                                                {l}
+                                            </button>
+                                        ))}
+                                    </div>
                                     <button className="btn btn-ghost btn-sm" onClick={removeSchedule} style={{ color: 'var(--status-danger)', fontSize: 11 }}>🗑️ Xóa lịch</button>
                                 </div>
 
                                 {/* Table */}
-                                <div style={{ overflowX: 'auto' }}>
+                                {(scheduleView === 'table' || scheduleView === 'both') && <div style={{ overflowX: 'auto' }}>
                                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                                         <thead>
                                             <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-light)' }}>
                                                 <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, width: 36 }}>✓</th>
                                                 <th style={{ padding: '8px 4px', textAlign: 'left', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, width: 40 }}>WBS</th>
-                                                <th style={{ padding: '8px 8px', textAlign: 'left', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Hạng mục</th>
+                                                <th style={{ padding: '8px 8px', textAlign: 'left', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, minWidth: 160 }}>Hạng mục</th>
+                                                <th style={{ padding: '8px 8px', textAlign: 'left', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, minWidth: 160 }}>Ghi chú</th>
                                                 <th style={{ padding: '8px 8px', textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>Bắt đầu</th>
                                                 <th style={{ padding: '8px 8px', textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>Kết thúc</th>
                                                 <th style={{ padding: '8px 8px', textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, width: 52 }}>Ngày</th>
-                                                <th style={{ padding: '8px 8px', textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, width: 40 }}></th>
+                                                <th style={{ padding: '8px 8px', textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, width: 60 }}></th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -747,8 +803,18 @@ export default function CustomerDetailPage() {
                                                                         {item.name}
                                                                     </span>
                                                                     {isLate && <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 700, flexShrink: 0 }}>⚠️ Trễ</span>}
-                                                                    {item.notes && !isExp && <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>💬</span>}
                                                                 </div>
+                                                            </td>
+                                                            {/* Notes inline */}
+                                                            <td style={{ padding: '6px 8px', verticalAlign: 'middle' }}>
+                                                                <input
+                                                                    value={item.notes || ''}
+                                                                    onChange={e => updateScheduleItem(idx, 'notes', e.target.value)}
+                                                                    placeholder="Ghi chú..."
+                                                                    style={{ width: '100%', minWidth: 140, fontSize: 12, padding: '4px 8px', border: '1px solid var(--border-light)', borderRadius: 6, background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
+                                                                    onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+                                                                    onBlur={e => e.target.style.borderColor = 'var(--border-light)'}
+                                                                />
                                                             </td>
                                                             {/* Start date */}
                                                             <td style={{ padding: '9px 8px', textAlign: 'center', fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
@@ -760,18 +826,26 @@ export default function CustomerDetailPage() {
                                                             </td>
                                                             {/* Duration */}
                                                             <td style={{ padding: '9px 8px', textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', verticalAlign: 'middle' }}>{item.duration}d</td>
-                                                            {/* Edit toggle */}
-                                                            <td style={{ padding: '9px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
-                                                                <button onClick={() => setExpandedScheduleIdx(isExp ? null : idx)}
-                                                                    style={{ background: isExp ? 'var(--primary)' : 'var(--bg-secondary)', border: '1px solid var(--border-light)', borderRadius: 6, cursor: 'pointer', padding: '3px 7px', fontSize: 11, color: isExp ? '#fff' : 'var(--text-muted)' }}>
-                                                                    {isExp ? '▲' : '✏️'}
-                                                                </button>
+                                                            {/* Actions */}
+                                                            <td style={{ padding: '9px 6px', textAlign: 'center', verticalAlign: 'middle' }}>
+                                                                <div style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
+                                                                    <button onClick={() => setExpandedScheduleIdx(isExp ? null : idx)}
+                                                                        title="Sửa ngày & tên"
+                                                                        style={{ background: isExp ? 'var(--primary)' : 'var(--bg-secondary)', border: '1px solid var(--border-light)', borderRadius: 6, cursor: 'pointer', padding: '3px 7px', fontSize: 11, color: isExp ? '#fff' : 'var(--text-muted)' }}>
+                                                                        {isExp ? '▲' : '✏️'}
+                                                                    </button>
+                                                                    <button onClick={() => deleteScheduleRow(idx)}
+                                                                        title="Xóa dòng"
+                                                                        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-light)', borderRadius: 6, cursor: 'pointer', padding: '3px 7px', fontSize: 11, color: '#ef4444' }}>
+                                                                        ×
+                                                                    </button>
+                                                                </div>
                                                             </td>
                                                         </tr>
                                                         {/* Expanded edit row */}
                                                         {isExp && (
                                                             <tr>
-                                                                <td colSpan={7} style={{ padding: '12px 16px', background: '#f0f9ff', borderBottom: '1px solid var(--border-light)' }}>
+                                                                <td colSpan={8} style={{ padding: '12px 16px', background: '#f0f9ff', borderBottom: '1px solid var(--border-light)' }}>
                                                                     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
                                                                         <div style={{ flex: 2, minWidth: 160 }}>
                                                                             <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 3 }}>TÊN HẠNG MỤC</label>
@@ -802,12 +876,26 @@ export default function CustomerDetailPage() {
                                                     </Fragment>
                                                 );
                                             })}
+                                            <tr>
+                                                <td colSpan={8} style={{ padding: '8px 12px', borderTop: '1px dashed var(--border-light)' }}>
+                                                    <div style={{ display: 'flex', gap: 6 }}>
+                                                        <button onClick={() => addScheduleRow(1)}
+                                                            style={{ fontSize: 12, padding: '4px 12px', borderRadius: 6, border: '1px dashed var(--border-light)', background: 'transparent', cursor: 'pointer', color: 'var(--primary)', fontWeight: 600 }}>
+                                                            + Thêm dòng
+                                                        </button>
+                                                        <button onClick={() => addScheduleRow(0)}
+                                                            style={{ fontSize: 12, padding: '4px 12px', borderRadius: 6, border: '1px dashed var(--border-light)', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                                                            + Thêm nhóm
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
                                         </tbody>
                                     </table>
-                                </div>
+                                </div>}
 
                                 {/* Gantt chart */}
-                                <div style={{ padding: '16px', borderTop: '2px solid var(--border-light)', overflowX: 'auto' }}>
+                                {(scheduleView === 'gantt' || scheduleView === 'both') && <div style={{ padding: '16px', borderTop: '2px solid var(--border-light)', overflowX: 'auto' }}>
                                     <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, letterSpacing: 1 }}>BIỂU ĐỒ TIẾN ĐỘ</div>
                                     {/* Month header */}
                                     <div style={{ display: 'flex', marginBottom: 6, paddingLeft: 130 }}>
@@ -857,7 +945,7 @@ export default function CustomerDetailPage() {
                                         <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 6, background: '#3b82f6', borderRadius: 2, display: 'inline-block' }}/>Chưa bắt đầu</span>
                                         <span style={{ fontSize: 10, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 2, height: 10, background: '#ef4444', opacity: 0.5, display: 'inline-block' }}/>Hôm nay</span>
                                     </div>
-                                </div>
+                                </div>}
                             </div>
                         );
                     })()}
@@ -1029,6 +1117,52 @@ export default function CustomerDetailPage() {
                             </div>
                         </div>
                         <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setShowLogModal(false)}>Hủy</button><button className="btn btn-primary" onClick={addTrackingLog}>Lưu</button></div>
+                    </div>
+                </div>
+            )}
+
+            {/* Care Plan Modal */}
+            {showCarePlanModal && (
+                <div className="modal-overlay" onClick={() => setShowCarePlanModal(false)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="modal-header">
+                            <h3>⭐ Kế hoạch chăm sóc khách ưu tiên</h3>
+                            <button className="modal-close" onClick={() => setShowCarePlanModal(false)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14 }}>
+                                Tạo kế hoạch gồm 3 giai đoạn: Tiếp nhận thông tin → Báo giá → Hẹn lịch tư vấn.
+                            </p>
+                            <div className="form-group">
+                                <label className="form-label">Ngày bắt đầu</label>
+                                <input className="form-input" type="date" value={carePlanStartDate}
+                                    onChange={e => setCarePlanStartDate(e.target.value)} />
+                            </div>
+                            <div style={{ marginTop: 12, border: '1px solid var(--border-light)', borderRadius: 8, overflow: 'hidden' }}>
+                                {CARE_PLAN_ITEMS.map(item => (
+                                    <div key={item.id} style={{
+                                        padding: '7px 12px',
+                                        paddingLeft: item.level === 0 ? 12 : 28,
+                                        borderBottom: '1px solid var(--border-light)',
+                                        background: item.level === 0 ? 'var(--bg-secondary)' : 'transparent',
+                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8,
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            {item.level === 0 && <span style={{ width: 8, height: 8, borderRadius: 2, background: item.color, flexShrink: 0 }} />}
+                                            <span style={{ fontSize: 12, fontWeight: item.level === 0 ? 700 : 400 }}>
+                                                <span style={{ color: 'var(--text-muted)', fontFamily: 'monospace', fontSize: 10, marginRight: 5 }}>{item.wbs}</span>
+                                                {item.name}
+                                            </span>
+                                        </div>
+                                        <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{item.duration}d</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setShowCarePlanModal(false)}>Hủy</button>
+                            <button className="btn btn-primary" onClick={applyCarePlan}>⭐ Áp dụng kế hoạch</button>
+                        </div>
                     </div>
                 </div>
             )}
