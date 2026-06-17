@@ -755,8 +755,23 @@ export default function CustomerDetailPage() {
                         let cur = new Date(minDate);
                         const end = new Date(maxDate);
                         while (cur <= end) {
-                            months.push({ label: `${cur.getMonth() + 1}/${cur.getFullYear()}`, pct: getPct(cur.toISOString().split('T')[0]) });
+                            months.push({ label: `T${cur.getMonth() + 1}/${cur.getFullYear()}`, pct: getPct(cur.toISOString().split('T')[0]) });
                             cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+                        }
+
+                        // Date ticks (adaptive interval by total duration)
+                        const tickInterval = totalDays <= 14 ? 2 : totalDays <= 30 ? 5 : totalDays <= 60 ? 7 : totalDays <= 120 ? 14 : 30;
+                        const dateTicks = [];
+                        let tickCur = new Date(minDate);
+                        while (tickCur <= new Date(maxDate)) {
+                            const ds = tickCur.toISOString().split('T')[0];
+                            dateTicks.push({ label: `${tickCur.getDate()}/${tickCur.getMonth() + 1}`, pct: getPct(ds) });
+                            tickCur.setDate(tickCur.getDate() + tickInterval);
+                        }
+                        const lastPct = getPct(maxDate);
+                        if (dateTicks.length === 0 || dateTicks[dateTicks.length - 1].pct < lastPct - 2) {
+                            const ed = new Date(maxDate);
+                            dateTicks.push({ label: `${ed.getDate()}/${ed.getMonth() + 1}`, pct: lastPct });
                         }
 
                         return (
@@ -930,11 +945,21 @@ export default function CustomerDetailPage() {
                                 {/* Gantt chart */}
                                 {(scheduleView === 'gantt' || scheduleView === 'both') && <div style={{ padding: '16px', borderTop: '2px solid var(--border-light)', overflowX: 'auto' }}>
                                     <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, letterSpacing: 1 }}>BIỂU ĐỒ TIẾN ĐỘ</div>
-                                    {/* Month header */}
-                                    <div style={{ display: 'flex', marginBottom: 6, paddingLeft: 130 }}>
-                                        <div style={{ flex: 1, position: 'relative', height: 16 }}>
+                                    {/* Date header: month row + date tick row */}
+                                    <div style={{ marginBottom: 6, paddingLeft: 130 }}>
+                                        {/* Month labels */}
+                                        <div style={{ position: 'relative', height: 16, minWidth: 200 }}>
                                             {months.map((m, i) => (
-                                                <span key={i} style={{ position: 'absolute', left: `${m.pct}%`, fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap', transform: 'translateX(-25%)' }}>{m.label}</span>
+                                                <span key={i} style={{ position: 'absolute', left: `${m.pct}%`, fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, whiteSpace: 'nowrap' }}>{m.label}</span>
+                                            ))}
+                                        </div>
+                                        {/* Date tick labels + vertical lines */}
+                                        <div style={{ position: 'relative', height: 18, minWidth: 200, borderBottom: '1px solid var(--border-light)', marginTop: 2 }}>
+                                            {dateTicks.map((t, i) => (
+                                                <Fragment key={i}>
+                                                    <div style={{ position: 'absolute', left: `${t.pct}%`, top: 0, bottom: 0, width: 1, background: 'var(--border-light)' }} />
+                                                    <span style={{ position: 'absolute', left: `${t.pct}%`, top: 1, fontSize: 9, color: '#94a3b8', whiteSpace: 'nowrap', transform: 'translateX(-50%)', fontWeight: 600 }}>{t.label}</span>
+                                                </Fragment>
                                             ))}
                                         </div>
                                     </div>
@@ -951,6 +976,10 @@ export default function CustomerDetailPage() {
                                                     {item.name}
                                                 </div>
                                                 <div style={{ flex: 1, position: 'relative', height: '100%', background: 'var(--bg-secondary)', borderRadius: 4, minWidth: 200 }}>
+                                                    {/* Grid lines */}
+                                                    {dateTicks.map((t, gi) => (
+                                                        <div key={gi} style={{ position: 'absolute', left: `${t.pct}%`, top: 0, bottom: 0, width: 1, background: 'var(--border-light)', opacity: 0.7, zIndex: 1 }} />
+                                                    ))}
                                                     {/* Today marker */}
                                                     {todayPct >= 0 && todayPct <= 100 && (
                                                         <div style={{ position: 'absolute', left: `${todayPct}%`, top: 0, bottom: 0, width: 2, background: '#ef4444', opacity: 0.5, zIndex: 2 }} />
