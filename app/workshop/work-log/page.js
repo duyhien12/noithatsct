@@ -479,6 +479,7 @@ function WorkSummaryTable({ entries, workers, weekNum, weekStart, weekEnd }) {
 export default function WorkLogPage() {
     const router = useRouter();
     const { role, isXuongNhanVien } = useRole();
+    const isReadOnly = isXuongNhanVien || role === 'marketing';
     const [entries, setEntries] = useState([]);
     const [workers, setWorkers] = useState([]);
     const [projects, setProjects] = useState([]);
@@ -490,7 +491,7 @@ export default function WorkLogPage() {
     const [syncing, setSyncing] = useState(false);
 
     useEffect(() => {
-        if (role && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd'].includes(role)) {
+        if (role && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd', 'marketing'].includes(role)) {
             router.replace('/'); return;
         }
         fetch('/api/workshop/workers').then(r => r.json()).then(d => setWorkers(Array.isArray(d) ? d : []));
@@ -605,13 +606,13 @@ export default function WorkLogPage() {
                         <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={() => setWeekStart(getWeekStart(new Date()))}>Tuần này</button>
                     </div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
-                        {!isXuongNhanVien && <span className="desktop-table-view">💡 Nhấn vào ô để thêm/sửa</span>}
+                        {!isReadOnly && <span className="desktop-table-view">💡 Nhấn vào ô để thêm/sửa</span>}
                         <button className="btn btn-ghost btn-sm" onClick={fetchAll}>🔄 Làm mới</button>
                     </div>
                 </div>
 
                 {/* Quick Actions bar */}
-                {!isXuongNhanVien && <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', background: '#f8fafc', borderBottom: '1px solid var(--border-light)', flexWrap: 'wrap' }}>
+                {!isReadOnly && <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', background: '#f8fafc', borderBottom: '1px solid var(--border-light)', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', flexShrink: 0 }}>Thao tác nhanh:</span>
                     <button
                         onClick={() => openQuick(CATEGORIES.find(c => c.key === 'Nhân công nghỉ'), 'Sáng')}
@@ -709,8 +710,8 @@ export default function WorkLogPage() {
                                             {CATEGORIES.map((cat) => {
                                                 const shiftEntries = getCell(day, cat.key, shift);
                                                 const isViecKhac = cat.key === 'Việc khác';
-                                                const tdStyle = { padding: '4px 8px', border: '1px solid var(--border-light)', verticalAlign: 'top', cursor: isXuongNhanVien ? 'default' : 'pointer', borderTop: si === 1 ? '1px dashed var(--border)' : undefined };
-                                                const onClick = isXuongNhanVien ? undefined : (e) => openEdit(day, cat, shift, e);
+                                                const tdStyle = { padding: '4px 8px', border: '1px solid var(--border-light)', verticalAlign: 'top', cursor: isReadOnly ? 'default' : 'pointer', borderTop: si === 1 ? '1px dashed var(--border)' : undefined };
+                                                const onClick = isReadOnly ? undefined : (e) => openEdit(day, cat, shift, e);
 
                                                 if (cat.singleCol) {
                                                     return (
@@ -778,7 +779,7 @@ export default function WorkLogPage() {
                                         {isToday && <span style={{ fontSize: 10, background: '#f59e0b', color: '#fff', padding: '1px 6px', borderRadius: 8 }}>Hôm nay</span>}
                                         {hasMorning && <span style={{ fontSize: 10, background: '#fefce8', color: '#854d0e', padding: '1px 5px', borderRadius: 6, border: '1px solid #fde68a' }}>Sáng</span>}
                                         {hasAfternoon && <span style={{ fontSize: 10, background: '#fff7ed', color: '#9a3412', padding: '1px 5px', borderRadius: 6, border: '1px solid #fed7aa' }}>Chiều</span>}
-                                        {!isXuongNhanVien && <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                                        {!isReadOnly && <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
                                             <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 8px' }} onClick={(e) => openEdit(day, CATEGORIES[0], 'Sáng', e)}>☀ Sáng</button>
                                             <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: '2px 8px' }} onClick={(e) => openEdit(day, CATEGORIES[0], 'Chiều', e)}>🌙 Chiều</button>
                                         </div>}
@@ -799,7 +800,7 @@ export default function WorkLogPage() {
                                                         <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 8, background: cat?.color || '#f3f4f6', color: '#374151', flexShrink: 0 }}>{cat?.label}</span>
                                                     </div>
                                                     {(() => { const w = parseWorkers(entry.mainWorkers); return w.length > 0 ? <div style={{ fontSize: 11, color: '#374151', marginBottom: 4 }}>👷 {w.join(', ')}</div> : null; })()}
-                                                    {!isXuongNhanVien && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                                    {!isReadOnly && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                                                         <button onClick={(e) => { e.stopPropagation(); openEdit(day, cat || CATEGORIES[0], entryShift, e); }}
                                                             style={{ padding: '3px 10px', borderRadius: 12, border: '1px solid var(--border)', background: '#f8fafc', fontSize: 11, cursor: 'pointer', fontWeight: 500 }}>
                                                             ✏ Sửa

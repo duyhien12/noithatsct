@@ -86,7 +86,7 @@ const menuItems = [
     },
     {
         section: 'Xưởng Nội Thất',
-        sectionRoles: [...BAN_GD, ...VIEWER, 'xuong', 'ke_toan', 'hanh_chinh_kt'],
+        sectionRoles: [...BAN_GD, ...VIEWER, ...MARKETING, 'xuong', 'ke_toan', 'hanh_chinh_kt'],
         items: [
             { href: '/workshop', icon: LayoutDashboard, label: 'Dashboard xưởng',
               roles: [...BAN_GD, ...VIEWER, 'xuong'] },
@@ -94,6 +94,8 @@ const menuItems = [
               roles: [...BAN_GD, ...VIEWER, 'xuong'] },
             { href: '/workshop/workers', icon: HardHat, label: 'Nhân công',
               roles: [...BAN_GD, ...VIEWER, 'xuong', 'hanh_chinh_kt'] },
+            { href: '/workshop/work-log', icon: BookMarked, label: 'Nhật ký thi công',
+              roles: [...BAN_GD, ...VIEWER, ...MARKETING, 'xuong'] },
             { href: '/workshop/expenses', icon: Banknote, label: 'Tài chính xưởng',
               roles: [...BAN_GD, ...VIEWER, 'xuong', 'ke_toan', 'hanh_chinh_kt'] },
             { href: '/workshop/pl', icon: TrendingUp, label: 'P&L Xưởng',
