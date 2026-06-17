@@ -7,7 +7,7 @@ import { hashSync } from 'bcryptjs';
 export const PUT = withAuth(async (req, context) => {
     const { id } = await context.params;
     const body = await req.json();
-    const { name, role, department, phone, active, password, zaloUserId } = body;
+    const { name, role, department, phone, active, password, zaloUserId, allowedRoles } = body;
 
     const updateData = {};
     if (name !== undefined) updateData.name = name.trim();
@@ -17,6 +17,7 @@ export const PUT = withAuth(async (req, context) => {
     if (active !== undefined) updateData.active = active;
     if (password?.trim()) updateData.password = hashSync(password, 10);
     if (zaloUserId !== undefined) updateData.zaloUserId = zaloUserId.trim();
+    if (allowedRoles !== undefined) updateData.allowedRoles = typeof allowedRoles === 'string' ? allowedRoles : JSON.stringify(allowedRoles);
 
     const user = await prisma.user.update({
         where: { id },

@@ -32,7 +32,7 @@ const ROLE_COLORS = {
     ky_thuat:      { color: '#27ae60', bg: '#e8f8f0' },
 };
 
-const EMPTY_FORM = { name: '', email: '', password: '', role: 'ky_thuat', department: '', phone: '', zaloUserId: '' };
+const EMPTY_FORM = { name: '', email: '', password: '', role: 'ky_thuat', department: '', phone: '', zaloUserId: '', allowedRoles: [] };
 
 function ZaloOACard({ status, onRefresh }) {
     const redirectUri = 'https://admin.kientrucsct.com/api/auth/zalo-oa/callback';
@@ -176,7 +176,8 @@ export default function AccountsPage() {
 
     const openEdit = (u) => {
         setEditTarget(u);
-        setForm({ name: u.name, email: u.email, password: '', role: u.role, department: u.department || '', phone: u.phone || '', zaloUserId: u.zaloUserId || '' });
+        const allowedRoles = (() => { try { return JSON.parse(u.allowedRoles || '[]'); } catch { return []; } })();
+        setForm({ name: u.name, email: u.email, password: '', role: u.role, department: u.department || '', phone: u.phone || '', zaloUserId: u.zaloUserId || '', allowedRoles });
         setShowModal(true);
     };
 
@@ -187,7 +188,7 @@ export default function AccountsPage() {
         setSaving(true);
         try {
             if (editTarget) {
-                const body = { name: form.name, role: form.role, department: form.department, phone: form.phone, zaloUserId: form.zaloUserId };
+                const body = { name: form.name, role: form.role, department: form.department, phone: form.phone, zaloUserId: form.zaloUserId, allowedRoles: JSON.stringify(form.allowedRoles) };
                 if (form.password.trim()) body.password = form.password;
                 const res = await fetch(`/api/users/${editTarget.id}`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -454,6 +455,36 @@ export default function AccountsPage() {
                                         </>
                                     )}
                                 </select>
+                            </div>
+                            <div>
+                                <label className="form-label">
+                                    Cho phép đổi phòng ban
+                                    <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}> (chọn các phòng ban user được quyền chuyển sang)</span>
+                                </label>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '8px 0' }}>
+                                    {ROLES.filter(r => r.key !== 'viewer').map(r => {
+                                        const checked = form.allowedRoles.includes(r.key);
+                                        return (
+                                            <label key={r.key} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 13, padding: '4px 10px', borderRadius: 20, border: `1px solid ${checked ? 'var(--color-primary, #3b82f6)' : 'var(--border-color, #e5e7eb)'}`, background: checked ? 'var(--color-primary-light, #eff6ff)' : 'transparent' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={e => setForm(f => ({
+                                                        ...f,
+                                                        allowedRoles: e.target.checked
+                                                            ? [...f.allowedRoles, r.key]
+                                                            : f.allowedRoles.filter(x => x !== r.key),
+                                                    }))}
+                                                    style={{ display: 'none' }}
+                                                />
+                                                {r.icon} {r.label}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                    Nếu không chọn gì, user chỉ có một phòng ban cố định.
+                                </div>
                             </div>
                             <div>
                                 <label className="form-label">Số điện thoại</label>
