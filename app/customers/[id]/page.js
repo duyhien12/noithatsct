@@ -116,6 +116,8 @@ export default function CustomerDetailPage() {
     const [showCarePlanModal, setShowCarePlanModal] = useState(false);
     const [carePlanStartDate, setCarePlanStartDate] = useState(() => new Date().toISOString().split('T')[0]);
     const [scheduleView, setScheduleView] = useState('both');
+    const dragRowIdx = useRef(null);
+    const [dragOverRowIdx, setDragOverRowIdx] = useState(null);
 
     // Comments
     const [comments, setComments] = useState([]);
@@ -334,6 +336,26 @@ export default function CustomerDetailPage() {
         }));
         if (expandedScheduleIdx === idx) setExpandedScheduleIdx(null);
     };
+
+    const onRowDragStart = (e, idx) => {
+        dragRowIdx.current = idx;
+        e.dataTransfer.effectAllowed = 'move';
+    };
+    const onRowDragOver = (e, idx) => {
+        e.preventDefault();
+        if (dragOverRowIdx !== idx) setDragOverRowIdx(idx);
+    };
+    const onRowDrop = (idx) => {
+        const from = dragRowIdx.current;
+        if (from === null || from === idx) { setDragOverRowIdx(null); return; }
+        const newItems = [...processForm._schedule.items];
+        const [dragged] = newItems.splice(from, 1);
+        newItems.splice(idx, 0, dragged);
+        setProcessForm(prev => ({ ...prev, _schedule: { ...prev._schedule, items: newItems } }));
+        dragRowIdx.current = null;
+        setDragOverRowIdx(null);
+    };
+    const onRowDragEnd = () => { dragRowIdx.current = null; setDragOverRowIdx(null); };
 
     const updateScheduleStatus = (idx, status) => {
         setProcessForm(prev => ({
@@ -768,6 +790,7 @@ export default function CustomerDetailPage() {
                                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                                         <thead>
                                             <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-light)' }}>
+                                                <th style={{ padding: '8px 6px', width: 22 }}></th>
                                                 <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, width: 36 }}>✓</th>
                                                 <th style={{ padding: '8px 4px', textAlign: 'left', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, width: 40 }}>WBS</th>
                                                 <th style={{ padding: '8px 8px', textAlign: 'left', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, minWidth: 160 }}>Hạng mục</th>
@@ -786,7 +809,17 @@ export default function CustomerDetailPage() {
                                                 const isExp = expandedScheduleIdx === idx;
                                                 return (
                                                     <Fragment key={idx}>
-                                                        <tr style={{ borderBottom: '1px solid var(--border-light)', background: isGroup ? 'var(--bg-secondary)' : 'transparent', transition: 'background .15s' }}>
+                                                        <tr
+                                                            draggable
+                                                            onDragStart={e => onRowDragStart(e, idx)}
+                                                            onDragOver={e => onRowDragOver(e, idx)}
+                                                            onDrop={() => onRowDrop(idx)}
+                                                            onDragEnd={onRowDragEnd}
+                                                            style={{ borderBottom: '1px solid var(--border-light)', background: isGroup ? 'var(--bg-secondary)' : 'transparent', transition: 'background .15s, box-shadow .1s', boxShadow: dragOverRowIdx === idx ? 'inset 0 2px 0 var(--primary)' : 'none' }}>
+                                                            {/* Drag handle */}
+                                                            <td style={{ padding: '0 4px', verticalAlign: 'middle', textAlign: 'center', cursor: 'grab', color: '#cbd5e1', fontSize: 14, userSelect: 'none', lineHeight: 1 }}>
+                                                                ⠿
+                                                            </td>
                                                             {/* Checkbox */}
                                                             <td style={{ padding: '9px 12px', verticalAlign: 'middle' }}>
                                                                 <input type="checkbox" checked={isDone}
@@ -845,7 +878,7 @@ export default function CustomerDetailPage() {
                                                         {/* Expanded edit row */}
                                                         {isExp && (
                                                             <tr>
-                                                                <td colSpan={8} style={{ padding: '12px 16px', background: '#f0f9ff', borderBottom: '1px solid var(--border-light)' }}>
+                                                                <td colSpan={9} style={{ padding: '12px 16px', background: '#f0f9ff', borderBottom: '1px solid var(--border-light)' }}>
                                                                     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
                                                                         <div style={{ flex: 2, minWidth: 160 }}>
                                                                             <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 3 }}>TÊN HẠNG MỤC</label>
@@ -877,7 +910,7 @@ export default function CustomerDetailPage() {
                                                 );
                                             })}
                                             <tr>
-                                                <td colSpan={8} style={{ padding: '8px 12px', borderTop: '1px dashed var(--border-light)' }}>
+                                                <td colSpan={9} style={{ padding: '8px 12px', borderTop: '1px dashed var(--border-light)' }}>
                                                     <div style={{ display: 'flex', gap: 6 }}>
                                                         <button onClick={() => addScheduleRow(1)}
                                                             style={{ fontSize: 12, padding: '4px 12px', borderRadius: 6, border: '1px dashed var(--border-light)', background: 'transparent', cursor: 'pointer', color: 'var(--primary)', fontWeight: 600 }}>
