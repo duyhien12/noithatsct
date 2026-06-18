@@ -140,7 +140,8 @@ export default function Header({ onMenuToggle }) {
                                     }}
                                     title="Đổi phòng ban"
                                 >
-                                    <span>{currentRoleInfo ? `${currentRoleInfo.icon} ${currentRoleInfo.label}` : currentRole}</span>
+                                    <span className="role-switch-icon">{currentRoleInfo?.icon || '●'}</span>
+                                    <span className="role-switch-label">{currentRoleInfo?.label || currentRole}</span>
                                     <ChevronDown size={12} />
                                 </button>
                                 {showRoleMenu && (

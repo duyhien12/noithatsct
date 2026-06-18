@@ -1997,7 +1997,11 @@ body {
     display: none;
   }
 
-  .header-right .user-info {
+  .header-right .user-info .user-name {
+    display: none;
+  }
+
+  .role-switch-label {
     display: none;
   }
 
