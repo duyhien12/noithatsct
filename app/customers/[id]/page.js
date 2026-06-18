@@ -118,6 +118,9 @@ export default function CustomerDetailPage() {
     const [scheduleView, setScheduleView] = useState('both');
     const dragRowIdx = useRef(null);
     const [dragOverRowIdx, setDragOverRowIdx] = useState(null);
+    const autoSaveTimer = useRef(null);
+    const lastSavedProcessRef = useRef(null);
+    const [autoSaveStatus, setAutoSaveStatus] = useState('');
 
     // Comments
     const [comments, setComments] = useState([]);
@@ -135,7 +138,13 @@ export default function CustomerDetailPage() {
             setData(d);
             setLoading(false);
             if (d?.processData) {
-                try { setProcessForm({ ...defaultProcess(), ...JSON.parse(d.processData) }); } catch {}
+                try {
+                    const merged = { ...defaultProcess(), ...JSON.parse(d.processData) };
+                    setProcessForm(merged);
+                    lastSavedProcessRef.current = JSON.stringify(merged);
+                } catch { lastSavedProcessRef.current = JSON.stringify(defaultProcess()); }
+            } else {
+                lastSavedProcessRef.current = JSON.stringify(defaultProcess());
             }
         });
     };
@@ -146,6 +155,25 @@ export default function CustomerDetailPage() {
             .then(r => r.json())
             .then(d => { if (Array.isArray(d)) setComments(d); });
     }, [id]);
+
+    // Auto-save processForm 1.5s after last change
+    useEffect(() => {
+        const current = JSON.stringify(processForm);
+        if (lastSavedProcessRef.current === null || current === lastSavedProcessRef.current) return;
+        setAutoSaveStatus('saving');
+        clearTimeout(autoSaveTimer.current);
+        autoSaveTimer.current = setTimeout(async () => {
+            await fetch(`/api/customers/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ processData: current }),
+            });
+            lastSavedProcessRef.current = current;
+            setAutoSaveStatus('saved');
+            setTimeout(() => setAutoSaveStatus(''), 2000);
+        }, 1500);
+        return () => clearTimeout(autoSaveTimer.current);
+    }, [processForm, id]);
 
     const handleFileSelect = async (e) => {
         const files = Array.from(e.target.files || []);
@@ -270,9 +298,13 @@ export default function CustomerDetailPage() {
     ];
 
     const saveProcess = async () => {
-        setSavingProcess(true);
-        await fetch(`/api/customers/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ processData: JSON.stringify(processForm) }) });
-        setSavingProcess(false);
+        clearTimeout(autoSaveTimer.current);
+        setAutoSaveStatus('saving');
+        const current = JSON.stringify(processForm);
+        await fetch(`/api/customers/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ processData: current }) });
+        lastSavedProcessRef.current = current;
+        setAutoSaveStatus('saved');
+        setTimeout(() => setAutoSaveStatus(''), 2000);
     };
 
     const updateStep = (key, field, value) => {
@@ -722,8 +754,9 @@ export default function CustomerDetailPage() {
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             <button className="btn btn-secondary btn-sm" onClick={() => setShowCarePlanModal(true)}>⭐ KH chăm sóc ưu tiên</button>
                             <button className="btn btn-secondary btn-sm" onClick={openTemplateModal}>📅 Nhập từ mẫu tiến độ</button>
-                            <button className="btn btn-primary btn-sm" onClick={saveProcess} disabled={savingProcess}>
-                                {savingProcess ? 'Đang lưu...' : '💾 Lưu quy trình'}
+                            <button className="btn btn-primary btn-sm" onClick={saveProcess} disabled={autoSaveStatus === 'saving'}
+                                style={{ minWidth: 120, transition: 'background .2s', background: autoSaveStatus === 'saved' ? '#10b981' : undefined }}>
+                                {autoSaveStatus === 'saving' ? '⏳ Đang lưu...' : autoSaveStatus === 'saved' ? '✓ Đã lưu' : '💾 Lưu quy trình'}
                             </button>
                         </div>
                     </div>
