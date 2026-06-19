@@ -90,9 +90,58 @@ async function createTemplateItems(templateId, items) {
     }
 }
 
+let seededCarePlan = false;
+async function ensureCarePlanTemplate() {
+    if (seededCarePlan) return;
+    const exists = await prisma.scheduleTemplate.findFirst({ where: { name: 'Kế hoạch chăm sóc khách hàng - KD' } });
+    if (exists) { seededCarePlan = true; return; }
+
+    console.log('[schedule-templates] Seeding care plan template...');
+    const tpl = await prisma.scheduleTemplate.create({
+        data: { name: 'Kế hoạch chăm sóc khách hàng - KD', type: 'Chăm sóc KH', description: 'Quy trình chăm sóc khách hàng tiềm năng đến khi chuyển sang khách ưu tiên' },
+    });
+    const cpItems = [
+        { name: 'Bước 1: Tiếp nhận khách hàng',                                                                                                                          level: 0, wbs: '1',   duration: 11, weight: 1, color: '#16a34a' },
+        { name: 'Kết bạn Zalo với khách hàng',                                                                                                                            level: 1, wbs: '',     duration: 2,  weight: 1, color: '', parentIdx: 0 },
+        { name: 'Phân loại nhà: Biệt thự – Nhà phố – Văn phòng',                                                                                                         level: 1, wbs: '',     duration: 1,  weight: 1, color: '', parentIdx: 0 },
+        { name: 'Tiến độ XD: Đang xây thô – Đang hoàn thiện – Thời gian về nhà mới',                                                                                    level: 1, wbs: '',     duration: 2,  weight: 1, color: '', parentIdx: 0 },
+        { name: 'Nội dung cần biết: Diện tích – Ngân sách dự kiến – Thời điểm làm nội thất – Nguồn khách từ đâu',                                                       level: 1, wbs: '',     duration: 4,  weight: 1, color: '', parentIdx: 0 },
+        { name: 'Bước 2: Gửi thông tin về SCT',                                                                                                                          level: 0, wbs: '2',   duration: 7,  weight: 1, color: '#ca8a04', predIdx: 0 },
+        { name: 'Chuyển Video xưởng sản xuất của SCT',                                                                                                                   level: 1, wbs: '2.1', duration: 2,  weight: 1, color: '', parentIdx: 5 },
+        { name: 'Chuyển ảnh Showroom trưng bày vật liệu của SCT',                                                                                                        level: 1, wbs: '2.2', duration: 2,  weight: 1, color: '', parentIdx: 5 },
+        { name: 'Chuyển ảnh Catalogue các vật liệu An Cường',                                                                                                            level: 1, wbs: '2.3', duration: 2,  weight: 1, color: '', parentIdx: 5 },
+        { name: 'Mời tham quan Showroom, xưởng sản xuất và các công trình nội thất hoàn thiện của SCT',                                                                  level: 1, wbs: '',     duration: 1,  weight: 1, color: '', parentIdx: 5 },
+        { name: 'Bước 3: Gọi điện, nhắn tin thăm hỏi khách hàng',                                                                                                       level: 0, wbs: '3',   duration: 7,  weight: 1, color: '#ea580c', predIdx: 5 },
+        { name: 'Anh/chị thích phong cách nội thất gì',                                                                                                                  level: 1, wbs: '3.1', duration: 2,  weight: 1, color: '', parentIdx: 10 },
+        { name: 'Hiện nay a/c đã tham khảo đơn vị nội thất nào chưa',                                                                                                   level: 1, wbs: '3.2', duration: 2,  weight: 1, color: '', parentIdx: 10 },
+        { name: 'Ngân sách a/c dự kiến cho phần nội thất khoảng bao nhiêu',                                                                                             level: 1, wbs: '3.3', duration: 2,  weight: 1, color: '', parentIdx: 10 },
+        { name: 'Từ đó sẽ phân loại KH: A là muốn làm ngay - B là khoảng 3 đến 5 tháng nữa mới làm - C là chỉ mang tính chất tham khảo chưa có ý định làm',          level: 1, wbs: '',     duration: 1,  weight: 1, color: '', parentIdx: 10 },
+        { name: 'Bước 4: Sau 5 đến 7 ngày sau',                                                                                                                          level: 0, wbs: '4',   duration: 1,  weight: 1, color: '#3b82f6', predIdx: 10 },
+        { name: 'Hẹn đến nhà Khách hàng khảo sát công trình thực tế',                                                                                                   level: 1, wbs: '',     duration: 1,  weight: 1, color: '', parentIdx: 15 },
+        { name: 'Xin khách hàng bản vẽ kiến trúc – Thiết kế nội thất (nếu có)',                                                                                         level: 1, wbs: '',     duration: 1,  weight: 1, color: '', parentIdx: 15 },
+        { name: 'Sau khảo sát 2 ngày phải có định hướng phong cách cho khách hàng',                                                                                     level: 1, wbs: '',     duration: 1,  weight: 1, color: '', parentIdx: 15 },
+        { name: 'Bước 5: Chấm điểm đạt tiêu chuẩn chuyển sang khách ưu tiên',                                                                                          level: 0, wbs: '5',   duration: 1,  weight: 1, color: '#8b5cf6', predIdx: 15 },
+        { name: 'Khách hàng có nhà đang thi công xây dựng thực tế = 20 đ',                                                                                              level: 1, wbs: '',     duration: 1,  weight: 1, color: '', parentIdx: 19 },
+        { name: 'KH có tương tác tốt, chuyển giao thiết kế bản vẽ = 15 đ',                                                                                             level: 1, wbs: '',     duration: 1,  weight: 1, color: '', parentIdx: 19 },
+        { name: 'KH có dự kiến ngân sách dành cho nội thất = 20 đ',                                                                                                     level: 1, wbs: '',     duration: 1,  weight: 1, color: '', parentIdx: 19 },
+        { name: 'Đã được KH cùng khảo sát và trao đổi ý tưởng = 15 đ',                                                                                                 level: 1, wbs: '',     duration: 1,  weight: 1, color: '', parentIdx: 19 },
+        { name: 'KH đã tham khảo giá thành của công ty = 15 đ',                                                                                                         level: 1, wbs: '',     duration: 1,  weight: 1, color: '', parentIdx: 19 },
+        { name: 'KH có dự kiến thời điểm thi công nội thất = 15 đ',                                                                                                     level: 1, wbs: '',     duration: 1,  weight: 1, color: '', parentIdx: 19 },
+        { name: 'Tổng hợp nếu đạt được 70 điểm trở lên thì chuyển sang KH ưu tiên',                                                                                    level: 1, wbs: '',     duration: 1,  weight: 1, color: '', parentIdx: 19 },
+        { name: 'Bước 6: Phân công chịu trách nhiệm',                                                                                                                   level: 0, wbs: '6',   duration: 1,  weight: 1, color: '#0891b2', predIdx: 19 },
+        { name: 'Cường phụ trách Chăm sóc khách hàng',                                                                                                                  level: 1, wbs: '',     duration: 1,  weight: 1, color: '', parentIdx: 27 },
+        { name: 'Quỳnh phụ trách khách ưu tiên',                                                                                                                         level: 1, wbs: '',     duration: 1,  weight: 1, color: '', parentIdx: 27 },
+        { name: 'Hiền phụ trách khách hợp đồng',                                                                                                                         level: 1, wbs: '',     duration: 1,  weight: 1, color: '', parentIdx: 27 },
+    ];
+    await createTemplateItems(tpl.id, cpItems);
+    seededCarePlan = true;
+    console.log('[schedule-templates] Care plan template seeded');
+}
+
 export const GET = withAuth(async () => {
     // Auto-seed defaults if empty
     try { await ensureDefaultTemplates(); } catch (e) { console.error('Auto-seed failed:', e); }
+    try { await ensureCarePlanTemplate(); } catch (e) { console.error('Care plan seed failed:', e); }
 
     const templates = await prisma.scheduleTemplate.findMany({
         include: { _count: { select: { items: true } } },
