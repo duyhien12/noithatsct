@@ -56,16 +56,16 @@ const STATUS_OPTIONS = [
 ];
 
 const CARE_PLAN_ITEMS = [
-    { id: 'cp1', wbs: '1',   name: 'Tiếp nhận thông tin',                              level: 0, duration: 3,  color: '#3b82f6' },
-    { id: 'cp2', wbs: '1.1', name: 'Tiếp nhận & xin thông tin 3D và kỹ thuật nhà',    level: 1, duration: 3,  color: '', parentId: 'cp1' },
-    { id: 'cp3', wbs: '2',   name: 'Báo giá',                                          level: 0, duration: 7,  color: '#8b5cf6', predecessorId: 'cp1' },
-    { id: 'cp4', wbs: '2.1', name: 'Lấy thông tin làm báo giá',                       level: 1, duration: 2,  color: '', parentId: 'cp3' },
-    { id: 'cp5', wbs: '2.2', name: 'Check giá đơn vị đối tác',                        level: 1, duration: 2,  color: '', predecessorId: 'cp4', parentId: 'cp3' },
-    { id: 'cp6', wbs: '2.3', name: 'Tính giá thành',                                  level: 1, duration: 3,  color: '', predecessorId: 'cp5', parentId: 'cp3' },
-    { id: 'cp7', wbs: '3',   name: 'Hẹn lịch làm việc khách hàng',                   level: 0, duration: 7,  color: '#10b981', predecessorId: 'cp3' },
-    { id: 'cp8', wbs: '3.1', name: 'Kiểm soát 3D nếu của mình thiết kế',             level: 1, duration: 2,  color: '', parentId: 'cp7' },
-    { id: 'cp9', wbs: '3.2', name: 'Lên lịch hẹn các bộ phận liên quan',             level: 1, duration: 2,  color: '', predecessorId: 'cp8', parentId: 'cp7' },
-    { id: 'cp10', wbs: '3.3', name: 'Chuẩn bị vật liệu theo 3D để tư vấn',          level: 1, duration: 3,  color: '', predecessorId: 'cp9', parentId: 'cp7' },
+    { id: 'cp1', wbs: '1',   name: 'Tiếp nhận thông tin',                              level: 0, duration: 3,  color: '#16a34a', rowBg: '#dcfce7' },
+    { id: 'cp2', wbs: '1.1', name: 'Tiếp nhận & xin thông tin 3D và kỹ thuật nhà',    level: 1, duration: 3,  color: '#86efac', rowBg: '#f0fdf4', parentId: 'cp1' },
+    { id: 'cp3', wbs: '2',   name: 'Báo giá',                                          level: 0, duration: 7,  color: '#ca8a04', rowBg: '#fef9c3', predecessorId: 'cp1' },
+    { id: 'cp4', wbs: '2.1', name: 'Lấy thông tin làm báo giá',                       level: 1, duration: 2,  color: '#fde047', rowBg: '#fefce8', parentId: 'cp3' },
+    { id: 'cp5', wbs: '2.2', name: 'Check giá đơn vị đối tác',                        level: 1, duration: 2,  color: '#fde047', rowBg: '#fefce8', predecessorId: 'cp4', parentId: 'cp3' },
+    { id: 'cp6', wbs: '2.3', name: 'Tính giá thành',                                  level: 1, duration: 3,  color: '#fde047', rowBg: '#fefce8', predecessorId: 'cp5', parentId: 'cp3' },
+    { id: 'cp7', wbs: '3',   name: 'Hẹn lịch làm việc khách hàng',                   level: 0, duration: 7,  color: '#ea580c', rowBg: '#ffedd5', predecessorId: 'cp3' },
+    { id: 'cp8', wbs: '3.1', name: 'Kiểm soát 3D nếu của mình thiết kế',             level: 1, duration: 2,  color: '#fdba74', rowBg: '#fff7ed', parentId: 'cp7' },
+    { id: 'cp9', wbs: '3.2', name: 'Lên lịch hẹn các bộ phận liên quan',             level: 1, duration: 2,  color: '#fdba74', rowBg: '#fff7ed', predecessorId: 'cp8', parentId: 'cp7' },
+    { id: 'cp10', wbs: '3.3', name: 'Chuẩn bị vật liệu theo 3D để tư vấn',          level: 1, duration: 3,  color: '#fdba74', rowBg: '#fff7ed', predecessorId: 'cp9', parentId: 'cp7' },
 ];
 
 function defaultProcess() {
@@ -85,7 +85,7 @@ function calculateScheduleDates(items, startDateStr) {
         const endMs = startMs + Math.max(0, (item.duration || 1) - 1) * 86400000;
         const sd = new Date(startMs).toISOString().split('T')[0];
         const ed = new Date(endMs).toISOString().split('T')[0];
-        const ri = { id: item.id, name: item.name, level: item.level || 0, wbs: item.wbs || '', duration: item.duration || 1, color: item.color || '', startDate: sd, endDate: ed, status: 'pending', notes: '' };
+        const ri = { id: item.id, name: item.name, level: item.level || 0, wbs: item.wbs || '', duration: item.duration || 1, color: item.color || '', rowBg: item.rowBg || '', startDate: sd, endDate: ed, status: 'pending', notes: '' };
         result.push(ri);
         byId[item.id] = ri;
     }
@@ -850,8 +850,11 @@ export default function CustomerDetailPage() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {sched.items.map((item, idx) => {
+                                            {(() => { const _isCarePlan = data?.pipelineStage === 'Tiềm năng'; const _GP=[{dark:'#dcfce7',light:'#f0fdf4'},{dark:'#fef9c3',light:'#fefce8'},{dark:'#ffedd5',light:'#fff7ed'},{dark:'#dbeafe',light:'#eff6ff'},{dark:'#ede9fe',light:'#f5f3ff'}]; let _gIdx=-1; return sched.items.map((item, idx) => {
                                                 const isGroup = item.level === 0;
+                                                if (isGroup) _gIdx++;
+                                                const _pal = _GP[Math.max(0,_gIdx) % _GP.length];
+                                                const rowBg = item.rowBg || (isGroup ? _pal.dark : _pal.light);
                                                 const isDone = item.status === 'done';
                                                 const isLate = !isDone && item.endDate < today;
                                                 const isExp = expandedScheduleIdx === idx;
@@ -863,7 +866,7 @@ export default function CustomerDetailPage() {
                                                             onDragOver={e => onRowDragOver(e, idx)}
                                                             onDrop={() => onRowDrop(idx)}
                                                             onDragEnd={onRowDragEnd}
-                                                            style={{ borderBottom: '1px solid var(--border-light)', background: isGroup ? 'var(--bg-secondary)' : 'transparent', transition: 'background .15s, box-shadow .1s', boxShadow: dragOverRowIdx === idx ? 'inset 0 2px 0 var(--primary)' : 'none' }}>
+                                                            style={{ borderBottom: '1px solid var(--border-light)', background: rowBg, transition: 'background .15s, box-shadow .1s', boxShadow: dragOverRowIdx === idx ? 'inset 0 2px 0 var(--primary)' : 'none' }}>
                                                             {/* Drag handle */}
                                                             <td style={{ padding: '0 4px', verticalAlign: 'middle', textAlign: 'center', cursor: 'grab', color: '#cbd5e1', fontSize: 14, userSelect: 'none', lineHeight: 1 }}>
                                                                 ⠿
@@ -899,14 +902,14 @@ export default function CustomerDetailPage() {
                                                             </td>
                                                             {/* Start date */}
                                                             <td style={{ padding: '9px 8px', textAlign: 'center', fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
-                                                                {new Date(item.startDate).toLocaleDateString('vi-VN')}
+                                                                {(isGroup || !_isCarePlan) ? new Date(item.startDate).toLocaleDateString('vi-VN') : ''}
                                                             </td>
                                                             {/* End date */}
                                                             <td style={{ padding: '9px 8px', textAlign: 'center', fontSize: 12, color: isLate ? '#ef4444' : 'var(--text-secondary)', whiteSpace: 'nowrap', fontWeight: isLate ? 600 : 400, verticalAlign: 'middle' }}>
-                                                                {new Date(item.endDate).toLocaleDateString('vi-VN')}
+                                                                {(isGroup || !_isCarePlan) ? new Date(item.endDate).toLocaleDateString('vi-VN') : ''}
                                                             </td>
                                                             {/* Duration */}
-                                                            <td style={{ padding: '9px 8px', textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', verticalAlign: 'middle' }}>{item.duration}d</td>
+                                                            <td style={{ padding: '9px 8px', textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', verticalAlign: 'middle' }}>{(isGroup || !_isCarePlan) ? `${item.duration}d` : ''}</td>
                                                             {/* Actions */}
                                                             <td style={{ padding: '9px 6px', textAlign: 'center', verticalAlign: 'middle' }}>
                                                                 <div style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
@@ -956,7 +959,7 @@ export default function CustomerDetailPage() {
                                                         )}
                                                     </Fragment>
                                                 );
-                                            })}
+                                            });})()}
                                             <tr>
                                                 <td colSpan={9} style={{ padding: '8px 12px', borderTop: '1px dashed var(--border-light)' }}>
                                                     <div style={{ display: 'flex', gap: 6 }}>
