@@ -20,7 +20,7 @@ const PIPELINE = [
 ];
 
 const PIPELINE_TK = [
-    { key: 'Ưu tiên', label: 'Khách ưu tiên', color: '#8b5cf6', bg: '#ede9fe' },
+    { key: 'Ưu tiên', label: 'Khách chờ', color: '#8b5cf6', bg: '#ede9fe' },
     { key: 'Hợp đồng', label: 'Khách hợp đồng', color: '#f97316', bg: '#ffedd5' },
     { key: 'Hoàn thành', label: 'Khách hoàn thành', color: '#10b981', bg: '#d1fae5' },
     { key: 'Huỷ', label: 'Khách huỷ', color: '#ef4444', bg: '#fee2e2' },
@@ -80,7 +80,7 @@ export default function CustomersPage() {
         }
         setLoading(false);
     };
-    useEffect(() => { fetchCustomers(); }, []);
+    useEffect(() => { fetchCustomers(); }, [role]);
 
     const applyFilter = (list) => list.filter(c => {
         if (filterSource && c.source !== filterSource) return false;
