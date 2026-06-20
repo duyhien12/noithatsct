@@ -56,16 +56,39 @@ const STATUS_OPTIONS = [
 ];
 
 const CARE_PLAN_ITEMS = [
-    { id: 'cp1', wbs: '1',   name: 'Tiếp nhận thông tin',                              level: 0, duration: 3,  color: '#16a34a', rowBg: '#dcfce7' },
-    { id: 'cp2', wbs: '1.1', name: 'Tiếp nhận & xin thông tin 3D và kỹ thuật nhà',    level: 1, duration: 3,  color: '#86efac', rowBg: '#f0fdf4', parentId: 'cp1' },
-    { id: 'cp3', wbs: '2',   name: 'Báo giá',                                          level: 0, duration: 7,  color: '#ca8a04', rowBg: '#fef9c3', predecessorId: 'cp1' },
-    { id: 'cp4', wbs: '2.1', name: 'Lấy thông tin làm báo giá',                       level: 1, duration: 2,  color: '#fde047', rowBg: '#fefce8', parentId: 'cp3' },
-    { id: 'cp5', wbs: '2.2', name: 'Check giá đơn vị đối tác',                        level: 1, duration: 2,  color: '#fde047', rowBg: '#fefce8', predecessorId: 'cp4', parentId: 'cp3' },
-    { id: 'cp6', wbs: '2.3', name: 'Tính giá thành',                                  level: 1, duration: 3,  color: '#fde047', rowBg: '#fefce8', predecessorId: 'cp5', parentId: 'cp3' },
-    { id: 'cp7', wbs: '3',   name: 'Hẹn lịch làm việc khách hàng',                   level: 0, duration: 7,  color: '#ea580c', rowBg: '#ffedd5', predecessorId: 'cp3' },
-    { id: 'cp8', wbs: '3.1', name: 'Kiểm soát 3D nếu của mình thiết kế',             level: 1, duration: 2,  color: '#fdba74', rowBg: '#fff7ed', parentId: 'cp7' },
-    { id: 'cp9', wbs: '3.2', name: 'Lên lịch hẹn các bộ phận liên quan',             level: 1, duration: 2,  color: '#fdba74', rowBg: '#fff7ed', predecessorId: 'cp8', parentId: 'cp7' },
-    { id: 'cp10', wbs: '3.3', name: 'Chuẩn bị vật liệu theo 3D để tư vấn',          level: 1, duration: 3,  color: '#fdba74', rowBg: '#fff7ed', predecessorId: 'cp9', parentId: 'cp7' },
+    // Bước 1
+    { id: 'cp1',   wbs: '1',   name: 'Bước 1: Tiếp nhận thông tin khách hàng',                                                                                                                                   level: 0, duration: 11, color: '#16a34a', rowBg: '#dcfce7' },
+    { id: 'cp1_1', wbs: '',    name: 'Kết bạn Zalo với khách hàng',                                                                                                                                               level: 1, duration: 1,  color: '#86efac', rowBg: '#f0fdf4', parentId: 'cp1' },
+    { id: 'cp1_2', wbs: '',    name: 'Cần nắm: Công trình đang thi công, loại nhà phố, biệt thự, địa điểm thi công, thời gian hoàn thành',                                                                       level: 1, duration: 1,  color: '#86efac', rowBg: '#f0fdf4', parentId: 'cp1' },
+    { id: 'cp1_3', wbs: '',    name: 'Thời điểm làm nội thất – Nguồn khách từ đâu – Chủ nhà ai là người quyết định',                                                                                             level: 1, duration: 1,  color: '#86efac', rowBg: '#f0fdf4', parentId: 'cp1' },
+    // Bước 2
+    { id: 'cp2',   wbs: '2',   name: 'Bước 2: Chuyển tải thông tin về SCT',                                                                                                                                      level: 0, duration: 6,  color: '#ca8a04', rowBg: '#fef9c3', predecessorId: 'cp1' },
+    { id: 'cp2_1', wbs: '2.1', name: 'Chuyển Video xưởng sản xuất của SCT',                                                                                                                                      level: 1, duration: 1,  color: '#fde047', rowBg: '#fefce8', parentId: 'cp2' },
+    { id: 'cp2_2', wbs: '2.2', name: 'Chuyển ảnh Showroom trưng bày vật liệu của SCT',                                                                                                                           level: 1, duration: 1,  color: '#fde047', rowBg: '#fefce8', parentId: 'cp2' },
+    { id: 'cp2_3', wbs: '2.3', name: 'Chuyển ảnh Catalogue các vật liệu An Cường',                                                                                                                               level: 1, duration: 1,  color: '#fde047', rowBg: '#fefce8', parentId: 'cp2' },
+    { id: 'cp2_4', wbs: '',    name: 'Mời tham quan Showroom, xưởng sản xuất và các công trình nội thất hoàn thiện của SCT',                                                                                     level: 1, duration: 1,  color: '#fde047', rowBg: '#fefce8', parentId: 'cp2' },
+    // Bước 3
+    { id: 'cp3',   wbs: '3',   name: 'Bước 3: Xây dựng mối quan hệ với khách hàng',                                                                                                                             level: 0, duration: 12, color: '#ea580c', rowBg: '#ffedd5', predecessorId: 'cp2' },
+    { id: 'cp3_1', wbs: '3.1', name: 'Anh/chị thích phong cách nội thất gì',                                                                                                                                     level: 1, duration: 1,  color: '#fdba74', rowBg: '#fff7ed', parentId: 'cp3' },
+    { id: 'cp3_2', wbs: '3.2', name: 'Hiện nay a/c đã tham khảo đơn vị nội thất nào chưa',                                                                                                                      level: 1, duration: 1,  color: '#fdba74', rowBg: '#fff7ed', parentId: 'cp3' },
+    { id: 'cp3_3', wbs: '3.3', name: 'Ngân sách a/c dự kiến cho phần nội thất khoảng bao nhiêu',                                                                                                                 level: 1, duration: 1,  color: '#fdba74', rowBg: '#fff7ed', parentId: 'cp3' },
+    { id: 'cp3_4', wbs: '',    name: 'Đặt lịch Khoảng thời gian nhắn tin hoặc gọi điện từ 2 - 3 lần/ tuần',                                                                                                     level: 1, duration: 1,  color: '#fdba74', rowBg: '#fff7ed', parentId: 'cp3' },
+    { id: 'cp3_5', wbs: '',    name: 'Từ đó sẽ phân loại KH: A là muốn làm ngay – B là khoảng 3 đến 5 tháng nữa mới làm – C là chỉ mang tính chất tham khảo chưa có ý định làm',                              level: 1, duration: 1,  color: '#fdba74', rowBg: '#fff7ed', parentId: 'cp3' },
+    // Bước 4
+    { id: 'cp4',   wbs: '4',   name: 'Bước 4: Sau 5 đến 7 ngày sau',                                                                                                                                            level: 0, duration: 20, color: '#3b82f6', rowBg: '#dbeafe', predecessorId: 'cp3' },
+    { id: 'cp4_1', wbs: '',    name: 'Hẹn chủ nhà đến hỗ trợ tư vấn trực tiếp tại công trình',                                                                                                                  level: 1, duration: 1,  color: '#93c5fd', rowBg: '#eff6ff', parentId: 'cp4' },
+    { id: 'cp4_2', wbs: '',    name: 'Xin khách hàng bản vẽ kiến trúc – Thiết kế nội thất (nếu có)',                                                                                                             level: 1, duration: 1,  color: '#93c5fd', rowBg: '#eff6ff', parentId: 'cp4' },
+    { id: 'cp4_3', wbs: '',    name: 'Sau khảo sát 2 ngày phải có định hướng phong cách cho khách hàng',                                                                                                         level: 1, duration: 1,  color: '#93c5fd', rowBg: '#eff6ff', parentId: 'cp4' },
+    { id: 'cp4_4', wbs: '',    name: 'Xác nhận nhu cầu thực tế KH có đồng ý tiếp tục làm việc với SCT không và có lịch làm việc tiếp theo',                                                                     level: 1, duration: 1,  color: '#93c5fd', rowBg: '#eff6ff', parentId: 'cp4' },
+    // Bước 5
+    { id: 'cp5',   wbs: '5',   name: 'Bước 5: Chấm điểm đạt tiêu chuẩn chuyển sang khách ưu tiên',                                                                                                             level: 0, duration: 6,  color: '#8b5cf6', rowBg: '#ede9fe', predecessorId: 'cp4' },
+    { id: 'cp5_1', wbs: '',    name: 'Khách hàng có nhà đang thi công xây dựng thực tế = 20 đ',                                                                                                                  level: 1, duration: 1,  color: '#c4b5fd', rowBg: '#f5f3ff', parentId: 'cp5' },
+    { id: 'cp5_2', wbs: '',    name: 'KH có tương tác tốt, chuyển giao thiết kế bản vẽ = 15 đ',                                                                                                                  level: 1, duration: 1,  color: '#c4b5fd', rowBg: '#f5f3ff', parentId: 'cp5' },
+    { id: 'cp5_3', wbs: '',    name: 'KH có dự kiến ngân sách dành cho nội thất = 20 đ',                                                                                                                         level: 1, duration: 1,  color: '#c4b5fd', rowBg: '#f5f3ff', parentId: 'cp5' },
+    { id: 'cp5_4', wbs: '',    name: 'Đã được KH cùng khảo sát và trao đổi ý tưởng = 15 đ',                                                                                                                     level: 1, duration: 1,  color: '#c4b5fd', rowBg: '#f5f3ff', parentId: 'cp5' },
+    { id: 'cp5_5', wbs: '',    name: 'KH đã tham khảo giá thành của công ty = 15 đ',                                                                                                                             level: 1, duration: 1,  color: '#c4b5fd', rowBg: '#f5f3ff', parentId: 'cp5' },
+    { id: 'cp5_6', wbs: '',    name: 'KH có dự kiến thời điểm thi công nội thất = 15 đ',                                                                                                                         level: 1, duration: 1,  color: '#c4b5fd', rowBg: '#f5f3ff', parentId: 'cp5' },
+    { id: 'cp5_7', wbs: '',    name: 'Tổng hợp nếu đạt được 70 điểm trở lên thì chuyển sang KH ưu tiên',                                                                                                        level: 1, duration: 1,  color: '#c4b5fd', rowBg: '#f5f3ff', parentId: 'cp5' },
 ];
 
 function defaultProcess() {
@@ -1229,7 +1252,7 @@ export default function CustomerDetailPage() {
                         </div>
                         <div className="modal-body">
                             <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14 }}>
-                                Tạo kế hoạch gồm 3 giai đoạn: Tiếp nhận thông tin → Báo giá → Hẹn lịch tư vấn.
+                                Tạo kế hoạch gồm 5 bước: Tiếp nhận → Chuyển tải thông tin SCT → Xây dựng mối quan hệ → Khảo sát → Chấm điểm chuyển KH ưu tiên.
                             </p>
                             <div className="form-group">
                                 <label className="form-label">Ngày bắt đầu</label>
