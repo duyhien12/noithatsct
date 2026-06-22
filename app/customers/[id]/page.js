@@ -124,6 +124,7 @@ export default function CustomerDetailPage() {
     const [loading, setLoading] = useState(true);
     const [showLogModal, setShowLogModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [gpsLoading, setGpsLoading] = useState(false);
     const [logForm, setLogForm] = useState({ type: 'Điện thoại', content: '', createdBy: '', nextFollowUp: '' });
     const [editForm, setEditForm] = useState({});
     const [processForm, setProcessForm] = useState(defaultProcess());
@@ -286,6 +287,26 @@ export default function CustomerDetailPage() {
         fetchData();
     };
 
+    const getGpsAddress = () => {
+        if (!navigator.geolocation) return alert('Trình duyệt không hỗ trợ định vị');
+        setGpsLoading(true);
+        navigator.geolocation.getCurrentPosition(
+            async ({ coords }) => {
+                try {
+                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.latitude}&lon=${coords.longitude}&accept-language=vi`, { headers: { 'Accept-Language': 'vi' } });
+                    const data = await res.json();
+                    const addr = data.display_name || `${coords.latitude}, ${coords.longitude}`;
+                    setEditForm(prev => ({ ...prev, address: addr }));
+                } catch {
+                    setEditForm(prev => ({ ...prev, address: `${coords.latitude}, ${coords.longitude}` }));
+                }
+                setGpsLoading(false);
+            },
+            () => { alert('Không lấy được định vị. Vui lòng cho phép truy cập vị trí.'); setGpsLoading(false); },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    };
+
     const handleDelete = async () => {
         if (!confirm('Xóa khách hàng này và tất cả dữ liệu liên quan?')) return;
         const res = await fetch(`/api/customers/${id}`, { method: 'DELETE' });
@@ -310,14 +331,9 @@ export default function CustomerDetailPage() {
     const scoreColor = score >= 70 ? '#10b981' : score >= 40 ? '#f59e0b' : '#94a3b8';
 
     const tabs = [
-        { key: 'overview', label: 'Tổng quan', icon: '📋' },
-        { key: 'projects', label: 'Dự án', icon: '🏗️', count: c.projects?.length },
-        { key: 'contracts', label: 'Hợp đồng', icon: '📝', count: c.contracts?.length },
-        { key: 'quotations', label: 'Báo giá', icon: '📄', count: c.quotations?.length },
-        { key: 'timeline', label: 'Timeline', icon: '🕐', count: c.trackingLogs?.length },
-        { key: 'transactions', label: 'Giao dịch', icon: '💰', count: c.transactions?.length },
-        { key: 'process', label: 'Quy trình', icon: '🔄' },
-        { key: 'comments', label: 'Nhận xét', icon: '💬', count: comments.length || undefined },
+        { key: 'overview', label: 'Thông tin khách hàng', icon: '📋' },
+        { key: 'process', label: 'Quy trình thực hiện', icon: '🔄' },
+        { key: 'comments', label: 'Ghi chú', icon: '💬', count: comments.length || undefined },
     ];
 
     const saveProcess = async () => {
@@ -523,9 +539,53 @@ export default function CustomerDetailPage() {
                 ))}
             </div>
 
-            {/* TAB: Tổng quan */}
+            {/* TAB: Thông tin khách hàng */}
             {tab === 'overview' && (
-                <div className="dashboard-grid" style={{ display: 'grid', gap: 16 }}>
+                <div style={{ display: 'grid', gap: 16 }}>
+                    {/* Thông tin cơ bản */}
+                    <div className="card">
+                        <div className="card-header"><span className="card-title">👤 Thông tin khách hàng</span></div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px 24px', padding: '4px 0' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border-light)' }}>
+                                <span style={{ fontSize: 16, flexShrink: 0 }}>👤</span>
+                                <div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Họ và tên</div>
+                                    <div style={{ fontWeight: 600, fontSize: 14 }}>{c.name || '—'}</div>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border-light)' }}>
+                                <span style={{ fontSize: 16, flexShrink: 0 }}>📱</span>
+                                <div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Số điện thoại</div>
+                                    {c.phone
+                                        ? <a href={`tel:${c.phone}`} style={{ fontWeight: 600, fontSize: 14, color: 'var(--primary)', textDecoration: 'none' }}>{c.phone}</a>
+                                        : <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>—</span>}
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border-light)' }}>
+                                <span style={{ fontSize: 16, flexShrink: 0 }}>📍</span>
+                                <div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Địa chỉ</div>
+                                    <div style={{ fontWeight: 500, fontSize: 14 }}>{c.address || '—'}</div>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border-light)' }}>
+                                <span style={{ fontSize: 16, flexShrink: 0 }}>🗺️</span>
+                                <div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Google Maps</div>
+                                    {c.address
+                                        ? <a href={`https://maps.google.com/maps?q=${encodeURIComponent(c.address)}`} target="_blank" rel="noreferrer"
+                                            style={{ fontWeight: 600, fontSize: 13, color: '#1a73e8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                            Xem bản đồ →
+                                          </a>
+                                        : <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>—</span>}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Dự án & Hoạt động */}
+                    <div className="dashboard-grid" style={{ display: 'grid', gap: 16 }}>
                     <div className="card">
                         <div className="card-header"><span className="card-title">🏗️ Dự án gần đây</span></div>
                         {(c.projects || []).slice(0, 5).map(p => (
@@ -556,6 +616,7 @@ export default function CustomerDetailPage() {
                             </div>
                         ))}
                         {(!c.trackingLogs || c.trackingLogs.length === 0) && <div style={{ color: 'var(--text-muted)', padding: 20, textAlign: 'center', fontSize: 13 }}>Chưa có nhật ký</div>}
+                    </div>
                     </div>
                 </div>
             )}
@@ -1361,7 +1422,15 @@ export default function CustomerDetailPage() {
                                 <div className="form-group"><label className="form-label">SĐT</label><input className="form-input" value={editForm.phone || ''} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} /></div>
                                 <div className="form-group"><label className="form-label">Email</label><input className="form-input" value={editForm.email || ''} onChange={e => setEditForm({ ...editForm, email: e.target.value })} /></div>
                             </div>
-                            <div className="form-group"><label className="form-label">Địa chỉ</label><input className="form-input" value={editForm.address || ''} onChange={e => setEditForm({ ...editForm, address: e.target.value })} /></div>
+                            <div className="form-group">
+                                <label className="form-label">Địa chỉ</label>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <input className="form-input" style={{ flex: 1 }} value={editForm.address || ''} onChange={e => setEditForm({ ...editForm, address: e.target.value })} placeholder="Nhập địa chỉ hoặc lấy định vị..." />
+                                    <button type="button" className="btn btn-secondary btn-sm" onClick={getGpsAddress} disabled={gpsLoading} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                        {gpsLoading ? '⏳...' : '📍 Định vị'}
+                                    </button>
+                                </div>
+                            </div>
                             <div className="form-row">
                                 <div className="form-group"><label className="form-label">Giai đoạn KD</label>
                                     <select className="form-select" value={editForm.pipelineStage || 'Khách nội thất'} onChange={e => setEditForm({ ...editForm, pipelineStage: e.target.value })}>
