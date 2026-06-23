@@ -81,6 +81,7 @@ export default function QuotationNoiThatPage() {
     const [attachments, setAttachments] = useState([]);
     const [uploadingFile, setUploadingFile] = useState(false);
     const fileInputRef = useRef(null);
+    const importExcelRef = useRef(null);
     const cellRefs = useRef({});
     const dragRef = useRef(null); // { sIdx, rmIdx, rIdx }
     const [dragOver, setDragOver] = useState(null); // { sIdx, rmIdx, rIdx }
@@ -556,6 +557,121 @@ export default function QuotationNoiThatPage() {
         return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
     };
 
+    // ── Import Excel → điền vào bảng ─────────────────────────────────────────
+    const handleImportExcel = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            const XLSX = await import('xlsx');
+            const buffer = await file.arrayBuffer();
+            const wb = XLSX.read(buffer, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+            // Tìm hàng header có HẠNG MỤC / STT
+            let headerRowIdx = -1;
+            let colMap = {};
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i].map(c => String(c || '').trim().toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, ''));
+                const hasHeader = row.some(c => c.includes('HANG MUC') || c === 'STT' || c.includes('DON GIA'));
+                if (hasHeader) {
+                    headerRowIdx = i;
+                    const norm = rows[i].map(c => String(c || '').trim().toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, ''));
+                    norm.forEach((cell, j) => {
+                        if (cell === 'STT') colMap.stt = j;
+                        else if (cell.includes('HANG MUC')) colMap.hangMuc = j;
+                        else if (cell.includes('CHAT LIEU') || cell.includes('MO TA') || cell.includes('NOI DUNG')) colMap.chatLieu = j;
+                        else if (cell === 'DAI' || cell === 'D') colMap.dai = j;
+                        else if (cell === 'SAU' || cell === 'R') colMap.sau = j;
+                        else if (cell === 'CAO' || cell === 'H') colMap.cao = j;
+                        else if (cell.includes('SL') && cell.includes('CAI')) colMap.slCai = j;
+                        else if (cell === 'DVT' || cell === 'DVI') colMap.dvt = j;
+                        else if (cell.includes('KHOI') || cell.includes('LUONG')) colMap.khoiLuong = j;
+                        else if (cell.includes('DON GIA') || cell === 'GIA') colMap.donGia = j;
+                    });
+                    break;
+                }
+            }
+
+            if (headerRowIdx === -1) {
+                toast.error('Không tìm thấy bảng dữ liệu. File cần có cột HẠNG MỤC và ĐƠN GIÁ.');
+                return;
+            }
+
+            const newSections = [];
+            let curSection = null;
+            let curRoom = null;
+
+            for (let i = headerRowIdx + 1; i < rows.length; i++) {
+                const row = rows[i];
+                const nonEmpty = row.filter(c => String(c || '').trim()).length;
+                if (nonEmpty === 0) continue;
+
+                // Lấy text của ô đầu tiên có nội dung (dòng gộp/header)
+                const firstText = String(row.find(c => String(c || '').trim()) || '').trim();
+
+                // Bỏ qua dòng tổng/cộng
+                if (/^(cộng|tổng|total|grand)/i.test(firstText) && nonEmpty <= 3) continue;
+
+                // Dòng section (Tầng): 1 cell, dạng "A. Tầng 1" hoặc chứa "Tầng"/"Khu vực"
+                const isSection = /^[A-Z]\.\s/.test(firstText) || (/tầng|khu vực/i.test(firstText) && nonEmpty <= 2);
+                if (isSection) {
+                    const name = firstText.replace(/^[A-Z]\.\s*/, '').trim() || firstText;
+                    curSection = { _k: Math.random().toString(36).slice(2), name, rooms: [] };
+                    newSections.push(curSection);
+                    curRoom = null;
+                    continue;
+                }
+
+                // Dòng room (Phòng): 1 cell, dạng "A.I. Phòng khách" hoặc chứa "Phòng"
+                const isRoom = /^[A-Z]\.[IVX]+\.\s/.test(firstText) || (/phòng|khu|kệ|tủ|bếp/i.test(firstText) && nonEmpty <= 2);
+                if (isRoom) {
+                    const name = firstText.replace(/^[A-Z]\.[IVX]+\.\s*/, '').trim() || firstText;
+                    if (!curSection) {
+                        curSection = { _k: Math.random().toString(36).slice(2), name: 'Tầng 1', rooms: [] };
+                        newSections.push(curSection);
+                    }
+                    curRoom = { _k: Math.random().toString(36).slice(2), name, rows: [] };
+                    curSection.rooms.push(curRoom);
+                    continue;
+                }
+
+                // Dòng dữ liệu
+                const get = (key) => colMap[key] !== undefined ? String(row[colMap[key]] || '').trim() : '';
+                const hangMuc = get('hangMuc');
+                const chatLieu = get('chatLieu');
+                const donGia = get('donGia');
+                if (!hangMuc && !chatLieu && !donGia) continue;
+
+                if (!curSection) {
+                    curSection = { _k: Math.random().toString(36).slice(2), name: 'Tầng 1', rooms: [] };
+                    newSections.push(curSection);
+                }
+                if (!curRoom) {
+                    curRoom = { _k: Math.random().toString(36).slice(2), name: 'Phòng I', rows: [] };
+                    curSection.rooms.push(curRoom);
+                }
+                curRoom.rows.push({
+                    _k: Math.random().toString(36).slice(2),
+                    hangMuc, chatLieu,
+                    dai: get('dai'), sau: get('sau'), cao: get('cao'),
+                    slCai: get('slCai'), dvt: get('dvt') || 'm²',
+                    khoiLuong: get('khoiLuong'), donGia,
+                    mergedWithPrev: false,
+                });
+            }
+
+            if (!newSections.length) { toast.error('Không đọc được dữ liệu từ file'); return; }
+            newSections.forEach(s => s.rooms.forEach(r => { if (!r.rows.length) r.rows.push(emptyRow()); }));
+            setSections(newSections);
+            const totalRows = newSections.reduce((a, s) => a + s.rooms.reduce((b, r) => b + r.rows.length, 0), 0);
+            toast.success(`Đã import ${totalRows} dòng từ ${file.name}`);
+        } catch (err) {
+            toast.error('Lỗi đọc file: ' + err.message);
+        }
+        e.target.value = '';
+    };
+
     // ── Export Excel (HTML-based, supports colors) ────────────────────────────
     const handleExportExcel = () => {
         const customerName = customers.find(c => c.id === form.customerId)?.name || '';
@@ -681,6 +797,8 @@ export default function QuotationNoiThatPage() {
                     ) : 'Báo giá nội thất'}
                 </h2>
                 <div style={{ flex: 1 }} />
+                <input ref={importExcelRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleImportExcel} />
+                <button className="btn btn-secondary btn-sm" onClick={() => importExcelRef.current?.click()} title="Import dữ liệu từ file Excel vào bảng">📥 Import Excel</button>
                 <button className="btn btn-secondary btn-sm" onClick={handleExportExcel}>📊 Xuất Excel</button>
                 <button className="btn btn-secondary btn-sm" onClick={handleSaveDraft} disabled={savingDraft}>
                     {savingDraft ? 'Đang lưu...' : (editId ? '💾 Lưu thay đổi' : '💾 Lưu nháp')}
