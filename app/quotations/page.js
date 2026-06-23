@@ -6,8 +6,10 @@ import { apiFetch } from '@/lib/fetchClient';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Pagination from '@/components/ui/Pagination';
 import { QUOTATION_STATUSES, STATUS_BADGE, fmtCurrency } from '@/lib/quotation-constants';
+import { useRole } from '@/contexts/RoleContext';
 
 export default function QuotationsPage() {
+    const { isKinhDoanh } = useRole();
     const [quotations, setQuotations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -25,13 +27,14 @@ export default function QuotationsPage() {
             if (filterStatus) params.set('status', filterStatus);
             if (search.trim()) params.set('search', search.trim());
             const d = await apiFetch(`/api/quotations?${params}`);
-            setQuotations(d.data || []);
+            const data = d.data || [];
+            setQuotations(isKinhDoanh ? data.filter(q => q.type === 'Báo giá nội thất') : data);
             setPagination(d.pagination || null);
         } catch (e) {
             toast.error(e.message);
         }
         setLoading(false);
-    }, [page, filterStatus, search]);
+    }, [page, filterStatus, search, isKinhDoanh]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
