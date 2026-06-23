@@ -1420,7 +1420,7 @@ export default function CustomerDetailPage() {
                             <div className="form-group"><label className="form-label">Tên</label><input className="form-input" value={editForm.name || ''} onChange={e => setEditForm({ ...editForm, name: e.target.value })} /></div>
                             <div className="form-row">
                                 <div className="form-group"><label className="form-label">SĐT</label><input className="form-input" value={editForm.phone || ''} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} /></div>
-                                <div className="form-group"><label className="form-label">Email</label><input className="form-input" value={editForm.email || ''} onChange={e => setEditForm({ ...editForm, email: e.target.value })} /></div>
+                                <div className="form-group"><label className="form-label">Tên</label><input className="form-input" value={editForm.email || ''} onChange={e => setEditForm({ ...editForm, email: e.target.value })} /></div>
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Địa chỉ</label>
