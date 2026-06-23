@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 
@@ -38,11 +39,14 @@ const PAYMENT_TEMPLATES = {
 
 export default function CreateContractPage() {
     const router = useRouter();
+    const { data: session } = useSession();
     const [customers, setCustomers] = useState([]);
     const [projects, setProjects] = useState([]);
     const [quotations, setQuotations] = useState([]);
     const [saving, setSaving] = useState(false);
     const [paymentPhases, setPaymentPhases] = useState([]);
+
+    const isKinhDoanh = session?.user?.role === 'kinh_doanh';
 
     const [form, setForm] = useState({
         name: '', type: 'Thi công thô', contractValue: 0, signDate: '', startDate: '', endDate: '',
@@ -50,10 +54,17 @@ export default function CreateContractPage() {
     });
 
     useEffect(() => {
-        fetch('/api/customers?limit=1000').then(r => r.json()).then(d => setCustomers(d.data || []));
+        if (!session) return;
+        const customerUrl = isKinhDoanh
+            ? '/api/customers?limit=1000&dept=kinh_doanh'
+            : '/api/customers?limit=1000';
+        fetch(customerUrl).then(r => r.json()).then(d => {
+            const all = d.data || [];
+            setCustomers(isKinhDoanh ? all.filter(c => c.pipelineStage === 'Thi công') : all);
+        });
         fetch('/api/projects?limit=1000').then(r => r.json()).then(d => setProjects(d.data || []));
         fetch('/api/quotations?limit=1000').then(r => r.json()).then(d => setQuotations(d.data || []));
-    }, []);
+    }, [session]);
 
     // Auto-load template when type changes
     useEffect(() => {
