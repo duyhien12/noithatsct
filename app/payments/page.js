@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
@@ -8,6 +9,7 @@ const pct = (a, b) => b > 0 ? Math.round((a / b) * 100) : 0;
 
 export default function PaymentsPage() {
     const router = useRouter();
+    const { data: session } = useSession();
     const [tab, setTab] = useState('overview');
     const [contracts, setContracts] = useState([]);
     const [receivables, setReceivables] = useState({ payments: [], summary: {} });
@@ -19,6 +21,8 @@ export default function PaymentsPage() {
     const [confirmModal, setConfirmModal] = useState(null);
     const [uploading, setUploading] = useState(false);
     const proofRef = useRef();
+
+    const isKinhDoanh = session?.user?.role === 'kinh_doanh';
 
     const fetchAll = async () => {
         setLoading(true);
@@ -32,14 +36,18 @@ export default function PaymentsPage() {
     };
     useEffect(() => { fetchAll(); }, []);
 
+    // === Lọc hợp đồng theo role ===
+    const visibleContracts = isKinhDoanh ? contracts.filter(c => c.type === 'Thi công nội thất') : contracts;
+    const visiblePayments = isKinhDoanh ? receivables.payments.filter(p => p.contract?.type === 'Thi công nội thất') : receivables.payments;
+
     // === Stats ===
-    const totalValue = contracts.reduce((s, c) => s + (c.contractValue || 0), 0);
-    const totalPaid = contracts.reduce((s, c) => s + (c.paidAmount || 0), 0);
+    const totalValue = visibleContracts.reduce((s, c) => s + (c.contractValue || 0), 0);
+    const totalPaid = visibleContracts.reduce((s, c) => s + (c.paidAmount || 0), 0);
     const totalDebt = totalValue - totalPaid;
     const overallRate = pct(totalPaid, totalValue);
 
     // === Filter contracts overview ===
-    const filteredContracts = contracts.filter(c => {
+    const filteredContracts = visibleContracts.filter(c => {
         if (filter === 'paid' && pct(c.paidAmount, c.contractValue) < 100) return false;
         if (filter === 'partial' && (pct(c.paidAmount, c.contractValue) === 0 || pct(c.paidAmount, c.contractValue) >= 100)) return false;
         if (filter === 'unpaid' && pct(c.paidAmount, c.contractValue) > 0) return false;
@@ -48,8 +56,8 @@ export default function PaymentsPage() {
     });
 
     // === Filter receivable payments ===
-    const projects = [...new Set(receivables.payments.map(p => p.contract?.project?.name).filter(Boolean))];
-    const filteredPayments = receivables.payments.filter(p => {
+    const projects = [...new Set(visiblePayments.map(p => p.contract?.project?.name).filter(Boolean))];
+    const filteredPayments = visiblePayments.filter(p => {
         if (filterProject && p.contract?.project?.name !== filterProject) return false;
         if (filterStatus && p.status !== filterStatus) return false;
         if (search && !p.contract?.code?.toLowerCase().includes(search.toLowerCase()) && !p.contract?.customer?.name?.toLowerCase().includes(search.toLowerCase())) return false;
@@ -199,7 +207,7 @@ ${[1, 2].map(copy => `
 
             <div className="card" style={{ marginBottom: 24, padding: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontWeight: 600, fontSize: 14 }}>Tỷ lệ thu tiền toàn công ty</span>
+                    <span style={{ fontWeight: 600, fontSize: 14 }}>{isKinhDoanh ? 'Tỷ lệ thu tiền HĐ nội thất' : 'Tỷ lệ thu tiền toàn công ty'}</span>
                     <span style={{ fontWeight: 700, color: 'var(--text-accent)' }}>{overallRate}%</span>
                 </div>
                 <div className="progress-bar" style={{ height: 12 }}><div className="progress-fill" style={{ width: `${overallRate}%` }}></div></div>
