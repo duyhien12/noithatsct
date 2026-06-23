@@ -14,14 +14,36 @@ export default function ContractsPage() {
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [filterType, setFilterType] = useState('');
+    const [deletingId, setDeletingId] = useState(null);
     const router = useRouter();
     const { data: session, status } = useSession();
+
+    const loadContracts = () => {
+        fetch('/api/contracts?limit=1000').then(r => r.json()).then(d => { setContracts(d.data || []); setLoading(false); });
+    };
 
     useEffect(() => {
         if (status === 'loading') return;
         if (session?.user?.role === 'xuong') { router.replace('/'); return; }
-        fetch('/api/contracts?limit=1000').then(r => r.json()).then(d => { setContracts(d.data || []); setLoading(false); });
+        loadContracts();
     }, [session, status]);
+
+    const handleDelete = async (e, id, code) => {
+        e.stopPropagation();
+        if (!confirm(`Xác nhận xóa hợp đồng ${code}?\nThao tác này không thể hoàn tác.`)) return;
+        setDeletingId(id);
+        try {
+            const res = await fetch(`/api/contracts/${id}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Lỗi xóa hợp đồng');
+            setContracts(prev => prev.filter(c => c.id !== id));
+        } catch {
+            alert('Xóa thất bại, vui lòng thử lại');
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
+    const isAdmin = ['admin', 'ban_gd', 'giam_doc', 'pho_gd'].includes(session?.user?.role);
 
     if (status === 'loading' || session?.user?.role === 'xuong') return null;
 
@@ -84,7 +106,7 @@ export default function ContractsPage() {
                 {loading ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (<>
                     <div className="desktop-table-view">
                         <div className="table-container"><table className="data-table">
-                            <thead><tr><th>Mã HĐ</th><th>Tên</th><th>Khách hàng</th><th>Dự án</th><th>Loại</th><th>Giá trị</th><th>Đã thu</th><th>Tỷ lệ</th><th>Đợt TT</th><th>Trạng thái</th></tr></thead>
+                            <thead><tr><th>Mã HĐ</th><th>Tên</th><th>Khách hàng</th><th>Dự án</th><th>Loại</th><th>Giá trị</th><th>Đã thu</th><th>Tỷ lệ</th><th>Đợt TT</th><th>Trạng thái</th>{isAdmin && <th></th>}</tr></thead>
                             <tbody>{filtered.map(c => {
                                 const rate = pct(c.paidAmount, c.contractValue);
                                 return (
@@ -99,6 +121,7 @@ export default function ContractsPage() {
                                         <td><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div className="progress-bar" style={{ flex: 1 }}><div className="progress-fill" style={{ width: `${rate}%` }}></div></div><span style={{ fontSize: 11 }}>{rate}%</span></div></td>
                                         <td><span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.payments?.length || 0} đợt</span></td>
                                         <td><span className={`badge ${c.status === 'Hoàn thành' ? 'success' : c.status === 'Đang thực hiện' ? 'warning' : c.status === 'Đã ký' ? 'info' : 'muted'}`}>{c.status}</span></td>
+                                        {isAdmin && <td onClick={e => e.stopPropagation()}><button onClick={e => handleDelete(e, c.id, c.code)} disabled={deletingId === c.id} className="btn btn-danger" style={{ padding: '4px 10px', fontSize: 12 }}>{deletingId === c.id ? '...' : 'Xóa'}</button></td>}
                                     </tr>
                                 );
                             })}</tbody>
@@ -117,6 +140,7 @@ export default function ContractsPage() {
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
                                             <span className={`badge ${c.status === 'Hoàn thành' ? 'success' : c.status === 'Đang thực hiện' ? 'warning' : c.status === 'Đã ký' ? 'info' : 'muted'}`}>{c.status}</span>
                                             <span className={`badge ${TYPE_COLORS[c.type] || 'muted'}`} style={{ fontSize: 10 }}>{TYPE_ICONS[c.type]} {c.type}</span>
+                                            {isAdmin && <button onClick={e => handleDelete(e, c.id, c.code)} disabled={deletingId === c.id} className="btn btn-danger" style={{ padding: '3px 8px', fontSize: 11 }}>{deletingId === c.id ? '...' : 'Xóa'}</button>}
                                         </div>
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
