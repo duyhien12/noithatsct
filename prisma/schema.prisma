@@ -224,6 +224,7 @@ model Quotation {
   paymentSchedule   Json?               @default("[]")
   promoText         String              @default("")
   terms             String              @default("")
+  attachments       Json?               @default("[]")
   contracts         Contract[]
   customer          Customer            @relation(fields: [customerId], references: [id])
   parent            Quotation?          @relation("QuotationRevisions", fields: [parentId], references: [id])

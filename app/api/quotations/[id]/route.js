@@ -51,11 +51,12 @@ export const GET = withAuth(async (request, { params }) => {
         }
     }
 
-    // Merge terms/promoText (added via raw SQL, not in Prisma client)
-    const extraFields = await prisma.$queryRaw`SELECT "terms", "promoText" FROM "Quotation" WHERE id = ${id}`;
+    // Merge terms/promoText/attachments (added via raw SQL, not in Prisma client)
+    const extraFields = await prisma.$queryRaw`SELECT "terms", "promoText", "attachments" FROM "Quotation" WHERE id = ${id}`;
     if (extraFields[0]) {
         quotation.terms = extraFields[0].terms ?? '';
         quotation.promoText = extraFields[0].promoText ?? '';
+        quotation.attachments = extraFields[0].attachments ?? [];
     }
 
     return NextResponse.json(quotation);
@@ -208,7 +209,7 @@ export const PUT = withAuth(async (request, { params }) => {
     return NextResponse.json(result);
 });
 
-// PATCH: cập nhật status nhanh (KH xác nhận, gửi KH...)
+// PATCH: cập nhật status nhanh hoặc attachments
 export const PATCH = withAuth(async (request, { params }) => {
     const { id } = await params;
     const existing = await prisma.quotation.findUnique({ where: { id }, select: { status: true } });
@@ -216,7 +217,15 @@ export const PATCH = withAuth(async (request, { params }) => {
     if (LOCKED_STATUSES.includes(existing.status)) {
         return NextResponse.json({ error: `Báo giá đã "${existing.status}" — không thể thay đổi.` }, { status: 403 });
     }
-    const { status } = await request.json();
+    const body = await request.json();
+
+    if (body.attachments !== undefined) {
+        const json = JSON.stringify(body.attachments);
+        await prisma.$executeRaw`UPDATE "Quotation" SET "attachments" = ${json}::jsonb WHERE id = ${id}`;
+        return NextResponse.json({ attachments: body.attachments });
+    }
+
+    const { status } = body;
     if (!['Nháp', 'Gửi KH', 'Xác nhận', 'Từ chối'].includes(status)) {
         return NextResponse.json({ error: 'Trạng thái không hợp lệ' }, { status: 400 });
     }

@@ -78,6 +78,9 @@ export default function QuotationNoiThatPage() {
     const [saving, setSaving] = useState(false);
     const [savingDraft, setSavingDraft] = useState(false);
     const [qMeta, setQMeta] = useState(null); // { code, status } for edit mode
+    const [attachments, setAttachments] = useState([]);
+    const [uploadingFile, setUploadingFile] = useState(false);
+    const fileInputRef = useRef(null);
     const cellRefs = useRef({});
     const dragRef = useRef(null); // { sIdx, rmIdx, rIdx }
     const [dragOver, setDragOver] = useState(null); // { sIdx, rmIdx, rIdx }
@@ -152,6 +155,7 @@ export default function QuotationNoiThatPage() {
                 notes: q.notes || '',
             });
             setQMeta({ code: q.code, status: q.status });
+            setAttachments(Array.isArray(q.attachments) ? q.attachments : []);
 
             // Convert categories → sections/rooms/rows
             if (q.categories?.length) {
@@ -515,6 +519,41 @@ export default function QuotationNoiThatPage() {
             router.push(`/quotations/${targetId}/pdf`);
         } catch (err) { toast.error(err.message || 'Lỗi lưu báo giá'); }
         setSaving(false);
+    };
+
+    // ── File attachments ──────────────────────────────────────────────────────
+    const handleFileUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file || !editId) return;
+        setUploadingFile(true);
+        try {
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('type', 'documents');
+            const res = await fetch('/api/upload', { method: 'POST', body: fd });
+            if (!res.ok) throw new Error('Upload thất bại');
+            const { url } = await res.json();
+            const newAttachments = [...attachments, { name: file.name, url, size: file.size, uploadedAt: new Date().toISOString() }];
+            await apiFetch(`/api/quotations/${editId}`, { method: 'PATCH', body: JSON.stringify({ attachments: newAttachments }) });
+            setAttachments(newAttachments);
+            toast.success(`Đã tải lên: ${file.name}`);
+        } catch (err) { toast.error(err.message || 'Lỗi tải file'); }
+        setUploadingFile(false);
+        e.target.value = '';
+    };
+
+    const handleDeleteAttachment = async (idx) => {
+        if (!editId) return;
+        const newAttachments = attachments.filter((_, i) => i !== idx);
+        await apiFetch(`/api/quotations/${editId}`, { method: 'PATCH', body: JSON.stringify({ attachments: newAttachments }) });
+        setAttachments(newAttachments);
+    };
+
+    const fmtFileSize = (bytes) => {
+        if (!bytes) return '';
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
     };
 
     // ── Export Excel (HTML-based, supports colors) ────────────────────────────
@@ -935,6 +974,45 @@ export default function QuotationNoiThatPage() {
                 onClick={() => setSections(p => [...p, emptySection('')])}>
                 + Thêm tầng / khu vực mới
             </button>
+
+            {/* ── File đính kèm (chỉ hiện trong edit mode) ────────────────── */}
+            {editId && (
+                <div className="card" style={{ marginBottom: 20, padding: '14px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <h4 style={{ margin: 0, fontSize: 14 }}>📎 File đính kèm ({attachments.length})</h4>
+                        <div>
+                            <input ref={fileInputRef} type="file" style={{ display: 'none' }}
+                                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                                onChange={handleFileUpload} />
+                            <button className="btn btn-secondary btn-sm" onClick={() => fileInputRef.current?.click()} disabled={uploadingFile}>
+                                {uploadingFile ? 'Đang tải...' : '+ Tải file lên'}
+                            </button>
+                        </div>
+                    </div>
+                    {attachments.length === 0 ? (
+                        <p style={{ color: '#9ca3af', fontSize: 13, margin: 0 }}>Chưa có file đính kèm</p>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {attachments.map((f, i) => (
+                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: '#f8fafc', borderRadius: 5, border: '1px solid #e2e8f0' }}>
+                                    <span style={{ fontSize: 18 }}>
+                                        {/\.pdf$/i.test(f.name) ? '📄' : /\.(xls|xlsx)$/i.test(f.name) ? '📊' : /\.(doc|docx)$/i.test(f.name) ? '📝' : '🖼️'}
+                                    </span>
+                                    <a href={f.url} target="_blank" rel="noreferrer" style={{ flex: 1, fontSize: 13, color: 'var(--accent-primary)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {f.name}
+                                    </a>
+                                    <span style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap' }}>{fmtFileSize(f.size)}</span>
+                                    <button onClick={() => handleDeleteAttachment(i)}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 16, padding: '0 2px' }}
+                                        onMouseEnter={e => e.target.style.color = '#ef4444'}
+                                        onMouseLeave={e => e.target.style.color = '#d1d5db'}
+                                        title="Xóa file">✕</button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* ── Summary ─────────────────────────────────────────────────── */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 40 }}>
