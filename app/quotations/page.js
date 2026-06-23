@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
 import { apiFetch } from '@/lib/fetchClient';
@@ -17,9 +17,6 @@ export default function QuotationsPage() {
     const [page, setPage] = useState(1);
     const [pagination, setPagination] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
-    const [attachModal, setAttachModal] = useState(null); // { id, code, attachments }
-    const [uploadingFile, setUploadingFile] = useState(false);
-    const fileInputRef = useRef(null);
     const router = useRouter();
     const toast = useToast();
 
@@ -69,41 +66,6 @@ export default function QuotationsPage() {
         e.stopPropagation();
         router.push(`/contracts/create?quotationId=${q.id}&customerId=${q.customerId}&projectId=${q.projectId || ''}&type=${encodeURIComponent(q.type)}&value=${q.grandTotal}`);
     };
-
-    const openAttachModal = async (q, e) => {
-        e.stopPropagation();
-        const data = await apiFetch(`/api/quotations/${q.id}`).catch(() => null);
-        setAttachModal({ id: q.id, code: q.code, attachments: Array.isArray(data?.attachments) ? data.attachments : [] });
-    };
-
-    const handleFileUpload = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file || !attachModal) return;
-        setUploadingFile(true);
-        try {
-            const fd = new FormData();
-            fd.append('file', file);
-            fd.append('type', 'documents');
-            const res = await fetch('/api/upload', { method: 'POST', body: fd });
-            if (!res.ok) throw new Error('Upload thất bại');
-            const { url } = await res.json();
-            const newAttachments = [...attachModal.attachments, { name: file.name, url, size: file.size, uploadedAt: new Date().toISOString() }];
-            await apiFetch(`/api/quotations/${attachModal.id}`, { method: 'PATCH', body: JSON.stringify({ attachments: newAttachments }) });
-            setAttachModal(m => ({ ...m, attachments: newAttachments }));
-            toast.success(`Đã tải lên: ${file.name}`);
-        } catch (err) { toast.error(err.message || 'Lỗi tải file'); }
-        setUploadingFile(false);
-        e.target.value = '';
-    };
-
-    const handleDeleteAttachment = async (idx) => {
-        if (!attachModal) return;
-        const newAttachments = attachModal.attachments.filter((_, i) => i !== idx);
-        await apiFetch(`/api/quotations/${attachModal.id}`, { method: 'PATCH', body: JSON.stringify({ attachments: newAttachments }) });
-        setAttachModal(m => ({ ...m, attachments: newAttachments }));
-    };
-
-    const fmtFileSize = (b) => !b ? '' : b < 1024 ? `${b}B` : b < 1048576 ? `${(b/1024).toFixed(1)}KB` : `${(b/1048576).toFixed(1)}MB`;
 
     // Stats from current page data (for display)
     const allOnPage = quotations;
@@ -182,7 +144,6 @@ export default function QuotationsPage() {
                                                 onClick={(e) => { e.stopPropagation(); window.open(`/quotations/${q.id}/pdf`, '_blank'); }}>
                                                 📄
                                             </button>
-                                            <button className="btn btn-ghost" title="File đính kèm" onClick={(e) => openAttachModal(q, e)}>📎</button>
                                             <button className="btn btn-ghost" onClick={(e) => { e.stopPropagation(); router.push(`/quotations/${q.id}/edit`); }}>✏️</button>
                                             <button className="btn btn-ghost" onClick={(e) => { e.stopPropagation(); setDeleteTarget(q.id); }}>🗑️</button>
                                         </td>
@@ -214,7 +175,6 @@ export default function QuotationsPage() {
                                                 <button className="btn btn-primary btn-sm" onClick={(e) => handleCreateContract(q, e)}>📋 Tạo HĐ</button>
                                             )}
                                             <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); window.open(`/quotations/${q.id}/pdf`, '_blank'); }}>📄</button>
-                                            <button className="btn btn-ghost btn-sm" title="File đính kèm" onClick={(e) => openAttachModal(q, e)}>📎</button>
                                             <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); setDeleteTarget(q.id); }}>🗑️</button>
                                         </div>
                                     </div>
@@ -245,53 +205,6 @@ export default function QuotationsPage() {
                 confirmText="Xóa"
                 variant="danger"
             />
-
-            {/* Modal file đính kèm */}
-            {attachModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-                    <div style={{ background: '#fff', borderRadius: 10, width: '100%', maxWidth: 480, padding: 20, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                            <h3 style={{ margin: 0, fontSize: 16 }}>📎 File đính kèm — {attachModal.code}</h3>
-                            <button onClick={() => setAttachModal(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#6b7280' }}>×</button>
-                        </div>
-
-                        <input ref={fileInputRef} type="file" style={{ display: 'none' }}
-                            accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
-                            onChange={handleFileUpload} />
-
-                        <button className="btn btn-secondary" style={{ width: '100%', marginBottom: 14 }}
-                            onClick={() => fileInputRef.current?.click()} disabled={uploadingFile}>
-                            {uploadingFile ? '⏳ Đang tải lên...' : '+ Tải file lên'}
-                        </button>
-                        <p style={{ fontSize: 11, color: '#9ca3af', marginTop: -10, marginBottom: 14 }}>
-                            Hỗ trợ: PDF, Word, Excel, ảnh JPG/PNG
-                        </p>
-
-                        {attachModal.attachments.length === 0 ? (
-                            <p style={{ color: '#9ca3af', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>Chưa có file đính kèm</p>
-                        ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {attachModal.attachments.map((f, i) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
-                                        <span style={{ fontSize: 20 }}>
-                                            {/\.pdf$/i.test(f.name) ? '📄' : /\.(xls|xlsx)$/i.test(f.name) ? '📊' : /\.(doc|docx)$/i.test(f.name) ? '📝' : '🖼️'}
-                                        </span>
-                                        <a href={f.url} target="_blank" rel="noreferrer"
-                                            style={{ flex: 1, fontSize: 13, color: 'var(--accent-primary)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {f.name}
-                                        </a>
-                                        <span style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap' }}>{fmtFileSize(f.size)}</span>
-                                        <button onClick={() => handleDeleteAttachment(i)}
-                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 18, lineHeight: 1 }}
-                                            onMouseEnter={e => e.target.style.color = '#ef4444'}
-                                            onMouseLeave={e => e.target.style.color = '#d1d5db'}>✕</button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
