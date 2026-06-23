@@ -44,27 +44,30 @@ export default function ContractsPage() {
     };
 
     const isAdmin = ['admin', 'ban_gd', 'giam_doc', 'pho_gd'].includes(session?.user?.role);
+    const isKinhDoanh = session?.user?.role === 'kinh_doanh';
 
     if (status === 'loading' || session?.user?.role === 'xuong') return null;
 
-    const filtered = contracts.filter(c => {
+    const visibleContracts = isKinhDoanh ? contracts.filter(c => c.type === 'Thi công nội thất') : contracts;
+
+    const filtered = visibleContracts.filter(c => {
         if (filterType && c.type !== filterType) return false;
         if (filterStatus && c.status !== filterStatus) return false;
         if (search && !c.name.toLowerCase().includes(search.toLowerCase()) && !c.code.toLowerCase().includes(search.toLowerCase())) return false;
         return true;
     });
 
-    const totalValue = contracts.reduce((s, c) => s + c.contractValue, 0);
-    const totalPaid = contracts.reduce((s, c) => s + c.paidAmount, 0);
+    const totalValue = visibleContracts.reduce((s, c) => s + c.contractValue, 0);
+    const totalPaid = visibleContracts.reduce((s, c) => s + c.paidAmount, 0);
     const totalDebt = totalValue - totalPaid;
-    const activeCount = contracts.filter(c => c.status === 'Đang thực hiện').length;
+    const activeCount = visibleContracts.filter(c => c.status === 'Đang thực hiện').length;
 
     // Group by type for summary
-    const typeGroups = ['Thiết kế kiến trúc', 'Thiết kế nội thất', 'Thi công thô', 'Thi công hoàn thiện', 'Thi công nội thất'].map(type => ({
+    const typeGroups = (isKinhDoanh ? ['Thi công nội thất'] : ['Thiết kế kiến trúc', 'Thiết kế nội thất', 'Thi công thô', 'Thi công hoàn thiện', 'Thi công nội thất']).map(type => ({
         type,
         icon: TYPE_ICONS[type],
-        count: contracts.filter(c => c.type === type).length,
-        value: contracts.filter(c => c.type === type).reduce((s, c) => s + c.contractValue, 0),
+        count: visibleContracts.filter(c => c.type === type).length,
+        value: visibleContracts.filter(c => c.type === type).reduce((s, c) => s + c.contractValue, 0),
     }));
 
     return (
@@ -95,10 +98,10 @@ export default function ContractsPage() {
                 <div className="card-header"><span className="card-title">Danh sách hợp đồng</span><button className="btn btn-primary" onClick={() => router.push('/contracts/create')}>➕ Tạo hợp đồng</button></div>
                 <div className="filter-bar">
                     <input type="text" className="form-input" placeholder="🔍 Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
-                    <select className="form-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
+                    {!isKinhDoanh && <select className="form-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
                         <option value="">Tất cả loại</option>
                         <option>Thiết kế kiến trúc</option><option>Thiết kế nội thất</option><option>Thi công thô</option><option>Thi công hoàn thiện</option><option>Thi công nội thất</option>
-                    </select>
+                    </select>}
                     <select className="form-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                         <option value="">Tất cả TT</option><option>Nháp</option><option>Đã ký</option><option>Đang thực hiện</option><option>Hoàn thành</option>
                     </select>
