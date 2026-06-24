@@ -1105,8 +1105,8 @@ export default function CustomerDetailPage() {
                                         const isDone = item.status === 'done';
                                         const isInProgress = item.status === 'in_progress';
                                         const isGroup = item.level === 0;
-                                        if (isGroup && item.color) _gc = item.color;
                                         const barColor = isDone ? '#10b981' : isInProgress ? '#f59e0b' : (item.color || (isGroup ? '#6b7280' : _gc));
+                                        if (isGroup) _gc = barColor;
                                         const todayPct = getPct(today);
                                         return (
                                             <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: isGroup ? 6 : 2, height: isGroup ? 26 : 20 }}>
