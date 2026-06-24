@@ -40,7 +40,7 @@ export const GET = withAuth(async (request) => {
         return NextResponse.json(paginatedResponse(customers, total, { page, limit }));
     } catch (err) {
         console.error('[customers GET]', err);
-        return NextResponse.json({ error: err.message, meta: err.meta }, { status: 500 });
+        return NextResponse.json({ error: 'Lỗi hệ thống, vui lòng thử lại' }, { status: 500 });
     }
 });
 

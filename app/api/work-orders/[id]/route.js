@@ -48,10 +48,10 @@ export const PUT = withAuth(async (request, { params }, session) => {
     }
 
     return NextResponse.json(order);
-});
+}, { roles: ['admin', 'giam_doc', 'pho_gd', 'kinh_doanh', 'xay_dung'] });
 
 export const DELETE = withAuth(async (request, { params }) => {
     const { id } = await params;
     await prisma.workOrder.delete({ where: { id } });
     return NextResponse.json({ success: true });
-});
+}, { roles: ['admin', 'giam_doc'] });
