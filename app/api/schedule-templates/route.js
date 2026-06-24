@@ -189,11 +189,46 @@ async function ensureCarePlanTemplate() {
     console.log('[schedule-templates] Care plan template seeded');
 }
 
+let seededKhachUuTien = false;
+async function ensureKhachUuTienTemplate() {
+    if (seededKhachUuTien) return;
+    const exists = await prisma.scheduleTemplate.findFirst({ where: { name: 'Quy trình quản lý khách ưu tiên' } });
+    if (exists) { seededKhachUuTien = true; return; }
+
+    console.log('[schedule-templates] Seeding Quy trình quản lý khách ưu tiên template...');
+    const tpl = await prisma.scheduleTemplate.create({
+        data: { name: 'Quy trình quản lý khách ưu tiên', type: 'Ưu tiên', description: 'Quy trình quản lý khách hàng ưu tiên: từ tiếp nhận thông tin đến ký hợp đồng' },
+    });
+    const utItems = [
+        // Bước 1
+        { name: 'BƯỚC 1: Tiếp nhận thông tin từ khách chăm sóc',           level: 0, wbs: '1',   duration: 5,  weight: 1, color: '#16a34a' },
+        { name: 'Lên phương án chăm sóc khách hàng',                        level: 1, wbs: '1.1', duration: 2,  weight: 1, color: '', parentIdx: 0 },
+        { name: 'Duyệt nội bộ TK và duyệt 3D với khách hàng',              level: 1, wbs: '1.2', duration: 3,  weight: 1, color: '', parentIdx: 0 },
+        { name: 'CB các hạng mục tư vấn',                                   level: 1, wbs: '1.3', duration: 2,  weight: 1, color: '', parentIdx: 0 },
+        { name: 'Lên các hạng mục kinh doanh',                              level: 1, wbs: '1.4', duration: 2,  weight: 1, color: '', parentIdx: 0 },
+        // Bước 2
+        { name: 'BƯỚC 2: Báo giá',                                          level: 0, wbs: '2',   duration: 7,  weight: 2, color: '#3b82f6', predIdx: 0 },
+        { name: 'Lấy báo giá từ các ĐV đối tác',                           level: 1, wbs: '2.1', duration: 3,  weight: 1, color: '', parentIdx: 5 },
+        { name: 'Tính giá thành Sp',                                        level: 1, wbs: '2.2', duration: 2,  weight: 1, color: '', parentIdx: 5 },
+        { name: 'Dự kiến kinh phí, thời gian SX của đơn hàng',             level: 1, wbs: '2.3', duration: 2,  weight: 1, color: '', parentIdx: 5 },
+        // Bước 3
+        { name: 'BƯỚC 3: Lên lịch hẹn chủ nhà',                           level: 0, wbs: '3',   duration: 7,  weight: 2, color: '#f59e0b', predIdx: 5 },
+        { name: 'CB vật liệu, Giải pháp',                                   level: 1, wbs: '3.1', duration: 2,  weight: 1, color: '', parentIdx: 9 },
+        { name: 'Báo giá sơ bộ và điều chỉnh cùng khách hàng',            level: 1, wbs: '3.2', duration: 3,  weight: 1, color: '', parentIdx: 9 },
+        { name: 'Lên lịch hẹn với các bộ phận liên quan',                  level: 1, wbs: '3.3', duration: 2,  weight: 1, color: '', parentIdx: 9 },
+        { name: 'Ký HĐ ứng 50%',                                           level: 1, wbs: '3.4', duration: 1,  weight: 1, color: '', parentIdx: 9 },
+    ];
+    await createTemplateItems(tpl.id, utItems);
+    seededKhachUuTien = true;
+    console.log('[schedule-templates] Quy trình quản lý khách ưu tiên template seeded');
+}
+
 export const GET = withAuth(async () => {
     // Auto-seed defaults if empty
     try { await ensureDefaultTemplates(); } catch (e) { console.error('Auto-seed failed:', e); }
     try { await ensureCarePlanTemplate(); } catch (e) { console.error('Care plan seed failed:', e); }
     try { await ensureHopDongNTTemplate(); } catch (e) { console.error('HopDong NT seed failed:', e); }
+    try { await ensureKhachUuTienTemplate(); } catch (e) { console.error('KhachUuTien seed failed:', e); }
 
     const templates = await prisma.scheduleTemplate.findMany({
         include: { _count: { select: { items: true } } },
