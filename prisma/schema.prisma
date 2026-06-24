@@ -9,14 +9,14 @@ datasource db {
 }
 
 model User {
-  id         String   @id @default(cuid())
-  email      String   @unique
-  name       String
-  password   String
-  role       String   @default("ky_thuat")
-  active     Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  password     String
+  role         String   @default("ky_thuat")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   department   String   @default("")
   phone        String   @default("")
   zaloUserId   String   @default("")
@@ -24,42 +24,43 @@ model User {
 }
 
 model Customer {
-  id             String            @id @default(cuid())
-  code           String            @unique
-  name           String
-  phone          String
-  email          String            @default("")
-  address        String            @default("")
-  type           String            @default("Cá nhân")
-  status         String            @default("Lead")
-  taxCode        String            @default("")
-  representative String            @default("")
-  birthday       DateTime?
-  source         String            @default("")
-  notes          String            @default("")
-  totalRevenue   Float             @default(0)
-  gender         String            @default("Nam")
-  projectAddress String            @default("")
-  projectName    String            @default("")
-  salesPerson    String            @default("")
-  designer       String            @default("")
-  contactPerson2 String            @default("")
-  phone2         String            @default("")
-  pipelineStage  String            @default("Lead")
-  estimatedValue Float             @default(0)
-  nextFollowUp   DateTime?
-  score          Int               @default(0)
-  lastContactAt  DateTime?
-  deletedAt      DateTime?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  createdByRole  String            @default("")
-  processData    String            @default("")
-  contracts      Contract[]
-  projects       Project[]
-  documents      ProjectDocument[]
-  quotations     Quotation[]
-  trackingLogs   TrackingLog[]
+  id                String            @id @default(cuid())
+  code              String            @unique
+  name              String
+  phone             String
+  email             String            @default("")
+  address           String            @default("")
+  type              String            @default("Cá nhân")
+  status            String            @default("Lead")
+  taxCode           String            @default("")
+  representative    String            @default("")
+  birthday          DateTime?
+  source            String            @default("")
+  notes             String            @default("")
+  totalRevenue      Float             @default(0)
+  gender            String            @default("Nam")
+  projectAddress    String            @default("")
+  projectName       String            @default("")
+  salesPerson       String            @default("")
+  designer          String            @default("")
+  contactPerson2    String            @default("")
+  phone2            String            @default("")
+  pipelineStage     String            @default("Lead")
+  estimatedValue    Float             @default(0)
+  nextFollowUp      DateTime?
+  score             Int               @default(0)
+  lastContactAt     DateTime?
+  deletedAt         DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  createdByRole     String            @default("")
+  processData       String            @default("")
+  contracts         Contract[]
+  contractProcesses ContractProcess[]
+  projects          Project[]
+  documents         ProjectDocument[]
+  quotations        Quotation[]
+  trackingLogs      TrackingLog[]
 }
 
 model Project {
@@ -483,30 +484,31 @@ model ProjectBudget {
 }
 
 model Contract {
-  id              String            @id @default(cuid())
-  code            String            @unique
-  name            String
-  type            String            @default("Thi công")
-  contractValue   Float             @default(0)
-  paidAmount      Float             @default(0)
-  variationAmount Float             @default(0)
-  status          String            @default("Nháp")
-  signDate        DateTime?
-  startDate       DateTime?
-  endDate         DateTime?
-  paymentTerms    String            @default("")
-  notes           String            @default("")
-  fileUrl         String            @default("")
-  customerId      String
-  projectId       String
-  quotationId     String?
-  deletedAt       DateTime?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  customer        Customer          @relation(fields: [customerId], references: [id])
-  project         Project           @relation(fields: [projectId], references: [id])
-  quotation       Quotation?        @relation(fields: [quotationId], references: [id])
-  payments        ContractPayment[]
+  id                String            @id @default(cuid())
+  code              String            @unique
+  name              String
+  type              String            @default("Thi công")
+  contractValue     Float             @default(0)
+  paidAmount        Float             @default(0)
+  variationAmount   Float             @default(0)
+  status            String            @default("Nháp")
+  signDate          DateTime?
+  startDate         DateTime?
+  endDate           DateTime?
+  paymentTerms      String            @default("")
+  notes             String            @default("")
+  fileUrl           String            @default("")
+  customerId        String
+  projectId         String
+  quotationId       String?
+  deletedAt         DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  customer          Customer          @relation(fields: [customerId], references: [id])
+  project           Project           @relation(fields: [projectId], references: [id])
+  quotation         Quotation?        @relation(fields: [quotationId], references: [id])
+  payments          ContractPayment[]
+  contractProcesses ContractProcess[]
 
   @@index([projectId])
   @@index([customerId])
@@ -1748,4 +1750,90 @@ model CostSettings {
   commissionPct   Float    @default(0.05)
   mgmtPct         Float    @default(0.04)
   updatedAt       DateTime @default(now())
+}
+
+model ContractProcess {
+  id         String                @id @default(cuid())
+  code       String                @unique
+  name       String                @default("")
+  type       String
+  status     String                @default("Đang thực hiện")
+  progress   Int                   @default(0)
+  startDate  DateTime?
+  endDate    DateTime?
+  notes      String                @default("")
+  createdBy  String                @default("")
+  deletedAt  DateTime?
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+  customerId String
+  contractId String?
+  contract   Contract?             @relation(fields: [contractId], references: [id])
+  customer   Customer              @relation(fields: [customerId], references: [id])
+  steps      ContractProcessStep[]
+
+  @@index([customerId])
+  @@index([contractId])
+}
+
+model ContractProcessStep {
+  id             String                @id @default(cuid())
+  processId      String
+  parentId       String?
+  wbs            String                @default("")
+  name           String
+  assignee       String                @default("")
+  department     String                @default("")
+  startDate      DateTime?
+  endDate        DateTime?
+  duration       Int                   @default(1)
+  progress       Int                   @default(0)
+  status         String                @default("Chưa bắt đầu")
+  notes          String                @default("")
+  files          String                @default("[]")
+  sortOrder      Int                   @default(0)
+  level          Int                   @default(0)
+  isPaymentStep  Boolean               @default(false)
+  paymentPercent Float                 @default(0)
+  color          String                @default("")
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  parent         ContractProcessStep?  @relation("CPStepTree", fields: [parentId], references: [id])
+  children       ContractProcessStep[] @relation("CPStepTree")
+  process        ContractProcess       @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  @@index([processId])
+  @@index([parentId])
+}
+
+model ContractProcessTemplate {
+  id          String                        @id @default(cuid())
+  name        String
+  type        String
+  description String                        @default("")
+  isDefault   Boolean                       @default(false)
+  createdAt   DateTime                      @default(now())
+  updatedAt   DateTime                      @updatedAt
+  steps       ContractProcessTemplateStep[]
+}
+
+model ContractProcessTemplateStep {
+  id             String                        @id @default(cuid())
+  templateId     String
+  parentId       String?
+  wbs            String                        @default("")
+  name           String
+  department     String                        @default("")
+  duration       Int                           @default(1)
+  sortOrder      Int                           @default(0)
+  level          Int                           @default(0)
+  isPaymentStep  Boolean                       @default(false)
+  paymentPercent Float                         @default(0)
+  color          String                        @default("")
+  parent         ContractProcessTemplateStep?  @relation("CPTplStepTree", fields: [parentId], references: [id])
+  children       ContractProcessTemplateStep[] @relation("CPTplStepTree")
+  template       ContractProcessTemplate       @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@index([parentId])
 }

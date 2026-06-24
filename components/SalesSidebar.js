@@ -5,9 +5,10 @@ import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, GitBranch, Users, FileText,
     ClipboardList, ChevronRight, X, Building2,
-    Wrench, CalendarDays, CreditCard, Receipt, ShoppingCart, Warehouse, Package, BarChart3, Banknote, BookMarked, GanttChart,
+    Wrench, CalendarDays, CreditCard, Receipt, ShoppingCart, Warehouse, Package, BarChart3, Banknote, BookMarked, GanttChart, ListChecks,
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
+import { useSession } from 'next-auth/react';
 import { useState } from 'react';
 
 const DEPT_VIEWS = [
@@ -33,6 +34,7 @@ const menuItems = [
             { href: '/customers', icon: Users, label: 'Khách hàng' },
             { href: '/quotations', icon: ClipboardList, label: 'Báo giá' },
             { href: '/contracts', icon: FileText, label: 'Hợp đồng' },
+            { href: '/contract-management', icon: ListChecks, label: 'Quy trình KH HĐ' },
         ],
     },
     {
@@ -62,6 +64,8 @@ const menuItems = [
 export default function SalesSidebar({ isOpen, onClose }) {
     const pathname = usePathname();
     const { roleInfo, role, isPhamDuong, canSwitchRole, viewAsRole, setViewAsRole, actualRole } = useRole();
+    const { data: session } = useSession();
+    const isDuyHien = session?.user?.email === 'duyhien@kientrucsct.com';
     const [showDeptPicker, setShowDeptPicker] = useState(false);
 
     const handleNavClick = () => {
@@ -93,7 +97,15 @@ export default function SalesSidebar({ isOpen, onClose }) {
                 {menuItems.map((section) => (
                     <div className="nav-section" key={section.section}>
                         <div className="nav-section-title">{section.section}</div>
-                        {section.items.map((item) => {
+                        {section.items.filter(item => {
+                            if (isDuyHien && [
+                                '/work-orders', '/products',
+                                '/payments', '/sales/expenses', '/finance/kinh-doanh',
+                                '/finance/luong-chi-phi', '/finance/tong-hop',
+                                '/purchasing', '/inventory',
+                            ].includes(item.href)) return false;
+                            return true;
+                        }).map((item) => {
                             const Icon = item.icon;
                             const isActive = item.exact
                                 ? pathname === item.href

@@ -939,7 +939,7 @@ export default function CustomerDetailPage() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {(() => { const _isCarePlan = data?.pipelineStage === 'Tiềm năng'; const _GP=[{dark:'#dcfce7',light:'#f0fdf4'},{dark:'#fef9c3',light:'#fefce8'},{dark:'#ffedd5',light:'#fff7ed'},{dark:'#dbeafe',light:'#eff6ff'},{dark:'#ede9fe',light:'#f5f3ff'}]; let _gIdx=-1; return sched.items.map((item, idx) => {
+                                            {(() => { const _isCarePlan = sched.templateName === 'Quy trình quản lý khách ưu tiên' || sched.templateName === 'Kế hoạch chăm sóc khách ưu tiên'; const _GP=[{dark:'#dcfce7',light:'#f0fdf4'},{dark:'#fef9c3',light:'#fefce8'},{dark:'#ffedd5',light:'#fff7ed'},{dark:'#dbeafe',light:'#eff6ff'},{dark:'#ede9fe',light:'#f5f3ff'}]; let _gIdx=-1; return sched.items.map((item, idx) => {
                                                 const isGroup = item.level === 0;
                                                 if (isGroup) _gIdx++;
                                                 const _pal = _GP[Math.max(0,_gIdx) % _GP.length];

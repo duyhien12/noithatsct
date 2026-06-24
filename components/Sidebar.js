@@ -6,7 +6,7 @@ import {
     LayoutDashboard, GitBranch, Users, Building2, FileText,
     Package, ClipboardList, Wrench, CreditCard, Receipt,
     ShoppingCart, Truck, Warehouse, Wallet, UserCog,
-    BarChart3, ChevronRight, Shield, X, CalendarDays, HardHat, Banknote, TrendingUp, BookMarked, Factory
+    BarChart3, ChevronRight, Shield, X, CalendarDays, HardHat, Banknote, TrendingUp, BookMarked, Factory, ListChecks
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useSession } from 'next-auth/react';
@@ -38,6 +38,8 @@ const menuItems = [
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER, 'xay_dung', 'thiet_ke'] },
             { href: '/contracts', icon: FileText, label: 'Hợp đồng',
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER, 'xay_dung', 'thiet_ke'] },
+            { href: '/contract-management', icon: ListChecks, label: 'Quy trình KH HĐ',
+              roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER] },
         ],
     },
     {
@@ -142,6 +144,7 @@ export default function Sidebar({ isOpen, onClose }) {
     const { role, roleInfo, canViewDashboard, isPhamDuong, canSwitchRole, viewAsRole, setViewAsRole, actualRole, isXuongNhanVien } = useRole();
     const { data: session } = useSession();
     const isNgocBinh = session?.user?.email === 'ngocbinh@kientrucsct.com';
+    const isDuyHien = session?.user?.email === 'duyhien@kientrucsct.com';
     const [showDeptPicker, setShowDeptPicker] = useState(false);
 
     const handleNavClick = () => {
@@ -180,6 +183,12 @@ export default function Sidebar({ isOpen, onClose }) {
                     if (section.isDashboard && !canViewDashboard) return null;
                     const visibleItems = section.items.filter(item => {
                         if (isXuongNhanVien && item.href === '/production') return false;
+                        if (isDuyHien && [
+                            '/work-orders', '/products',
+                            '/payments', '/expenses', '/finance', '/finance/kinh-doanh',
+                            '/finance/luong-chi-phi', '/finance/tong-hop',
+                            '/purchasing', '/inventory',
+                        ].includes(item.href)) return false;
                         return !item.roles || item.roles.includes(role);
                     });
                     if (visibleItems.length === 0) return null;
