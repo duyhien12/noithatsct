@@ -549,7 +549,7 @@ export default function CustomerDetailPage() {
                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border-light)' }}>
                                 <span style={{ fontSize: 16, flexShrink: 0 }}>👤</span>
                                 <div>
-                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Họ và tên</div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Tên dự án</div>
                                     <div style={{ fontWeight: 600, fontSize: 14 }}>{c.name || '—'}</div>
                                 </div>
                             </div>
@@ -557,6 +557,11 @@ export default function CustomerDetailPage() {
                                 <span style={{ fontSize: 16, flexShrink: 0 }}>📱</span>
                                 <div>
                                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Số điện thoại</div>
+                                    {(c.representative || c.salesPerson || (c.email && !c.email.includes('@'))) && (
+                                        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>
+                                            {c.representative || c.salesPerson || c.email}
+                                        </div>
+                                    )}
                                     {c.phone
                                         ? <a href={`tel:${c.phone}`} style={{ fontWeight: 600, fontSize: 14, color: 'var(--primary)', textDecoration: 'none' }}>{c.phone}</a>
                                         : <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>—</span>}
@@ -1084,11 +1089,12 @@ export default function CustomerDetailPage() {
                                         </div>
                                     </div>
                                     {/* Today line + bars */}
-                                    {sched.items.map((item, idx) => {
+                                    {(() => { let _gc = '#3b82f6'; return sched.items.map((item, idx) => {
                                         const isDone = item.status === 'done';
                                         const isInProgress = item.status === 'in_progress';
                                         const isGroup = item.level === 0;
-                                        const barColor = isDone ? '#10b981' : isInProgress ? '#f59e0b' : (item.color || '#3b82f6');
+                                        if (isGroup && item.color) _gc = item.color;
+                                        const barColor = isDone ? '#10b981' : isInProgress ? '#f59e0b' : (item.color || (isGroup ? '#6b7280' : _gc));
                                         const todayPct = getPct(today);
                                         return (
                                             <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: isGroup ? 6 : 2, height: isGroup ? 26 : 20 }}>
@@ -1120,7 +1126,7 @@ export default function CustomerDetailPage() {
                                                 </div>
                                             </div>
                                         );
-                                    })}
+                                    }); })()}
                                     <div style={{ marginTop: 8, paddingLeft: 130, display: 'flex', gap: 12 }}>
                                         <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 6, background: '#10b981', borderRadius: 2, display: 'inline-block' }}/>Hoàn thành</span>
                                         <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 6, background: '#f59e0b', borderRadius: 2, display: 'inline-block' }}/>Đang thực hiện</span>

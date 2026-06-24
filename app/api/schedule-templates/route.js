@@ -90,6 +90,57 @@ async function createTemplateItems(templateId, items) {
     }
 }
 
+let seededHopDongNT = false;
+async function ensureHopDongNTTemplate() {
+    if (seededHopDongNT) return;
+    const exists = await prisma.scheduleTemplate.findFirst({ where: { name: 'Khách hợp đồng nội thất' } });
+    if (exists) { seededHopDongNT = true; return; }
+
+    console.log('[schedule-templates] Seeding Khách hợp đồng nội thất template...');
+    const tpl = await prisma.scheduleTemplate.create({
+        data: { name: 'Khách hợp đồng nội thất', type: 'Nội thất', description: 'Quy trình thực hiện khách hợp đồng nội thất: từ tiếp nhận HĐ đến hoàn thiện và thanh toán' },
+    });
+    const hdItems = [
+        // Bước 1
+        { name: 'BƯỚC 1: Tiếp nhận khách HĐ',                                                                 level: 0, wbs: '1',   duration: 2,  weight: 1, color: '#16a34a' },
+        { name: 'Báo giá cuối chốt khách (Có thể điều chỉnh do khách hàng)',                                   level: 1, wbs: '1.1', duration: 1,  weight: 1, color: '', parentIdx: 0 },
+        { name: 'Ứng 50% giá trị HĐ',                                                                          level: 1, wbs: '1.2', duration: 1,  weight: 1, color: '', parentIdx: 0 },
+        // Bước 2
+        { name: 'BƯỚC 2: Duyệt 3D hoặc kỹ thuật với khách',                                                    level: 0, wbs: '2',   duration: 7,  weight: 2, color: '#3b82f6', predIdx: 0 },
+        { name: 'Duyệt 3D với Ctrinh mình thiết kế',                                                           level: 1, wbs: '2.1', duration: 5,  weight: 1, color: '', parentIdx: 3 },
+        { name: 'Điều chỉnh và Duyệt kỹ thuật với Tk đã có sẵn',                                               level: 1, wbs: '2.2', duration: 3,  weight: 1, color: '', parentIdx: 3 },
+        { name: 'Chốt nguyên vật liệu với khách',                                                              level: 1, wbs: '2.3', duration: 2,  weight: 1, color: '', parentIdx: 3 },
+        // Bước 3
+        { name: 'BƯỚC 3: Đặt hàng sản xuất & đối tác',                                                        level: 0, wbs: '3',   duration: 21, weight: 3, color: '#f59e0b', predIdx: 3 },
+        { name: 'TKĐ. Bản SKC. Ảnh 3D',                                                                        level: 1, wbs: '3.1', duration: 3,  weight: 1, color: '', parentIdx: 7 },
+        { name: 'Nhập NVL',                                                                                     level: 1, wbs: '3.2', duration: 2,  weight: 1, color: '', parentIdx: 7 },
+        { name: 'Đo hiện trạng',                                                                                level: 1, wbs: '3.3', duration: 1,  weight: 1, color: '', parentIdx: 7 },
+        { name: 'Vẽ CNC',                                                                                       level: 1, wbs: '3.4', duration: 3,  weight: 1, color: '', parentIdx: 7 },
+        { name: 'SX tại xưởng',                                                                                 level: 1, wbs: '3.5', duration: 7,  weight: 1, color: '', parentIdx: 7 },
+        { name: 'Lắp đặt tại Ctrinh',                                                                           level: 1, wbs: '3.6', duration: 5,  weight: 1, color: '', parentIdx: 7 },
+        { name: 'Đặt hàng đối tác: TK các mặt hàng và cung cấp thông tin cần thiết',                          level: 1, wbs: '3.7', duration: 2,  weight: 1, color: '', parentIdx: 7 },
+        { name: 'KD lên tiến độ các mặt hàng đặt đối tác khác',                                                level: 1, wbs: '3.8', duration: 5,  weight: 1, color: '', parentIdx: 7 },
+        // Bước 4
+        { name: 'BƯỚC 4: Kiểm tra trước khi thi công LĐ',                                                      level: 0, wbs: '4',   duration: 7,  weight: 2, color: '#8b5cf6', predIdx: 7 },
+        { name: 'Kiểm tra chất lượng SP ĐV SX NT',                                                             level: 1, wbs: '4.1', duration: 2,  weight: 1, color: '', parentIdx: 16 },
+        { name: 'Kiểm tra tiến độ Đv đối tác khác',                                                            level: 1, wbs: '4.2', duration: 2,  weight: 1, color: '', parentIdx: 16 },
+        { name: 'Kiểm tra mặt bằng và làm việc với các bên liên quan để đảm bảo tiến độ LĐ đã đưa ra',        level: 1, wbs: '4.3', duration: 2,  weight: 1, color: '', parentIdx: 16 },
+        { name: 'CB các hạng mục ăn ở, xe cộ với Ctrinh ở xa',                                                 level: 1, wbs: '4.4', duration: 1,  weight: 1, color: '', parentIdx: 16 },
+        { name: 'Làm đề nghị ứng lần 2 - 30% gửi chủ nhà',                                                    level: 1, wbs: '4.5', duration: 1,  weight: 1, color: '', parentIdx: 16 },
+        // Bước 5
+        { name: 'BƯỚC 5: Giám sát công trình',                                                                 level: 0, wbs: '5',   duration: 14, weight: 2, color: '#ec4899', predIdx: 16 },
+        { name: 'Trao đổi các hạng mục và xin ý kiến chủ nhà nếu phát sinh',                                   level: 1, wbs: '5.1', duration: 10, weight: 1, color: '', parentIdx: 22 },
+        { name: 'Nghiệm thu nội bộ',                                                                            level: 1, wbs: '5.2', duration: 3,  weight: 1, color: '', parentIdx: 22 },
+        // Bước 6
+        { name: 'BƯỚC 6: Hoàn thiện NTTT & Thanh toán',                                                       level: 0, wbs: '6',   duration: 5,  weight: 1, color: '#06b6d4', predIdx: 22 },
+        { name: 'Hoàn thiện NTTT với chủ nhà',                                                                  level: 1, wbs: '6.1', duration: 3,  weight: 1, color: '', parentIdx: 25 },
+        { name: 'Đề nghị TT',                                                                                   level: 1, wbs: '6.2', duration: 2,  weight: 1, color: '', parentIdx: 25 },
+    ];
+    await createTemplateItems(tpl.id, hdItems);
+    seededHopDongNT = true;
+    console.log('[schedule-templates] Khách hợp đồng nội thất template seeded');
+}
+
 let seededCarePlan = false;
 async function ensureCarePlanTemplate() {
     if (seededCarePlan) return;
@@ -142,6 +193,7 @@ export const GET = withAuth(async () => {
     // Auto-seed defaults if empty
     try { await ensureDefaultTemplates(); } catch (e) { console.error('Auto-seed failed:', e); }
     try { await ensureCarePlanTemplate(); } catch (e) { console.error('Care plan seed failed:', e); }
+    try { await ensureHopDongNTTemplate(); } catch (e) { console.error('HopDong NT seed failed:', e); }
 
     const templates = await prisma.scheduleTemplate.findMany({
         include: { _count: { select: { items: true } } },
