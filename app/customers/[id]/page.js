@@ -145,6 +145,7 @@ export default function CustomerDetailPage() {
     const autoSaveTimer = useRef(null);
     const lastSavedProcessRef = useRef(null);
     const [autoSaveStatus, setAutoSaveStatus] = useState('');
+    const [editingNotesIdx, setEditingNotesIdx] = useState(null);
 
     // Comments
     const [comments, setComments] = useState([]);
@@ -980,14 +981,25 @@ export default function CustomerDetailPage() {
                                                             </td>
                                                             {/* Notes inline */}
                                                             <td style={{ padding: '6px 8px', verticalAlign: 'middle' }}>
-                                                                <input
-                                                                    value={item.notes || ''}
-                                                                    onChange={e => updateScheduleItem(idx, 'notes', e.target.value)}
-                                                                    placeholder="Ghi chú..."
-                                                                    style={{ width: '100%', minWidth: 140, fontSize: 12, padding: '4px 8px', border: '1px solid var(--border-light)', borderRadius: 6, background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
-                                                                    onFocus={e => e.target.style.borderColor = 'var(--primary)'}
-                                                                    onBlur={e => e.target.style.borderColor = 'var(--border-light)'}
-                                                                />
+                                                                {editingNotesIdx === idx ? (
+                                                                    <textarea
+                                                                        autoFocus
+                                                                        value={item.notes || ''}
+                                                                        onChange={e => updateScheduleItem(idx, 'notes', e.target.value)}
+                                                                        placeholder={'- Ghi chú dòng 1\n- Ghi chú dòng 2\n- Ghi chú dòng 3'}
+                                                                        rows={4}
+                                                                        style={{ width: '100%', minWidth: 140, fontSize: 12, padding: '4px 8px', border: '1px solid var(--primary)', borderRadius: 6, background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', resize: 'vertical', lineHeight: 1.6, fontFamily: 'inherit' }}
+                                                                        onBlur={() => setEditingNotesIdx(null)}
+                                                                        onKeyDown={e => { if (e.key === 'Escape') setEditingNotesIdx(null); }}
+                                                                    />
+                                                                ) : (
+                                                                    <div
+                                                                        onClick={() => setEditingNotesIdx(idx)}
+                                                                        style={{ width: '100%', minWidth: 140, minHeight: 28, fontSize: 12, padding: '4px 8px', border: '1px solid var(--border-light)', borderRadius: 6, background: 'var(--bg-secondary)', color: item.notes ? 'var(--text-primary)' : 'var(--text-muted)', cursor: 'text', whiteSpace: 'pre-wrap', lineHeight: 1.6, wordBreak: 'break-word' }}
+                                                                    >
+                                                                        {item.notes || 'Ghi chú...'}
+                                                                    </div>
+                                                                )}
                                                             </td>
                                                             {/* Start date */}
                                                             <td style={{ padding: '9px 8px', textAlign: 'center', fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
