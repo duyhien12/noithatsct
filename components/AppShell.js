@@ -22,7 +22,7 @@ export default function AppShell({ children }) {
     const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
     // Login page and public pages: no shell
-    const noShellPaths = ['/login', '/gantt-pdf', '/schedule-pdf'];
+    const noShellPaths = ['/login', '/gantt-pdf', '/schedule-pdf', '/laocai'];
     const isNoShell = noShellPaths.some(p => pathname.includes(p));
 
     useEffect(() => {

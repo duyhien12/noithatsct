@@ -48,7 +48,7 @@ export default function CustomersPage() {
     const [view, setView] = useState('kanban');
     const [showModal, setShowModal] = useState(false);
     const [showXDBoard, setShowXDBoard] = useState(false);
-    const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: 'Tư vấn', taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0 });
+    const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: 'Tư vấn', taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0, branch: 'HQ' });
     const [dragId, setDragId] = useState(null);
     const [dragOver, setDragOver] = useState(null);
     const isDragging = useRef(false);
@@ -104,7 +104,7 @@ export default function CustomersPage() {
         const res = await fetch('/api/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(submitData) });
         if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi tạo khách hàng'); }
         setShowModal(false);
-        setForm({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: defaultStage, taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0 });
+        setForm({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: defaultStage, taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0, branch: 'HQ' });
         fetchCustomers();
     };
 
@@ -474,6 +474,15 @@ export default function CustomersPage() {
                                         <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Loại khách hàng</label>
                                         <select className="form-select" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
                                             <option>Cá nhân</option><option>Doanh nghiệp</option><option>Nhà nước</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Chi nhánh</label>
+                                        <select className="form-select" value={form.branch} onChange={e => setForm({ ...form, branch: e.target.value })}
+                                            style={{ borderColor: form.branch === 'LC' ? '#0f766e' : undefined, color: form.branch === 'LC' ? '#0f766e' : undefined, fontWeight: form.branch === 'LC' ? 700 : undefined }}
+                                        >
+                                            <option value="HQ">🏢 Trụ sở chính (HQ)</option>
+                                            <option value="LC">🏪 Chi nhánh Lào Cai</option>
                                         </select>
                                     </div>
                                     <div style={{ gridColumn: '1 / -1' }}>

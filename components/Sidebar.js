@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, GitBranch, Users, Building2, FileText,
     Package, ClipboardList, Wrench, CreditCard, Receipt,
@@ -141,6 +141,7 @@ const DEPT_VIEWS = [
 
 export default function Sidebar({ isOpen, onClose }) {
     const pathname = usePathname();
+    const router = useRouter();
     const { role, roleInfo, canViewDashboard, isPhamDuong, canSwitchRole, viewAsRole, setViewAsRole, actualRole, isXuongNhanVien } = useRole();
     const { data: session } = useSession();
     const isNgocBinh = session?.user?.email === 'ngocbinh@kientrucsct.com';
@@ -271,6 +272,24 @@ export default function Sidebar({ isOpen, onClose }) {
                                 {role === d.key && <span style={{ marginLeft: 4, fontSize: 10 }}>✓</span>}
                             </button>
                         ))}
+                        <div style={{ margin: '4px 10px', borderTop: '1px solid rgba(255,255,255,0.15)' }} />
+                        <button
+                            onClick={() => {
+                                setShowDeptPicker(false);
+                                router.push('/laocai/dashboard');
+                            }}
+                            style={{
+                                width: '100%', padding: '7px 10px', border: 'none', cursor: 'pointer',
+                                textAlign: 'left', fontSize: 12, fontWeight: 600,
+                                background: 'rgba(20,184,166,0.18)',
+                                color: '#5eead4',
+                                display: 'flex', alignItems: 'center', gap: 6,
+                            }}
+                        >
+                            <span>🏪</span>
+                            <span>Chi nhánh Lào Cai</span>
+                            <span style={{ marginLeft: 'auto', fontSize: 10, opacity: 0.7 }}>↗</span>
+                        </button>
                     </div>
                 )}
             </div>

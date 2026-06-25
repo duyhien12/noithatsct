@@ -55,6 +55,7 @@ model Customer {
   updatedAt         DateTime          @updatedAt
   createdByRole     String            @default("")
   processData       String            @default("")
+  branch            String            @default("HQ")
   contracts         Contract[]
   contractProcesses ContractProcess[]
   projects          Project[]

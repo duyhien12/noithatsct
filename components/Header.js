@@ -176,6 +176,22 @@ export default function Header({ onMenuToggle }) {
                                                 </button>
                                             );
                                         })}
+                                        <div style={{ borderTop: '1px solid var(--border-color, #e5e7eb)', margin: '4px 0' }} />
+                                        <button
+                                            onClick={() => { setShowRoleMenu(false); router.push('/laocai/dashboard'); }}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: 8,
+                                                width: '100%', padding: '10px 14px',
+                                                background: pathname.startsWith('/laocai') ? '#f0fdfa' : 'none',
+                                                border: 'none', cursor: 'pointer', fontSize: 13,
+                                                textAlign: 'left', color: '#0f766e',
+                                                fontFamily: 'inherit', fontWeight: 600,
+                                            }}
+                                        >
+                                            <span style={{ fontSize: 16 }}>🏪</span>
+                                            <span style={{ flex: 1 }}>Chi nhánh Lào Cai</span>
+                                            {pathname.startsWith('/laocai') && <span style={{ fontSize: 11, color: '#0f766e', fontWeight: 700 }}>✓</span>}
+                                        </button>
                                     </div>
                                 )}
                             </div>
