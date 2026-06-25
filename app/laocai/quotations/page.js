@@ -115,8 +115,7 @@ export default function LcQuotations() {
             const data = await res.json();
             if (!res.ok) { setCreateErr(data.error||'Lỗi tạo báo giá'); return; }
             setShowModal(false);
-            // Navigate to the created quotation
-            router.push(`/quotations/${data.id}`);
+            router.push(`/laocai/quotations/${data.id}`);
         } catch(e) { setCreateErr('Lỗi kết nối'); }
         finally { setCreating(false); }
     }
@@ -237,7 +236,7 @@ export default function LcQuotations() {
                                     <tr key={q.id} style={{ borderBottom:`1px solid ${C.border}`, background:C.white, cursor:'pointer' }}
                                         onMouseEnter={e=>e.currentTarget.style.background='#f0fdfa'}
                                         onMouseLeave={e=>e.currentTarget.style.background=C.white}
-                                        onClick={()=>router.push(`/quotations/${q.id}`)}>
+                                        onClick={()=>router.push(`/laocai/quotations/${q.id}`)}>
                                         <td style={{ padding:'11px 16px', fontSize:12, color:C.primary, fontWeight:700 }}>{q.code}</td>
                                         <td style={{ padding:'11px 16px' }}>
                                             <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{q.customer?.name||'—'}</div>
@@ -250,7 +249,7 @@ export default function LcQuotations() {
                                         </td>
                                         <td style={{ padding:'11px 16px', fontSize:12, color:C.muted, whiteSpace:'nowrap' }}>{fmtDate(q.createdAt)}</td>
                                         <td style={{ padding:'11px 16px' }}>
-                                            <button onClick={e=>{e.stopPropagation();router.push(`/quotations/${q.id}`);}}
+                                            <button onClick={e=>{e.stopPropagation();router.push(`/laocai/quotations/${q.id}`);}}
                                                 style={{ padding:'5px 12px', borderRadius:8, border:`1px solid ${C.border}`, background:'none', fontSize:11, cursor:'pointer', color:C.gray, fontWeight:500 }}>Xem</button>
                                         </td>
                                     </tr>
