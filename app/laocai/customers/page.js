@@ -1,6 +1,5 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import LcShell from '../_components/LcShell';
 
 const C = { primary:'#0f766e', white:'#fff', gray:'#64748b', grayLight:'#f8fafc', border:'#e2e8f0', text:'#1e293b', textMuted:'#94a3b8' };
@@ -13,12 +12,40 @@ function fmtDate(d) { if (!d) return '—'; const dt=new Date(d); return `${dt.g
 
 const EMPTY_FORM = { name:'',phone:'',email:'',address:'',source:'',salesPerson:'',pipelineStage:'Khách tiềm năng',estimatedValue:'',nextFollowUp:'',notes:'',gender:'Nam',type:'Cá nhân' };
 
+function PhoneIcon() {
+    return (
+        <div style={{ width:14, height:14, background:'#3b82f6', borderRadius:2, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <span style={{ color:'#fff', fontSize:9, lineHeight:1 }}>✆</span>
+        </div>
+    );
+}
+
+function IconTable() {
+    return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <rect x="1" y="1" width="14" height="3" rx="1"/>
+            <rect x="1" y="6" width="14" height="3" rx="1"/>
+            <rect x="1" y="11" width="14" height="3" rx="1"/>
+        </svg>
+    );
+}
+
+function IconKanban() {
+    return (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <rect x="1" y="1" width="4" height="14" rx="1"/>
+            <rect x="6" y="1" width="4" height="10" rx="1"/>
+            <rect x="11" y="1" width="4" height="12" rx="1"/>
+        </svg>
+    );
+}
+
 export default function LcCustomers() {
-    const router = useRouter();
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [filterStage, setFilterStage] = useState('');
+    const [viewMode, setViewMode] = useState('table'); // 'table' | 'column'
     const [showModal, setShowModal] = useState(false);
     const [editId, setEditId] = useState(null);
     const [form, setForm] = useState(EMPTY_FORM);
@@ -30,19 +57,19 @@ export default function LcCustomers() {
         try {
             const params = new URLSearchParams();
             if (search) params.set('search', search);
-            if (filterStage) params.set('stage', filterStage);
+            if (filterStage && viewMode === 'table') params.set('stage', filterStage);
             const res = await fetch(`/api/laocai/customers?${params}`);
             if (res.ok) { const d = await res.json(); setCustomers(d.customers || []); }
         } catch(e) { console.error(e); }
         finally { setLoading(false); }
-    }, [search, filterStage]);
+    }, [search, filterStage, viewMode]);
 
     useEffect(() => { load(); }, [load]);
 
     function openCreate() { setEditId(null); setForm(EMPTY_FORM); setError(''); setShowModal(true); }
     function openEdit(c) {
         setEditId(c.id);
-        setForm({ name:c.name||'', phone:c.phone||'', email:c.email||'', address:c.address||'', source:c.source||'', salesPerson:c.salesPerson||'', pipelineStage:c.pipelineStage||'Tư vấn', estimatedValue:c.estimatedValue||'', nextFollowUp:c.nextFollowUp?new Date(c.nextFollowUp).toISOString().split('T')[0]:'', notes:c.notes||'', gender:c.gender||'Nam', type:c.type||'Cá nhân' });
+        setForm({ name:c.name||'', phone:c.phone||'', email:c.email||'', address:c.address||'', source:c.source||'', salesPerson:c.salesPerson||'', pipelineStage:c.pipelineStage||'Khách tiềm năng', estimatedValue:c.estimatedValue||'', nextFollowUp:c.nextFollowUp?new Date(c.nextFollowUp).toISOString().split('T')[0]:'', notes:c.notes||'', gender:c.gender||'Nam', type:c.type||'Cá nhân' });
         setError(''); setShowModal(true);
     }
 
@@ -69,86 +96,173 @@ export default function LcCustomers() {
 
     const f = (k, v) => setForm(p => ({...p, [k]: v}));
 
+    // Filter for table view
+    const displayed = viewMode === 'table' ? customers : customers.filter(c => !search || c.name?.toLowerCase().includes(search.toLowerCase()) || c.phone?.includes(search) || c.code?.toLowerCase().includes(search.toLowerCase()));
+
     return (
         <LcShell title="Khách hàng">
             {/* Toolbar */}
-            <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
+            <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap', alignItems:'center' }}>
                 <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Tìm tên, SĐT, mã KH..." style={{ flex:1, minWidth:200, padding:'8px 12px', borderRadius:9, border:`1px solid ${C.border}`, fontSize:13, outline:'none' }} />
-                <select value={filterStage} onChange={e=>setFilterStage(e.target.value)} style={{ padding:'8px 12px', borderRadius:9, border:`1px solid ${C.border}`, fontSize:13, background:C.white }}>
-                    <option value="">Tất cả nhóm</option>
-                    {STAGES.map(s=><option key={s}>{s}</option>)}
-                </select>
+                {viewMode === 'table' && (
+                    <select value={filterStage} onChange={e=>setFilterStage(e.target.value)} style={{ padding:'8px 12px', borderRadius:9, border:`1px solid ${C.border}`, fontSize:13, background:C.white }}>
+                        <option value="">Tất cả nhóm</option>
+                        {STAGES.map(s=><option key={s}>{s}</option>)}
+                    </select>
+                )}
+
+                {/* View toggle */}
+                <div style={{ display:'flex', border:`1px solid ${C.border}`, borderRadius:9, overflow:'hidden' }}>
+                    <button onClick={()=>setViewMode('table')} title="Dạng bảng" style={{ padding:'7px 11px', border:'none', background:viewMode==='table'?C.primary:C.white, color:viewMode==='table'?'#fff':C.gray, cursor:'pointer', display:'flex', alignItems:'center', transition:'all 0.15s' }}>
+                        <IconTable />
+                    </button>
+                    <button onClick={()=>{setViewMode('column');setFilterStage('');}} title="Dạng cột" style={{ padding:'7px 11px', border:'none', borderLeft:`1px solid ${C.border}`, background:viewMode==='column'?C.primary:C.white, color:viewMode==='column'?'#fff':C.gray, cursor:'pointer', display:'flex', alignItems:'center', transition:'all 0.15s' }}>
+                        <IconKanban />
+                    </button>
+                </div>
+
                 <button onClick={openCreate} style={{ padding:'8px 18px', borderRadius:9, border:'none', background:C.primary, color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer' }}>+ Thêm khách</button>
             </div>
 
-            {/* Stats row */}
-            <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
-                {[
-                    { label:'Tổng', count:customers.length, color:C.primary, icon:'👥' },
-                    { label:'Khách tiềm năng', count:customers.filter(c=>c.pipelineStage==='Khách tiềm năng').length, color:'#1d4ed8', icon:'🔍' },
-                    { label:'Khách chăm sóc', count:customers.filter(c=>c.pipelineStage==='Khách chăm sóc').length, color:'#3b82f6', icon:'💬' },
-                    { label:'Khách ưu tiên', count:customers.filter(c=>c.pipelineStage==='Khách ưu tiên').length, color:'#7c3aed', icon:'⭐' },
-                    { label:'Khách hợp đồng', count:customers.filter(c=>c.pipelineStage==='Khách hợp đồng').length, color:'#f97316', icon:'📝' },
-                    { label:'Khách hoàn thành', count:customers.filter(c=>c.pipelineStage==='Khách hoàn thành').length, color:'#78716c', icon:'✅' },
-                ].map(s=>(
-                    <div key={s.label} onClick={()=>setFilterStage(filterStage===s.label?'':s.label===('Tổng')?'':s.label)} style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 13px', borderRadius:20, background:filterStage===s.label||(s.label==='Tổng'&&!filterStage)?s.color+'22':'#f1f5f9', color:s.color, fontSize:12, fontWeight:700, cursor:'pointer', border:`1px solid ${filterStage===s.label||(s.label==='Tổng'&&!filterStage)?s.color:s.color+'44'}`, transition:'all 0.15s' }}>
-                        <span>{s.icon}</span>
-                        <span>{s.label}: {s.count}</span>
-                    </div>
-                ))}
-            </div>
-
-            {/* Table */}
-            <div style={{ background:C.white, borderRadius:14, border:`1px solid ${C.border}`, overflow:'hidden' }}>
-                <div style={{ overflowX:'auto' }}>
-                    <table style={{ width:'100%', borderCollapse:'collapse' }}>
-                        <thead>
-                            <tr style={{ background:'#f8fafc' }}>
-                                {['Mã KH','Khách hàng','SĐT','Nhóm KH','Sales','Giá trị','Follow-up','Ghi chú',''].map(h=>(
-                                    <th key={h} style={{ padding:'9px 14px', textAlign:'left', fontSize:10, fontWeight:700, color:C.gray, letterSpacing:0.5, textTransform:'uppercase', whiteSpace:'nowrap' }}>{h}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? [1,2,3,4,5].map(i=>(
-                                <tr key={i} style={{ borderTop:`1px solid ${C.border}` }}>
-                                    {[1,2,3,4,5,6,7,8,9].map(j=><td key={j} style={{ padding:'11px 14px' }}><div style={{ height:13, background:'#e2e8f0', borderRadius:4 }}/></td>)}
-                                </tr>
-                            )) : customers.length === 0 ? (
-                                <tr><td colSpan={9} style={{ padding:'40px', textAlign:'center', color:C.textMuted, fontSize:13 }}>
-                                    {search||filterStage ? 'Không tìm thấy khách hàng phù hợp' : 'Chưa có khách hàng — bấm "+ Thêm khách" để bắt đầu'}
-                                </td></tr>
-                            ) : customers.map((c,i)=>(
-                                <tr key={c.id} style={{ borderTop:`1px solid ${C.border}`, background:i%2===0?C.white:'#fafafa', cursor:'pointer' }}
-                                    onMouseEnter={e=>e.currentTarget.style.background='#f0fdfa'}
-                                    onMouseLeave={e=>e.currentTarget.style.background=i%2===0?C.white:'#fafafa'}>
-                                    <td style={{ padding:'10px 14px', fontSize:11, color:C.primary, fontWeight:700 }}>{c.code}</td>
-                                    <td style={{ padding:'10px 14px' }} onClick={()=>openEdit(c)}>
-                                        <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{c.name}</div>
-                                        {c.email && <div style={{ fontSize:11, color:C.textMuted }}>{c.email}</div>}
-                                    </td>
-                                    <td style={{ padding:'10px 14px', fontSize:12, color:C.gray, whiteSpace:'nowrap' }}>{c.phone}</td>
-                                    <td style={{ padding:'10px 14px' }}>
-                                        <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, background:`${STAGE_COLOR[c.pipelineStage]||C.primary}18`, color:STAGE_COLOR[c.pipelineStage]||C.primary, whiteSpace:'nowrap' }}>{c.pipelineStage||'—'}</span>
-                                    </td>
-                                    <td style={{ padding:'10px 14px', fontSize:12, color:C.gray }}>{c.salesPerson||'—'}</td>
-                                    <td style={{ padding:'10px 14px', fontSize:12, fontWeight:600, color:C.text, whiteSpace:'nowrap' }}>{fmt(c.estimatedValue)||'—'}</td>
-                                    <td style={{ padding:'10px 14px', fontSize:11, color:c.nextFollowUp&&new Date(c.nextFollowUp)<new Date()?'#ef4444':C.textMuted, whiteSpace:'nowrap' }}>{fmtDate(c.nextFollowUp)}</td>
-                                    <td style={{ padding:'10px 14px', fontSize:11, color:C.gray, maxWidth:140, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.notes||''}</td>
-                                    <td style={{ padding:'10px 14px' }}>
-                                        <div style={{ display:'flex', gap:5 }}>
-                                            <button onClick={()=>openEdit(c)} style={{ padding:'4px 9px', borderRadius:7, border:`1px solid ${C.border}`, background:'none', fontSize:11, cursor:'pointer', color:C.gray }}>Sửa</button>
-                                            <button onClick={()=>handleDelete(c.id)} style={{ padding:'4px 9px', borderRadius:7, border:'1px solid #fecaca', background:'none', fontSize:11, cursor:'pointer', color:'#ef4444' }}>Xóa</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+            {/* Stats pills (table view only) */}
+            {viewMode === 'table' && (
+                <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
+                    {[
+                        { label:'Tổng', count:customers.length, color:C.primary, icon:'👥' },
+                        { label:'Khách tiềm năng', count:customers.filter(c=>c.pipelineStage==='Khách tiềm năng').length, color:'#1d4ed8', icon:'🔍' },
+                        { label:'Khách chăm sóc', count:customers.filter(c=>c.pipelineStage==='Khách chăm sóc').length, color:'#3b82f6', icon:'💬' },
+                        { label:'Khách ưu tiên', count:customers.filter(c=>c.pipelineStage==='Khách ưu tiên').length, color:'#7c3aed', icon:'⭐' },
+                        { label:'Khách hợp đồng', count:customers.filter(c=>c.pipelineStage==='Khách hợp đồng').length, color:'#f97316', icon:'📝' },
+                        { label:'Khách hoàn thành', count:customers.filter(c=>c.pipelineStage==='Khách hoàn thành').length, color:'#78716c', icon:'✅' },
+                    ].map(s=>(
+                        <div key={s.label} onClick={()=>setFilterStage(filterStage===s.label||s.label==='Tổng'?'':s.label)} style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 13px', borderRadius:20, background:filterStage===s.label||(s.label==='Tổng'&&!filterStage)?s.color+'22':'#f1f5f9', color:s.color, fontSize:12, fontWeight:700, cursor:'pointer', border:`1px solid ${filterStage===s.label||(s.label==='Tổng'&&!filterStage)?s.color:s.color+'44'}`, transition:'all 0.15s' }}>
+                            <span>{s.icon}</span>
+                            <span>{s.label}: {s.count}</span>
+                        </div>
+                    ))}
                 </div>
-            </div>
+            )}
 
-            {/* Modal */}
+            {/* ── TABLE VIEW ── */}
+            {viewMode === 'table' && (
+                <div style={{ background:C.white, borderRadius:14, border:`1px solid ${C.border}`, overflow:'hidden' }}>
+                    <div style={{ overflowX:'auto' }}>
+                        <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                            <thead>
+                                <tr style={{ background:'#f8fafc' }}>
+                                    {['Mã KH','Khách hàng','SĐT','Nhóm KH','Sales','Giá trị','Follow-up','Ghi chú',''].map(h=>(
+                                        <th key={h} style={{ padding:'9px 14px', textAlign:'left', fontSize:10, fontWeight:700, color:C.gray, letterSpacing:0.5, textTransform:'uppercase', whiteSpace:'nowrap' }}>{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loading ? [1,2,3,4,5].map(i=>(
+                                    <tr key={i} style={{ borderTop:`1px solid ${C.border}` }}>
+                                        {[1,2,3,4,5,6,7,8,9].map(j=><td key={j} style={{ padding:'11px 14px' }}><div style={{ height:13, background:'#e2e8f0', borderRadius:4 }}/></td>)}
+                                    </tr>
+                                )) : displayed.length === 0 ? (
+                                    <tr><td colSpan={9} style={{ padding:'40px', textAlign:'center', color:C.textMuted, fontSize:13 }}>
+                                        {search||filterStage ? 'Không tìm thấy khách hàng phù hợp' : 'Chưa có khách hàng — bấm "+ Thêm khách" để bắt đầu'}
+                                    </td></tr>
+                                ) : displayed.map((c,i)=>(
+                                    <tr key={c.id} style={{ borderTop:`1px solid ${C.border}`, background:i%2===0?C.white:'#fafafa', cursor:'pointer' }}
+                                        onMouseEnter={e=>e.currentTarget.style.background='#f0fdfa'}
+                                        onMouseLeave={e=>e.currentTarget.style.background=i%2===0?C.white:'#fafafa'}>
+                                        <td style={{ padding:'10px 14px', fontSize:11, color:C.primary, fontWeight:700 }}>{c.code}</td>
+                                        <td style={{ padding:'10px 14px' }} onClick={()=>openEdit(c)}>
+                                            <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{c.name}</div>
+                                            {c.email && <div style={{ fontSize:11, color:C.textMuted }}>{c.email}</div>}
+                                        </td>
+                                        <td style={{ padding:'10px 14px', fontSize:12, color:C.gray, whiteSpace:'nowrap' }}>{c.phone}</td>
+                                        <td style={{ padding:'10px 14px' }}>
+                                            <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, background:`${STAGE_COLOR[c.pipelineStage]||C.primary}18`, color:STAGE_COLOR[c.pipelineStage]||C.primary, whiteSpace:'nowrap' }}>{c.pipelineStage||'—'}</span>
+                                        </td>
+                                        <td style={{ padding:'10px 14px', fontSize:12, color:C.gray }}>{c.salesPerson||'—'}</td>
+                                        <td style={{ padding:'10px 14px', fontSize:12, fontWeight:600, color:C.text, whiteSpace:'nowrap' }}>{fmt(c.estimatedValue)||'—'}</td>
+                                        <td style={{ padding:'10px 14px', fontSize:11, color:c.nextFollowUp&&new Date(c.nextFollowUp)<new Date()?'#ef4444':C.textMuted, whiteSpace:'nowrap' }}>{fmtDate(c.nextFollowUp)}</td>
+                                        <td style={{ padding:'10px 14px', fontSize:11, color:C.gray, maxWidth:140, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.notes||''}</td>
+                                        <td style={{ padding:'10px 14px' }}>
+                                            <div style={{ display:'flex', gap:5 }}>
+                                                <button onClick={()=>openEdit(c)} style={{ padding:'4px 9px', borderRadius:7, border:`1px solid ${C.border}`, background:'none', fontSize:11, cursor:'pointer', color:C.gray }}>Sửa</button>
+                                                <button onClick={()=>handleDelete(c.id)} style={{ padding:'4px 9px', borderRadius:7, border:'1px solid #fecaca', background:'none', fontSize:11, cursor:'pointer', color:'#ef4444' }}>Xóa</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* ── COLUMN VIEW ── */}
+            {viewMode === 'column' && (
+                <div style={{ display:'flex', gap:0, overflowX:'auto', alignItems:'flex-start', background:C.white, borderRadius:14, border:`1px solid ${C.border}` }}>
+                    {STAGES.map((stage, idx) => {
+                        const color = STAGE_COLOR[stage];
+                        const cards = displayed.filter(c => c.pipelineStage === stage);
+                        const totalVal = cards.reduce((a,c) => a + (c.estimatedValue||0), 0);
+                        const isLast = idx === STAGES.length - 1;
+                        return (
+                            <div key={stage} style={{ flex:'1 1 0', minWidth:210, borderRight: isLast ? 'none' : `1px solid ${C.border}`, display:'flex', flexDirection:'column' }}>
+                                {/* Column header */}
+                                <div style={{ padding:'14px 14px 10px', borderBottom:`2px solid ${color}`, position:'sticky', top:0, background:C.white, zIndex:1 }}>
+                                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                                        <div style={{ width:9, height:9, borderRadius:'50%', background:color, flexShrink:0 }} />
+                                        <span style={{ fontSize:13, fontWeight:700, color:C.text }}>{stage}</span>
+                                        <span style={{ fontSize:12, color:C.gray, marginLeft:2 }}>{cards.length}</span>
+                                    </div>
+                                    {totalVal > 0 && (
+                                        <div style={{ fontSize:12, color:C.gray, marginTop:4, paddingLeft:15 }}>{fmt(totalVal)}</div>
+                                    )}
+                                </div>
+
+                                {/* Cards */}
+                                <div style={{ flex:1, minHeight:160 }}>
+                                    {loading ? [1,2,3].map(i=>(
+                                        <div key={i} style={{ padding:'12px 14px', borderBottom:`1px solid ${C.border}` }}>
+                                            <div style={{ height:13, background:'#e2e8f0', borderRadius:4, marginBottom:8, width:'70%' }} />
+                                            <div style={{ height:11, background:'#e2e8f0', borderRadius:4, width:'50%' }} />
+                                        </div>
+                                    )) : cards.length === 0 ? (
+                                        <div style={{ padding:'24px 14px', textAlign:'center', color:'#cbd5e1', fontSize:12 }}>
+                                            {search ? 'Không có kết quả' : 'Chưa có'}
+                                        </div>
+                                    ) : cards.map(c => (
+                                        <div key={c.id} onClick={()=>openEdit(c)}
+                                            style={{ padding:'11px 14px', borderBottom:`1px solid ${C.border}`, cursor:'pointer', background:C.white, transition:'background 0.12s', position:'relative' }}
+                                            onMouseEnter={e=>e.currentTarget.style.background='#f8fafc'}
+                                            onMouseLeave={e=>e.currentTarget.style.background=C.white}>
+                                            <div style={{ fontSize:13, fontWeight:600, color:C.text, marginBottom:6, lineHeight:1.35 }}>{c.name}</div>
+                                            <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom: c.estimatedValue > 0 ? 5 : 0 }}>
+                                                <PhoneIcon />
+                                                <span style={{ fontSize:12, color:'#475569' }}>{c.phone}</span>
+                                            </div>
+                                            {c.estimatedValue > 0 && (
+                                                <div style={{ fontSize:12, fontWeight:700, color:'#10b981' }}>{fmt(c.estimatedValue)}</div>
+                                            )}
+                                            {c.salesPerson && (
+                                                <div style={{ fontSize:11, color:C.textMuted, marginTop:3 }}>{c.salesPerson}</div>
+                                            )}
+                                            {/* follow-up badge */}
+                                            {c.nextFollowUp && (() => {
+                                                const diff = Math.ceil((new Date(c.nextFollowUp) - new Date()) / 86400000);
+                                                return diff <= 3 ? (
+                                                    <div style={{ position:'absolute', top:10, right:10, width:18, height:18, borderRadius:4, background: diff < 0 ? '#ef4444' : '#f59e0b', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                                        <span style={{ fontSize:9, color:'#fff', fontWeight:700 }}>!</span>
+                                                    </div>
+                                                ) : null;
+                                            })()}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* Modal add/edit */}
             {showModal && (
                 <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }} onClick={()=>setShowModal(false)}>
                     <div style={{ background:C.white, borderRadius:18, width:'100%', maxWidth:580, maxHeight:'90vh', overflow:'auto' }} onClick={e=>e.stopPropagation()}>
@@ -158,7 +272,6 @@ export default function LcCustomers() {
                         </div>
                         <div style={{ padding:'18px 22px' }}>
                             {error && <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:9, padding:'9px 13px', marginBottom:14, color:'#ef4444', fontSize:13 }}>{error}</div>}
-
                             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:11 }}>
                                 <div style={{ gridColumn:'1/-1' }}>
                                     <label style={{ fontSize:11, fontWeight:600, color:C.gray, display:'block', marginBottom:4 }}>Tên khách hàng *</label>
