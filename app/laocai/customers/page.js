@@ -44,6 +44,8 @@ export default function LcCustomers() {
     const [form, setForm] = useState(EMPTY_FORM);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [dragId, setDragId] = useState(null);
+    const [dragOverStage, setDragOverStage] = useState(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -93,6 +95,23 @@ export default function LcCustomers() {
     }
 
     const f = (k,v) => setForm(p=>({...p,[k]:v}));
+
+    async function handleDrop(targetStage) {
+        if (!dragId) return;
+        const card = customers.find(c => c.id === dragId);
+        setDragId(null);
+        setDragOverStage(null);
+        if (!card || card.pipelineStage === targetStage) return;
+        // Optimistic update
+        setCustomers(prev => prev.map(c => c.id === dragId ? {...c, pipelineStage: targetStage} : c));
+        try {
+            await fetch(`/api/laocai/customers/${dragId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ pipelineStage: targetStage }),
+            });
+        } catch { load(); }
+    }
 
     // KPI stats
     const totalVal = customers.reduce((a,c)=>a+(c.estimatedValue||0),0);
@@ -147,9 +166,14 @@ export default function LcCustomers() {
                         const cards = filtered.filter(c=>c.pipelineStage===stage);
                         const totalColVal = cards.reduce((a,c)=>a+(c.estimatedValue||0),0);
                         const isLast = idx===STAGES.length-1;
+                        const isDropTarget = dragOverStage === stage && dragId;
                         return (
-                            <div key={stage} style={{ flex:'1 1 0', minWidth:210, borderRight:isLast?'none':`1px solid ${C.border}`, display:'flex', flexDirection:'column' }}>
-                                <div style={{ padding:'14px 14px 10px', borderBottom:`2px solid ${color}`, background:C.white }}>
+                            <div key={stage}
+                                style={{ flex:'1 1 0', minWidth:210, borderRight:isLast?'none':`1px solid ${C.border}`, display:'flex', flexDirection:'column', background:isDropTarget?`${color}08`:C.white, transition:'background 0.15s' }}
+                                onDragOver={e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; setDragOverStage(stage); }}
+                                onDragLeave={e=>{ if (!e.currentTarget.contains(e.relatedTarget)) setDragOverStage(null); }}
+                                onDrop={e=>{ e.preventDefault(); handleDrop(stage); }}>
+                                <div style={{ padding:'14px 14px 10px', borderBottom:`2px solid ${isDropTarget?color:color}`, background:'transparent' }}>
                                     <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                                         <div style={{ width:9,height:9,borderRadius:'50%',background:color,flexShrink:0 }} />
                                         <span style={{ fontSize:13,fontWeight:700,color:C.text }}>{stage}</span>
@@ -158,31 +182,46 @@ export default function LcCustomers() {
                                     {totalColVal>0 && <div style={{ fontSize:12,color:C.gray,marginTop:4,paddingLeft:15 }}>{fmt(totalColVal)}</div>}
                                 </div>
                                 <div style={{ flex:1, minHeight:160 }}>
+                                    {/* Drop placeholder shown when dragging over empty column */}
+                                    {isDropTarget && cards.length===0 && !loading && (
+                                        <div style={{ margin:'10px 10px', border:`2px dashed ${color}`, borderRadius:8, height:56, opacity:0.5 }} />
+                                    )}
                                     {loading ? [1,2,3].map(i=>(
                                         <div key={i} style={{ padding:'12px 14px',borderBottom:`1px solid ${C.border}` }}>
                                             <div style={{ height:13,background:'#e2e8f0',borderRadius:4,marginBottom:8,width:'70%' }} />
                                             <div style={{ height:11,background:'#e2e8f0',borderRadius:4,width:'50%' }} />
                                         </div>
-                                    )) : cards.length===0 ? (
+                                    )) : cards.length===0 && !isDropTarget ? (
                                         <div style={{ padding:'24px 14px',textAlign:'center',color:'#cbd5e1',fontSize:12 }}>Chưa có</div>
-                                    ) : cards.map(c=>(
-                                        <div key={c.id} onClick={()=>openEdit(c)}
-                                            style={{ padding:'11px 14px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',background:C.white,transition:'background 0.12s',position:'relative' }}
-                                            onMouseEnter={e=>e.currentTarget.style.background='#f8fafc'}
-                                            onMouseLeave={e=>e.currentTarget.style.background=C.white}>
-                                            <div style={{ fontSize:13,fontWeight:600,color:C.text,marginBottom:6,lineHeight:1.35 }}>{c.name}</div>
-                                            <div style={{ display:'flex',alignItems:'center',gap:5,marginBottom:c.estimatedValue>0?5:0 }}>
-                                                <PhoneIcon />
-                                                <span style={{ fontSize:12,color:'#475569' }}>{c.phone}</span>
+                                    ) : cards.map(c=>{
+                                        const isDragging = dragId === c.id;
+                                        return (
+                                            <div key={c.id}
+                                                draggable={true}
+                                                onDragStart={e=>{ setDragId(c.id); e.dataTransfer.effectAllowed='move'; }}
+                                                onDragEnd={()=>{ setDragId(null); setDragOverStage(null); }}
+                                                onClick={()=>{ if (!dragId) openEdit(c); }}
+                                                style={{ padding:'11px 14px',borderBottom:`1px solid ${C.border}`,cursor:isDragging?'grabbing':'grab',background:isDragging?'#f0fdfa':C.white,opacity:isDragging?0.5:1,transition:'opacity 0.15s, background 0.12s',position:'relative',userSelect:'none' }}
+                                                onMouseEnter={e=>{ if(!isDragging) e.currentTarget.style.background='#f8fafc'; }}
+                                                onMouseLeave={e=>{ if(!isDragging) e.currentTarget.style.background=C.white; }}>
+                                                <div style={{ fontSize:13,fontWeight:600,color:C.text,marginBottom:6,lineHeight:1.35 }}>{c.name}</div>
+                                                <div style={{ display:'flex',alignItems:'center',gap:5,marginBottom:c.estimatedValue>0?5:0 }}>
+                                                    <PhoneIcon />
+                                                    <span style={{ fontSize:12,color:'#475569' }}>{c.phone}</span>
+                                                </div>
+                                                {c.estimatedValue>0 && <div style={{ fontSize:12,fontWeight:700,color:'#10b981' }}>{fmt(c.estimatedValue)}</div>}
+                                                {c.salesPerson && <div style={{ fontSize:11,color:C.textMuted,marginTop:3 }}>{c.salesPerson}</div>}
+                                                {c.nextFollowUp && (() => {
+                                                    const diff=Math.ceil((new Date(c.nextFollowUp)-new Date())/86400000);
+                                                    return diff<=3?<div style={{ position:'absolute',top:10,right:10,width:18,height:18,borderRadius:4,background:diff<0?'#ef4444':'#f59e0b',display:'flex',alignItems:'center',justifyContent:'center' }}><span style={{ fontSize:9,color:'#fff',fontWeight:700 }}>!</span></div>:null;
+                                                })()}
                                             </div>
-                                            {c.estimatedValue>0 && <div style={{ fontSize:12,fontWeight:700,color:'#10b981' }}>{fmt(c.estimatedValue)}</div>}
-                                            {c.salesPerson && <div style={{ fontSize:11,color:C.textMuted,marginTop:3 }}>{c.salesPerson}</div>}
-                                            {c.nextFollowUp && (() => {
-                                                const diff=Math.ceil((new Date(c.nextFollowUp)-new Date())/86400000);
-                                                return diff<=3?<div style={{ position:'absolute',top:10,right:10,width:18,height:18,borderRadius:4,background:diff<0?'#ef4444':'#f59e0b',display:'flex',alignItems:'center',justifyContent:'center' }}><span style={{ fontSize:9,color:'#fff',fontWeight:700 }}>!</span></div>:null;
-                                            })()}
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
+                                    {/* Drop placeholder at bottom of column with cards */}
+                                    {isDropTarget && cards.length>0 && !loading && (
+                                        <div style={{ margin:'6px 10px', border:`2px dashed ${color}`, borderRadius:8, height:40, opacity:0.4 }} />
+                                    )}
                                 </div>
                             </div>
                         );
