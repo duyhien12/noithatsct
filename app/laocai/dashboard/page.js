@@ -8,13 +8,10 @@ const C = {
 };
 
 const PIPELINE_ORDER = [
-    { label: 'Khách nội thất', color: '#0f766e' },
-    { label: 'Lead',           color: '#94a3b8' },
-    { label: 'Tư vấn',        color: '#3b82f6' },
-    { label: 'Báo giá',       color: '#8b5cf6' },
-    { label: 'Ký HĐ',         color: '#10b981' },
-    { label: 'Thi công',      color: '#f59e0b' },
-    { label: 'Hoàn thành',    color: '#64748b' },
+    { label: 'Khách chăm sóc',  color: '#3b82f6' },
+    { label: 'Khách ưu tiên',   color: '#f59e0b' },
+    { label: 'Khách hợp đồng',  color: '#10b981' },
+    { label: 'Khách hoàn thành',color: '#64748b' },
 ];
 
 function fmt(num) {

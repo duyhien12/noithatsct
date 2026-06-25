@@ -4,11 +4,10 @@ import LcShell from '../_components/LcShell';
 
 const C = { primary:'#0f766e', white:'#fff', gray:'#64748b', border:'#e2e8f0', text:'#1e293b', textMuted:'#94a3b8' };
 const STAGES = [
-    { key:'Tư vấn', color:'#3b82f6' },
-    { key:'Báo giá', color:'#8b5cf6' },
-    { key:'Ký HĐ', color:'#10b981' },
-    { key:'Thi công', color:'#f59e0b' },
-    { key:'Hoàn thành', color:'#64748b' },
+    { key:'Khách chăm sóc',  color:'#3b82f6' },
+    { key:'Khách ưu tiên',   color:'#f59e0b' },
+    { key:'Khách hợp đồng',  color:'#10b981' },
+    { key:'Khách hoàn thành',color:'#64748b' },
 ];
 
 function fmt(n) { if (!n) return '0'; if (n>=1e9) return (n/1e9).toFixed(1)+' tỷ'; if (n>=1e6) return (n/1e6).toFixed(1)+' tr'; return n.toLocaleString('vi-VN'); }
@@ -119,10 +118,9 @@ export default function LcReports() {
                 <h2 style={{ margin:'0 0 16px', fontSize:14, fontWeight:700, color:C.text }}>Tóm tắt chuyển đổi</h2>
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12 }}>
                     {[
-                        { label:'Lead → Tư vấn', from:'Lead', to:'Tư vấn', color:'#3b82f6' },
-                        { label:'Tư vấn → Báo giá', from:'Tư vấn', to:'Báo giá', color:'#8b5cf6' },
-                        { label:'Báo giá → Ký HĐ', from:'Báo giá', to:'Ký HĐ', color:'#10b981' },
-                        { label:'Ký HĐ → Hoàn thành', from:'Ký HĐ', to:'Hoàn thành', color:'#64748b' },
+                        { label:'Chăm sóc → Ưu tiên', from:'Khách chăm sóc', to:'Khách ưu tiên', color:'#f59e0b' },
+                        { label:'Ưu tiên → Hợp đồng', from:'Khách ưu tiên', to:'Khách hợp đồng', color:'#10b981' },
+                        { label:'HĐ → Hoàn thành', from:'Khách hợp đồng', to:'Khách hoàn thành', color:'#64748b' },
                     ].map(step => {
                         const fromCount = pipelineMap[step.from] || 0;
                         const toCount = pipelineMap[step.to] || 0;

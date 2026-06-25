@@ -4,14 +4,14 @@ import { useRouter } from 'next/navigation';
 import LcShell from '../_components/LcShell';
 
 const C = { primary:'#0f766e', white:'#fff', gray:'#64748b', grayLight:'#f8fafc', border:'#e2e8f0', text:'#1e293b', textMuted:'#94a3b8' };
-const STAGES = ['Tư vấn','Báo giá','Ký HĐ','Thi công','Hoàn thành'];
-const STAGE_COLOR = { 'Tư vấn':'#3b82f6','Báo giá':'#8b5cf6','Ký HĐ':'#10b981','Thi công':'#f59e0b','Hoàn thành':'#64748b' };
+const STAGES = ['Khách chăm sóc','Khách ưu tiên','Khách hợp đồng','Khách hoàn thành'];
+const STAGE_COLOR = { 'Khách chăm sóc':'#3b82f6','Khách ưu tiên':'#f59e0b','Khách hợp đồng':'#10b981','Khách hoàn thành':'#64748b' };
 const SOURCES = ['Facebook','Zalo','Giới thiệu','Tìm kiếm Google','TikTok','Khác'];
 
 function fmt(n) { if (!n) return ''; if (n>=1e9) return (n/1e9).toFixed(1)+'tỷ'; if (n>=1e6) return Math.round(n/1e6)+'tr'; return n.toLocaleString('vi-VN'); }
 function fmtDate(d) { if (!d) return '—'; const dt=new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`; }
 
-const EMPTY_FORM = { name:'',phone:'',email:'',address:'',source:'',salesPerson:'',pipelineStage:'Tư vấn',estimatedValue:'',nextFollowUp:'',notes:'',gender:'Nam',type:'Cá nhân' };
+const EMPTY_FORM = { name:'',phone:'',email:'',address:'',source:'',salesPerson:'',pipelineStage:'Khách chăm sóc',estimatedValue:'',nextFollowUp:'',notes:'',gender:'Nam',type:'Cá nhân' };
 
 export default function LcCustomers() {
     const router = useRouter();
@@ -75,17 +75,24 @@ export default function LcCustomers() {
             <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
                 <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Tìm tên, SĐT, mã KH..." style={{ flex:1, minWidth:200, padding:'8px 12px', borderRadius:9, border:`1px solid ${C.border}`, fontSize:13, outline:'none' }} />
                 <select value={filterStage} onChange={e=>setFilterStage(e.target.value)} style={{ padding:'8px 12px', borderRadius:9, border:`1px solid ${C.border}`, fontSize:13, background:C.white }}>
-                    <option value="">Tất cả stage</option>
+                    <option value="">Tất cả nhóm</option>
                     {STAGES.map(s=><option key={s}>{s}</option>)}
                 </select>
                 <button onClick={openCreate} style={{ padding:'8px 18px', borderRadius:9, border:'none', background:C.primary, color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer' }}>+ Thêm khách</button>
             </div>
 
             {/* Stats row */}
-            <div style={{ display:'flex', gap:10, marginBottom:14, flexWrap:'wrap' }}>
-                {[{label:'Tổng',count:customers.length,color:C.primary},...STAGES.map(s=>({label:s,count:customers.filter(c=>c.pipelineStage===s).length,color:STAGE_COLOR[s]}))].map(s=>(
-                    <div key={s.label} onClick={()=>setFilterStage(filterStage===s.label?'':s.label)} style={{ padding:'5px 12px', borderRadius:20, background:filterStage===s.label||(!filterStage&&s.label==='Tổng')?s.color+'22':'#f1f5f9', color:s.color, fontSize:12, fontWeight:700, cursor:'pointer', border:`1px solid ${s.color}33` }}>
-                        {s.label}: {s.count}
+            <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
+                {[
+                    { label:'Tổng', count:customers.length, color:C.primary, icon:'👥' },
+                    { label:'Khách chăm sóc', count:customers.filter(c=>c.pipelineStage==='Khách chăm sóc').length, color:'#3b82f6', icon:'💬' },
+                    { label:'Khách ưu tiên', count:customers.filter(c=>c.pipelineStage==='Khách ưu tiên').length, color:'#f59e0b', icon:'⭐' },
+                    { label:'Khách hợp đồng', count:customers.filter(c=>c.pipelineStage==='Khách hợp đồng').length, color:'#10b981', icon:'📝' },
+                    { label:'Khách hoàn thành', count:customers.filter(c=>c.pipelineStage==='Khách hoàn thành').length, color:'#64748b', icon:'✅' },
+                ].map(s=>(
+                    <div key={s.label} onClick={()=>setFilterStage(filterStage===s.label?'':s.label===('Tổng')?'':s.label)} style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 13px', borderRadius:20, background:filterStage===s.label||(s.label==='Tổng'&&!filterStage)?s.color+'22':'#f1f5f9', color:s.color, fontSize:12, fontWeight:700, cursor:'pointer', border:`1px solid ${filterStage===s.label||(s.label==='Tổng'&&!filterStage)?s.color:s.color+'44'}`, transition:'all 0.15s' }}>
+                        <span>{s.icon}</span>
+                        <span>{s.label}: {s.count}</span>
                     </div>
                 ))}
             </div>
@@ -96,7 +103,7 @@ export default function LcCustomers() {
                     <table style={{ width:'100%', borderCollapse:'collapse' }}>
                         <thead>
                             <tr style={{ background:'#f8fafc' }}>
-                                {['Mã KH','Khách hàng','SĐT','Pipeline','Sales','Giá trị','Follow-up','Ghi chú',''].map(h=>(
+                                {['Mã KH','Khách hàng','SĐT','Nhóm KH','Sales','Giá trị','Follow-up','Ghi chú',''].map(h=>(
                                     <th key={h} style={{ padding:'9px 14px', textAlign:'left', fontSize:10, fontWeight:700, color:C.gray, letterSpacing:0.5, textTransform:'uppercase', whiteSpace:'nowrap' }}>{h}</th>
                                 ))}
                             </tr>
@@ -169,8 +176,8 @@ export default function LcCustomers() {
                                     <input value={form.salesPerson} onChange={e=>f('salesPerson',e.target.value)} placeholder="Tên nhân viên" style={{ width:'100%', padding:'9px 12px', borderRadius:9, border:`1px solid ${C.border}`, fontSize:13, boxSizing:'border-box', outline:'none' }} />
                                 </div>
                                 <div>
-                                    <label style={{ fontSize:11, fontWeight:600, color:C.gray, display:'block', marginBottom:4 }}>Giai đoạn</label>
-                                    <select value={form.pipelineStage} onChange={e=>f('pipelineStage',e.target.value)} style={{ width:'100%', padding:'9px 12px', borderRadius:9, border:`1px solid ${C.border}`, fontSize:13, background:C.white, boxSizing:'border-box' }}>
+                                    <label style={{ fontSize:11, fontWeight:600, color:C.gray, display:'block', marginBottom:4 }}>Nhóm khách hàng</label>
+                                    <select value={form.pipelineStage} onChange={e=>f('pipelineStage',e.target.value)} style={{ width:'100%', padding:'9px 12px', borderRadius:9, border:`1px solid ${STAGE_COLOR[form.pipelineStage]||C.border}`, fontSize:13, background:C.white, boxSizing:'border-box', color:STAGE_COLOR[form.pipelineStage]||C.text, fontWeight:600 }}>
                                         {STAGES.map(s=><option key={s}>{s}</option>)}
                                     </select>
                                 </div>

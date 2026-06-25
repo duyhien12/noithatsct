@@ -4,11 +4,10 @@ import LcShell from '../_components/LcShell';
 
 const C = { primary:'#0f766e', white:'#fff', gray:'#64748b', border:'#e2e8f0', text:'#1e293b', textMuted:'#94a3b8' };
 const STAGES = [
-    { key:'Tư vấn',  color:'#3b82f6', bg:'#eff6ff' },
-    { key:'Báo giá', color:'#8b5cf6', bg:'#f5f3ff' },
-    { key:'Ký HĐ',  color:'#10b981', bg:'#ecfdf5' },
-    { key:'Thi công',color:'#f59e0b', bg:'#fffbeb' },
-    { key:'Hoàn thành',color:'#64748b',bg:'#f8fafc' },
+    { key:'Khách chăm sóc',  color:'#3b82f6', bg:'#eff6ff' },
+    { key:'Khách ưu tiên',   color:'#f59e0b', bg:'#fffbeb' },
+    { key:'Khách hợp đồng',  color:'#10b981', bg:'#ecfdf5' },
+    { key:'Khách hoàn thành',color:'#64748b', bg:'#f8fafc' },
 ];
 
 function fmt(n) { if (!n) return ''; if (n>=1e9) return (n/1e9).toFixed(1)+'tỷ'; if (n>=1e6) return Math.round(n/1e6)+'tr'; return n.toLocaleString('vi-VN'); }
@@ -35,7 +34,7 @@ export default function LcPipeline() {
 
     function openCard(c) {
         setSelected(c);
-        setEditStage(c.pipelineStage||'Tư vấn');
+        setEditStage(c.pipelineStage||'Khách chăm sóc');
         setEditNotes(c.notes||'');
         setEditFollowUp(c.nextFollowUp?new Date(c.nextFollowUp).toISOString().split('T')[0]:'');
     }
