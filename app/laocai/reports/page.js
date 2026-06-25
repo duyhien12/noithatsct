@@ -4,10 +4,11 @@ import LcShell from '../_components/LcShell';
 
 const C = { primary:'#0f766e', white:'#fff', gray:'#64748b', border:'#e2e8f0', text:'#1e293b', textMuted:'#94a3b8' };
 const STAGES = [
+    { key:'Khách tiềm năng', color:'#1d4ed8' },
     { key:'Khách chăm sóc',  color:'#3b82f6' },
-    { key:'Khách ưu tiên',   color:'#f59e0b' },
-    { key:'Khách hợp đồng',  color:'#10b981' },
-    { key:'Khách hoàn thành',color:'#64748b' },
+    { key:'Khách ưu tiên',   color:'#7c3aed' },
+    { key:'Khách hợp đồng',  color:'#f97316' },
+    { key:'Khách hoàn thành',color:'#78716c' },
 ];
 
 function fmt(n) { if (!n) return '0'; if (n>=1e9) return (n/1e9).toFixed(1)+' tỷ'; if (n>=1e6) return (n/1e6).toFixed(1)+' tr'; return n.toLocaleString('vi-VN'); }

@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import LcShell from '../_components/LcShell';
 
 const C = { primary:'#0f766e', white:'#fff', gray:'#64748b', border:'#e2e8f0', text:'#1e293b', textMuted:'#94a3b8' };
-const STAGE_COLOR = { 'Khách chăm sóc':'#3b82f6','Khách ưu tiên':'#f59e0b','Khách hợp đồng':'#10b981','Khách hoàn thành':'#64748b' };
+const STAGE_COLOR = { 'Khách tiềm năng':'#1d4ed8','Khách chăm sóc':'#3b82f6','Khách ưu tiên':'#7c3aed','Khách hợp đồng':'#f97316','Khách hoàn thành':'#78716c' };
 
 function getStatus(nextFollowUp) {
     if (!nextFollowUp) return null;
@@ -136,7 +136,7 @@ export default function LcFollowup() {
                             <div style={{ marginBottom:12 }}>
                                 <label style={{ fontSize:11, fontWeight:600, color:C.gray, display:'block', marginBottom:4 }}>Cập nhật giai đoạn</label>
                                 <select value={newStage} onChange={e=>setNewStage(e.target.value)} style={{ width:'100%', padding:'8px 11px', borderRadius:9, border:`1px solid ${C.border}`, fontSize:13, background:C.white, boxSizing:'border-box' }}>
-                                    {['Khách chăm sóc','Khách ưu tiên','Khách hợp đồng','Khách hoàn thành'].map(s=><option key={s}>{s}</option>)}
+                                    {['Khách tiềm năng','Khách chăm sóc','Khách ưu tiên','Khách hợp đồng','Khách hoàn thành'].map(s=><option key={s}>{s}</option>)}
                                 </select>
                             </div>
                             <div>

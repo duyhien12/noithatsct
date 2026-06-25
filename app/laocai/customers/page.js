@@ -4,14 +4,14 @@ import { useRouter } from 'next/navigation';
 import LcShell from '../_components/LcShell';
 
 const C = { primary:'#0f766e', white:'#fff', gray:'#64748b', grayLight:'#f8fafc', border:'#e2e8f0', text:'#1e293b', textMuted:'#94a3b8' };
-const STAGES = ['Khách chăm sóc','Khách ưu tiên','Khách hợp đồng','Khách hoàn thành'];
-const STAGE_COLOR = { 'Khách chăm sóc':'#3b82f6','Khách ưu tiên':'#f59e0b','Khách hợp đồng':'#10b981','Khách hoàn thành':'#64748b' };
+const STAGES = ['Khách tiềm năng','Khách chăm sóc','Khách ưu tiên','Khách hợp đồng','Khách hoàn thành'];
+const STAGE_COLOR = { 'Khách tiềm năng':'#1d4ed8','Khách chăm sóc':'#3b82f6','Khách ưu tiên':'#7c3aed','Khách hợp đồng':'#f97316','Khách hoàn thành':'#78716c' };
 const SOURCES = ['Facebook','Zalo','Giới thiệu','Tìm kiếm Google','TikTok','Khác'];
 
 function fmt(n) { if (!n) return ''; if (n>=1e9) return (n/1e9).toFixed(1)+'tỷ'; if (n>=1e6) return Math.round(n/1e6)+'tr'; return n.toLocaleString('vi-VN'); }
 function fmtDate(d) { if (!d) return '—'; const dt=new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`; }
 
-const EMPTY_FORM = { name:'',phone:'',email:'',address:'',source:'',salesPerson:'',pipelineStage:'Khách chăm sóc',estimatedValue:'',nextFollowUp:'',notes:'',gender:'Nam',type:'Cá nhân' };
+const EMPTY_FORM = { name:'',phone:'',email:'',address:'',source:'',salesPerson:'',pipelineStage:'Khách tiềm năng',estimatedValue:'',nextFollowUp:'',notes:'',gender:'Nam',type:'Cá nhân' };
 
 export default function LcCustomers() {
     const router = useRouter();
@@ -85,10 +85,11 @@ export default function LcCustomers() {
             <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
                 {[
                     { label:'Tổng', count:customers.length, color:C.primary, icon:'👥' },
+                    { label:'Khách tiềm năng', count:customers.filter(c=>c.pipelineStage==='Khách tiềm năng').length, color:'#1d4ed8', icon:'🔍' },
                     { label:'Khách chăm sóc', count:customers.filter(c=>c.pipelineStage==='Khách chăm sóc').length, color:'#3b82f6', icon:'💬' },
-                    { label:'Khách ưu tiên', count:customers.filter(c=>c.pipelineStage==='Khách ưu tiên').length, color:'#f59e0b', icon:'⭐' },
-                    { label:'Khách hợp đồng', count:customers.filter(c=>c.pipelineStage==='Khách hợp đồng').length, color:'#10b981', icon:'📝' },
-                    { label:'Khách hoàn thành', count:customers.filter(c=>c.pipelineStage==='Khách hoàn thành').length, color:'#64748b', icon:'✅' },
+                    { label:'Khách ưu tiên', count:customers.filter(c=>c.pipelineStage==='Khách ưu tiên').length, color:'#7c3aed', icon:'⭐' },
+                    { label:'Khách hợp đồng', count:customers.filter(c=>c.pipelineStage==='Khách hợp đồng').length, color:'#f97316', icon:'📝' },
+                    { label:'Khách hoàn thành', count:customers.filter(c=>c.pipelineStage==='Khách hoàn thành').length, color:'#78716c', icon:'✅' },
                 ].map(s=>(
                     <div key={s.label} onClick={()=>setFilterStage(filterStage===s.label?'':s.label===('Tổng')?'':s.label)} style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 13px', borderRadius:20, background:filterStage===s.label||(s.label==='Tổng'&&!filterStage)?s.color+'22':'#f1f5f9', color:s.color, fontSize:12, fontWeight:700, cursor:'pointer', border:`1px solid ${filterStage===s.label||(s.label==='Tổng'&&!filterStage)?s.color:s.color+'44'}`, transition:'all 0.15s' }}>
                         <span>{s.icon}</span>

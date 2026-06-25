@@ -8,10 +8,11 @@ const C = {
 };
 
 const PIPELINE_ORDER = [
+    { label: 'Khách tiềm năng', color: '#1d4ed8' },
     { label: 'Khách chăm sóc',  color: '#3b82f6' },
-    { label: 'Khách ưu tiên',   color: '#f59e0b' },
-    { label: 'Khách hợp đồng',  color: '#10b981' },
-    { label: 'Khách hoàn thành',color: '#64748b' },
+    { label: 'Khách ưu tiên',   color: '#7c3aed' },
+    { label: 'Khách hợp đồng',  color: '#f97316' },
+    { label: 'Khách hoàn thành',color: '#78716c' },
 ];
 
 function fmt(num) {
