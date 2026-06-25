@@ -13,7 +13,7 @@ const STATUS_COLOR = {
     'Từ chối':  '#ef4444',
     'Hủy':      '#ef4444',
 };
-const QUOTATION_TYPES = ['Thi công thô','Thi công nội thất','Cung cấp vật tư','Trọn gói','Thiết kế'];
+const QUOTATION_TYPES = ['Báo giá nội thất','Thi công thô','Thi công nội thất','Cung cấp vật tư','Trọn gói','Thiết kế'];
 
 function fmt(n) { if (!n) return '0'; if (n>=1e9) return (n/1e9).toFixed(1)+' tỷ'; if (n>=1e6) return Math.round(n/1e6)+' tr'; return n.toLocaleString('vi-VN'); }
 function fmtDate(d) { if (!d) return '—'; const dt=new Date(d); return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`; }
@@ -39,12 +39,11 @@ export default function LcQuotations() {
     const [loading, setLoading]       = useState(true);
     const [search, setSearch]         = useState('');
     const [statusFilter, setStatusFilter] = useState('');
-    const [showTemplates, setShowTemplates] = useState(true);
-
     // Create modal state
     const [showModal, setShowModal]     = useState(false);
-    const [selTemplate, setSelTemplate] = useState(null);
-    const [form, setForm] = useState({ customerId:'', type:'Thi công thô', notes:'', vat:10, discount:0, managementFeeRate:5, designFee:0 });
+    const [selTemplate, setSelTemplate] = useState(null); // null = blank, object = template
+    const [modalStep, setModalStep]     = useState(1);    // 1=pick template, 2=fill form
+    const [form, setForm] = useState({ customerId:'', type:'Báo giá nội thất', notes:'', vat:10, discount:0, managementFeeRate:5, designFee:0 });
     const [creating, setCreating]       = useState(false);
     const [createErr, setCreateErr]     = useState('');
 
@@ -71,11 +70,18 @@ export default function LcQuotations() {
         return ms && mst;
     });
 
-    function openCreate(template = null) {
-        setSelTemplate(template);
-        setForm({ customerId:'', type: template?.type||'Thi công thô', notes:'', vat: template?.vat||10, discount: template?.discount||0, managementFeeRate: template?.managementFeeRate||5, designFee: template?.designFee||0 });
+    function openCreate() {
+        setSelTemplate(null);
+        setModalStep(1);
+        setForm({ customerId:'', type:'Báo giá nội thất', notes:'', vat:10, discount:0, managementFeeRate:5, designFee:0 });
         setCreateErr('');
         setShowModal(true);
+    }
+
+    function pickTemplate(t) {
+        setSelTemplate(t);
+        setForm(f => ({ ...f, type: t?.type||'Báo giá nội thất', vat: t?.vat||10, discount: t?.discount||0, managementFeeRate: t?.managementFeeRate||5, designFee: t?.designFee||0 }));
+        setModalStep(2);
     }
 
     async function handleCreate() {
@@ -140,62 +146,16 @@ export default function LcQuotations() {
                 <KpiCard icon="💰" value={loading?'…':fmt(totalVal)}     label="Tổng giá trị"  color="#7c3aed" lightBg="#f5f3ff" />
             </div>
 
-            {/* ── Mẫu báo giá ── */}
-            <div style={{ background:C.white, borderRadius:14, border:`1px solid ${C.border}`, marginBottom:16, overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
-                <div style={{ padding:'14px 18px', borderBottom: showTemplates?`1px solid ${C.border}`:'none', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', userSelect:'none' }}
-                    onClick={()=>setShowTemplates(v=>!v)}>
-                    <div style={{ display:'flex', alignItems:'center', gap:9 }}>
-                        <span style={{ fontSize:16 }}>📐</span>
-                        <span style={{ fontSize:14, fontWeight:700, color:C.text }}>Mẫu báo giá</span>
-                        <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:'#f0fdf4', color:C.primary, border:`1px solid ${C.primary}33` }}>{templates.length}</span>
-                    </div>
-                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                        <button onClick={e=>{e.stopPropagation();openCreate(null);}} style={{ padding:'6px 14px', borderRadius:9, border:`1px solid ${C.primary}`, background:'none', fontSize:12, color:C.primary, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>
-                            + Tạo báo giá trống
-                        </button>
-                        <span style={{ color:C.muted, fontSize:16 }}>{showTemplates?'▲':'▼'}</span>
-                    </div>
+            {/* ── Action bar ── */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, padding:'12px 18px', background:C.white, borderRadius:12, border:`1px solid ${C.border}`, boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+                    <span style={{ fontSize:15 }}>📐</span>
+                    <span style={{ fontSize:13, fontWeight:600, color:C.text }}>Mẫu báo giá</span>
+                    <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:'#f0fdf4', color:C.primary, border:`1px solid ${C.primary}33` }}>{templates.length}</span>
                 </div>
-
-                {showTemplates && (
-                    <div style={{ padding:'14px 16px' }}>
-                        {loading ? (
-                            <div style={{ display:'flex', gap:12 }}>
-                                {[1,2,3].map(i=><div key={i} style={{ flex:'1 1 0', height:110, background:'#f1f5f9', borderRadius:12 }} />)}
-                            </div>
-                        ) : templates.length === 0 ? (
-                            <div style={{ textAlign:'center', padding:'28px 0', color:C.muted, fontSize:13 }}>
-                                📭 Chưa có mẫu báo giá nào — tạo mẫu từ trang chính để dùng tại đây
-                            </div>
-                        ) : (
-                            <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
-                                {templates.map(t => {
-                                    const itemCount = t.categories?.reduce((a,cat)=>a+(cat.items?.length||0),0)||0;
-                                    return (
-                                        <div key={t.id}
-                                            onClick={()=>openCreate(t)}
-                                            style={{ flex:'1 1 220px', maxWidth:280, background:C.bg, border:`1px solid ${C.border}`, borderRadius:12, padding:'14px 16px', cursor:'pointer', transition:'all 0.15s', position:'relative' }}
-                                            onMouseEnter={e=>{ e.currentTarget.style.border=`1px solid ${C.primary}`; e.currentTarget.style.background='#f0fdfa'; e.currentTarget.style.boxShadow=`0 4px 12px rgba(15,118,110,0.1)`; }}
-                                            onMouseLeave={e=>{ e.currentTarget.style.border=`1px solid ${C.border}`; e.currentTarget.style.background=C.bg; e.currentTarget.style.boxShadow='none'; }}>
-                                            <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:8 }}>
-                                                <div style={{ fontSize:15, fontWeight:700, color:C.text, lineHeight:1.3 }}>{t.name}</div>
-                                                <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, background:`${C.primary}15`, color:C.primary, whiteSpace:'nowrap', marginLeft:8, flexShrink:0 }}>{t.type}</span>
-                                            </div>
-                                            {t.description && (
-                                                <div style={{ fontSize:12, color:C.muted, marginBottom:8, lineHeight:1.4, overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>{t.description}</div>
-                                            )}
-                                            <div style={{ display:'flex', gap:12, marginTop:'auto' }}>
-                                                <span style={{ fontSize:11, color:C.gray }}><span style={{ fontWeight:700, color:C.text }}>{t.categories?.length||0}</span> hạng mục</span>
-                                                <span style={{ fontSize:11, color:C.gray }}><span style={{ fontWeight:700, color:C.text }}>{itemCount}</span> hạng mục con</span>
-                                            </div>
-                                            <div style={{ position:'absolute', bottom:12, right:14, fontSize:11, color:C.primary, fontWeight:600, opacity:0 }} className="use-btn">Dùng mẫu →</div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                )}
+                <button onClick={openCreate} style={{ padding:'8px 18px', borderRadius:9, border:'none', background:C.primary, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', boxShadow:`0 2px 8px ${C.primary}55` }}>
+                    + Tạo báo giá
+                </button>
             </div>
 
             {/* ── Danh sách báo giá ── */}
@@ -264,106 +224,137 @@ export default function LcQuotations() {
             {showModal && (
                 <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16, backdropFilter:'blur(2px)' }}
                     onClick={()=>setShowModal(false)}>
-                    <div style={{ background:C.white, borderRadius:20, width:'100%', maxWidth:520, maxHeight:'90vh', overflow:'auto', boxShadow:'0 20px 60px rgba(0,0,0,0.2)' }}
+                    <div style={{ background:C.white, borderRadius:20, width:'100%', maxWidth:560, maxHeight:'90vh', overflow:'auto', boxShadow:'0 20px 60px rgba(0,0,0,0.2)' }}
                         onClick={e=>e.stopPropagation()}>
 
-                        <div style={{ padding:'20px 24px', borderBottom:`1px solid ${C.border}`, display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-                            <div>
-                                <h3 style={{ margin:0, fontSize:16, fontWeight:800, color:C.text }}>Tạo báo giá mới</h3>
-                                {selTemplate
-                                    ? <div style={{ fontSize:12, color:C.primary, marginTop:3, fontWeight:600 }}>📐 Từ mẫu: {selTemplate.name}</div>
-                                    : <div style={{ fontSize:12, color:C.muted, marginTop:3 }}>Báo giá trống</div>}
+                        {/* Header */}
+                        <div style={{ padding:'20px 24px', borderBottom:`1px solid ${C.border}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                                {modalStep===2 && (
+                                    <button onClick={()=>setModalStep(1)} style={{ width:28, height:28, borderRadius:7, border:`1px solid ${C.border}`, background:C.bg, cursor:'pointer', fontSize:14, display:'flex', alignItems:'center', justifyContent:'center', color:C.gray }}>←</button>
+                                )}
+                                <div>
+                                    <h3 style={{ margin:0, fontSize:15, fontWeight:800, color:C.text }}>
+                                        {modalStep===1 ? 'Tạo báo giá mới' : 'Thông tin báo giá'}
+                                    </h3>
+                                    <div style={{ fontSize:11, color:C.muted, marginTop:2 }}>
+                                        Bước {modalStep}/2 — {modalStep===1 ? 'Chọn mẫu hoặc tạo trống' : selTemplate ? `Từ mẫu: ${selTemplate.name}` : 'Báo giá trống'}
+                                    </div>
+                                </div>
                             </div>
                             <button onClick={()=>setShowModal(false)} style={{ width:32, height:32, borderRadius:8, background:C.bg, border:`1px solid ${C.border}`, fontSize:18, cursor:'pointer', color:C.gray, display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
                         </div>
 
-                        <div style={{ padding:'20px 24px' }}>
-                            {createErr && (
-                                <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:10, padding:'10px 14px', marginBottom:16, color:'#dc2626', fontSize:13 }}>⚠️ {createErr}</div>
-                            )}
+                        {/* Step 1 – Pick template or blank */}
+                        {modalStep===1 && (
+                            <div style={{ padding:'20px 24px' }}>
+                                <p style={{ margin:'0 0 14px', fontSize:13, color:C.gray }}>Chọn mẫu để điền sẵn hạng mục, hoặc tạo báo giá trống và nhập tay.</p>
 
-                            {/* Template picker (inline, if no template selected yet) */}
-                            {!selTemplate && templates.length > 0 && (
-                                <div style={{ marginBottom:18 }}>
-                                    <label style={{ fontSize:11, fontWeight:700, color:C.muted, display:'block', marginBottom:8, textTransform:'uppercase', letterSpacing:0.5 }}>Chọn mẫu (tùy chọn)</label>
-                                    <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:200, overflowY:'auto' }}>
-                                        {templates.map(t => (
-                                            <button key={t.id} onClick={()=>{ setSelTemplate(t); fld('type',t.type||'Thi công thô'); fld('vat',t.vat||10); fld('discount',t.discount||0); fld('managementFeeRate',t.managementFeeRate||5); fld('designFee',t.designFee||0); }}
-                                                style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 13px', borderRadius:9, border:`1px solid ${C.border}`, background:C.bg, cursor:'pointer', textAlign:'left' }}
-                                                onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.primary; e.currentTarget.style.background='#f0fdfa'; }}
-                                                onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.background=C.bg; }}>
-                                                <span style={{ fontSize:16 }}>📐</span>
-                                                <span style={{ fontSize:13, color:C.text, fontWeight:600, flex:1 }}>{t.name}</span>
-                                                <span style={{ fontSize:11, color:C.muted }}>{t.type}</span>
-                                            </button>
-                                        ))}
+                                {/* Blank option */}
+                                <button onClick={()=>{ setSelTemplate(null); setModalStep(2); }}
+                                    style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderRadius:12, border:`2px dashed ${C.border}`, background:C.bg, cursor:'pointer', marginBottom:14, textAlign:'left' }}
+                                    onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.primary; e.currentTarget.style.background='#f0fdfa'; }}
+                                    onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.background=C.bg; }}>
+                                    <div style={{ width:38, height:38, borderRadius:10, background:'#f1f5f9', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>📄</div>
+                                    <div>
+                                        <div style={{ fontSize:13, fontWeight:700, color:C.text }}>Tạo báo giá trống</div>
+                                        <div style={{ fontSize:11, color:C.muted, marginTop:1 }}>Không dùng mẫu — tự nhập hạng mục</div>
+                                    </div>
+                                    <span style={{ marginLeft:'auto', color:C.muted, fontSize:16 }}>→</span>
+                                </button>
+
+                                {/* Template list */}
+                                {templates.length > 0 && (
+                                    <>
+                                        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
+                                            <div style={{ flex:1, height:1, background:C.border }} />
+                                            <span style={{ fontSize:11, color:C.muted, fontWeight:600, whiteSpace:'nowrap' }}>hoặc chọn mẫu có sẵn</span>
+                                            <div style={{ flex:1, height:1, background:C.border }} />
+                                        </div>
+                                        <div style={{ display:'flex', flexDirection:'column', gap:7, maxHeight:320, overflowY:'auto', paddingRight:2 }}>
+                                            {templates.map(t => {
+                                                const itemCount = t.categories?.reduce((a,cat)=>a+(cat.items?.length||0),0)||0;
+                                                return (
+                                                    <button key={t.id} onClick={()=>pickTemplate(t)}
+                                                        style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 14px', borderRadius:11, border:`1px solid ${C.border}`, background:C.white, cursor:'pointer', textAlign:'left', width:'100%' }}
+                                                        onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.primary; e.currentTarget.style.background='#f0fdfa'; e.currentTarget.style.boxShadow=`0 2px 8px rgba(15,118,110,0.08)`; }}
+                                                        onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.background=C.white; e.currentTarget.style.boxShadow='none'; }}>
+                                                        <div style={{ width:38, height:38, borderRadius:10, background:`${C.primary}12`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:19, flexShrink:0 }}>📐</div>
+                                                        <div style={{ flex:1, minWidth:0 }}>
+                                                            <div style={{ fontSize:13, fontWeight:700, color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.name}</div>
+                                                            <div style={{ fontSize:11, color:C.muted, marginTop:1 }}>{t.categories?.length||0} phòng • {itemCount} hạng mục con</div>
+                                                        </div>
+                                                        <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, background:`${C.primary}12`, color:C.primary, whiteSpace:'nowrap', flexShrink:0 }}>{t.type||'—'}</span>
+                                                        <span style={{ color:C.muted, fontSize:14, flexShrink:0 }}>→</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </>
+                                )}
+                                {!loading && templates.length===0 && (
+                                    <div style={{ textAlign:'center', padding:'16px 0', color:C.muted, fontSize:12 }}>📭 Chưa có mẫu — tạo mẫu từ trang quản trị chính</div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Step 2 – Fill form */}
+                        {modalStep===2 && (
+                            <div style={{ padding:'20px 24px' }}>
+                                {createErr && (
+                                    <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:10, padding:'10px 14px', marginBottom:16, color:'#dc2626', fontSize:13 }}>⚠️ {createErr}</div>
+                                )}
+
+                                {selTemplate && (
+                                    <div style={{ marginBottom:16, padding:'10px 14px', background:'#f0fdfa', borderRadius:10, border:`1px solid ${C.primary}33`, display:'flex', alignItems:'center', gap:10 }}>
+                                        <span style={{ fontSize:16 }}>📐</span>
+                                        <div style={{ flex:1 }}>
+                                            <div style={{ fontSize:13, color:C.primary, fontWeight:700 }}>{selTemplate.name}</div>
+                                            <div style={{ fontSize:11, color:C.muted }}>{selTemplate.categories?.length||0} phòng • {selTemplate.categories?.reduce((a,c)=>a+(c.items?.length||0),0)||0} hạng mục con</div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+                                    <div style={{ gridColumn:'1/-1' }}>
+                                        <label style={lbl}>Khách hàng *</label>
+                                        <select value={form.customerId} onChange={e=>fld('customerId',e.target.value)} style={inp()}>
+                                            <option value="">— Chọn khách hàng —</option>
+                                            {customers.map(c=><option key={c.id} value={c.id}>{c.name} {c.code?`(${c.code})`:''}</option>)}
+                                        </select>
+                                    </div>
+                                    <div style={{ gridColumn:'1/-1' }}>
+                                        <label style={lbl}>Loại báo giá</label>
+                                        <select value={form.type} onChange={e=>fld('type',e.target.value)} style={inp()}>
+                                            {QUOTATION_TYPES.map(t=><option key={t}>{t}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={lbl}>VAT (%)</label>
+                                        <input type="number" value={form.vat} onChange={e=>fld('vat',e.target.value)} style={inp()} />
+                                    </div>
+                                    <div>
+                                        <label style={lbl}>Chiết khấu (%)</label>
+                                        <input type="number" value={form.discount} onChange={e=>fld('discount',e.target.value)} style={inp()} />
+                                    </div>
+                                    <div style={{ gridColumn:'1/-1' }}>
+                                        <label style={lbl}>Ghi chú</label>
+                                        <textarea value={form.notes} onChange={e=>fld('notes',e.target.value)} rows={2} placeholder="Ghi chú cho báo giá..."
+                                            style={{ ...inp(), resize:'vertical' }} />
                                     </div>
                                 </div>
-                            )}
-                            {selTemplate && (
-                                <div style={{ marginBottom:16, padding:'10px 14px', background:'#f0fdfa', borderRadius:10, border:`1px solid ${C.primary}33`, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                                    <div style={{ fontSize:13, color:C.primary, fontWeight:600 }}>📐 {selTemplate.name}</div>
-                                    <button onClick={()=>setSelTemplate(null)} style={{ fontSize:11, color:C.muted, background:'none', border:'none', cursor:'pointer' }}>✕ bỏ mẫu</button>
-                                </div>
-                            )}
-
-                            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
-                                <div style={{ gridColumn:'1/-1' }}>
-                                    <label style={lbl}>Khách hàng *</label>
-                                    <select value={form.customerId} onChange={e=>fld('customerId',e.target.value)} style={inp()}>
-                                        <option value="">— Chọn khách hàng —</option>
-                                        {customers.map(c=><option key={c.id} value={c.id}>{c.name} {c.code?`(${c.code})`:''}</option>)}
-                                    </select>
-                                </div>
-                                <div style={{ gridColumn:'1/-1' }}>
-                                    <label style={lbl}>Loại báo giá</label>
-                                    <select value={form.type} onChange={e=>fld('type',e.target.value)} style={inp()}>
-                                        {QUOTATION_TYPES.map(t=><option key={t}>{t}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label style={lbl}>VAT (%)</label>
-                                    <input type="number" value={form.vat} onChange={e=>fld('vat',e.target.value)} style={inp()} />
-                                </div>
-                                <div>
-                                    <label style={lbl}>Chiết khấu (%)</label>
-                                    <input type="number" value={form.discount} onChange={e=>fld('discount',e.target.value)} style={inp()} />
-                                </div>
-                                <div>
-                                    <label style={lbl}>Phí quản lý (%)</label>
-                                    <input type="number" value={form.managementFeeRate} onChange={e=>fld('managementFeeRate',e.target.value)} style={inp()} />
-                                </div>
-                                <div>
-                                    <label style={lbl}>Phí thiết kế (đ)</label>
-                                    <input type="number" value={form.designFee} onChange={e=>fld('designFee',e.target.value)} style={inp()} />
-                                </div>
-                                <div style={{ gridColumn:'1/-1' }}>
-                                    <label style={lbl}>Ghi chú</label>
-                                    <textarea value={form.notes} onChange={e=>fld('notes',e.target.value)} rows={3} placeholder="Ghi chú cho báo giá..."
-                                        style={{ ...inp(), resize:'vertical' }} />
-                                </div>
                             </div>
+                        )}
 
-                            {selTemplate && selTemplate.categories?.length > 0 && (
-                                <div style={{ marginTop:16, padding:'12px 14px', background:C.bg, borderRadius:10, border:`1px solid ${C.border}` }}>
-                                    <div style={{ fontSize:11, fontWeight:700, color:C.muted, marginBottom:8, textTransform:'uppercase', letterSpacing:0.5 }}>Hạng mục từ mẫu</div>
-                                    {selTemplate.categories.map((cat,i) => (
-                                        <div key={i} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
-                                            <div style={{ width:18, height:18, borderRadius:5, background:`${C.primary}15`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:C.primary, fontWeight:700, flexShrink:0 }}>{i+1}</div>
-                                            <span style={{ fontSize:13, color:C.text, fontWeight:500 }}>{cat.name}</span>
-                                            <span style={{ fontSize:11, color:C.muted, marginLeft:'auto' }}>{cat.items?.length||0} hạng mục con</span>
-                                        </div>
-                                    ))}
-                                </div>
+                        {/* Footer */}
+                        <div style={{ padding:'14px 24px', borderTop:`1px solid ${C.border}`, display:'flex', justifyContent:'flex-end', gap:10, background:C.bg, borderRadius:'0 0 20px 20px' }}>
+                            <button onClick={()=>setShowModal(false)} style={{ padding:'9px 18px', borderRadius:10, border:`1px solid ${C.border}`, background:C.white, fontSize:13, cursor:'pointer', fontWeight:500, color:C.gray }}>Hủy</button>
+                            {modalStep===2 && (
+                                <button onClick={handleCreate} disabled={creating}
+                                    style={{ padding:'9px 22px', borderRadius:10, border:'none', background:creating?C.gray:C.primary, color:'#fff', fontWeight:700, fontSize:13, cursor:creating?'not-allowed':'pointer', boxShadow:creating?'none':`0 2px 8px ${C.primary}55` }}>
+                                    {creating ? 'Đang tạo…' : '📋 Tạo báo giá'}
+                                </button>
                             )}
-                        </div>
-
-                        <div style={{ padding:'16px 24px', borderTop:`1px solid ${C.border}`, display:'flex', justifyContent:'flex-end', gap:10, background:C.bg, borderRadius:'0 0 20px 20px' }}>
-                            <button onClick={()=>setShowModal(false)} style={{ padding:'10px 20px', borderRadius:10, border:`1px solid ${C.border}`, background:C.white, fontSize:13, cursor:'pointer', fontWeight:500 }}>Hủy</button>
-                            <button onClick={handleCreate} disabled={creating}
-                                style={{ padding:'10px 24px', borderRadius:10, border:'none', background:creating?C.gray:C.primary, color:'#fff', fontWeight:700, fontSize:13, cursor:creating?'not-allowed':'pointer', boxShadow:creating?'none':`0 2px 8px ${C.primary}55` }}>
-                                {creating ? 'Đang tạo…' : '📋 Tạo báo giá'}
-                            </button>
                         </div>
                     </div>
                 </div>
