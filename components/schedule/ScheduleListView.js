@@ -345,7 +345,18 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
                         <input type="date" className="form-input" value={quickAdd.startDate} onChange={e => setQuickAdd(q => ({ ...q, startDate: e.target.value }))} style={{ fontSize: 12, padding: '4px 6px' }} />
                         <input type="date" className="form-input" value={quickAdd.endDate} onChange={e => setQuickAdd(q => ({ ...q, endDate: e.target.value }))} style={{ fontSize: 12, padding: '4px 6px' }} />
                         <span />
-                        <span />
+                        <select
+                            className="form-select"
+                            value={quickAdd.parentId}
+                            onChange={e => setQuickAdd(q => ({ ...q, parentId: e.target.value }))}
+                            style={{ fontSize: 11, padding: '3px 6px' }}
+                            title="Thuộc giai đoạn"
+                        >
+                            <option value="">— Giai đoạn —</option>
+                            {flat.filter(t => !t.parentId).map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
                         <span />
                         <div style={{ display: 'flex', gap: 4 }}>
                             <button className="btn btn-primary btn-sm" onClick={submitQuickAdd} disabled={savingQuickAdd || !quickAdd.name.trim() || !quickAdd.startDate || !quickAdd.endDate} style={{ padding: '3px 8px', fontSize: 12 }}>
@@ -378,6 +389,17 @@ export default function ScheduleListView({ tasks, flat, projectId, onUpdate, onD
                         {quickAdd.show ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                 <input className="form-input" placeholder="Tên hạng mục *" value={quickAdd.name} onChange={e => setQuickAdd(q => ({ ...q, name: e.target.value }))} autoFocus style={{ fontSize: 13 }} />
+                                <select
+                                    className="form-select"
+                                    value={quickAdd.parentId}
+                                    onChange={e => setQuickAdd(q => ({ ...q, parentId: e.target.value }))}
+                                    style={{ fontSize: 12 }}
+                                >
+                                    <option value="">— Giai đoạn (cấp cao nhất) —</option>
+                                    {flat.filter(t => !t.parentId).map(t => (
+                                        <option key={t.id} value={t.id}>{t.name}</option>
+                                    ))}
+                                </select>
                                 <div style={{ display: 'flex', gap: 6 }}>
                                     <input type="date" className="form-input" value={quickAdd.startDate} onChange={e => setQuickAdd(q => ({ ...q, startDate: e.target.value }))} style={{ flex: 1, fontSize: 12 }} />
                                     <input type="date" className="form-input" value={quickAdd.endDate} onChange={e => setQuickAdd(q => ({ ...q, endDate: e.target.value }))} style={{ flex: 1, fontSize: 12 }} />

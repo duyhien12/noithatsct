@@ -15,22 +15,27 @@ const STATUS_BG = {
     'Tạm dừng':      '#f3f4f6',
 };
 
-// Màu theo loại hạng mục (match theo tên, không phân biệt hoa/thường, có dấu/không dấu)
+// Chuẩn hóa tiếng Việt về ASCII để match regex không phân biệt dấu/không dấu
+const _VI_MAP = {'à':'a','á':'a','â':'a','ã':'a','ä':'a','ạ':'a','ả':'a','ắ':'a','ặ':'a','ằ':'a','ẳ':'a','ẵ':'a','ấ':'a','ậ':'a','ầ':'a','ẩ':'a','ẫ':'a','ă':'a','đ':'d','è':'e','é':'e','ê':'e','ế':'e','ệ':'e','ề':'e','ể':'e','ễ':'e','ẹ':'e','ẻ':'e','ẽ':'e','ì':'i','í':'i','ị':'i','ỉ':'i','ĩ':'i','ò':'o','ó':'o','ô':'o','ố':'o','ộ':'o','ồ':'o','ổ':'o','ỗ':'o','ơ':'o','ớ':'o','ợ':'o','ờ':'o','ở':'o','ỡ':'o','ọ':'o','ỏ':'o','õ':'o','ù':'u','ú':'u','ư':'u','ứ':'u','ự':'u','ừ':'u','ử':'u','ữ':'u','ụ':'u','ủ':'u','ũ':'u','ỳ':'y','ý':'y','ỵ':'y','ỷ':'y','ỹ':'y','À':'A','Á':'A','Â':'A','Ã':'A','Ạ':'A','Ả':'A','Ắ':'A','Ặ':'A','Ằ':'A','Ẳ':'A','Ẵ':'A','Ấ':'A','Ậ':'A','Ầ':'A','Ẩ':'A','Ẫ':'A','Ă':'A','Đ':'D','È':'E','É':'E','Ê':'E','Ế':'E','Ệ':'E','Ề':'E','Ể':'E','Ễ':'E','Ẹ':'E','Ẻ':'E','Ẽ':'E','Ì':'I','Í':'I','Ị':'I','Ỉ':'I','Ĩ':'I','Ò':'O','Ó':'O','Ô':'O','Ố':'O','Ộ':'O','Ồ':'O','Ổ':'O','Ỗ':'O','Ơ':'O','Ớ':'O','Ợ':'O','Ờ':'O','Ở':'O','Ỡ':'O','Ọ':'O','Ỏ':'O','Õ':'O','Ù':'U','Ú':'U','Ư':'U','Ứ':'U','Ự':'U','Ừ':'U','Ử':'U','Ữ':'U','Ụ':'U','Ủ':'U','Ũ':'U','Ỳ':'Y','Ý':'Y','Ỵ':'Y','Ỷ':'Y','Ỹ':'Y'};
+function toAscii(s) {
+    return s.replace(/[^\x00-\x7F]/g, c => _VI_MAP[c] ?? c);
+}
+
+// Màu theo loại hạng mục
 const TASK_TYPE_COLORS = [
-    { test: n => /vẽ\s*cnc|ve\s*cnc/i.test(n),                        color: '#15803d', bg: '#dcfce7' }, // xanh lá
-    { test: n => /^vẽ$|^ve$/i.test(n.trim()),                         color: '#65a30d', bg: '#ecfccb' }, // xanh lá nhạt
-    { test: n => /gia\s*công|gia\s*cong/i.test(n),                    color: '#0284c7', bg: '#e0f2fe' }, // xanh da trời
-    { test: n => /lắp\s*ráp\s*tại\s*xưởng|lap\s*rap\s*tai\s*xuong/i.test(n), color: '#7c3aed', bg: '#ede9fe' }, // tím
-    { test: n => /lắp\s*đặt\s*tại\s*công\s*trình|lap\s*dat\s*tai\s*cong\s*trinh/i.test(n), color: '#dc2626', bg: '#fee2e2' }, // đỏ
-    { test: n => /^lắp$|^lap$/i.test(n.trim()),                       color: '#9333ea', bg: '#f3e8ff' }, // tím nhạt
-    { test: n => /hoàn\s*thiện|hoan\s*thien/i.test(n),                color: '#0891b2', bg: '#cffafe' }, // cyan
-    { test: n => /sơn|son/i.test(n),                                   color: '#ea580c', bg: '#ffedd5' }, // cam
-    { test: n => /điện|dien/i.test(n),                                 color: '#ca8a04', bg: '#fef9c3' }, // vàng
-    { test: n => /nước|nuoc/i.test(n),                                 color: '#0369a1', bg: '#dbeafe' }, // xanh nước
+    { test: n => /ve\s*cnc/i.test(toAscii(n)),                        color: '#15803d', bg: '#dcfce7' }, // xanh lá
+    { test: n => /^ve$/i.test(toAscii(n).trim()),                     color: '#65a30d', bg: '#ecfccb' }, // xanh lá nhạt
+    { test: n => /gia\s*cong/i.test(toAscii(n)),                      color: '#0284c7', bg: '#e0f2fe' }, // xanh da trời
+    { test: n => /lap\s*rap\s*tai\s*xuong/i.test(toAscii(n)),         color: '#7c3aed', bg: '#ede9fe' }, // tím
+    { test: n => /lap\s*dat\s*tai\s*cong\s*trinh/i.test(toAscii(n)), color: '#dc2626', bg: '#fee2e2' }, // đỏ
+    { test: n => /^lap$/i.test(toAscii(n).trim()),                    color: '#9333ea', bg: '#f3e8ff' }, // tím nhạt
+    { test: n => /hoan\s*thien/i.test(toAscii(n)),                    color: '#0891b2', bg: '#cffafe' }, // cyan
+    { test: n => /^son$/i.test(toAscii(n).trim()),                    color: '#ea580c', bg: '#ffedd5' }, // cam
+    { test: n => /dien/i.test(toAscii(n)),                            color: '#ca8a04', bg: '#fef9c3' }, // vàng
+    { test: n => /nuoc/i.test(toAscii(n)),                            color: '#0369a1', bg: '#dbeafe' }, // xanh nước
 ];
 
-function getTaskTypeColor(task) {
-    // Ưu tiên màu người dùng đặt trong DB
+function getTaskTypeColor(task, taskById = {}, depth = 0) {
     if (task.color && task.color !== '') {
         const hex = task.color;
         return { color: hex, bg: hex + '22' };
@@ -38,6 +43,9 @@ function getTaskTypeColor(task) {
     const name = (task.title || task.name || '');
     for (const { test, color, bg } of TASK_TYPE_COLORS) {
         if (test(name)) return { color, bg };
+    }
+    if (depth < 3 && task.parentId && taskById[task.parentId]) {
+        return getTaskTypeColor(taskById[task.parentId], taskById, depth + 1);
     }
     return null;
 }
@@ -274,6 +282,33 @@ export default function TimelinePage() {
         }
     });
     const totalChartH = svgRunY;
+
+    // ── Task lookup map (for parent color inheritance) ───────
+    const taskById = {};
+    filtered.forEach(t => { taskById[t.id] = t; });
+
+    // ── Inherited color: task phòng kế thừa màu phase liền trước ──
+    const inheritedColorMap = {};
+    Object.values(groupedRaw).forEach(({ tasks: gt }) => {
+        let lastPhaseColor = null;
+        // Pass 1: top-level tasks kế thừa từ phase liền trước (theo thứ tự)
+        gt.forEach(task => {
+            const tc = getTaskTypeColor(task, taskById);
+            if (tc) {
+                lastPhaseColor = tc;
+            } else if (lastPhaseColor && !task.parentId) {
+                inheritedColorMap[task.id] = lastPhaseColor;
+            }
+        });
+        // Pass 2: child tasks kế thừa từ parent
+        gt.forEach(task => {
+            if (!getTaskTypeColor(task, taskById) && !inheritedColorMap[task.id] && task.parentId) {
+                const pc = getTaskTypeColor(taskById[task.parentId], taskById)
+                        || inheritedColorMap[task.parentId];
+                if (pc) inheritedColorMap[task.id] = pc;
+            }
+        });
+    });
 
     // ── Critical path ────────────────────────────────────────
     const criticalIds = new Set();
@@ -542,7 +577,7 @@ export default function TimelinePage() {
                                                 const bp         = getBarPx(taskForRender);
                                                 const isOverdue  = taskForRender.deadline && new Date(taskForRender.deadline) < now && task.status !== 'Hoàn thành';
                                                 const isCritical = criticalIds.has(task.id);
-                                                const typeColor  = getTaskTypeColor(task);
+                                                const typeColor  = getTaskTypeColor(task, taskById) || inheritedColorMap[task.id] || null;
                                                 const barColor   = isOverdue
                                                     ? (typeColor ? typeColor.color : '#dc2626')
                                                     : (typeColor ? typeColor.color : (STATUS_COLOR[task.status] || '#2563eb'));
