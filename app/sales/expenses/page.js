@@ -109,6 +109,8 @@ export default function SalesExpensesPage() {
     const [ccSummaryMonth, setCcSummaryMonth] = useState(() => new Date().toISOString().slice(0, 7));
     const [ccSummaryData, setCcSummaryData] = useState([]);
     const [ccLoadingSummary, setCcLoadingSummary] = useState(false);
+    const [advances, setAdvances] = useState({});
+    const [savingAdvance, setSavingAdvance] = useState({});
     const [ccUserList, setCcUserList] = useState([]);
     const [ccSuggest, setCcSuggest] = useState([]);
     const [ccShowSuggest, setCcShowSuggest] = useState(false);
@@ -156,9 +158,25 @@ export default function SalesExpensesPage() {
     };
     const fetchCcSummary = async (month) => {
         setCcLoadingSummary(true);
-        const data = await fetch(`/api/sales/attendance?month=${month}`).then(r => r.json()).catch(() => []);
-        setCcSummaryData(Array.isArray(data) ? data : []);
+        const [attData, advData] = await Promise.all([
+            fetch(`/api/sales/attendance?month=${month}`).then(r => r.json()).catch(() => []),
+            fetch(`/api/sales/salary-advances?month=${month}`).then(r => r.json()).catch(() => []),
+        ]);
+        setCcSummaryData(Array.isArray(attData) ? attData : []);
+        const advMap = {};
+        (Array.isArray(advData) ? advData : []).forEach(a => { advMap[a.workerId] = a.amount || 0; });
+        setAdvances(advMap);
         setCcLoadingSummary(false);
+    };
+
+    const saveAdvance = async (workerId, amount) => {
+        setSavingAdvance(prev => ({ ...prev, [workerId]: true }));
+        await fetch('/api/sales/salary-advances', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ workerId, month: ccSummaryMonth, amount }),
+        });
+        setSavingAdvance(prev => ({ ...prev, [workerId]: false }));
     };
     useEffect(() => {
         fetch('/api/users').then(r => r.json()).then(d => {
@@ -538,7 +556,7 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Tổng quan tài chính kinh doanh</span>
                             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Lương: {monthLabel}</span>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
                             {/* Thu tiền */}
                             <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '14px 16px', borderLeft: '4px solid #16a34a' }}>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: '#15803d', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>💰 Thu tiền</div>
@@ -1065,27 +1083,141 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                     const daysInMonth = new Date(y, m, 0).getDate();
                     const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
                     const activeWorkers = ccWorkers.filter(w => w.status !== 'Nghỉ việc');
+                    const monthLabel = new Date(ccSummaryMonth + '-01').toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' });
+                    const totalSalary = activeWorkers.reduce((s, w) => {
+                        const wAtt = ccSummaryData.filter(a => a.workerId === w.id);
+                        return s + wAtt.reduce((ss, a) => ss + (a.hoursWorked / 8) * (w.dailyRate || 0), 0);
+                    }, 0);
+                    const totalAdvance = activeWorkers.reduce((s, w) => s + (advances[w.id] || 0), 0);
+
+                    const exportPDF = () => {
+                        const fmtVN = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n));
+                        const rows = activeWorkers.map(w => {
+                            const wAtt = ccSummaryData.filter(a => a.workerId === w.id);
+                            const totalHrs = wAtt.reduce((s, a) => s + (a.hoursWorked || 0), 0);
+                            const totalPay = wAtt.reduce((s, a) => s + (a.hoursWorked / 8) * (w.dailyRate || 0), 0);
+                            const adv = advances[w.id] || 0;
+                            const remain = totalPay - adv;
+                            const dayMap = {};
+                            wAtt.forEach(a => {
+                                const ds = new Date(a.date).toISOString().split('T')[0];
+                                dayMap[ds] = a.hoursWorked;
+                            });
+                            return { w, totalHrs, totalPay, adv, remain, dayMap };
+                        });
+
+                        const win = window.open('', '_blank', 'width=1200,height=800');
+                        win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Bảng lương tháng ${monthLabel} - Phòng Kinh Doanh</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial,sans-serif;font-size:11px;color:#000;padding:20px}
+h2{font-size:16px;text-align:center;margin-bottom:4px}
+.sub{text-align:center;font-size:12px;color:#555;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:10px}
+th,td{border:1px solid #ccc;padding:4px 5px;white-space:nowrap}
+th{background:#1e3a5f;color:#fff;text-align:center;font-size:9px}
+.name-col{min-width:120px;text-align:left}
+.day-cell{text-align:center;width:22px}
+.right{text-align:right}
+.green{color:#15803d;font-weight:700}
+.red{color:#dc2626;font-weight:700}
+.blue{color:#1d4ed8;font-weight:700}
+.total-row{background:#f0f4ff;font-weight:700}
+.btn-print{position:fixed;top:10px;right:10px;padding:8px 20px;background:#1e3a5f;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px}
+@media print{.btn-print{display:none}}
+</style></head><body>
+<button class="btn-print" onclick="window.print()">🖨️ In / Lưu PDF</button>
+<h2>BẢNG TỔNG HỢP LƯƠNG THÁNG ${monthLabel.toUpperCase()}</h2>
+<div class="sub">Phòng Kinh Doanh — Công ty SCT &nbsp;|&nbsp; Ngày xuất: ${new Date().toLocaleDateString('vi-VN')}</div>
+<table>
+<thead>
+<tr>
+<th class="name-col" rowspan="2">Họ tên</th>
+<th rowspan="2">Vị trí</th>
+<th rowspan="2">Đơn giá/ngày</th>
+${days.map(d => `<th class="day-cell">${d}</th>`).join('')}
+<th rowspan="2">Tổng công</th>
+<th rowspan="2">Lương</th>
+<th rowspan="2">Ứng tiền</th>
+<th rowspan="2">Còn lại</th>
+</tr>
+</thead>
+<tbody>
+${rows.map((r, idx) => `
+<tr style="background:${idx % 2 === 0 ? '#fff' : '#f9fafb'}">
+<td class="name-col"><strong>${r.w.name}</strong></td>
+<td>${r.w.position || r.w.workerType}</td>
+<td class="right">${fmtVN(r.w.dailyRate)}đ</td>
+${days.map(d => {
+    const ds = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const h = r.dayMap[ds] || 0;
+    const bg = h === 0 ? '' : h >= 8 ? 'background:#dcfce7' : 'background:#fef3c7';
+    return `<td class="day-cell" style="${bg}">${h > 0 ? (h >= 8 ? '✓' : h) : ''}</td>`;
+}).join('')}
+<td class="right blue">${(r.totalHrs / 8).toFixed(1)} ngày</td>
+<td class="right green">${fmtVN(r.totalPay)}đ</td>
+<td class="right red">${r.adv > 0 ? fmtVN(r.adv) + 'đ' : '—'}</td>
+<td class="right" style="color:${r.remain >= 0 ? '#15803d' : '#dc2626'};font-weight:700">${fmtVN(r.remain)}đ</td>
+</tr>`).join('')}
+</tbody>
+<tfoot>
+<tr class="total-row">
+<td colspan="3">TỔNG CỘNG</td>
+${days.map(d => {
+    const ds = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const cnt = ccSummaryData.filter(a => new Date(a.date).toISOString().split('T')[0] === ds).length;
+    return `<td class="day-cell" style="color:#1d4ed8">${cnt > 0 ? cnt : ''}</td>`;
+}).join('')}
+<td class="right blue">${(ccSummaryData.reduce((s,a)=>s+(a.hoursWorked||0),0)/8).toFixed(1)} ngày</td>
+<td class="right green">${fmtVN(totalSalary)}đ</td>
+<td class="right red">${fmtVN(totalAdvance)}đ</td>
+<td class="right green">${fmtVN(totalSalary - totalAdvance)}đ</td>
+</tr>
+</tfoot>
+</table>
+<div style="display:flex;justify-content:space-between;margin-top:40px;padding:0 40px">
+<div style="text-align:center"><div style="font-weight:700;margin-bottom:60px">Người lập bảng</div><div style="border-top:1px solid #000;width:160px"></div></div>
+<div style="text-align:center"><div style="font-weight:700;margin-bottom:60px">Kế toán</div><div style="border-top:1px solid #000;width:160px"></div></div>
+<div style="text-align:center"><div style="font-weight:700;margin-bottom:60px">Giám đốc</div><div style="border-top:1px solid #000;width:160px"></div></div>
+</div>
+</body></html>`);
+                        win.document.close();
+                    };
+
                     return (
                         <div className="modal-overlay" onClick={() => setCcShowSummary(false)}>
-                            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 960, width: '95vw', maxHeight: '90vh', overflow: 'auto' }}>
+                            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 1100, width: '97vw', maxHeight: '92vh', overflow: 'auto' }}>
                                 <div className="modal-header">
-                                    <h3>📊 Tổng hợp công tháng — Phòng Kinh Doanh</h3>
-                                    <button className="modal-close" onClick={() => setCcShowSummary(false)}>×</button>
+                                    <h3>📊 Tổng hợp lương & công tháng — Phòng Kinh Doanh</h3>
+                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                        <button onClick={exportPDF} style={{ padding: '6px 14px', borderRadius: 8, border: 'none', background: '#1e3a5f', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>🖨️ Xuất PDF</button>
+                                        <button className="modal-close" onClick={() => setCcShowSummary(false)}>×</button>
+                                    </div>
                                 </div>
                                 <div className="modal-body">
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
                                         <input type="month" value={ccSummaryMonth} onChange={e => setCcSummaryMonth(e.target.value)} style={{ padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 14 }} />
                                         {ccLoadingSummary && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Đang tải...</span>}
+                                        {!ccLoadingSummary && (
+                                            <div style={{ display: 'flex', gap: 16, fontSize: 12 }}>
+                                                <span>Tổng lương: <strong style={{ color: '#16a34a' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalSalary))}đ</strong></span>
+                                                <span>Đã ứng: <strong style={{ color: '#dc2626' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalAdvance))}đ</strong></span>
+                                                <span>Còn trả: <strong style={{ color: '#1d4ed8' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalSalary - totalAdvance))}đ</strong></span>
+                                            </div>
+                                        )}
                                     </div>
                                     {!ccLoadingSummary && (
                                         <div style={{ overflowX: 'auto' }}>
-                                            <table className="data-table" style={{ fontSize: 11, margin: 0, minWidth: 700 }}>
+                                            <table className="data-table" style={{ fontSize: 11, margin: 0, minWidth: 800 }}>
                                                 <thead>
                                                     <tr>
-                                                        <th style={{ minWidth: 120 }}>Nhân viên</th>
-                                                        {days.map(d => <th key={d} style={{ minWidth: 28, textAlign: 'center', padding: '4px 2px' }}>{d}</th>)}
-                                                        <th style={{ minWidth: 60, textAlign: 'right' }}>Tổng giờ</th>
-                                                        <th style={{ minWidth: 90, textAlign: 'right' }}>Thành tiền</th>
+                                                        <th style={{ minWidth: 130 }}>Nhân viên</th>
+                                                        {days.map(d => <th key={d} style={{ minWidth: 26, textAlign: 'center', padding: '4px 2px' }}>{d}</th>)}
+                                                        <th style={{ minWidth: 65, textAlign: 'right' }}>Tổng công</th>
+                                                        <th style={{ minWidth: 95, textAlign: 'right' }}>Lương</th>
+                                                        <th style={{ minWidth: 110, textAlign: 'right' }}>Ứng tiền</th>
+                                                        <th style={{ minWidth: 95, textAlign: 'right' }}>Còn lại</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1093,6 +1225,8 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                                                         const wAtt = ccSummaryData.filter(a => a.workerId === w.id);
                                                         const totalHrs = wAtt.reduce((s, a) => s + (a.hoursWorked || 0), 0);
                                                         const totalPay = wAtt.reduce((s, a) => s + (a.hoursWorked / 8) * (w.dailyRate || 0), 0);
+                                                        const adv = advances[w.id] || 0;
+                                                        const remain = totalPay - adv;
                                                         return (
                                                             <tr key={w.id}>
                                                                 <td>
@@ -1111,27 +1245,38 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                                                                         </td>
                                                                     );
                                                                 })}
-                                                                <td style={{ textAlign: 'right', fontWeight: 700 }}>{totalHrs}h</td>
-                                                                <td style={{ textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalPay / 1000))}k</td>
+                                                                <td style={{ textAlign: 'right', fontWeight: 700, color: '#1d4ed8' }}>{(totalHrs / 8).toFixed(1)} ngày</td>
+                                                                <td style={{ textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalPay))}đ</td>
+                                                                <td style={{ textAlign: 'right', padding: '3px 6px' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={advances[w.id] || ''}
+                                                                        placeholder="0"
+                                                                        onChange={e => setAdvances(prev => ({ ...prev, [w.id]: parseFloat(e.target.value) || 0 }))}
+                                                                        onBlur={e => saveAdvance(w.id, parseFloat(e.target.value) || 0)}
+                                                                        style={{ width: 100, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: 11, textAlign: 'right', color: '#dc2626', fontWeight: 600 }}
+                                                                    />
+                                                                    {savingAdvance[w.id] && <span style={{ fontSize: 9, color: '#94a3b8', marginLeft: 4 }}>✓</span>}
+                                                                </td>
+                                                                <td style={{ textAlign: 'right', fontWeight: 700, color: remain >= 0 ? '#16a34a' : '#dc2626' }}>
+                                                                    {new Intl.NumberFormat('vi-VN').format(Math.round(remain))}đ
+                                                                </td>
                                                             </tr>
                                                         );
                                                     })}
                                                 </tbody>
                                                 <tfoot>
                                                     <tr style={{ fontWeight: 700, background: 'var(--bg-secondary)' }}>
-                                                        <td>Tổng ngày</td>
+                                                        <td>Tổng</td>
                                                         {days.map(d => {
                                                             const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                                                             const cnt = ccSummaryData.filter(a => new Date(a.date).toISOString().split('T')[0] === dateStr).length;
                                                             return <td key={d} style={{ textAlign: 'center', fontSize: 10, color: cnt > 0 ? '#2563eb' : 'var(--text-muted)' }}>{cnt > 0 ? cnt : ''}</td>;
                                                         })}
-                                                        <td style={{ textAlign: 'right' }}>{ccSummaryData.reduce((s, a) => s + (a.hoursWorked || 0), 0)}h</td>
-                                                        <td style={{ textAlign: 'right', color: '#16a34a' }}>
-                                                            {new Intl.NumberFormat('vi-VN').format(Math.round(ccSummaryData.reduce((s, a) => {
-                                                                const w = ccWorkers.find(w => w.id === a.workerId);
-                                                                return s + (a.hoursWorked / 8) * (w?.dailyRate || 0);
-                                                            }, 0) / 1000))}k
-                                                        </td>
+                                                        <td style={{ textAlign: 'right', color: '#1d4ed8' }}>{(ccSummaryData.reduce((s, a) => s + (a.hoursWorked || 0), 0) / 8).toFixed(1)} ngày</td>
+                                                        <td style={{ textAlign: 'right', color: '#16a34a' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalSalary))}đ</td>
+                                                        <td style={{ textAlign: 'right', color: '#dc2626' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalAdvance))}đ</td>
+                                                        <td style={{ textAlign: 'right', color: '#16a34a' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalSalary - totalAdvance))}đ</td>
                                                     </tr>
                                                 </tfoot>
                                             </table>
