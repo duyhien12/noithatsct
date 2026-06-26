@@ -26,10 +26,6 @@ const NAV = [
         { id: 'products',    label: 'Sản phẩm',   icon: '🛋️', href: '/laocai/products' },
         { id: 'categories',  label: 'Danh mục',    icon: '📂',  href: '/laocai/categories' },
     ]},
-    { section: 'HỆ THỐNG', items: [
-        { id: 'staff',       label: 'Nhân viên',   icon: '👤',  href: '/laocai/staff' },
-        { id: 'settings',    label: 'Cài đặt',     icon: '⚙️', href: '/laocai/settings' },
-    ]},
 ];
 
 export default function LcShell({ children, title }) {

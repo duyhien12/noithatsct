@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import LcShell from '../_components/LcShell';
 
 const C = { primary:'#0f766e', white:'#fff', gray:'#64748b', border:'#e2e8f0', text:'#1e293b', muted:'#94a3b8', bg:'#f8fafc' };
@@ -54,6 +55,7 @@ export default function LcCustomers() {
     const [error, setError]             = useState('');
     const [dragId, setDragId]           = useState(null);
     const [dragOverStage, setDragOverStage] = useState(null);
+    const router = useRouter();
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -222,7 +224,7 @@ export default function LcCustomers() {
                                                         draggable={true}
                                                         onDragStart={e=>{ setDragId(c.id); e.dataTransfer.effectAllowed='move'; }}
                                                         onDragEnd={()=>{ setDragId(null); setDragOverStage(null); }}
-                                                        onClick={()=>{ if (!dragId) openEdit(c); }}
+                                                        onClick={()=>{ if (!dragId) router.push(`/laocai/customers/${c.id}`); }}
                                                         style={{
                                                             background: isDragging ? '#f0fdfa' : C.white,
                                                             border: `1px solid ${isDragging ? C.primary : C.border}`,
@@ -303,7 +305,7 @@ export default function LcCustomers() {
                                             onMouseEnter={e=>e.currentTarget.style.background='#f0fdfa'}
                                             onMouseLeave={e=>e.currentTarget.style.background=C.white}>
                                             <td style={{ padding:'11px 16px', fontSize:11, color:C.primary, fontWeight:700 }}>{c.code}</td>
-                                            <td style={{ padding:'11px 16px', cursor:'pointer' }} onClick={()=>openEdit(c)}>
+                                            <td style={{ padding:'11px 16px', cursor:'pointer' }} onClick={()=>router.push(`/laocai/customers/${c.id}`)}>
                                                 <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{c.name}</div>
                                                 {c.email && <div style={{ fontSize:11, color:C.muted }}>{c.email}</div>}
                                             </td>
@@ -317,7 +319,7 @@ export default function LcCustomers() {
                                             <td style={{ padding:'11px 16px', fontSize:11, color:C.gray, maxWidth:150, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.notes||''}</td>
                                             <td style={{ padding:'11px 16px' }}>
                                                 <div style={{ display:'flex', gap:6 }}>
-                                                    <button onClick={()=>openEdit(c)} style={{ padding:'5px 11px', borderRadius:7, border:`1px solid ${C.border}`, background:'none', fontSize:11, cursor:'pointer', color:C.gray, fontWeight:500 }}>Sửa</button>
+                                                    <button onClick={()=>router.push(`/laocai/customers/${c.id}`)} style={{ padding:'5px 11px', borderRadius:7, border:`1px solid ${C.border}`, background:'none', fontSize:11, cursor:'pointer', color:C.gray, fontWeight:500 }}>Xem</button>
                                                     <button onClick={()=>handleDelete(c.id)} style={{ padding:'5px 11px', borderRadius:7, border:'1px solid #fecaca', background:'none', fontSize:11, cursor:'pointer', color:'#ef4444' }}>Xóa</button>
                                                 </div>
                                             </td>
