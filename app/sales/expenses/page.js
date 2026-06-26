@@ -164,20 +164,28 @@ export default function SalesExpensesPage() {
         ]);
         setCcSummaryData(Array.isArray(attData) ? attData : []);
         const advMap = {};
-        (Array.isArray(advData) ? advData : []).forEach(a => { advMap[a.workerId] = a.amount || 0; });
+        (Array.isArray(advData) ? advData : []).forEach(a => {
+            advMap[a.workerId] = { amount: a.amount || 0, allowance: a.allowance || 0, insurance: a.insurance || 0, unionFee: a.unionFee || 0 };
+        });
         setAdvances(advMap);
         setCcLoadingSummary(false);
     };
 
-    const saveAdvance = async (workerId, amount) => {
+    const saveAdvance = async (workerId, field, value) => {
         setSavingAdvance(prev => ({ ...prev, [workerId]: true }));
+        const cur = advances[workerId] || {};
         await fetch('/api/sales/salary-advances', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ workerId, month: ccSummaryMonth, amount }),
+            body: JSON.stringify({ workerId, month: ccSummaryMonth, ...cur, [field]: parseFloat(value) || 0 }),
         });
         setSavingAdvance(prev => ({ ...prev, [workerId]: false }));
     };
+
+    const getAdv = (workerId, field) => (advances[workerId]?.[field]) || 0;
+    const setAdv = (workerId, field, value) => setAdvances(prev => ({
+        ...prev, [workerId]: { ...(prev[workerId] || {}), [field]: parseFloat(value) || 0 }
+    }));
     useEffect(() => {
         fetch('/api/users').then(r => r.json()).then(d => {
             const list = Array.isArray(d) ? d.filter(u => ['kinh_doanh', 'ban_gd', 'giam_doc', 'pho_gd', 'hanh_chinh_kt'].includes(u.role)) : [];
@@ -1088,7 +1096,22 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                         const wAtt = ccSummaryData.filter(a => a.workerId === w.id);
                         return s + wAtt.reduce((ss, a) => ss + (a.hoursWorked / 8) * (w.dailyRate || 0), 0);
                     }, 0);
-                    const totalAdvance = activeWorkers.reduce((s, w) => s + (advances[w.id] || 0), 0);
+                    const totalAllowance = activeWorkers.reduce((s, w) => s + getAdv(w.id, 'allowance'), 0);
+                    const totalInsurance = activeWorkers.reduce((s, w) => s + getAdv(w.id, 'insurance'), 0);
+                    const totalUnionFee = activeWorkers.reduce((s, w) => s + getAdv(w.id, 'unionFee'), 0);
+                    const totalAdvance = activeWorkers.reduce((s, w) => s + getAdv(w.id, 'amount'), 0);
+                    const totalNet = totalSalary + totalAllowance - totalInsurance - totalUnionFee - totalAdvance;
+
+                    const advInput = (workerId, field, color) => (
+                        <input
+                            type="number"
+                            value={getAdv(workerId, field) || ''}
+                            placeholder="0"
+                            onChange={e => setAdv(workerId, field, e.target.value)}
+                            onBlur={e => saveAdvance(workerId, field, e.target.value)}
+                            style={{ width: 85, padding: '3px 5px', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: 11, textAlign: 'right', color, fontWeight: 600 }}
+                        />
+                    );
 
                     const exportPDF = () => {
                         const fmtVN = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n));
@@ -1096,17 +1119,17 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                             const wAtt = ccSummaryData.filter(a => a.workerId === w.id);
                             const totalHrs = wAtt.reduce((s, a) => s + (a.hoursWorked || 0), 0);
                             const totalPay = wAtt.reduce((s, a) => s + (a.hoursWorked / 8) * (w.dailyRate || 0), 0);
-                            const adv = advances[w.id] || 0;
-                            const remain = totalPay - adv;
+                            const adv = getAdv(w.id, 'amount');
+                            const allowance = getAdv(w.id, 'allowance');
+                            const insurance = getAdv(w.id, 'insurance');
+                            const unionFee = getAdv(w.id, 'unionFee');
+                            const remain = totalPay + allowance - insurance - unionFee - adv;
                             const dayMap = {};
-                            wAtt.forEach(a => {
-                                const ds = new Date(a.date).toISOString().split('T')[0];
-                                dayMap[ds] = a.hoursWorked;
-                            });
-                            return { w, totalHrs, totalPay, adv, remain, dayMap };
+                            wAtt.forEach(a => { dayMap[new Date(a.date).toISOString().split('T')[0]] = a.hoursWorked; });
+                            return { w, totalHrs, totalPay, adv, allowance, insurance, unionFee, remain, dayMap };
                         });
 
-                        const win = window.open('', '_blank', 'width=1200,height=800');
+                        const win = window.open('', '_blank', 'width=1400,height=800');
                         win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>Bảng lương tháng ${monthLabel} - Phòng Kinh Doanh</title>
 <style>
@@ -1118,11 +1141,12 @@ table{width:100%;border-collapse:collapse;font-size:10px}
 th,td{border:1px solid #ccc;padding:4px 5px;white-space:nowrap}
 th{background:#1e3a5f;color:#fff;text-align:center;font-size:9px}
 .name-col{min-width:120px;text-align:left}
-.day-cell{text-align:center;width:22px}
+.day-cell{text-align:center;width:20px}
 .right{text-align:right}
 .green{color:#15803d;font-weight:700}
 .red{color:#dc2626;font-weight:700}
 .blue{color:#1d4ed8;font-weight:700}
+.orange{color:#d97706;font-weight:700}
 .total-row{background:#f0f4ff;font-weight:700}
 .btn-print{position:fixed;top:10px;right:10px;padding:8px 20px;background:#1e3a5f;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px}
 @media print{.btn-print{display:none}}
@@ -1138,7 +1162,10 @@ th{background:#1e3a5f;color:#fff;text-align:center;font-size:9px}
 <th rowspan="2">Đơn giá/ngày</th>
 ${days.map(d => `<th class="day-cell">${d}</th>`).join('')}
 <th rowspan="2">Tổng công</th>
-<th rowspan="2">Lương</th>
+<th rowspan="2">Lương CB</th>
+<th rowspan="2">Phụ cấp</th>
+<th rowspan="2">Bảo hiểm</th>
+<th rowspan="2">Công đoàn</th>
 <th rowspan="2">Ứng tiền</th>
 <th rowspan="2">Còn lại</th>
 </tr>
@@ -1157,6 +1184,9 @@ ${days.map(d => {
 }).join('')}
 <td class="right blue">${(r.totalHrs / 8).toFixed(1)} ngày</td>
 <td class="right green">${fmtVN(r.totalPay)}đ</td>
+<td class="right orange">${r.allowance > 0 ? fmtVN(r.allowance) + 'đ' : '—'}</td>
+<td class="right red">${r.insurance > 0 ? fmtVN(r.insurance) + 'đ' : '—'}</td>
+<td class="right red">${r.unionFee > 0 ? fmtVN(r.unionFee) + 'đ' : '—'}</td>
 <td class="right red">${r.adv > 0 ? fmtVN(r.adv) + 'đ' : '—'}</td>
 <td class="right" style="color:${r.remain >= 0 ? '#15803d' : '#dc2626'};font-weight:700">${fmtVN(r.remain)}đ</td>
 </tr>`).join('')}
@@ -1171,8 +1201,11 @@ ${days.map(d => {
 }).join('')}
 <td class="right blue">${(ccSummaryData.reduce((s,a)=>s+(a.hoursWorked||0),0)/8).toFixed(1)} ngày</td>
 <td class="right green">${fmtVN(totalSalary)}đ</td>
+<td class="right orange">${fmtVN(totalAllowance)}đ</td>
+<td class="right red">${fmtVN(totalInsurance)}đ</td>
+<td class="right red">${fmtVN(totalUnionFee)}đ</td>
 <td class="right red">${fmtVN(totalAdvance)}đ</td>
-<td class="right green">${fmtVN(totalSalary - totalAdvance)}đ</td>
+<td class="right green">${fmtVN(totalNet)}đ</td>
 </tr>
 </tfoot>
 </table>
@@ -1187,7 +1220,7 @@ ${days.map(d => {
 
                     return (
                         <div className="modal-overlay" onClick={() => setCcShowSummary(false)}>
-                            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 1100, width: '97vw', maxHeight: '92vh', overflow: 'auto' }}>
+                            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 1200, width: '98vw', maxHeight: '92vh', overflow: 'auto' }}>
                                 <div className="modal-header">
                                     <h3>📊 Tổng hợp lương & công tháng — Phòng Kinh Doanh</h3>
                                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -1200,24 +1233,30 @@ ${days.map(d => {
                                         <input type="month" value={ccSummaryMonth} onChange={e => setCcSummaryMonth(e.target.value)} style={{ padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 14 }} />
                                         {ccLoadingSummary && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Đang tải...</span>}
                                         {!ccLoadingSummary && (
-                                            <div style={{ display: 'flex', gap: 16, fontSize: 12 }}>
-                                                <span>Tổng lương: <strong style={{ color: '#16a34a' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalSalary))}đ</strong></span>
-                                                <span>Đã ứng: <strong style={{ color: '#dc2626' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalAdvance))}đ</strong></span>
-                                                <span>Còn trả: <strong style={{ color: '#1d4ed8' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalSalary - totalAdvance))}đ</strong></span>
+                                            <div style={{ display: 'flex', gap: 12, fontSize: 12, flexWrap: 'wrap' }}>
+                                                <span>Lương: <strong style={{ color: '#16a34a' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalSalary))}đ</strong></span>
+                                                <span>Phụ cấp: <strong style={{ color: '#d97706' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalAllowance))}đ</strong></span>
+                                                <span>BH: <strong style={{ color: '#dc2626' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalInsurance))}đ</strong></span>
+                                                <span>CĐ: <strong style={{ color: '#dc2626' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalUnionFee))}đ</strong></span>
+                                                <span>Ứng: <strong style={{ color: '#dc2626' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalAdvance))}đ</strong></span>
+                                                <span>Còn trả: <strong style={{ color: '#1d4ed8' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalNet))}đ</strong></span>
                                             </div>
                                         )}
                                     </div>
                                     {!ccLoadingSummary && (
                                         <div style={{ overflowX: 'auto' }}>
-                                            <table className="data-table" style={{ fontSize: 11, margin: 0, minWidth: 800 }}>
+                                            <table className="data-table" style={{ fontSize: 11, margin: 0, minWidth: 900 }}>
                                                 <thead>
                                                     <tr>
                                                         <th style={{ minWidth: 130 }}>Nhân viên</th>
                                                         {days.map(d => <th key={d} style={{ minWidth: 26, textAlign: 'center', padding: '4px 2px' }}>{d}</th>)}
                                                         <th style={{ minWidth: 65, textAlign: 'right' }}>Tổng công</th>
-                                                        <th style={{ minWidth: 95, textAlign: 'right' }}>Lương</th>
-                                                        <th style={{ minWidth: 110, textAlign: 'right' }}>Ứng tiền</th>
-                                                        <th style={{ minWidth: 95, textAlign: 'right' }}>Còn lại</th>
+                                                        <th style={{ minWidth: 90, textAlign: 'right' }}>Lương CB</th>
+                                                        <th style={{ minWidth: 90, textAlign: 'right' }}>Phụ cấp</th>
+                                                        <th style={{ minWidth: 90, textAlign: 'right' }}>Bảo hiểm</th>
+                                                        <th style={{ minWidth: 90, textAlign: 'right' }}>Công đoàn</th>
+                                                        <th style={{ minWidth: 90, textAlign: 'right' }}>Ứng tiền</th>
+                                                        <th style={{ minWidth: 90, textAlign: 'right' }}>Còn lại</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1225,8 +1264,11 @@ ${days.map(d => {
                                                         const wAtt = ccSummaryData.filter(a => a.workerId === w.id);
                                                         const totalHrs = wAtt.reduce((s, a) => s + (a.hoursWorked || 0), 0);
                                                         const totalPay = wAtt.reduce((s, a) => s + (a.hoursWorked / 8) * (w.dailyRate || 0), 0);
-                                                        const adv = advances[w.id] || 0;
-                                                        const remain = totalPay - adv;
+                                                        const allowance = getAdv(w.id, 'allowance');
+                                                        const insurance = getAdv(w.id, 'insurance');
+                                                        const unionFee = getAdv(w.id, 'unionFee');
+                                                        const adv = getAdv(w.id, 'amount');
+                                                        const remain = totalPay + allowance - insurance - unionFee - adv;
                                                         return (
                                                             <tr key={w.id}>
                                                                 <td>
@@ -1247,16 +1289,12 @@ ${days.map(d => {
                                                                 })}
                                                                 <td style={{ textAlign: 'right', fontWeight: 700, color: '#1d4ed8' }}>{(totalHrs / 8).toFixed(1)} ngày</td>
                                                                 <td style={{ textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalPay))}đ</td>
-                                                                <td style={{ textAlign: 'right', padding: '3px 6px' }}>
-                                                                    <input
-                                                                        type="number"
-                                                                        value={advances[w.id] || ''}
-                                                                        placeholder="0"
-                                                                        onChange={e => setAdvances(prev => ({ ...prev, [w.id]: parseFloat(e.target.value) || 0 }))}
-                                                                        onBlur={e => saveAdvance(w.id, parseFloat(e.target.value) || 0)}
-                                                                        style={{ width: 100, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: 11, textAlign: 'right', color: '#dc2626', fontWeight: 600 }}
-                                                                    />
-                                                                    {savingAdvance[w.id] && <span style={{ fontSize: 9, color: '#94a3b8', marginLeft: 4 }}>✓</span>}
+                                                                <td style={{ padding: '3px 4px' }}>{advInput(w.id, 'allowance', '#d97706')}</td>
+                                                                <td style={{ padding: '3px 4px' }}>{advInput(w.id, 'insurance', '#dc2626')}</td>
+                                                                <td style={{ padding: '3px 4px' }}>{advInput(w.id, 'unionFee', '#dc2626')}</td>
+                                                                <td style={{ padding: '3px 4px' }}>
+                                                                    {advInput(w.id, 'amount', '#dc2626')}
+                                                                    {savingAdvance[w.id] && <span style={{ fontSize: 9, color: '#94a3b8', marginLeft: 2 }}>✓</span>}
                                                                 </td>
                                                                 <td style={{ textAlign: 'right', fontWeight: 700, color: remain >= 0 ? '#16a34a' : '#dc2626' }}>
                                                                     {new Intl.NumberFormat('vi-VN').format(Math.round(remain))}đ
@@ -1275,8 +1313,11 @@ ${days.map(d => {
                                                         })}
                                                         <td style={{ textAlign: 'right', color: '#1d4ed8' }}>{(ccSummaryData.reduce((s, a) => s + (a.hoursWorked || 0), 0) / 8).toFixed(1)} ngày</td>
                                                         <td style={{ textAlign: 'right', color: '#16a34a' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalSalary))}đ</td>
+                                                        <td style={{ textAlign: 'right', color: '#d97706' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalAllowance))}đ</td>
+                                                        <td style={{ textAlign: 'right', color: '#dc2626' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalInsurance))}đ</td>
+                                                        <td style={{ textAlign: 'right', color: '#dc2626' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalUnionFee))}đ</td>
                                                         <td style={{ textAlign: 'right', color: '#dc2626' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalAdvance))}đ</td>
-                                                        <td style={{ textAlign: 'right', color: '#16a34a' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalSalary - totalAdvance))}đ</td>
+                                                        <td style={{ textAlign: 'right', color: '#16a34a' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalNet))}đ</td>
                                                     </tr>
                                                 </tfoot>
                                             </table>

@@ -1437,6 +1437,9 @@ model SalesSalaryAdvance {
   workerId  String
   month     String
   amount    Float    @default(0)
+  allowance Float    @default(0)
+  insurance Float    @default(0)
+  unionFee  Float    @default(0)
   notes     String   @default("")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -10,15 +10,22 @@ export const GET = withAuth(async (request) => {
     return Response.json(advances);
 });
 
-// POST /api/sales/salary-advances  { workerId, month, amount, notes }
+// POST /api/sales/salary-advances  { workerId, month, amount, allowance, insurance, unionFee, notes }
 export const POST = withAuth(async (request) => {
     const body = await request.json();
-    const { workerId, month, amount, notes } = body;
+    const { workerId, month, amount, allowance, insurance, unionFee, notes } = body;
     if (!workerId || !month) return Response.json({ error: 'Thiếu workerId hoặc month' }, { status: 400 });
+    const data = {
+        amount: parseFloat(amount) || 0,
+        allowance: parseFloat(allowance) || 0,
+        insurance: parseFloat(insurance) || 0,
+        unionFee: parseFloat(unionFee) || 0,
+        notes: notes || '',
+    };
     const record = await prisma.salesSalaryAdvance.upsert({
         where: { workerId_month: { workerId, month } },
-        update: { amount: parseFloat(amount) || 0, notes: notes || '' },
-        create: { workerId, month, amount: parseFloat(amount) || 0, notes: notes || '' },
+        update: data,
+        create: { workerId, month, ...data },
     });
     return Response.json(record);
 });
