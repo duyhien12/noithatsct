@@ -48,7 +48,8 @@ export default function ContractsPage() {
 
     if (status === 'loading' || session?.user?.role === 'xuong') return null;
 
-    const visibleContracts = isKinhDoanh ? contracts.filter(c => c.type === 'Thi công nội thất') : contracts;
+    const NOITHAT_TYPES = ['Thi công nội thất'];
+    const visibleContracts = contracts.filter(c => NOITHAT_TYPES.includes(c.type));
 
     const filtered = visibleContracts.filter(c => {
         if (filterType && c.type !== filterType) return false;
@@ -63,7 +64,7 @@ export default function ContractsPage() {
     const activeCount = visibleContracts.filter(c => c.status === 'Đang thực hiện').length;
 
     // Group by type for summary
-    const typeGroups = (isKinhDoanh ? ['Thi công nội thất'] : ['Thiết kế kiến trúc', 'Thiết kế nội thất', 'Thi công thô', 'Thi công hoàn thiện', 'Thi công nội thất']).map(type => ({
+    const typeGroups = NOITHAT_TYPES.map(type => ({
         type,
         icon: TYPE_ICONS[type],
         count: visibleContracts.filter(c => c.type === type).length,
@@ -73,7 +74,7 @@ export default function ContractsPage() {
     return (
         <div>
             <div className="stats-grid">
-                <div className="stat-card"><div className="stat-card-header"><span className="stat-card-icon revenue">📝</span></div><div style={{ fontSize: 24, fontWeight: 700, marginTop: 8 }}>{contracts.length}</div><div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Tổng hợp đồng</div></div>
+                <div className="stat-card"><div className="stat-card-header"><span className="stat-card-icon revenue">📝</span></div><div style={{ fontSize: 24, fontWeight: 700, marginTop: 8 }}>{visibleContracts.length}</div><div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Tổng hợp đồng</div></div>
                 <div className="stat-card"><div className="stat-card-header"><span className="stat-card-icon projects">🔨</span></div><div style={{ fontSize: 24, fontWeight: 700, marginTop: 8 }}>{activeCount}</div><div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Đang thực hiện</div></div>
                 <div className="stat-card"><div className="stat-card-header"><span className="stat-card-icon customers">💰</span></div><div style={{ fontSize: 24, fontWeight: 700, marginTop: 8, color: 'var(--status-success)' }}>{fmt(totalValue)}</div><div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Tổng giá trị HĐ</div></div>
                 <div className="stat-card"><div className="stat-card-header"><span className="stat-card-icon quotations">💵</span></div><div style={{ fontSize: 24, fontWeight: 700, marginTop: 8 }}>{fmt(totalPaid)}</div><div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Đã thu</div></div>
@@ -98,10 +99,10 @@ export default function ContractsPage() {
                 <div className="card-header"><span className="card-title">Danh sách hợp đồng</span><button className="btn btn-primary" onClick={() => router.push('/contracts/create')}>➕ Tạo hợp đồng</button></div>
                 <div className="filter-bar">
                     <input type="text" className="form-input" placeholder="🔍 Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
-                    {!isKinhDoanh && <select className="form-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
+                    <select className="form-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
                         <option value="">Tất cả loại</option>
-                        <option>Thiết kế kiến trúc</option><option>Thiết kế nội thất</option><option>Thi công thô</option><option>Thi công hoàn thiện</option><option>Thi công nội thất</option>
-                    </select>}
+                        <option>Thi công nội thất</option>
+                    </select>
                     <select className="form-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                         <option value="">Tất cả TT</option><option>Nháp</option><option>Đã ký</option><option>Đang thực hiện</option><option>Hoàn thành</option>
                     </select>
