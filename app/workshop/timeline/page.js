@@ -257,9 +257,14 @@ export default function TimelinePage() {
             (a.startDate ? new Date(a.startDate) : new Date(0)) - (b.startDate ? new Date(b.startDate) : new Date(0)));
     });
     const grouped = Object.fromEntries(
-        Object.entries(groupedRaw).filter(([, g]) =>
-            !hideDoneProjects || !g.tasks.every(t => t.status === 'Hoàn thành')
-        )
+        Object.entries(groupedRaw)
+            .map(([name, g]) => {
+                const tasks = hideDoneProjects
+                    ? g.tasks.filter(t => t.status !== 'Hoàn thành' && (t.progress ?? 0) < 100)
+                    : g.tasks;
+                return [name, { ...g, tasks }];
+            })
+            .filter(([, g]) => !hideDoneProjects || g.tasks.length > 0)
     );
 
     // ── Bar pixel helper ─────────────────────────────────────
