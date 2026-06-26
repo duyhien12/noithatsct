@@ -199,7 +199,7 @@ ${[1, 2].map(copy => `
     return (
         <div>
             <div className="stats-grid" style={{ marginBottom: 24 }}>
-                <div className="stat-card"><div className="stat-icon">📝</div><div><div className="stat-value">{contracts.length}</div><div className="stat-label">Tổng HĐ</div></div></div>
+                <div className="stat-card"><div className="stat-icon">📝</div><div><div className="stat-value">{visibleContracts.length}</div><div className="stat-label">Tổng HĐ</div></div></div>
                 <div className="stat-card"><div className="stat-icon">💰</div><div><div className="stat-value">{fmt(totalValue)}</div><div className="stat-label">Giá trị HĐ</div></div></div>
                 <div className="stat-card"><div className="stat-icon">✅</div><div><div className="stat-value" style={{ color: 'var(--status-success)' }}>{fmt(totalPaid)}</div><div className="stat-label">Đã thu ({overallRate}%)</div></div></div>
                 <div className="stat-card"><div className="stat-icon">⚠️</div><div><div className="stat-value" style={{ color: totalDebt > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>{fmt(totalDebt)}</div><div className="stat-label">Còn nợ</div></div></div>
@@ -207,7 +207,7 @@ ${[1, 2].map(copy => `
 
             <div className="card" style={{ marginBottom: 24, padding: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontWeight: 600, fontSize: 14 }}>{isKinhDoanh ? 'Tỷ lệ thu tiền HĐ nội thất' : 'Tỷ lệ thu tiền toàn công ty'}</span>
+                    <span style={{ fontWeight: 600, fontSize: 14 }}>Tỷ lệ thu tiền HĐ nội thất</span>
                     <span style={{ fontWeight: 700, color: 'var(--text-accent)' }}>{overallRate}%</span>
                 </div>
                 <div className="progress-bar" style={{ height: 12 }}><div className="progress-fill" style={{ width: `${overallRate}%` }}></div></div>
