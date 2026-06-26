@@ -36,9 +36,9 @@ export default function PaymentsPage() {
     };
     useEffect(() => { fetchAll(); }, []);
 
-    // === Lọc hợp đồng theo role ===
-    const visibleContracts = isKinhDoanh ? contracts.filter(c => c.type === 'Thi công nội thất') : contracts;
-    const visiblePayments = isKinhDoanh ? receivables.payments.filter(p => p.contract?.type === 'Thi công nội thất') : receivables.payments;
+    // === Chỉ hiển thị hợp đồng Thi công nội thất ===
+    const visibleContracts = contracts.filter(c => c.type === 'Thi công nội thất');
+    const visiblePayments = receivables.payments.filter(p => p.contract?.type === 'Thi công nội thất');
 
     // === Stats ===
     const totalValue = visibleContracts.reduce((s, c) => s + (c.contractValue || 0), 0);
