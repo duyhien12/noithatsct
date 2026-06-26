@@ -149,7 +149,7 @@ export default function ContractDetailPage() {
         setUploading(true);
         const fd = new FormData();
         fd.append('file', file);
-        fd.append('type', 'contracts');
+        fd.append('type', 'documents');
         const res = await fetch('/api/upload', { method: 'POST', body: fd });
         const json = await res.json();
         if (json.url) setForm(f => ({ ...f, fileUrl: json.url }));
