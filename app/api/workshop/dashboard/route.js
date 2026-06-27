@@ -176,7 +176,7 @@ export const GET = withAuth(async () => {
                                 project: {
                                     select: {
                                         id: true, code: true, name: true,
-                                        productionOrders: { select: { id: true }, take: 1 },
+                                        productionOrders: { select: { id: true } },
                                     },
                                 },
                             },
