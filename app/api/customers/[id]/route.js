@@ -77,7 +77,7 @@ export const PUT = withAuth(async (request, { params }) => {
 
     const customer = await prisma.customer.update({ where: { id }, data: updateData });
     return NextResponse.json(customer);
-}, { roles: ['admin', 'giam_doc', 'pho_gd', 'kinh_doanh', 'thiet_ke', 'xay_dung'] });
+}, { roles: ['admin', 'ban_gd', 'giam_doc', 'pho_gd', 'kinh_doanh', 'thiet_ke', 'xay_dung'], emails: ['vancuong@kientrucsct.com', 'ngocquynh@kientrucsct.com'] });
 
 export const DELETE = withAuth(async (request, { params }) => {
     const { id } = await params;
@@ -121,4 +121,4 @@ export const DELETE = withAuth(async (request, { params }) => {
     });
 
     return NextResponse.json({ success: true });
-}, { roles: ['admin', 'giam_doc'] });
+}, { roles: ['admin', 'ban_gd', 'giam_doc'], emails: ['vancuong@kientrucsct.com', 'ngocquynh@kientrucsct.com'] });
