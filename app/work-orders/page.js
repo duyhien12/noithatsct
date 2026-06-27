@@ -704,8 +704,10 @@ function PhieuTab() {
                 {loading ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div> : (<>
                     <div className="desktop-table-view">
                         <div className="table-container"><table className="data-table">
-                            <thead><tr><th>Công trình</th><th>Tiêu đề</th><th>Loại</th><th>Ưu tiên</th><th>Người thực hiện</th><th>Hạn</th><th style={{ width: 90 }}>HĐ</th></tr></thead>
-                            <tbody>{filtered.map(wo => (
+                            <thead><tr><th>Công trình</th><th>Tiêu đề</th><th>Loại</th><th>Ưu tiên</th><th>Người thực hiện</th><th>Hạn</th><th>Trạng thái</th><th style={{ width: 90 }}>HĐ</th></tr></thead>
+                            <tbody>{filtered.map(wo => {
+                                const ss = STATUS_STYLE[wo.status] || { color: '#6b7280', bg: '#f3f4f6' };
+                                return (
                                 <tr key={wo.id} onClick={() => openDetail(wo)} style={{ cursor: 'pointer' }}>
                                     <td onClick={e => { e.stopPropagation(); wo.project && router.push(`/projects/${wo.projectId}`); }} style={{ cursor: wo.project ? 'pointer' : 'default' }}>
                                         <span className="badge info">{wo.project?.code}</span> <span style={{ fontSize: 12 }}>{wo.project?.name}</span>
@@ -723,6 +725,12 @@ function PhieuTab() {
                                     <td style={{ fontSize: 13 }}>{wo.assignee || '—'}</td>
                                     <td style={{ fontSize: 12 }}>{fmtDate(wo.dueDate)}</td>
                                     <td onClick={e => e.stopPropagation()}>
+                                        <select value={wo.status} onChange={e => updateStatus(wo.id, e.target.value, e)}
+                                            style={{ padding: '3px 10px', fontSize: 12, background: ss.bg, color: ss.color, fontWeight: 600, border: 'none', borderRadius: 20, cursor: 'pointer', outline: 'none' }}>
+                                            {WO_STATUSES.map(s => <option key={s}>{s}</option>)}
+                                        </select>
+                                    </td>
+                                    <td onClick={e => e.stopPropagation()}>
                                         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                                             <button className="btn btn-ghost btn-sm" title="Gửi qua Zalo OA" onClick={e => sendZalo(wo, e)} style={{ padding: '3px 7px', fontSize: 14 }} disabled={zaloMsg[wo.id] === '⏳'}>
                                                 {zaloMsg[wo.id] === '⏳' ? '⏳' : '💬'}
@@ -734,7 +742,8 @@ function PhieuTab() {
                                         )}
                                     </td>
                                 </tr>
-                            ))}</tbody>
+                                );
+                            })}</tbody>
                         </table></div>
                     </div>
                     <div className="mobile-card-list">
