@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, GitBranch, Users, FileText,
     ClipboardList, ChevronRight, X, Building2,
-    Wrench, CalendarDays, CreditCard, Receipt, ShoppingCart, Warehouse, Package, BarChart3, Banknote, BookMarked, GanttChart, ListChecks,
+    Wrench, CalendarDays, CreditCard, Receipt, ShoppingCart, Warehouse, Package, BarChart3, Banknote, BookMarked, GanttChart, ListChecks, Calendar,
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useSession } from 'next-auth/react';
@@ -45,6 +45,12 @@ const menuItems = [
             { href: '/schedule-templates', icon: CalendarDays, label: 'Mẫu tiến độ' },
             { href: '/work-orders', icon: Wrench, label: 'Phiếu công việc' },
             { href: '/products', icon: Package, label: 'Sản phẩm & Vật tư' },
+        ],
+    },
+    {
+        section: 'Marketing',
+        items: [
+            { href: '/marketing/calendar', icon: Calendar, label: 'Lịch công việc Marketing' },
         ],
     },
     {

@@ -1313,6 +1313,23 @@ model WorkerSalaryAdvance {
   @@index([month])
 }
 
+model MarketingCalendarEvent {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @default("")
+  date        DateTime
+  startTime   String?
+  endTime     String?
+  assignee    String   @default("")
+  status      String   @default("Cần làm")
+  priority    String   @default("Trung bình")
+  createdBy   String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([date])
+}
+
 model Task {
   id                String    @id @default(cuid())
   title             String

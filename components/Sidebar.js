@@ -127,6 +127,14 @@ const menuItems = [
               roles: [...BAN_GD, ...KE_TOAN, ...VIEWER] },
         ],
     },
+    {
+        section: 'Marketing',
+        sectionRoles: [...BAN_GD, ...MARKETING, ...VIEWER],
+        items: [
+            { href: '/marketing/calendar', icon: CalendarDays, label: 'Lịch công việc',
+              roles: [...BAN_GD, ...MARKETING, ...VIEWER] },
+        ],
+    },
 ];
 
 const DEPT_VIEWS = [
