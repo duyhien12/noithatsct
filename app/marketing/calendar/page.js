@@ -189,9 +189,10 @@ export default function MarketingCalendarPage() {
             </div>
 
             {/* Calendar grid */}
-            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid var(--border-color)', overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
+            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid var(--border-color)', overflowX: 'auto', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', WebkitOverflowScrolling: 'touch' }}>
+              <div style={{ minWidth: 700 }}>
                 {/* Weekday headers */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(100px, 1fr))', borderBottom: '1px solid var(--border-color)' }}>
                     {WEEKDAYS.map((day, i) => (
                         <div key={day} style={{
                             padding: '10px 0', textAlign: 'center', fontSize: 12, fontWeight: 700,
@@ -204,7 +205,7 @@ export default function MarketingCalendarPage() {
                 </div>
 
                 {/* Calendar cells */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(100px, 1fr))' }}>
                     {cells.map((cell, idx) => {
                         const dayEvents = getEventsForDay(cell.day, cell.currentMonth);
                         const isT = isToday(cell.day, cell.currentMonth);
@@ -272,6 +273,7 @@ export default function MarketingCalendarPage() {
                         );
                     })}
                 </div>
+              </div>
             </div>
 
             {/* Legend */}

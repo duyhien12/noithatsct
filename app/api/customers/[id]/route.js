@@ -93,8 +93,22 @@ export const PUT = withAuth(async (request, { params }, session) => {
     return NextResponse.json(customer);
 }, { roles: ['admin', 'ban_gd', 'giam_doc', 'pho_gd', 'kinh_doanh', 'thiet_ke', 'xay_dung'], emails: ['vancuong@kientrucsct.com', 'ngocquynh@kientrucsct.com'] });
 
-export const DELETE = withAuth(async (request, { params }) => {
+export const DELETE = withAuth(async (request, { params }, session) => {
     const { id } = await params;
+
+    // thiet_ke chỉ được xóa khách hàng của phòng mình
+    const role = session?.user?.role;
+    const email = session?.user?.email;
+    const privilegedRoles = ['admin', 'ban_gd', 'giam_doc'];
+    const privilegedEmails = ['vancuong@kientrucsct.com', 'ngocquynh@kientrucsct.com'];
+    const isPrivileged = privilegedRoles.includes(role) || privilegedEmails.includes(email);
+    if (!isPrivileged) {
+        const existing = await prisma.customer.findUnique({ where: { id }, select: { createdByRole: true } });
+        if (!existing) return NextResponse.json({ error: 'Không tìm thấy khách hàng' }, { status: 404 });
+        if (existing.createdByRole !== role) {
+            return NextResponse.json({ error: 'Bạn chỉ có thể xóa khách hàng của phòng mình' }, { status: 403 });
+        }
+    }
 
     await prisma.$transaction(async (tx) => {
         const projects = await tx.project.findMany({ where: { customerId: id }, select: { id: true } });
@@ -135,4 +149,4 @@ export const DELETE = withAuth(async (request, { params }) => {
     });
 
     return NextResponse.json({ success: true });
-}, { roles: ['admin', 'ban_gd', 'giam_doc'], emails: ['vancuong@kientrucsct.com', 'ngocquynh@kientrucsct.com'] });
+}, { roles: ['admin', 'ban_gd', 'giam_doc', 'thiet_ke'], emails: ['vancuong@kientrucsct.com', 'ngocquynh@kientrucsct.com'] });
