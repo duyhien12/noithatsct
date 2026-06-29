@@ -60,9 +60,23 @@ export const GET = withAuth(async (request, { params }) => {
 
 const lastContactSchema = z.string().optional().nullable().transform(v => v ? new Date(v) : null);
 
-export const PUT = withAuth(async (request, { params }) => {
+export const PUT = withAuth(async (request, { params }, session) => {
     const { id } = await params;
     const body = await request.json();
+
+    // thiet_ke chỉ được sửa khách hàng của phòng thiết kế
+    const role = session?.user?.role;
+    const email = session?.user?.email;
+    const privilegedRoles = ['admin', 'ban_gd', 'giam_doc', 'pho_gd'];
+    const privilegedEmails = ['vancuong@kientrucsct.com', 'ngocquynh@kientrucsct.com'];
+    const isPrivileged = privilegedRoles.includes(role) || privilegedEmails.includes(email);
+    if (!isPrivileged) {
+        const existing = await prisma.customer.findUnique({ where: { id }, select: { createdByRole: true } });
+        if (!existing) return NextResponse.json({ error: 'Không tìm thấy khách hàng' }, { status: 404 });
+        if (existing.createdByRole !== role) {
+            return NextResponse.json({ error: 'Bạn chỉ có thể chỉnh sửa khách hàng của phòng mình' }, { status: 403 });
+        }
+    }
 
     // Parse chỉ các field có trong body để tránh Zod default() ghi đè toàn bộ
     const parsed = customerUpdateSchema.parse(body);
