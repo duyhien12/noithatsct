@@ -33,7 +33,7 @@ export const GET = withAuth(async (request) => {
     const tasks = await prisma.task.findMany({
         where,
         include: { subTasks: { orderBy: { createdAt: 'asc' } } },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ order: 'asc' }, { createdAt: 'desc' }],
     });
 
     return NextResponse.json({ data: tasks });

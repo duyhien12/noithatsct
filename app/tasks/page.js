@@ -48,6 +48,7 @@ export default function TasksPage() {
     const [activeCol, setActiveCol] = useState(COLUMNS[0].key);
     const [dragging, setDragging] = useState(null);
     const [dragOver, setDragOver] = useState(null);
+    const [dragOverInfo, setDragOverInfo] = useState(null); // { taskId, position: 'before'|'after' }
     const dragTask = useRef(null);
     const isMobile = useIsMobile();
 
@@ -142,15 +143,63 @@ export default function TasksPage() {
         return t.title.toLowerCase().includes(q) || (t.assignee || '').toLowerCase().includes(q);
     });
 
-    const byColumn = (colKey) => filtered.filter(t => t.status === colKey);
+    const byColumn = (colKey) => filtered
+        .filter(t => t.status === colKey)
+        .sort((a, b) => (a.order - b.order) || (new Date(b.createdAt) - new Date(a.createdAt)));
 
     const onDragStart = (e, task) => { dragTask.current = task; setDragging(task.id); e.dataTransfer.effectAllowed = 'move'; };
-    const onDragEnd = () => { setDragging(null); setDragOver(null); dragTask.current = null; };
+    const onDragEnd = () => { setDragging(null); setDragOver(null); setDragOverInfo(null); dragTask.current = null; };
     const onDragOver = (e, colKey) => { e.preventDefault(); setDragOver(colKey); };
+
+    // Kéo thả để đổi thứ tự (và/hoặc đổi cột). targetTaskId=null nghĩa là thả vào cuối cột.
+    const reorderTask = (dragged, targetColKey, targetTaskId, insertBefore) => {
+        const colTasks = tasks
+            .filter(t => t.status === targetColKey && t.id !== dragged.id)
+            .sort((a, b) => (a.order - b.order) || (new Date(b.createdAt) - new Date(a.createdAt)));
+
+        let insertIdx = targetTaskId ? colTasks.findIndex(t => t.id === targetTaskId) : -1;
+        if (insertIdx === -1) insertIdx = colTasks.length;
+        else if (!insertBefore) insertIdx += 1;
+
+        const newList = [...colTasks.slice(0, insertIdx), dragged, ...colTasks.slice(insertIdx)];
+        const updates = newList.map((t, i) => ({ id: t.id, order: i }));
+
+        setTasks(prev => prev.map(t => {
+            const u = updates.find(x => x.id === t.id);
+            if (!u) return t;
+            return { ...t, order: u.order, status: t.id === dragged.id ? targetColKey : t.status };
+        }));
+
+        updates.forEach(u => {
+            const body = u.id === dragged.id ? { order: u.order, status: targetColKey } : { order: u.order };
+            fetch(`/api/tasks/${u.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        });
+    };
+
+    const onCardDragOver = (e, task) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragOver(task.status);
+        const rect = e.currentTarget.getBoundingClientRect();
+        const position = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+        setDragOverInfo(prev => (prev?.taskId === task.id && prev.position === position) ? prev : { taskId: task.id, position });
+    };
+    const onCardDrop = (e, task) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const dragged = dragTask.current;
+        setDragOver(null);
+        setDragOverInfo(null);
+        if (!dragged || dragged.id === task.id) return;
+        reorderTask(dragged, task.status, task.id, dragOverInfo?.position !== 'after');
+    };
     const onDrop = (e, colKey) => {
         e.preventDefault();
-        if (dragTask.current && dragTask.current.status !== colKey) updateStatus(dragTask.current.id, colKey);
+        const dragged = dragTask.current;
         setDragOver(null);
+        setDragOverInfo(null);
+        if (!dragged) return;
+        reorderTask(dragged, colKey, null, false);
     };
 
     const visibleUsers = isAdmin ? users : isManager ? teamUsers : users;
@@ -318,9 +367,12 @@ export default function TasksPage() {
                                         task={task}
                                         col={col}
                                         dragging={dragging === task.id}
+                                        dropIndicator={dragOverInfo?.taskId === task.id ? dragOverInfo.position : null}
                                         columns={COLUMNS}
                                         onDragStart={onDragStart}
                                         onDragEnd={onDragEnd}
+                                        onCardDragOver={onCardDragOver}
+                                        onCardDrop={onCardDrop}
                                         onStatusChange={updateStatus}
                                         onDelete={deleteTask}
                                         onEdit={setEditingTask}
@@ -363,7 +415,7 @@ export default function TasksPage() {
     );
 }
 
-function TaskCard({ task, col, dragging, columns, onDragStart, onDragEnd, onStatusChange, onDelete, onEdit, isMobile }) {
+function TaskCard({ task, col, dragging, dropIndicator, columns, onDragStart, onDragEnd, onCardDragOver, onCardDrop, onStatusChange, onDelete, onEdit, isMobile }) {
     const [showMenu, setShowMenu] = useState(false);
     const menuRef = useRef(null);
     const isDraggingRef = useRef(false);
@@ -392,6 +444,8 @@ function TaskCard({ task, col, dragging, columns, onDragStart, onDragEnd, onStat
             draggable={!isMobile}
             onDragStart={e => { isDraggingRef.current = true; onDragStart(e, task); }}
             onDragEnd={e => { isDraggingRef.current = false; onDragEnd(e); }}
+            onDragOver={!isMobile ? e => onCardDragOver(e, task) : undefined}
+            onDrop={!isMobile ? e => onCardDrop(e, task) : undefined}
             onClick={(e) => {
                 if (isDraggingRef.current) return;
                 if (e.target.closest('[data-no-open]')) return;
@@ -405,6 +459,8 @@ function TaskCard({ task, col, dragging, columns, onDragStart, onDragEnd, onStat
                 opacity: dragging ? 0.5 : 1,
                 cursor: 'pointer',
                 border: `1px solid ${col.color}22`,
+                borderTop: dropIndicator === 'before' ? '2px solid #2563eb' : `1px solid ${col.color}22`,
+                borderBottom: dropIndicator === 'after' ? '2px solid #2563eb' : `1px solid ${col.color}22`,
                 userSelect: 'none',
                 position: 'relative',
                 transition: 'box-shadow 0.15s',
@@ -639,6 +695,14 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
         await fetch(`/api/tasks/${sub.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dueDate: dueDate || null }) });
     };
 
+    const updateSubTaskTitle = async (sub, title) => {
+        const trimmed = title.trim();
+        if (!trimmed || trimmed === sub.title) { setSubTasks(prev => prev.map(s => s.id === sub.id ? { ...s, title: sub.title } : s)); return; }
+        setSubTasks(prev => prev.map(s => s.id === sub.id ? { ...s, title: trimmed } : s));
+        const res = await fetch(`/api/tasks/${sub.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: trimmed }) });
+        if (!res.ok) setSubTasks(prev => prev.map(s => s.id === sub.id ? { ...s, title: sub.title } : s));
+    };
+
     const doneCount = subTasks.filter(s => s.status === 'Hoàn thành').length;
     const totalCount = subTasks.length;
     const progressPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
@@ -757,9 +821,18 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
                         <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: '#f9fafb', border: '1px solid #e5e7eb' }}>
                             <input type="checkbox" checked={sub.status === 'Hoàn thành'} onChange={() => toggleSubTask(sub)}
                                 style={{ cursor: 'pointer', width: 16, height: 16, flexShrink: 0, accentColor: '#16a34a' }} />
-                            <span style={{ flex: 1, fontSize: 13, color: sub.status === 'Hoàn thành' ? '#9ca3af' : 'var(--text-primary)', textDecoration: sub.status === 'Hoàn thành' ? 'line-through' : 'none' }}>
-                                {sub.title}
-                            </span>
+                            <input
+                                type="text"
+                                defaultValue={sub.title}
+                                key={sub.id + ':' + sub.title}
+                                onBlur={e => updateSubTaskTitle(sub, e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
+                                style={{
+                                    flex: 1, fontSize: 13, border: 'none', background: 'transparent', padding: '2px 4px', borderRadius: 4,
+                                    color: sub.status === 'Hoàn thành' ? '#9ca3af' : 'var(--text-primary)',
+                                    textDecoration: sub.status === 'Hoàn thành' ? 'line-through' : 'none',
+                                }}
+                            />
                             <input
                                 type="date"
                                 value={fmtDateInput(sub.dueDate)}

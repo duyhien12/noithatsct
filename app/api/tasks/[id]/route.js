@@ -51,7 +51,7 @@ export const GET = withAuth(async (request, { params }) => {
 export const PATCH = withAuth(async (request, { params }) => {
     const { id } = await params;
     const body = await request.json();
-    const { status, title, description, priority, assignee, dueDate,
+    const { status, title, description, priority, assignee, dueDate, order,
             recurringType, recurringDays, recurringInterval, recurringEndDate } = body;
 
     const data = {};
@@ -61,6 +61,7 @@ export const PATCH = withAuth(async (request, { params }) => {
     if (priority !== undefined) data.priority = priority;
     if (assignee !== undefined) data.assignee = assignee;
     if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
+    if (order !== undefined) data.order = order;
     if (recurringType !== undefined) data.recurringType = recurringType || null;
     if (recurringDays !== undefined) data.recurringDays = recurringDays || null;
     if (recurringInterval !== undefined) data.recurringInterval = recurringInterval || 1;

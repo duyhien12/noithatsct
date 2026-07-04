@@ -1337,6 +1337,7 @@ model Task {
   status            String    @default("Việc sẽ làm")
   priority          String    @default("Trung bình")
   assignee          String    @default("")
+  order             Float     @default(0)
   dueDate           DateTime?
   createdBy         String    @default("")
   createdAt         DateTime  @default(now())
