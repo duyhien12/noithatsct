@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 
 const BAN_GD = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
 const PEER_GROUP_EMAILS = ['buihoa@kientrucsct.com', 'quocvuong@kientrucsct.com'];
+const VIEW_ALL_EMAILS = ['ngocquynh@kientrucsct.com'];
 const MANAGER_POSITIONS = ['Trưởng phòng', 'Quản lý'];
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : null;
@@ -52,7 +53,7 @@ export default function TasksPage() {
     const dragTask = useRef(null);
     const isMobile = useIsMobile();
 
-    const isAdmin = BAN_GD.includes(session?.user?.role);
+    const isAdmin = BAN_GD.includes(session?.user?.role) || VIEW_ALL_EMAILS.includes(session?.user?.email || '');
     const currentUserName = session?.user?.name || '';
     const currentUserEmail = session?.user?.email || '';
     const currentUserRole = session?.user?.role || '';
