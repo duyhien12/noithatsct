@@ -1852,6 +1852,21 @@ model ContractProcessTemplate {
   steps       ContractProcessTemplateStep[]
 }
 
+model AiLog {
+  id        String   @id @default(cuid())
+  userId    String   @default("")
+  userName  String   @default("")
+  userRole  String   @default("")
+  question  String
+  answer    String   @default("")
+  toolCalls Json?
+  actions   Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
 model ContractProcessTemplateStep {
   id             String                        @id @default(cuid())
   templateId     String

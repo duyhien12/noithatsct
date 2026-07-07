@@ -10,12 +10,16 @@ import WorkshopSidebar from '@/components/WorkshopSidebar';
 import DesignSidebar from '@/components/DesignSidebar';
 import Header from '@/components/Header';
 import MobileBottomNav from '@/components/MobileBottomNav';
+import AIAssistantPanel from '@/components/ai/AIAssistantPanel';
+import { canUseAIAssistant } from '@/lib/aiAssistant/permissions';
 
 export default function AppShell({ children }) {
     const pathname = usePathname();
     const { data: session, status } = useSession();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [showAI, setShowAI] = useState(false);
     const { role } = useRole();
+    const canUseAI = canUseAIAssistant(session?.user?.email);
 
     const router = useRouter();
     const toggleSidebar = useCallback(() => setSidebarOpen(prev => !prev), []);
@@ -66,6 +70,20 @@ export default function AppShell({ children }) {
             <div className="mobile-bottom-nav-wrapper">
                 <MobileBottomNav onMenuOpen={toggleSidebar} />
             </div>
+            {canUseAI && !showAI && (
+                <button
+                    onClick={() => setShowAI(true)}
+                    title="Trợ lý AI"
+                    style={{
+                        position: 'fixed', right: 20, bottom: 84, zIndex: 900,
+                        width: 52, height: 52, borderRadius: '50%', border: 'none',
+                        background: 'linear-gradient(135deg, #F97316 0%, #C2410C 100%)',
+                        color: '#fff', fontSize: 22, cursor: 'pointer',
+                        boxShadow: '0 4px 16px rgba(249,115,22,0.45)',
+                    }}
+                >🤖</button>
+            )}
+            {canUseAI && showAI && <AIAssistantPanel onClose={() => setShowAI(false)} />}
         </div>
     );
 }
