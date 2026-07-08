@@ -219,7 +219,10 @@ export default function CustomersPage() {
                                             onClick={() => { if (!isDragging.current) router.push(`/customers/${c.id}`); }}
                                             style={{ background: dragId === c.id ? stage.bg : 'var(--bg-card)', borderRadius: 8, padding: '8px 10px', cursor: 'grab', border: '1px solid var(--border-light)', boxShadow: '0 1px 2px rgba(0,0,0,.05)', transition: 'all .15s', opacity: dragId === c.id ? 0.5 : 1, WebkitTapHighlightColor: 'transparent' }}>
                                             <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.phone && <div>📱 {c.phone}</div>}</div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                                {c.phone && <div>📱 {c.phone}</div>}
+                                                {c.salesPerson && <div>👤 {c.salesPerson}</div>}
+                                            </div>
                                             {(c.estimatedValue > 0 || c.projects?.length > 0) && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, paddingTop: 4, borderTop: '1px solid var(--border-light)', fontSize: 10 }}>
                                                 {c.estimatedValue > 0 ? <span style={{ fontWeight: 700, color: 'var(--status-success)' }}>{fmtShort(c.estimatedValue)}</span> : <span />}
                                                 {c.projects?.length > 0 && <span style={{ background: 'var(--bg-primary)', padding: '0 4px', borderRadius: 4 }}>🏗️{c.projects.length}</span>}
@@ -272,7 +275,10 @@ export default function CustomersPage() {
                                                 onClick={() => { if (!isDragging.current) router.push(`/customers/${c.id}`); }}
                                                 style={{ background: dragId === c.id ? stage.bg : 'var(--bg-card)', borderRadius: 8, padding: '8px 10px', cursor: 'grab', border: '1px solid var(--border-light)', boxShadow: '0 1px 2px rgba(0,0,0,.05)', transition: 'all .15s', opacity: dragId === c.id ? 0.5 : 1, WebkitTapHighlightColor: 'transparent' }}>
                                                 <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                                                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.phone && <div>📱 {c.phone}</div>}</div>
+                                                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                                    {c.phone && <div>📱 {c.phone}</div>}
+                                                    {c.salesPerson && <div>👤 {c.salesPerson}</div>}
+                                                </div>
                                                 {(c.estimatedValue > 0 || c.projects?.length > 0) && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, paddingTop: 4, borderTop: '1px solid var(--border-light)', fontSize: 10 }}>
                                                     {c.estimatedValue > 0 ? <span style={{ fontWeight: 700, color: 'var(--status-success)' }}>{fmtShort(c.estimatedValue)}</span> : <span />}
                                                     {c.projects?.length > 0 && <span style={{ background: 'var(--bg-primary)', padding: '0 4px', borderRadius: 4 }}>🏗️{c.projects.length}</span>}
@@ -327,6 +333,7 @@ export default function CustomersPage() {
                                             <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
                                             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                                                 {c.phone && <div>📱 {c.phone}</div>}
+                                                {c.salesPerson && <div>👤 {c.salesPerson}</div>}
                                             </div>
                                             {(c.estimatedValue > 0 || c.projects?.length > 0) && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, paddingTop: 4, borderTop: '1px solid var(--border-light)', fontSize: 10 }}>
                                                 {c.estimatedValue > 0 ? <span style={{ fontWeight: 700, color: 'var(--status-success)' }}>{fmtShort(c.estimatedValue)}</span> : <span />}
