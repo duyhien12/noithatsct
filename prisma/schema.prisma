@@ -56,6 +56,12 @@ model Customer {
   createdByRole     String            @default("")
   processData       String            @default("")
   branch            String            @default("HQ")
+  demand            String            @default("")
+  category          String            @default("")
+  area              Float             @default(0)
+  constructionStatus String           @default("")
+  decisionMaker     String            @default("")
+  specialRequest    String            @default("")
   contracts         Contract[]
   contractProcesses ContractProcess[]
   projects          Project[]

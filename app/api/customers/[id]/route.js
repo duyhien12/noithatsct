@@ -25,6 +25,7 @@ export const GET = withAuth(async (request, { params }) => {
                 },
                 orderBy: { createdAt: 'desc' },
             },
+            documents: { orderBy: { createdAt: 'desc' } },
         },
     });
     if (!customer) return NextResponse.json({ error: 'Not found' }, { status: 404 });

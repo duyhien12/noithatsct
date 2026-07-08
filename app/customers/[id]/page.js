@@ -29,6 +29,95 @@ const PIPELINE = [
 
 const LOG_ICONS = { 'Điện thoại': '📞', 'Gặp mặt': '🤝', 'Email': '📧', 'Zalo': '💬', 'Khác': '📝' };
 
+const SOURCE_OPTIONS = [
+    { value: '', label: 'Chọn...' },
+    { value: 'Facebook', label: 'Facebook' },
+    { value: 'Zalo', label: 'Zalo' },
+    { value: 'Website', label: 'Website' },
+    { value: 'Instagram', label: 'Instagram' },
+    { value: 'Giới thiệu', label: 'Giới thiệu' },
+    { value: 'Đối tác', label: 'Đối tác' },
+];
+
+const CUSTOMER_STATUS_OPTIONS = [
+    { value: 'Lead', label: 'Lead' },
+    { value: 'Đang chăm sóc', label: 'Đang chăm sóc' },
+    { value: 'Khách hàng', label: 'Khách hàng' },
+    { value: 'VIP', label: 'VIP' },
+    { value: 'Mất khách', label: 'Mất khách' },
+];
+
+function InlineEdit({ value, onSave, type = 'text', options = [], placeholder = '—', display }) {
+    const [editing, setEditing] = useState(false);
+    const [val, setVal] = useState(value ?? '');
+    const [saving, setSaving] = useState(false);
+    const inputRef = useRef(null);
+
+    useEffect(() => { if (!editing) setVal(value ?? ''); }, [value, editing]);
+    useEffect(() => {
+        if (editing && inputRef.current) {
+            inputRef.current.focus();
+            if (inputRef.current.select) inputRef.current.select();
+        }
+    }, [editing]);
+
+    const commit = async (raw) => {
+        const v = raw !== undefined ? raw : val;
+        const current = value ?? '';
+        if (v === current || (type === 'number' && parseFloat(v || 0) === parseFloat(current || 0))) {
+            setEditing(false);
+            return;
+        }
+        setSaving(true);
+        await onSave(type === 'number' ? (parseFloat(v) || 0) : v);
+        setSaving(false);
+        setEditing(false);
+    };
+    const cancel = () => { setVal(value ?? ''); setEditing(false); };
+
+    if (!editing) {
+        return (
+            <span onClick={() => setEditing(true)} title="Nhấn để sửa" style={{ cursor: 'pointer', display: 'inline-block', borderRadius: 4, padding: '1px 4px', margin: '-1px -4px' }}>
+                {display !== undefined ? display : (value ? value : <span style={{ color: 'var(--text-muted)' }}>{placeholder}</span>)}
+            </span>
+        );
+    }
+
+    if (type === 'select') {
+        return (
+            <select ref={inputRef} className="form-select" disabled={saving} style={{ fontSize: 13, padding: '4px 6px' }} value={val}
+                onChange={e => { setVal(e.target.value); commit(e.target.value); }}
+                onBlur={cancel}>
+                {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+        );
+    }
+    if (type === 'textarea') {
+        return (
+            <div style={{ display: 'flex', gap: 4, alignItems: 'flex-start' }} onClick={e => e.stopPropagation()}>
+                <textarea ref={inputRef} className="form-input" rows={2} disabled={saving} style={{ fontSize: 13, flex: 1 }} value={val}
+                    onChange={e => setVal(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Escape') cancel(); }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <button type="button" className="btn btn-primary btn-sm" style={{ padding: '2px 6px' }} onClick={() => commit()} disabled={saving}>✓</button>
+                    <button type="button" className="btn btn-ghost btn-sm" style={{ padding: '2px 6px' }} onClick={cancel} disabled={saving}>✕</button>
+                </div>
+            </div>
+        );
+    }
+    return (
+        <input ref={inputRef} className="form-input" type={type === 'number' ? 'number' : 'text'} disabled={saving}
+            style={{ fontSize: 13, padding: '4px 6px', width: '100%' }} value={val}
+            onChange={e => setVal(e.target.value)}
+            onBlur={() => commit()}
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); commit(); }
+                if (e.key === 'Escape') cancel();
+            }} />
+    );
+}
+
 function Avatar({ name, size = 32 }) {
     const initials = (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
     const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f97316', '#ec4899', '#06b6d4'];
@@ -288,6 +377,11 @@ export default function CustomerDetailPage() {
         fetchData();
     };
 
+    const saveField = async (patch) => {
+        setData(prev => ({ ...prev, ...patch }));
+        await fetch(`/api/customers/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
+    };
+
     const getGpsAddress = () => {
         if (!navigator.geolocation) return alert('Trình duyệt không hỗ trợ định vị');
         setGpsLoading(true);
@@ -330,6 +424,73 @@ export default function CustomerDetailPage() {
         (c.lastContactAt && (Date.now() - new Date(c.lastContactAt).getTime()) < 7 * 86400000 ? 15 : 0)
     );
     const scoreColor = score >= 70 ? '#10b981' : score >= 40 ? '#f59e0b' : '#94a3b8';
+
+    const infoRows = [
+        { icon: '👤', label: 'Thông tin khách hàng', value: (
+            <div>
+                <InlineEdit value={c.name} onSave={v => saveField({ name: v })} placeholder="Tên khách hàng"
+                    display={<span style={{ fontWeight: 600, fontSize: 14 }}>{c.name || '—'}</span>} />
+                <div style={{ display: 'flex', gap: 6, marginTop: 2, fontSize: 12, color: 'var(--text-muted)' }}>
+                    <InlineEdit value={c.phone} onSave={v => saveField({ phone: v })} placeholder="SĐT" />
+                    <span>•</span>
+                    <InlineEdit value={c.email} onSave={v => saveField({ email: v })} placeholder="Email" />
+                </div>
+            </div>
+        )},
+        { icon: '📍', label: 'Địa chỉ', value: (
+            <div>
+                <InlineEdit value={c.address} onSave={v => saveField({ address: v })} placeholder="Địa chỉ"
+                    display={<span style={{ fontWeight: 500, fontSize: 14 }}>{c.address || '—'}</span>} />
+                {c.address && <a href={`https://maps.google.com/maps?q=${encodeURIComponent(c.address)}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#1a73e8', textDecoration: 'none' }}>Xem bản đồ →</a>}
+            </div>
+        )},
+        { icon: '🌐', label: 'Nguồn khách hàng', value: (
+            <InlineEdit type="select" value={c.source || ''} options={SOURCE_OPTIONS} onSave={v => saveField({ source: v })} display={c.source || '—'} />
+        )},
+        { icon: '💡', label: 'Nhu cầu', value: <InlineEdit value={c.demand} onSave={v => saveField({ demand: v })} placeholder="Nhập nhu cầu..." /> },
+        { icon: '🗂️', label: 'Hạng mục', value: <InlineEdit value={c.category} onSave={v => saveField({ category: v })} placeholder="Nhập hạng mục..." /> },
+        { icon: '📐', label: 'Diện tích', value: (
+            <InlineEdit type="number" value={c.area || ''} onSave={v => saveField({ area: v })} display={c.area ? `${c.area} m²` : '—'} />
+        )},
+        { icon: '💰', label: 'Ngân sách', value: (
+            <InlineEdit type="number" value={c.estimatedValue || ''} onSave={v => saveField({ estimatedValue: v })} display={c.estimatedValue ? fmt(c.estimatedValue) : '—'} />
+        )},
+        { icon: '📊', label: 'Tiến độ', value: (
+            <InlineEdit type="select" value={c.pipelineStage || 'Khách nội thất'} options={PIPELINE.map(p => ({ value: p.key, label: p.label }))} onSave={v => saveField({ pipelineStage: v })}
+                display={
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: stage.bg, color: stage.color }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: stage.color }} />{stage.label}
+                    </span>
+                } />
+        )},
+        { icon: '🏗️', label: 'Tình trạng công trình', value: <InlineEdit value={c.constructionStatus} onSave={v => saveField({ constructionStatus: v })} placeholder="Nhập tình trạng..." /> },
+        { icon: '🧑‍💼', label: 'Người quyết định', value: <InlineEdit value={c.decisionMaker} onSave={v => saveField({ decisionMaker: v })} placeholder="Nhập người quyết định..." /> },
+        { icon: '⭐', label: 'Yêu cầu đặc biệt', value: <InlineEdit type="textarea" value={c.specialRequest} onSave={v => saveField({ specialRequest: v })} placeholder="Nhập yêu cầu đặc biệt..." /> },
+        { icon: '👷', label: 'Nhân viên phụ trách', value: (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <InlineEdit value={c.salesPerson} onSave={v => saveField({ salesPerson: v })} placeholder="NV kinh doanh" />
+                <span>•</span>
+                <InlineEdit value={c.designer} onSave={v => saveField({ designer: v })} placeholder="NV thiết kế" />
+            </div>
+        )},
+        { icon: '🏷️', label: 'Trạng thái khách hàng', value: (
+            <InlineEdit type="select" value={c.status || 'Lead'} options={CUSTOMER_STATUS_OPTIONS} onSave={v => saveField({ status: v })}
+                display={<span className={`badge ${c.status === 'VIP' ? 'warning' : c.status === 'Khách hàng' ? 'success' : c.status === 'Mất khách' ? 'danger' : 'info'}`}>{c.status || 'Lead'}</span>} />
+        )},
+        { icon: '🕐', label: 'Lịch sử chăm sóc', value: (
+            <span onClick={() => setShowLogModal(true)} style={{ cursor: 'pointer' }} title="Thêm ghi chú chăm sóc">
+                {c.trackingLogs?.length ? `${c.trackingLogs.length} lần • gần nhất ${timeAgo(c.trackingLogs[0].createdAt)}` : 'Chưa có • nhấn để thêm'}
+            </span>
+        )},
+        { icon: '📎', label: 'Hồ sơ đính kèm', value: c.documents?.length ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {c.documents.slice(0, 3).map(d => (
+                    <a key={d.id} href={d.fileUrl} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: 'var(--primary)', textDecoration: 'none' }}>📄 {d.name}</a>
+                ))}
+                {c.documents.length > 3 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>+{c.documents.length - 3} tệp khác</span>}
+            </div>
+        ) : 'Chưa có' },
+    ];
 
     const tabs = [
         { key: 'overview', label: 'Thông tin khách hàng', icon: '📋' },
@@ -499,7 +660,7 @@ export default function CustomerDetailPage() {
                 {/* Quick Actions - scrollable on mobile */}
                 <div style={{ display: 'flex', gap: 6, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-light)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                     <button className="btn btn-secondary btn-sm" onClick={() => setShowLogModal(true)} style={{ whiteSpace: 'nowrap' }}>📝 Ghi chú</button>
-                    <button className="btn btn-secondary btn-sm" onClick={() => { setEditForm({ name: c.name, phone: c.phone, email: c.email, address: c.address, type: c.type, pipelineStage: c.pipelineStage || 'Khách nội thất', source: c.source, representative: c.representative, taxCode: c.taxCode, estimatedValue: c.estimatedValue || 0, nextFollowUp: c.nextFollowUp ? new Date(c.nextFollowUp).toISOString().split('T')[0] : '', salesPerson: c.salesPerson, designer: c.designer, notes: c.notes }); setShowEditModal(true); }} style={{ whiteSpace: 'nowrap' }}>✏️ Sửa</button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => { setEditForm({ name: c.name, phone: c.phone, email: c.email, address: c.address, type: c.type, pipelineStage: c.pipelineStage || 'Khách nội thất', source: c.source, representative: c.representative, taxCode: c.taxCode, estimatedValue: c.estimatedValue || 0, nextFollowUp: c.nextFollowUp ? new Date(c.nextFollowUp).toISOString().split('T')[0] : '', salesPerson: c.salesPerson, designer: c.designer, notes: c.notes, demand: c.demand, category: c.category, area: c.area || 0, constructionStatus: c.constructionStatus, decisionMaker: c.decisionMaker, specialRequest: c.specialRequest, status: c.status }); setShowEditModal(true); }} style={{ whiteSpace: 'nowrap' }}>✏️ Sửa</button>
                     <button className="btn btn-secondary btn-sm" onClick={() => router.push('/quotations/create')} style={{ whiteSpace: 'nowrap' }}>📄 Tạo BG</button>
                     {c.phone && <a href={`tel:${c.phone}`} className="btn btn-secondary btn-sm" style={{ textDecoration: 'none', whiteSpace: 'nowrap' }}>📞 Gọi</a>}
                     <button className="btn btn-ghost btn-sm" onClick={handleDelete} style={{ color: 'var(--status-danger)', whiteSpace: 'nowrap', marginLeft: 'auto' }}>🗑️ Xóa</button>
@@ -546,47 +707,16 @@ export default function CustomerDetailPage() {
                     {/* Thông tin cơ bản */}
                     <div className="card">
                         <div className="card-header"><span className="card-title">👤 Thông tin khách hàng</span></div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px 24px', padding: '4px 0' }}>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border-light)' }}>
-                                <span style={{ fontSize: 16, flexShrink: 0 }}>👤</span>
-                                <div>
-                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Tên dự án</div>
-                                    <div style={{ fontWeight: 600, fontSize: 14 }}>{c.name || '—'}</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '4px 24px', padding: '4px 0' }}>
+                            {infoRows.map((row, i) => (
+                                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border-light)' }}>
+                                    <span style={{ fontSize: 16, flexShrink: 0 }}>{row.icon}</span>
+                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>{row.label}</div>
+                                        <div style={{ fontSize: 14 }}>{row.value}</div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border-light)' }}>
-                                <span style={{ fontSize: 16, flexShrink: 0 }}>📱</span>
-                                <div>
-                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Số điện thoại</div>
-                                    {(c.representative || c.salesPerson || (c.email && !c.email.includes('@'))) && (
-                                        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>
-                                            {c.representative || c.salesPerson || c.email}
-                                        </div>
-                                    )}
-                                    {c.phone
-                                        ? <a href={`tel:${c.phone}`} style={{ fontWeight: 600, fontSize: 14, color: 'var(--primary)', textDecoration: 'none' }}>{c.phone}</a>
-                                        : <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>—</span>}
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border-light)' }}>
-                                <span style={{ fontSize: 16, flexShrink: 0 }}>📍</span>
-                                <div>
-                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Địa chỉ</div>
-                                    <div style={{ fontWeight: 500, fontSize: 14 }}>{c.address || '—'}</div>
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border-light)' }}>
-                                <span style={{ fontSize: 16, flexShrink: 0 }}>🗺️</span>
-                                <div>
-                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Google Maps</div>
-                                    {c.address
-                                        ? <a href={`https://maps.google.com/maps?q=${encodeURIComponent(c.address)}`} target="_blank" rel="noreferrer"
-                                            style={{ fontWeight: 600, fontSize: 13, color: '#1a73e8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                            Xem bản đồ →
-                                          </a>
-                                        : <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>—</span>}
-                                </div>
-                            </div>
+                            ))}
                         </div>
                     </div>
 
@@ -1470,6 +1600,23 @@ export default function CustomerDetailPage() {
                                 <div className="form-group"><label className="form-label">NV kinh doanh</label><input className="form-input" value={editForm.salesPerson || ''} onChange={e => setEditForm({ ...editForm, salesPerson: e.target.value })} /></div>
                                 <div className="form-group"><label className="form-label">NV thiết kế</label><input className="form-input" value={editForm.designer || ''} onChange={e => setEditForm({ ...editForm, designer: e.target.value })} /></div>
                             </div>
+                            <div className="form-row">
+                                <div className="form-group"><label className="form-label">Nhu cầu</label><input className="form-input" value={editForm.demand || ''} onChange={e => setEditForm({ ...editForm, demand: e.target.value })} placeholder="VD: Làm nội thất trọn gói..." /></div>
+                                <div className="form-group"><label className="form-label">Hạng mục</label><input className="form-input" value={editForm.category || ''} onChange={e => setEditForm({ ...editForm, category: e.target.value })} placeholder="VD: Tủ bếp, sofa, phòng ngủ..." /></div>
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group"><label className="form-label">Diện tích (m²)</label><input className="form-input" type="number" value={editForm.area || ''} onChange={e => setEditForm({ ...editForm, area: parseFloat(e.target.value) || 0 })} /></div>
+                                <div className="form-group"><label className="form-label">Tình trạng công trình</label><input className="form-input" value={editForm.constructionStatus || ''} onChange={e => setEditForm({ ...editForm, constructionStatus: e.target.value })} placeholder="VD: Đang xây thô, đã hoàn thiện..." /></div>
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group"><label className="form-label">Người quyết định</label><input className="form-input" value={editForm.decisionMaker || ''} onChange={e => setEditForm({ ...editForm, decisionMaker: e.target.value })} /></div>
+                                <div className="form-group"><label className="form-label">Trạng thái khách hàng</label>
+                                    <select className="form-select" value={editForm.status || 'Lead'} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
+                                        <option value="Lead">Lead</option><option value="Đang chăm sóc">Đang chăm sóc</option><option value="Khách hàng">Khách hàng</option><option value="VIP">VIP</option><option value="Mất khách">Mất khách</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="form-group"><label className="form-label">Yêu cầu đặc biệt</label><textarea className="form-input" rows={2} value={editForm.specialRequest || ''} onChange={e => setEditForm({ ...editForm, specialRequest: e.target.value })} /></div>
                             <div className="form-group"><label className="form-label">Ghi chú</label><textarea className="form-input" rows={2} value={editForm.notes || ''} onChange={e => setEditForm({ ...editForm, notes: e.target.value })} /></div>
                         </div>
                         <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setShowEditModal(false)}>Hủy</button><button className="btn btn-primary" onClick={saveEdit}>Lưu</button></div>
