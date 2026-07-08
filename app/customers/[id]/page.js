@@ -246,6 +246,16 @@ export default function CustomerDetailPage() {
     const [autoSaveStatus, setAutoSaveStatus] = useState('');
     const [editingNotesIdx, setEditingNotesIdx] = useState(null);
 
+    // Phiếu đặt hàng thiết kế nội thất (lazy load khi mở tab)
+    const [designOrders, setDesignOrders] = useState(null);
+    useEffect(() => {
+        if (tab !== 'designOrders' || designOrders !== null) return;
+        fetch(`/api/design-orders?customerId=${id}&limit=100`)
+            .then(r => r.json())
+            .then(d => setDesignOrders(d.data || []))
+            .catch(() => setDesignOrders([]));
+    }, [tab, id, designOrders]);
+
     // Comments
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
@@ -531,6 +541,7 @@ export default function CustomerDetailPage() {
     const tabs = [
         { key: 'overview', label: 'Thông tin khách hàng', icon: '📋' },
         { key: 'process', label: 'Quy trình thực hiện', icon: '🔄' },
+        { key: 'designOrders', label: 'Đặt hàng TK', icon: '📐', count: designOrders?.length || undefined },
         { key: 'comments', label: 'Ghi chú', icon: '💬', count: comments.length || undefined },
     ];
 
@@ -955,6 +966,52 @@ export default function CustomerDetailPage() {
                         ))}
                     </div>
                     {(!c.quotations || c.quotations.length === 0) && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có báo giá</div>}
+                </div>
+            )}
+
+            {/* TAB: Đặt hàng thiết kế nội thất */}
+            {tab === 'designOrders' && (
+                <div className="card">
+                    <div className="card-header">
+                        <span className="card-title">📐 Phiếu đặt hàng thiết kế nội thất</span>
+                        <button className="btn btn-primary" onClick={() => router.push(`/design-orders/new?customerId=${id}`)}>+ Tạo phiếu</button>
+                    </div>
+                    {designOrders === null ? (
+                        <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
+                    ) : (<>
+                        <div className="desktop-table-view">
+                            <div className="table-container"><table className="data-table">
+                                <thead><tr><th>Mã phiếu</th><th>Công trình</th><th>Tổng tiền</th><th>Deadline</th><th>Trạng thái</th></tr></thead>
+                                <tbody>{designOrders.map(o => (
+                                    <tr key={o.id} onClick={() => router.push(`/design-orders/${o.id}`)} style={{ cursor: 'pointer' }}>
+                                        <td className="accent">{o.code}</td>
+                                        <td>{o.project?.name || o.siteAddress}</td>
+                                        <td className="amount">{fmt(o.grandTotal)}</td>
+                                        <td>{fmtDate(o.deadline)}</td>
+                                        <td><span className="badge muted">{o.status}</span></td>
+                                    </tr>
+                                ))}</tbody>
+                            </table></div>
+                        </div>
+                        <div className="mobile-card-list">
+                            {designOrders.map(o => (
+                                <div key={o.id} className="mobile-card-item" onClick={() => router.push(`/design-orders/${o.id}`)}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div className="card-title">{o.code}</div>
+                                            <div className="card-subtitle">{o.project?.name || o.siteAddress}</div>
+                                        </div>
+                                        <span className="badge muted">{o.status}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 12 }}>
+                                        <span style={{ fontWeight: 700 }}>{fmt(o.grandTotal)}</span>
+                                        <span style={{ color: 'var(--text-muted)' }}>{fmtDate(o.deadline)}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        {designOrders.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Chưa có phiếu đặt hàng thiết kế nào</div>}
+                    </>)}
                 </div>
             )}
 

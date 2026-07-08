@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-    Building2, Wrench, CalendarDays, FileText, ChevronRight, X, MessageSquareWarning, Users, BarChart2, DollarSign,
+    Building2, Wrench, CalendarDays, FileText, ChevronRight, X, MessageSquareWarning, Users, BarChart2, DollarSign, PencilRuler,
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useState } from 'react';
@@ -22,6 +22,7 @@ const menuItems = [
         section: 'Dự án & Thi công',
         items: [
             { href: '/customers',           icon: Users,                label: 'Khách hàng' },
+            { href: '/design-orders',       icon: PencilRuler,          label: 'Phiếu đặt hàng TK' },
             { href: '/projects',            icon: Building2,            label: 'Dự án & Tiến độ' },
             { href: '/workshop/timeline',   icon: BarChart2,            label: 'Tiến độ (Gantt)' },
             { href: '/schedule-templates',  icon: CalendarDays,         label: 'Mẫu tiến độ' },

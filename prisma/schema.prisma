@@ -68,6 +68,7 @@ model Customer {
   documents         ProjectDocument[]
   quotations        Quotation[]
   trackingLogs      TrackingLog[]
+  designOrders      DesignOrder[]
 }
 
 model Project {
@@ -139,6 +140,7 @@ model Project {
   workLogEntries     WorkLogEntry[]
   workOrders         WorkOrder[]
   workshopTasks      WorkshopTask[]
+  designOrders       DesignOrder[]
 
   @@index([customerId])
 }
@@ -293,6 +295,73 @@ model QuotationItem {
 
   @@index([quotationId])
   @@index([parentItemId])
+}
+
+model DesignOrder {
+  id                String            @id @default(cuid())
+  code              String            @unique
+  customerId        String
+  projectId         String?
+  customerName      String            @default("")
+  customerPhone     String            @default("")
+  siteAddress       String            @default("")
+  projectType       String            @default("Nhà phố")
+  designArea        Float             @default(0)
+  designStyle       String            @default("")
+  requirementLevel  String            @default("Tiêu chuẩn")
+  deadline          DateTime
+  confirmedDeadline DateTime?
+  notes             String            @default("")
+  attachments       Json?             @default("[]")
+  status            String            @default("Nháp")
+  designerAssignee  String            @default("")
+  discount          Float             @default(0)
+  discountType      String            @default("amount")
+  vatRate           Float             @default(0)
+  subtotal          Float             @default(0)
+  totalAfterDiscount Float            @default(0)
+  grandTotal        Float             @default(0)
+  createdBy         String            @default("")
+  createdByRole     String            @default("")
+  salesApprovedBy   String            @default("")
+  salesApprovedAt   DateTime?
+  designConfirmedBy String            @default("")
+  designConfirmedAt DateTime?
+  deletedAt         DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  customer          Customer          @relation(fields: [customerId], references: [id])
+  project           Project?          @relation(fields: [projectId], references: [id])
+  items             DesignOrderItem[]
+
+  @@index([customerId])
+  @@index([projectId])
+}
+
+model DesignOrderItem {
+  id            String      @id @default(cuid())
+  designOrderId String
+  order         Int         @default(0)
+  name          String
+  unit          String      @default("")
+  quantity      Float       @default(0)
+  unitPrice     Float       @default(0)
+  amount        Float       @default(0)
+  note          String      @default("")
+  designOrder   DesignOrder @relation(fields: [designOrderId], references: [id], onDelete: Cascade)
+
+  @@index([designOrderId])
+}
+
+model DesignPriceListItem {
+  id               String   @id @default(cuid())
+  name             String
+  unit             String   @default("")
+  defaultUnitPrice Float    @default(0)
+  order            Int      @default(0)
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Warehouse {

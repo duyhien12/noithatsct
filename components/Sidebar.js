@@ -6,7 +6,7 @@ import {
     LayoutDashboard, GitBranch, Users, Building2, FileText,
     Package, ClipboardList, Wrench, CreditCard, Receipt,
     ShoppingCart, Truck, Warehouse, Wallet, UserCog,
-    BarChart3, ChevronRight, Shield, X, CalendarDays, HardHat, Banknote, TrendingUp, BookMarked, Factory, ListChecks
+    BarChart3, ChevronRight, Shield, X, CalendarDays, HardHat, Banknote, TrendingUp, BookMarked, Factory, ListChecks, PencilRuler
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useSession } from 'next-auth/react';
@@ -36,6 +36,8 @@ const menuItems = [
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...MARKETING, ...VIEWER, 'xay_dung', 'thiet_ke'] },
             { href: '/quotations', icon: ClipboardList, label: 'Báo giá',
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER, 'xay_dung', 'thiet_ke'] },
+            { href: '/design-orders', icon: PencilRuler, label: 'Phiếu đặt hàng TK',
+              roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER, 'thiet_ke'] },
             { href: '/contracts', icon: FileText, label: 'Hợp đồng',
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER, 'xay_dung', 'thiet_ke'] },
             { href: '/contract-management', icon: ListChecks, label: 'Quy trình KH HĐ',
