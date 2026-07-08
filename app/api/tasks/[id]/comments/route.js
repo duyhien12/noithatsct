@@ -31,18 +31,19 @@ export const POST = withAuth(async (request, { params }, session) => {
 
     const activeUsers = await prisma.user.findMany({ where: { active: true }, select: { id: true, name: true } });
     const mentionedNames = findMentionedNames(trimmedContent, activeUsers.map(u => u.name));
-    const mentionedUserIds = activeUsers
-        .filter(u => mentionedNames.includes(u.name) && u.id !== session?.user?.id)
-        .map(u => u.id);
-    if (mentionedUserIds.length) {
+    const mentionedUsers = activeUsers.filter(u => mentionedNames.includes(u.name) && u.id !== session?.user?.id);
+    let notifiedNames = [];
+    if (mentionedUsers.length) {
         const task = await prisma.task.findUnique({ where: { id }, select: { title: true } });
         await notifyMention({
-            userIds: mentionedUserIds,
+            userIds: mentionedUsers.map(u => u.id),
             actorName: author,
+            actorUserId: session?.user?.id,
             message: `${author} đã nhắc đến bạn trong bình luận công việc "${task?.title || ''}"`,
             link: `/tasks?taskId=${id}`,
         });
+        notifiedNames = mentionedUsers.map(u => u.name);
     }
 
-    return NextResponse.json(comment, { status: 201 });
+    return NextResponse.json({ ...comment, notifiedNames }, { status: 201 });
 });

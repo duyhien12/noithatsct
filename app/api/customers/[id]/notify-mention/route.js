@@ -15,16 +15,17 @@ export const POST = withAuth(async (request, { params }, session) => {
         where: { active: true, name: { in: names } },
         select: { id: true, name: true },
     });
-    const mentionedUserIds = users.filter(u => u.id !== session?.user?.id).map(u => u.id);
-    if (!mentionedUserIds.length) return NextResponse.json({ notified: 0 });
+    const mentionedUsers = users.filter(u => u.id !== session?.user?.id);
+    if (!mentionedUsers.length) return NextResponse.json({ notified: 0, names: [] });
 
     const customer = await prisma.customer.findUnique({ where: { id }, select: { name: true } });
     await notifyMention({
-        userIds: mentionedUserIds,
+        userIds: mentionedUsers.map(u => u.id),
         actorName: author,
+        actorUserId: session?.user?.id,
         message: `${author} đã nhắc đến bạn trong ${context || 'ghi chú'} của khách hàng "${customer?.name || ''}"`,
         link: `/customers/${id}?tab=process`,
     });
 
-    return NextResponse.json({ notified: mentionedUserIds.length });
+    return NextResponse.json({ notified: mentionedUsers.length, names: mentionedUsers.map(u => u.name) });
 });

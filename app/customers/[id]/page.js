@@ -255,6 +255,7 @@ export default function CustomerDetailPage() {
     const [editingCommentId, setEditingCommentId] = useState(null);
     const [editingCommentText, setEditingCommentText] = useState('');
     const [companyUsers, setCompanyUsers] = useState([]);
+    const [commentNotifyMsg, setCommentNotifyMsg] = useState('');
     const commentsEndRef = useRef(null);
     const fileInputRef = useRef(null);
 
@@ -266,6 +267,7 @@ export default function CustomerDetailPage() {
     // để chỉ gửi thông báo khi có tên MỚI được tag (tránh spam khi người dùng gõ lại/blur nhiều lần).
     const notifiedScheduleMentionsRef = useRef({});
     const scheduleMentionsInitedRef = useRef(false);
+    const [scheduleNotifyMsg, setScheduleNotifyMsg] = useState({});
     useEffect(() => {
         if (scheduleMentionsInitedRef.current || !companyUsers.length) return;
         const items = processForm?._schedule?.items;
@@ -353,6 +355,10 @@ export default function CustomerDetailPage() {
             setNewComment('');
             setPendingAttachments([]);
             setTimeout(() => commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+            if (data.notifiedNames?.length) {
+                setCommentNotifyMsg(`✓ Đã thông báo cho ${data.notifiedNames.join(', ')}`);
+                setTimeout(() => setCommentNotifyMsg(''), 5000);
+            }
         }
     };
 
@@ -646,7 +652,7 @@ export default function CustomerDetailPage() {
         }));
     };
 
-    const notifyScheduleMention = (idx) => {
+    const notifyScheduleMention = async (idx) => {
         const item = processForm?._schedule?.items?.[idx];
         if (!item) return;
         const userNames = companyUsers.map(u => u.name);
@@ -655,11 +661,18 @@ export default function CustomerDetailPage() {
         const newNames = currentNames.filter(n => !already.has(n));
         notifiedScheduleMentionsRef.current[idx] = new Set(currentNames);
         if (!newNames.length) return;
-        fetch(`/api/customers/${id}/notify-mention`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ names: newNames, context: `ghi chú hạng mục "${item.name || ''}" (Quy trình bán hàng)` }),
-        }).catch(() => {});
+        try {
+            const res = await fetch(`/api/customers/${id}/notify-mention`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ names: newNames, context: `ghi chú hạng mục "${item.name || ''}" (Quy trình bán hàng)` }),
+            });
+            const result = await res.json();
+            if (result?.names?.length) {
+                setScheduleNotifyMsg(prev => ({ ...prev, [idx]: `✓ Đã thông báo cho ${result.names.join(', ')}` }));
+                setTimeout(() => setScheduleNotifyMsg(prev => { const next = { ...prev }; delete next[idx]; return next; }), 5000);
+            }
+        } catch {}
     };
 
     return (
@@ -1177,6 +1190,9 @@ export default function CustomerDetailPage() {
                                                                         {item.notes ? <MentionText text={item.notes} userNames={companyUsers.map(u => u.name)} /> : 'Ghi chú...'}
                                                                     </div>
                                                                 )}
+                                                                {scheduleNotifyMsg[idx] && (
+                                                                    <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, marginTop: 4 }}>{scheduleNotifyMsg[idx]}</div>
+                                                                )}
                                                             </td>
                                                             {/* Start date */}
                                                             <td style={{ padding: '9px 8px', textAlign: 'center', fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
@@ -1233,6 +1249,9 @@ export default function CustomerDetailPage() {
                                                                             value={item.notes || ''}
                                                                             onChange={e => updateScheduleItem(idx, 'notes', e.target.value)}
                                                                             onBlur={() => notifyScheduleMention(idx)} />
+                                                                        {scheduleNotifyMsg[idx] && (
+                                                                            <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, marginTop: 4 }}>{scheduleNotifyMsg[idx]}</div>
+                                                                        )}
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -1469,6 +1488,9 @@ export default function CustomerDetailPage() {
                             {sendingComment ? '...' : 'Gửi'}
                         </button>
                     </div>
+                    {commentNotifyMsg && (
+                        <div style={{ padding: '0 16px 10px', fontSize: 11, color: '#16a34a', fontWeight: 600 }}>{commentNotifyMsg}</div>
+                    )}
                 </div>
             )}
 

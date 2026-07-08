@@ -101,6 +101,15 @@ export default function Header({ onMenuToggle }) {
         fetch('/api/notifications', { method: 'PUT' }).catch(() => {});
     };
 
+    const acknowledgeNotification = async (n, e) => {
+        e.stopPropagation();
+        setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, acknowledged: true, read: true } : x));
+        if (!n.read) setUnreadCount(c => Math.max(0, c - 1));
+        try {
+            await fetch(`/api/notifications/${n.id}/acknowledge`, { method: 'POST' });
+        } catch {}
+    };
+
     useEffect(() => {
         function handleClickOutside(e) {
             if (roleMenuRef.current && !roleMenuRef.current.contains(e.target)) {
@@ -201,9 +210,11 @@ export default function Header({ onMenuToggle }) {
                                     </div>
                                 )}
                                 {notifications.map(n => (
-                                    <button
+                                    <div
                                         key={n.id}
                                         onClick={() => openNotification(n)}
+                                        role="button"
+                                        tabIndex={0}
                                         style={{
                                             display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px',
                                             background: n.read ? 'none' : 'var(--hover-bg, #eff6ff)',
@@ -212,12 +223,27 @@ export default function Header({ onMenuToggle }) {
                                         }}
                                     >
                                         <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: n.read ? 400 : 600, lineHeight: 1.4 }}>
-                                            {n.message}
+                                            {n.type === 'ack' && '✅ '}{n.message}
                                         </div>
-                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                                            {notifTimeAgo(n.createdAt)}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{notifTimeAgo(n.createdAt)}</span>
+                                            {n.type === 'mention' && (
+                                                n.acknowledged ? (
+                                                    <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✓ Đã xác nhận nhận việc</span>
+                                                ) : (
+                                                    <button
+                                                        onClick={e => acknowledgeNotification(n, e)}
+                                                        style={{
+                                                            fontSize: 11, fontWeight: 600, color: '#fff', background: '#16a34a',
+                                                            border: 'none', borderRadius: 5, padding: '3px 8px', cursor: 'pointer',
+                                                        }}
+                                                    >
+                                                        Xác nhận nhận việc
+                                                    </button>
+                                                )
+                                            )}
                                         </div>
-                                    </button>
+                                    </div>
                                 ))}
                             </div>
                         </div>

@@ -622,6 +622,7 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
     const [sendingComment, setSendingComment] = useState(false);
+    const [commentNotifyMsg, setCommentNotifyMsg] = useState('');
     const commentsEndRef = useRef(null);
 
     useEffect(() => {
@@ -644,6 +645,10 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
             setComments(prev => [...prev, data]);
             setNewComment('');
             setTimeout(() => commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+            if (data.notifiedNames?.length) {
+                setCommentNotifyMsg(`✓ Đã thông báo cho ${data.notifiedNames.join(', ')}`);
+                setTimeout(() => setCommentNotifyMsg(''), 5000);
+            }
         }
     };
 
@@ -898,6 +903,9 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
                         {sendingComment ? '...' : 'Gửi'}
                     </button>
                 </div>
+                {commentNotifyMsg && (
+                    <div style={{ textAlign: 'right', fontSize: 11, color: '#16a34a', fontWeight: 600, marginTop: 4 }}>{commentNotifyMsg}</div>
+                )}
             </div>
             {/* Comments list */}
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>

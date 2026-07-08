@@ -36,20 +36,21 @@ export const POST = withAuth(async (request, { params }, session) => {
     `;
 
     const trimmedContent = (content || '').trim();
+    let notifiedNames = [];
     if (trimmedContent) {
         const activeUsers = await prisma.user.findMany({ where: { active: true }, select: { id: true, name: true } });
         const mentionedNames = findMentionedNames(trimmedContent, activeUsers.map(u => u.name));
-        const mentionedUserIds = activeUsers
-            .filter(u => mentionedNames.includes(u.name) && u.id !== session?.user?.id)
-            .map(u => u.id);
-        if (mentionedUserIds.length) {
+        const mentionedUsers = activeUsers.filter(u => mentionedNames.includes(u.name) && u.id !== session?.user?.id);
+        if (mentionedUsers.length) {
             const customer = await prisma.customer.findUnique({ where: { id }, select: { name: true } });
             await notifyMention({
-                userIds: mentionedUserIds,
+                userIds: mentionedUsers.map(u => u.id),
                 actorName: author,
+                actorUserId: session?.user?.id,
                 message: `${author} đã nhắc đến bạn trong ghi chú khách hàng "${customer?.name || ''}"`,
                 link: `/customers/${id}?tab=comments`,
             });
+            notifiedNames = mentionedUsers.map(u => u.name);
         }
     }
 
@@ -60,5 +61,6 @@ export const POST = withAuth(async (request, { params }, session) => {
         author,
         attachments: attachmentsJson,
         createdAt: now,
+        notifiedNames,
     }, { status: 201 });
 });
