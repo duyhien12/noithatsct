@@ -43,6 +43,19 @@ const pageTitles = {
     '/schedule-templates': 'Mẫu tiến độ',
 };
 
+function notifTimeAgo(d) {
+    if (!d) return '';
+    const diff = Date.now() - new Date(d).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return 'Vừa xong';
+    if (m < 60) return `${m} phút trước`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h} giờ trước`;
+    const days = Math.floor(h / 24);
+    if (days < 30) return `${days} ngày trước`;
+    return new Date(d).toLocaleDateString('vi-VN');
+}
+
 export default function Header({ onMenuToggle }) {
     const pathname = usePathname();
     const router = useRouter();
@@ -52,11 +65,49 @@ export default function Header({ onMenuToggle }) {
     const [roleSwitching, setRoleSwitching] = useState(false);
     const [showRoleMenu, setShowRoleMenu] = useState(false);
     const roleMenuRef = useRef(null);
+    const [notifications, setNotifications] = useState([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [showNotifMenu, setShowNotifMenu] = useState(false);
+    const notifMenuRef = useRef(null);
+
+    const fetchNotifications = () => {
+        fetch('/api/notifications').then(r => r.ok ? r.json() : null).then(d => {
+            if (!d) return;
+            setNotifications(d.notifications || []);
+            setUnreadCount(d.unreadCount || 0);
+        }).catch(() => {});
+    };
+
+    useEffect(() => {
+        if (!session?.user) return;
+        fetchNotifications();
+        const timer = setInterval(fetchNotifications, 60000);
+        return () => clearInterval(timer);
+    }, [session?.user?.id]);
+
+    const openNotification = async (n) => {
+        setShowNotifMenu(false);
+        if (!n.read) {
+            setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
+            setUnreadCount(c => Math.max(0, c - 1));
+            fetch(`/api/notifications/${n.id}`, { method: 'PUT' }).catch(() => {});
+        }
+        if (n.link) router.push(n.link);
+    };
+
+    const markAllRead = () => {
+        setNotifications(prev => prev.map(x => ({ ...x, read: true })));
+        setUnreadCount(0);
+        fetch('/api/notifications', { method: 'PUT' }).catch(() => {});
+    };
 
     useEffect(() => {
         function handleClickOutside(e) {
             if (roleMenuRef.current && !roleMenuRef.current.contains(e.target)) {
                 setShowRoleMenu(false);
+            }
+            if (notifMenuRef.current && !notifMenuRef.current.contains(e.target)) {
+                setShowNotifMenu(false);
             }
         }
         document.addEventListener('mousedown', handleClickOutside);
@@ -119,10 +170,59 @@ export default function Header({ onMenuToggle }) {
                 <button className="header-btn" title={dark ? 'Chuyển sang sáng' : 'Chuyển sang tối'} onClick={toggleTheme} aria-label="Chuyển đổi giao diện">
                     {dark ? <Sun size={20} /> : <Moon size={20} />}
                 </button>
-                <button className="header-btn" title="Thông báo" aria-label="Thông báo">
-                    <Bell size={20} />
-                    <span className="badge-dot"></span>
-                </button>
+                <div ref={notifMenuRef} style={{ position: 'relative' }}>
+                    <button className="header-btn" title="Thông báo" aria-label="Thông báo" onClick={() => setShowNotifMenu(v => !v)}>
+                        <Bell size={20} />
+                        {unreadCount > 0 && <span className="badge-dot"></span>}
+                    </button>
+                    {showNotifMenu && (
+                        <div style={{
+                            position: 'absolute', top: '100%', right: 0, zIndex: 1000,
+                            background: 'var(--card-bg, #fff)', border: '1px solid var(--border-color, #e5e7eb)',
+                            borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                            width: 340, marginTop: 8, overflow: 'hidden',
+                        }}>
+                            <div style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                padding: '10px 14px', fontSize: 12, color: 'var(--text-muted)',
+                                borderBottom: '1px solid var(--border-color, #e5e7eb)', fontWeight: 600,
+                            }}>
+                                <span>Thông báo</span>
+                                {unreadCount > 0 && (
+                                    <button onClick={markAllRead} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary, #3b82f6)', fontSize: 11, fontWeight: 600, padding: 0 }}>
+                                        Đánh dấu đã đọc hết
+                                    </button>
+                                )}
+                            </div>
+                            <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+                                {notifications.length === 0 && (
+                                    <div style={{ padding: '24px 14px', textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
+                                        Chưa có thông báo nào
+                                    </div>
+                                )}
+                                {notifications.map(n => (
+                                    <button
+                                        key={n.id}
+                                        onClick={() => openNotification(n)}
+                                        style={{
+                                            display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px',
+                                            background: n.read ? 'none' : 'var(--hover-bg, #eff6ff)',
+                                            border: 'none', borderBottom: '1px solid var(--border-color, #f3f4f6)',
+                                            cursor: 'pointer', fontFamily: 'inherit',
+                                        }}
+                                    >
+                                        <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: n.read ? 400 : 600, lineHeight: 1.4 }}>
+                                            {n.message}
+                                        </div>
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                                            {notifTimeAgo(n.createdAt)}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
                 <div className="header-user">
                     <div className="avatar">{initials}</div>
                     <div className="user-info">

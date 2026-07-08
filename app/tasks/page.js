@@ -1,6 +1,8 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
+import MentionTextarea from '@/components/MentionTextarea';
+import MentionText from '@/components/MentionText';
 
 const BAN_GD = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
 const PEER_GROUP_EMAILS = ['buihoa@kientrucsct.com', 'quocvuong@kientrucsct.com'];
@@ -97,6 +99,15 @@ export default function TasksPage() {
         setLoading(true);
         fetchTasks();
     }, [filterUser, status, isAdmin, isManager]);
+
+    // Mở tác vụ trực tiếp khi vào từ link thông báo (?taskId=...)
+    useEffect(() => {
+        if (typeof window === 'undefined' || !tasks.length) return;
+        const taskId = new URLSearchParams(window.location.search).get('taskId');
+        if (!taskId) return;
+        const target = tasks.find(t => t.id === taskId);
+        if (target) setEditingTask(target);
+    }, [tasks]);
 
     const updateStatus = async (taskId, newStatus) => {
         const prev = tasks.find(t => t.id === taskId)?.status;
@@ -870,14 +881,15 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
                 {currentUserName && (
                     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 8 }}>
                         <Avatar name={currentUserName} size={28} />
-                        <textarea
-                            className="form-input"
+                        <MentionTextarea
                             value={newComment}
                             onChange={e => setNewComment(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendComment(); } }}
-                            placeholder="Viết nhận xét... (Ctrl+Enter để gửi)"
+                            users={users}
+                            placeholder="Viết nhận xét... @tên để tag đồng nghiệp (Ctrl+Enter để gửi)"
                             rows={2}
-                            style={{ flex: 1, fontSize: 13, resize: 'none' }}
+                            style={{ width: '100%', fontSize: 13, resize: 'none' }}
+                            containerStyle={{ flex: 1 }}
                         />
                     </div>
                 )}
@@ -908,7 +920,7 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
                                 )}
                             </div>
                             <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 3, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: '#f3f4f6', padding: '7px 10px', borderRadius: '0 8px 8px 8px' }}>
-                                {c.content}
+                                <MentionText text={c.content} userNames={users.map(u => u.name)} />
                             </div>
                         </div>
                     </div>

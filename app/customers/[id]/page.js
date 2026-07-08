@@ -2,6 +2,9 @@
 import { useState, useEffect, useRef, Fragment } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import MentionTextarea from '@/components/MentionTextarea';
+import MentionText from '@/components/MentionText';
+import { findMentionedNames } from '@/lib/mentions';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
@@ -211,6 +214,13 @@ export default function CustomerDetailPage() {
     const [data, setData] = useState(null);
     const [tab, setTab] = useState('overview');
     const [loading, setLoading] = useState(true);
+
+    // Mở đúng tab khi vào từ link thông báo (?tab=comments)
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const qTab = new URLSearchParams(window.location.search).get('tab');
+        if (qTab) setTab(qTab);
+    }, []);
     const [showLogModal, setShowLogModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [gpsLoading, setGpsLoading] = useState(false);
@@ -244,8 +254,28 @@ export default function CustomerDetailPage() {
     const [uploadingFile, setUploadingFile] = useState(false);
     const [editingCommentId, setEditingCommentId] = useState(null);
     const [editingCommentText, setEditingCommentText] = useState('');
+    const [companyUsers, setCompanyUsers] = useState([]);
     const commentsEndRef = useRef(null);
     const fileInputRef = useRef(null);
+
+    useEffect(() => {
+        fetch('/api/users').then(r => r.json()).then(d => setCompanyUsers(Array.isArray(d) ? d : []));
+    }, []);
+
+    // Theo dõi @tên đã được thông báo cho từng dòng ghi chú trong Quy trình bán hàng,
+    // để chỉ gửi thông báo khi có tên MỚI được tag (tránh spam khi người dùng gõ lại/blur nhiều lần).
+    const notifiedScheduleMentionsRef = useRef({});
+    const scheduleMentionsInitedRef = useRef(false);
+    useEffect(() => {
+        if (scheduleMentionsInitedRef.current || !companyUsers.length) return;
+        const items = processForm?._schedule?.items;
+        if (!items) return;
+        const userNames = companyUsers.map(u => u.name);
+        items.forEach((it, idx) => {
+            notifiedScheduleMentionsRef.current[idx] = new Set(findMentionedNames(it.notes || '', userNames));
+        });
+        scheduleMentionsInitedRef.current = true;
+    }, [companyUsers, processForm]);
 
     const fetchData = () => {
         fetch(`/api/customers/${id}`).then(r => r.ok ? r.json() : null).then(d => {
@@ -614,6 +644,22 @@ export default function CustomerDetailPage() {
                 }),
             },
         }));
+    };
+
+    const notifyScheduleMention = (idx) => {
+        const item = processForm?._schedule?.items?.[idx];
+        if (!item) return;
+        const userNames = companyUsers.map(u => u.name);
+        const currentNames = findMentionedNames(item.notes || '', userNames);
+        const already = notifiedScheduleMentionsRef.current[idx] || new Set();
+        const newNames = currentNames.filter(n => !already.has(n));
+        notifiedScheduleMentionsRef.current[idx] = new Set(currentNames);
+        if (!newNames.length) return;
+        fetch(`/api/customers/${id}/notify-mention`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ names: newNames, context: `ghi chú hạng mục "${item.name || ''}" (Quy trình bán hàng)` }),
+        }).catch(() => {});
     };
 
     return (
@@ -1112,14 +1158,15 @@ export default function CustomerDetailPage() {
                                                             {/* Notes inline */}
                                                             <td style={{ padding: '6px 8px', verticalAlign: 'middle' }}>
                                                                 {editingNotesIdx === idx ? (
-                                                                    <textarea
+                                                                    <MentionTextarea
                                                                         autoFocus
                                                                         value={item.notes || ''}
                                                                         onChange={e => updateScheduleItem(idx, 'notes', e.target.value)}
+                                                                        users={companyUsers}
                                                                         placeholder={'- Ghi chú dòng 1\n- Ghi chú dòng 2\n- Ghi chú dòng 3'}
                                                                         rows={4}
                                                                         style={{ width: '100%', minWidth: 140, fontSize: 12, padding: '4px 8px', border: '1px solid var(--primary)', borderRadius: 6, background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', resize: 'vertical', lineHeight: 1.6, fontFamily: 'inherit' }}
-                                                                        onBlur={() => setEditingNotesIdx(null)}
+                                                                        onBlur={() => { setEditingNotesIdx(null); notifyScheduleMention(idx); }}
                                                                         onKeyDown={e => { if (e.key === 'Escape') setEditingNotesIdx(null); }}
                                                                     />
                                                                 ) : (
@@ -1127,7 +1174,7 @@ export default function CustomerDetailPage() {
                                                                         onClick={() => setEditingNotesIdx(idx)}
                                                                         style={{ width: '100%', minWidth: 140, minHeight: 28, fontSize: 12, padding: '4px 8px', border: '1px solid var(--border-light)', borderRadius: 6, background: 'var(--bg-secondary)', color: item.notes ? 'var(--text-primary)' : 'var(--text-muted)', cursor: 'text', whiteSpace: 'pre-wrap', lineHeight: 1.6, wordBreak: 'break-word' }}
                                                                     >
-                                                                        {item.notes || 'Ghi chú...'}
+                                                                        {item.notes ? <MentionText text={item.notes} userNames={companyUsers.map(u => u.name)} /> : 'Ghi chú...'}
                                                                     </div>
                                                                 )}
                                                             </td>
@@ -1180,10 +1227,12 @@ export default function CustomerDetailPage() {
                                                                     </div>
                                                                     <div>
                                                                         <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 3 }}>GHI CHÚ</label>
-                                                                        <textarea className="form-input" rows={2} style={{ fontSize: 13, resize: 'vertical' }}
-                                                                            placeholder="Ghi chú tiến độ, vấn đề phát sinh..."
+                                                                        <MentionTextarea rows={2} style={{ fontSize: 13, resize: 'vertical', width: '100%' }}
+                                                                            users={companyUsers}
+                                                                            placeholder="Ghi chú tiến độ, vấn đề phát sinh... @tên để tag đồng nghiệp"
                                                                             value={item.notes || ''}
-                                                                            onChange={e => updateScheduleItem(idx, 'notes', e.target.value)} />
+                                                                            onChange={e => updateScheduleItem(idx, 'notes', e.target.value)}
+                                                                            onBlur={() => notifyScheduleMention(idx)} />
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -1337,7 +1386,7 @@ export default function CustomerDetailPage() {
                                                         border: isMe ? 'none' : '1px solid var(--border-light)',
                                                         marginBottom: attachList.length ? 6 : 0,
                                                     }}>
-                                                        {cm.content}
+                                                        <MentionText text={cm.content} userNames={companyUsers.map(u => u.name)} mentionStyle={isMe ? { color: '#fff', background: 'rgba(255,255,255,0.25)' } : undefined} />
                                                     </div>
                                                 )}
                                                 {attachList.length > 0 && (
@@ -1399,14 +1448,14 @@ export default function CustomerDetailPage() {
                     <div style={{ borderTop: '1px solid var(--border-light)', padding: '12px 16px', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                         <Avatar name={session?.user?.name || '?'} size={30} />
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0 }}>
-                            <textarea
-                                className="form-input"
+                            <MentionTextarea
                                 value={newComment}
                                 onChange={e => setNewComment(e.target.value)}
                                 onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendComment(); } }}
-                                placeholder="Viết nhận xét... (Ctrl+Enter để gửi)"
+                                users={companyUsers}
+                                placeholder="Viết nhận xét... @tên để tag đồng nghiệp (Ctrl+Enter để gửi)"
                                 rows={2}
-                                style={{ fontSize: 13, resize: 'none', borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottom: 'none' }}
+                                style={{ fontSize: 13, resize: 'none', borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottom: 'none', width: '100%' }}
                             />
                             <div style={{ display: 'flex', alignItems: 'center', padding: '5px 8px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderTop: 'none', borderBottomLeftRadius: 8, borderBottomRightRadius: 8, gap: 4 }}>
                                 <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" style={{ display: 'none' }} onChange={handleFileSelect} />
