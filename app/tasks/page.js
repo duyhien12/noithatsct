@@ -835,29 +835,36 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
                     {subTasks.map(sub => (
-                        <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: '#f9fafb', border: '1px solid #e5e7eb' }}>
-                            <input type="checkbox" checked={sub.status === 'Hoàn thành'} onChange={() => toggleSubTask(sub)}
-                                style={{ cursor: 'pointer', width: 16, height: 16, flexShrink: 0, accentColor: '#16a34a' }} />
-                            <input
-                                type="text"
-                                defaultValue={sub.title}
-                                key={sub.id + ':' + sub.title}
-                                onBlur={e => updateSubTaskTitle(sub, e.target.value)}
-                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
-                                style={{
-                                    flex: 1, fontSize: 13, border: 'none', background: 'transparent', padding: '2px 4px', borderRadius: 4,
-                                    color: sub.status === 'Hoàn thành' ? '#9ca3af' : 'var(--text-primary)',
-                                    textDecoration: sub.status === 'Hoàn thành' ? 'line-through' : 'none',
-                                }}
-                            />
-                            <input
-                                type="date"
-                                value={fmtDateInput(sub.dueDate)}
-                                onChange={e => updateSubTaskDueDate(sub, e.target.value)}
-                                title="Hạn hoàn thành"
-                                style={{ fontSize: 11, border: '1px solid #e5e7eb', borderRadius: 4, padding: '2px 4px', color: sub.dueDate ? (new Date(sub.dueDate) < new Date() && sub.status !== 'Hoàn thành' ? '#dc2626' : '#6b7280') : '#9ca3af', background: 'transparent', flexShrink: 0, cursor: 'pointer', width: 120 }}
-                            />
-                            <button onClick={() => deleteSubTask(sub.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 18, lineHeight: 1, padding: '0 4px', flexShrink: 0 }}>×</button>
+                        <div key={sub.id} style={{ padding: '6px 10px', borderRadius: 8, background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                <input type="checkbox" checked={sub.status === 'Hoàn thành'} onChange={() => toggleSubTask(sub)}
+                                    style={{ cursor: 'pointer', width: 16, height: 16, flexShrink: 0, accentColor: '#16a34a', marginTop: 5 }} />
+                                <textarea
+                                    defaultValue={sub.title}
+                                    key={sub.id + ':' + sub.title}
+                                    rows={1}
+                                    ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
+                                    onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
+                                    onBlur={e => updateSubTaskTitle(sub, e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
+                                    style={{
+                                        flex: 1, minWidth: 0, fontSize: 13, border: 'none', background: 'transparent', padding: '2px 4px', borderRadius: 4,
+                                        color: sub.status === 'Hoàn thành' ? '#9ca3af' : 'var(--text-primary)',
+                                        textDecoration: sub.status === 'Hoàn thành' ? 'line-through' : 'none',
+                                        resize: 'none', overflow: 'hidden', fontFamily: 'inherit', lineHeight: 1.4, wordBreak: 'break-word',
+                                    }}
+                                />
+                                <button onClick={() => deleteSubTask(sub.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 18, lineHeight: 1, padding: '0 4px', flexShrink: 0, marginTop: 3 }}>×</button>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
+                                <input
+                                    type="date"
+                                    value={fmtDateInput(sub.dueDate)}
+                                    onChange={e => updateSubTaskDueDate(sub, e.target.value)}
+                                    title="Hạn hoàn thành"
+                                    style={{ fontSize: 11, border: '1px solid #e5e7eb', borderRadius: 4, padding: '2px 4px', color: sub.dueDate ? (new Date(sub.dueDate) < new Date() && sub.status !== 'Hoàn thành' ? '#dc2626' : '#6b7280') : '#9ca3af', background: 'transparent', cursor: 'pointer', width: 120 }}
+                                />
+                            </div>
                         </div>
                     ))}
                 </div>
