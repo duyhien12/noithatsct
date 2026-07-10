@@ -90,13 +90,59 @@ const NHAN_VIEN_MENU = [
     },
 ];
 
+// Giám sát nội thất: theo dõi dự án/tiến độ/công việc, không cần tài chính, mua sắm, sản xuất
+const SUPERVISOR_MENU = [
+    {
+        section: 'Tổng quan',
+        items: [
+            { href: '/workshop', icon: LayoutDashboard, label: 'Dashboard', exact: true },
+        ],
+    },
+    {
+        section: 'Dự án & Hợp đồng',
+        items: [
+            { href: '/projects', icon: Building2, label: 'Dự án & Tiến độ' },
+        ],
+    },
+    {
+        section: 'Quản lý Xưởng',
+        items: [
+            { href: '/workshop/tasks', icon: Wrench, label: 'Công việc xưởng' },
+            { href: '/workshop/workers', icon: Users, label: 'Nhân công' },
+            { href: '/workshop/work-log', icon: BookOpen, label: 'Nhật ký công việc' },
+            { href: '/workshop/work-log/project-summary', icon: BarChart2, label: 'Tổng hợp công CT' },
+            { href: '/workshop/timeline', icon: BarChart2, label: 'Tiến độ (Gantt)' },
+            { href: '/work-orders', icon: Clock, label: 'Phiếu công việc' },
+        ],
+    },
+    {
+        section: 'Kho & Mua sắm',
+        items: [
+            { href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho' },
+            { href: '/workshop/materials', icon: Package, label: 'Vật tư kho' },
+        ],
+    },
+    {
+        section: 'Nội bộ',
+        items: [
+            { href: '/tasks', icon: Wrench, label: 'Tác vụ' },
+            { href: '/proposals', icon: FileText, label: 'Đề xuất - Kiến nghị' },
+        ],
+    },
+];
+
+const SUPERVISOR_EMAILS = ['huuhung@kientrucsct.com'];
+
 export default function WorkshopSidebar({ isOpen, onClose }) {
     const pathname = usePathname();
     const { roleInfo, isXuongNhanVien, department, isPhamDuong, canSwitchRole, viewAsRole, setViewAsRole, actualRole, role, email } = useRole();
     const [showDeptPicker, setShowDeptPicker] = useState(false);
 
     const isVanToan = email === 'vantoan@kientrucsct.com';
-    const menuItems = isXuongNhanVien
+    const isSupervisor = SUPERVISOR_EMAILS.includes(email);
+    const menuItems = isSupervisor
+        ? SUPERVISOR_MENU
+        : isXuongNhanVien
         ? (isVanToan
             ? [
                 ...NHAN_VIEN_MENU,
