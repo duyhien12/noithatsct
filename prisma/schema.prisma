@@ -1092,6 +1092,20 @@ model SalaryEntry {
   progress      String   @default("{}")
 }
 
+model InteriorSalaryEntry {
+  id                     String   @id @default(cuid())
+  code                   String   @unique
+  name                   String
+  area                   Float    @default(0)
+  looseFurnitureRevenue  Float    @default(0)
+  stages                 String   @default("{}")
+  notes                  String   @default("")
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  assignees              String   @default("{}")
+  progress               String   @default("{}")
+}
+
 model QuotationTemplateItem {
   id           String                    @id @default(cuid())
   name         String

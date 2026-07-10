@@ -1,0 +1,30 @@
+import { withAuth } from '@/lib/apiHandler';
+import prisma from '@/lib/prisma';
+import { NextResponse } from 'next/server';
+
+export const PUT = withAuth(async (request, { params }) => {
+    const { id } = await params;
+    const { code, name, area, looseFurnitureRevenue, stages, assignees, progress, notes } = await request.json();
+
+    const entry = await prisma.interiorSalaryEntry.update({
+        where: { id },
+        data: {
+            code,
+            name,
+            area: area || 0,
+            looseFurnitureRevenue: looseFurnitureRevenue || 0,
+            stages: JSON.stringify(stages || {}),
+            assignees: JSON.stringify(assignees || {}),
+            progress: JSON.stringify(progress || {}),
+            notes: notes || '',
+        },
+    });
+
+    return NextResponse.json(entry);
+});
+
+export const DELETE = withAuth(async (request, { params }) => {
+    const { id } = await params;
+    await prisma.interiorSalaryEntry.delete({ where: { id } });
+    return NextResponse.json({ ok: true });
+});

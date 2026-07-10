@@ -36,6 +36,26 @@ const STATUS_LABELS = {
     'Hủy':           { color: '#dc2626' },
 };
 
+// Đơn giá thiết kế nội thất theo m² — theo Điều 2, Quy định chi trả lương TKNT
+// Tổng 80.000đ/m², trong đó phần "Dựng 3D" (60.000đ/m²) chia tỷ lệ theo Điều 2.3
+const NOI_THAT_ITEMS = [
+    { key: 'do_hien_trang',     label: 'Đo hiện trạng và dựng MB hiện trạng',                          unitPrice: 5000  },
+    { key: 'dung3d_mb',         label: 'Dựng 3D — Lên mặt bằng nội thất & định hướng PC',              unitPrice: 5400,  group: 'Dựng 3D (60.000đ/m²)' },
+    { key: 'dung3d_hinh3d',     label: 'Dựng 3D — Lên hình 3D',                                         unitPrice: 23400, group: 'Dựng 3D (60.000đ/m²)' },
+    { key: 'dung3d_duyet',      label: 'Dựng 3D — Duyệt & điều chỉnh 3D với KH, chốt PA cuối cùng',    unitPrice: 9000,  group: 'Dựng 3D (60.000đ/m²)' },
+    { key: 'dung3d_kcs',        label: 'Dựng 3D — KCS 3D',                                              unitPrice: 5400,  group: 'Dựng 3D (60.000đ/m²)' },
+    { key: 'dung3d_render',     label: 'Dựng 3D — Render ảnh',                                          unitPrice: 16800, group: 'Dựng 3D (60.000đ/m²)' },
+    { key: 'tu_van_kh',         label: 'Tư vấn khách hàng',                                             unitPrice: 5000  },
+    { key: 'bo_3d_vat_lieu',    label: 'Bổ 3D và chỉ định vật liệu',                                   unitPrice: 10000 },
+];
+// Đồ rời (vách ốp tường, kệ tivi, tủ bếp, tủ áo...): 1% giá trị doanh thu hạng mục đồ rời — không tính theo m²
+const DO_ROI_ITEM = { key: 'do_roi', label: 'Đồ rời (vách ốp, kệ tivi, tủ bếp, tủ áo...) — 1% doanh thu', isRevenue: true };
+
+const noiThatItemsWithAmount = (area, looseFurnitureRevenue) => [
+    ...NOI_THAT_ITEMS.map(it => ({ ...it, amount: (area || 0) * it.unitPrice })),
+    { ...DO_ROI_ITEM, amount: (looseFurnitureRevenue || 0) * 0.01 },
+];
+
 const AVATAR_COLORS = ['#2563eb','#7c3aed','#16a34a','#d97706','#dc2626','#0891b2','#be185d','#65a30d'];
 const AVATAR_COLOR_MAP = {
     'Bùi Hải Đăng': '#16a34a',
@@ -277,6 +297,130 @@ function StageList({ base, stages, assignees, progress, users, onToggle, onAssig
     );
 }
 
+// ───────── Danh sách hạng mục (Nội thất) — đơn giá cố định, không phải % quỹ ─────────
+function ItemStageList({ items, stages, assignees, progress, users, onToggle, onAssigneeChange, onAssigneePctChange, onAssigneeDateChange, onAssigneeAdd, onAssigneeRemove, onProgressChange }) {
+    let lastGroup = null;
+    return (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 10 }}>
+            {items.map(item => {
+                const done = !!stages[item.key];
+                const amount = item.amount;
+                const list = toEntries(assignees[item.key]);
+                const totalPct = list.reduce((s, e) => s + (Number(e.pct) || 0), 0);
+                const pctOk = list.length === 1 || totalPct === 100;
+                const stageData = toStageData(progress[item.key] ?? (done ? 100 : 0));
+                const stageProg = stageData.pct;
+                const showGroupHeader = item.group && item.group !== lastGroup;
+                lastGroup = item.group || null;
+
+                return (
+                    <div key={item.key} style={{ display: 'contents' }}>
+                        {showGroupHeader && (
+                            <div style={{ gridColumn: '1 / -1', fontSize: 11, fontWeight: 700, color: '#F47920', marginTop: 6, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                                {item.group}
+                            </div>
+                        )}
+                        <div style={{
+                            borderRadius: 10,
+                            background: done ? 'rgba(22,163,74,0.05)' : 'var(--bg-secondary)',
+                            border: `1.5px solid ${done ? '#16a34a55' : stageProg > 0 ? '#F4792055' : 'var(--border)'}`,
+                            overflow: 'hidden', transition: 'border-color 0.2s',
+                        }}>
+                            <div style={{ padding: '10px 12px 8px', borderBottom: `1px solid ${done ? '#16a34a22' : 'var(--border-light)'}`, background: done ? 'rgba(22,163,74,0.07)' : 'transparent' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                                    <input type="checkbox" checked={done} onChange={() => onToggle(item.key)}
+                                        style={{ width: 15, height: 15, cursor: 'pointer', flexShrink: 0, accentColor: '#16a34a' }} />
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: 12, fontWeight: 600, color: done ? '#15803d' : 'var(--text-primary)', lineHeight: 1.3 }}>{item.label}</div>
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
+                                            {!item.isRevenue && <><span style={{ color: '#F47920', fontWeight: 600 }}>{fmt(item.unitPrice)}/m²</span><span style={{ margin: '0 4px' }}>→</span></>}
+                                            <span style={{ fontWeight: 600 }}>{fmt(amount)}</span>
+                                            {!pctOk && <span style={{ marginLeft: 6, color: '#dc2626', fontSize: 10 }}>⚠ {totalPct}%/100%</span>}
+                                        </div>
+                                    </div>
+                                    {done && <span style={{ color: '#16a34a', fontSize: 16, flexShrink: 0 }}>✓</span>}
+                                </label>
+
+                                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>Tiến độ</span>
+                                    <div style={{ flex: 1, background: '#e5e7eb', borderRadius: 6, height: 8, overflow: 'hidden', cursor: 'pointer' }}
+                                        onClick={e => e.stopPropagation()}>
+                                        <div style={{ width: `${stageProg}%`, height: '100%', background: stageProg === 100 ? '#16a34a' : stageProg >= 50 ? '#F47920' : '#fb923c', borderRadius: 6, transition: 'width 0.4s' }} />
+                                    </div>
+                                    <input type="number" min={0} max={100} value={stageProg}
+                                        onChange={e => onProgressChange(item.key, 'pct', e.target.value)}
+                                        onClick={e => e.stopPropagation()}
+                                        style={{ width: 44, padding: '3px 4px', borderRadius: 5, fontSize: 12, fontWeight: 600, border: '1.5px solid var(--border)', background: 'var(--bg-primary)', textAlign: 'center', outline: 'none' }} />
+                                    <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>%</span>
+                                </div>
+                            </div>
+
+                            <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {list.map((entry, idx) => {
+                                    const personAmt = amount * (Number(entry.pct) || 0) / 100;
+                                    return (
+                                        <div key={idx} style={{
+                                            borderRadius: 8, border: '1px solid var(--border-light)',
+                                            background: 'var(--bg-primary)', overflow: 'hidden',
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderBottom: '1px solid var(--border-light)', background: entry.name ? 'rgba(0,0,0,0.02)' : 'transparent' }}>
+                                                {entry.name
+                                                    ? <div style={{ width: 26, height: 26, borderRadius: '50%', background: avatarColor(entry.name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{initials(entry.name)}</div>
+                                                    : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--border)', flexShrink: 0 }} />
+                                                }
+                                                <select value={entry.name} onChange={e => onAssigneeChange(item.key, idx, e.target.value)}
+                                                    onClick={e => e.stopPropagation()}
+                                                    style={{ flex: 1, minWidth: 0, padding: '4px 8px', borderRadius: 6, fontSize: 12, border: '1.5px solid var(--border)', background: 'var(--bg-primary)', color: entry.name ? 'var(--text-primary)' : 'var(--text-muted)', outline: 'none', cursor: 'pointer' }}>
+                                                    <option value="">— Chọn người thực hiện —</option>
+                                                    {users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                                                </select>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                                                    <input type="number" min={0} max={100} value={entry.pct}
+                                                        onChange={e => onAssigneePctChange(item.key, idx, e.target.value)}
+                                                        onClick={e => e.stopPropagation()}
+                                                        title={entry.name ? `Tiền: ${fmt(personAmt)}` : ''}
+                                                        style={{ width: 46, padding: '4px 4px', borderRadius: 6, fontSize: 12, fontWeight: 600, border: `1.5px solid ${pctOk ? 'var(--border)' : '#f97316'}`, background: 'var(--bg-primary)', textAlign: 'center', outline: 'none', color: pctOk ? 'var(--text-primary)' : '#ea580c' }} />
+                                                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>%</span>
+                                                </div>
+                                                {list.length > 1 &&
+                                                    <button onClick={e => { e.stopPropagation(); onAssigneeRemove(item.key, idx); }}
+                                                        style={{ width: 22, height: 22, borderRadius: '50%', border: 'none', background: '#fee2e2', color: '#dc2626', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0, lineHeight: 1 }}>×</button>
+                                                }
+                                            </div>
+                                            <div style={{ padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                {entry.name && (
+                                                    <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700 }}>
+                                                        Lương: {fmt(personAmt)}
+                                                    </div>
+                                                )}
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                                                    <DateField label="Bắt đầu" value={entry.startDate} color="#0284c7"
+                                                        onChange={e => onAssigneeDateChange(item.key, idx, 'startDate', e.target.value)} />
+                                                    <DateField label="Dự kiến HT" value={entry.estEndDate} color="#d97706"
+                                                        onChange={e => onAssigneeDateChange(item.key, idx, 'estEndDate', e.target.value)} />
+                                                    <DateField label="Hoàn thành" value={entry.endDate} color="#15803d"
+                                                        onChange={e => onAssigneeDateChange(item.key, idx, 'endDate', e.target.value)} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                {list.length < 3 && (
+                                    <button onClick={e => { e.stopPropagation(); onAssigneeAdd(item.key); }}
+                                        style={{ padding: '6px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer', border: '1.5px dashed var(--border)', background: 'transparent', color: 'var(--text-muted)', width: '100%', transition: 'all 0.15s' }}>
+                                        + Thêm người thực hiện
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
 // ───────── Modal sửa (Tab 1) ─────────
 function EditModal({ project, onClose, onSaved }) {
     const sp = project.salaryProgress || {};
@@ -438,6 +582,127 @@ function printSalaryPDF({ code, name, base, stages, assignees, progress, notes, 
             <div style="font-size:11px;color:#9ca3af;margin-bottom:4px">Tổng đã phân bổ</div>
             <div style="font-size:18px;font-weight:700;color:#F47920">${fmtVN(Object.values(personMap).reduce((a,b)=>a+b,0))}</div>
             <div style="font-size:11px;color:#6b7280;margin-top:4px">/ ${fmtVN(base)}</div>
+        </div>
+    </div>` : ''}
+
+    <div style="margin-top:30px;font-size:10px;color:#9ca3af;text-align:center;border-top:1px solid #e5e7eb;padding-top:10px;">
+        Tài liệu nội bộ — Kiến Trúc Đô Thị SCT — Xuất ngày ${now}
+    </div>
+    </body></html>`;
+
+    const win = window.open('', '_blank', 'width=1100,height=800');
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 600);
+}
+
+// ───────── Xuất PDF lương Thiết kế nội thất ─────────
+function printSalaryPDFNoiThat({ code, name, area, looseFurnitureRevenue, stages, assignees, progress, notes }) {
+    const fmtVN = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
+    const fmtDateVN = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('vi-VN') : '—';
+    const items = noiThatItemsWithAmount(area, looseFurnitureRevenue);
+
+    const itemRows = items.map(it => {
+        const done = !!stages[it.key];
+        const sd = toStageData(progress[it.key] ?? (done ? 100 : 0));
+        const pct = sd.pct;
+        const entries = toEntries(assignees[it.key]);
+        const personRows = entries.filter(e => e.name).map(e => {
+            const dateStr = [e.startDate ? '▶ ' + fmtDateVN(e.startDate) : '', e.endDate ? '✓ ' + fmtDateVN(e.endDate) : ''].filter(Boolean).join(' → ');
+            return `<div style="font-size:11px;color:#374151;margin-bottom:2px;">
+                <span style="font-weight:600">${e.name}</span> <span style="color:#F47920;font-weight:600">${e.pct}%</span> → <b>${fmtVN(it.amount * e.pct / 100)}</b>
+                ${dateStr ? `<div style="font-size:10px;color:#6b7280;margin-top:1px">${dateStr}</div>` : ''}
+            </div>`;
+        }).join('');
+        return `
+        <tr style="border-bottom:1px solid #e5e7eb;">
+          <td style="padding:7px 10px;font-size:12px;font-weight:500;color:${done?'#15803d':'#111827'}">${it.label}</td>
+          <td style="padding:7px 10px;font-size:12px;text-align:center;color:#F47920;font-weight:600">${it.isRevenue ? '1% DT' : fmtVN(it.unitPrice) + '/m²'}</td>
+          <td style="padding:7px 10px;font-size:12px;text-align:right;font-weight:600">${fmtVN(it.amount)}</td>
+          <td style="padding:7px 10px;font-size:12px">${personRows || '<span style="color:#9ca3af;font-size:11px">—</span>'}</td>
+          <td style="padding:7px 10px;min-width:110px;font-size:10px;color:#6b7280;line-height:1.6;">
+            ${sd.startDate ? `<div>▶ ${fmtDateVN(sd.startDate)}</div>` : ''}
+            ${sd.endDate ? `<div style="color:#16a34a">✓ ${fmtDateVN(sd.endDate)}</div>` : (!sd.startDate ? '<span style="color:#d1d5db">—</span>' : '')}
+          </td>
+        </tr>`;
+    }).join('');
+
+    const personMap = {};
+    items.forEach(it => {
+        toEntries(assignees[it.key]).forEach(({ name, pct }) => {
+            if (!name) return;
+            personMap[name] = (personMap[name] || 0) + it.amount * pct / 100;
+        });
+    });
+    const personSummary = Object.entries(personMap).sort((a, b) => b[1] - a[1]).map(([n, v]) =>
+        `<tr><td style="padding:6px 10px;font-size:12px;font-weight:600">${n}</td><td style="padding:6px 10px;font-size:12px;text-align:right;color:#16a34a;font-weight:700">${fmtVN(v)}</td></tr>`
+    ).join('');
+
+    const totalFund = items.reduce((s, it) => s + it.amount, 0);
+    const now = new Date().toLocaleDateString('vi-VN');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bảng lương nội thất — ${code}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif; background: #fff; color: #111827; }
+        @page { margin: 18mm 16mm; size: A4 landscape; }
+        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #F47920; color: #fff; padding: 8px 10px; font-size: 12px; font-weight: 600; text-align: left; }
+    </style></head><body>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:3px solid #F47920;margin-bottom:18px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+            <svg width="44" height="44" viewBox="0 0 48 48" fill="none">
+                <path d="M12 8 L12 40" stroke="#F47920" stroke-width="7" stroke-linecap="round"/>
+                <path d="M12 24 L34 8" stroke="#F47920" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 24 L34 40" stroke="#F47920" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M20 16 L28 24" stroke="#1e293b" stroke-width="3.5" stroke-linecap="round"/>
+                <path d="M20 32 L28 24" stroke="#1e293b" stroke-width="3.5" stroke-linecap="round"/>
+            </svg>
+            <div>
+                <div style="font-size:16px;font-weight:700;color:#1e293b;letter-spacing:0.3px">KIẾN TRÚC ĐÔ THỊ SCT</div>
+                <div style="font-size:11px;color:#6b7280">Cùng bạn xây dựng ước mơ</div>
+            </div>
+        </div>
+        <div style="text-align:right;">
+            <div style="font-size:18px;font-weight:700;color:#F47920">BẢNG TÍNH LƯƠNG</div>
+            <div style="font-size:11px;color:#6b7280">Phòng Thiết Kế Nội Thất — ${now}</div>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;margin-bottom:18px;background:#fef9f5;border:1px solid #fed7aa;border-radius:8px;padding:14px;">
+        <div><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px">Mã</div><div style="font-size:14px;font-weight:700;color:#F47920">${code}</div></div>
+        <div><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px">Tên KH / công trình</div><div style="font-size:13px;font-weight:600">${name}</div></div>
+        <div><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px">Diện tích</div><div style="font-size:14px;font-weight:700">${area || 0} m²</div></div>
+        <div><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px">Tổng quỹ lương</div><div style="font-size:14px;font-weight:700;color:#16a34a">${fmtVN(totalFund)}</div></div>
+        ${notes ? `<div style="grid-column:span 4;font-size:11px;color:#6b7280;font-style:italic">Ghi chú: ${notes}</div>` : ''}
+    </div>
+
+    <table style="margin-bottom:20px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <thead><tr>
+            <th>Hạng mục</th>
+            <th style="text-align:center;width:90px">Đơn giá</th>
+            <th style="text-align:right;width:120px">Số tiền</th>
+            <th>Người thực hiện</th>
+            <th style="width:100px">Tiến độ</th>
+        </tr></thead>
+        <tbody>${itemRows}</tbody>
+    </table>
+
+    ${personSummary ? `
+    <div style="display:flex;gap:24px;align-items:flex-start;">
+        <div style="flex:1;">
+            <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:#1e293b;border-bottom:2px solid #F47920;padding-bottom:4px;">Tổng hợp lương theo người thực hiện</div>
+            <table style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+                <thead><tr><th>Họ tên</th><th style="text-align:right;width:160px">Tổng lương</th></tr></thead>
+                <tbody>${personSummary}</tbody>
+            </table>
+        </div>
+        <div style="width:180px;background:#fef9f5;border:1px solid #fed7aa;border-radius:8px;padding:14px;text-align:center;">
+            <div style="font-size:11px;color:#9ca3af;margin-bottom:4px">Tổng đã phân bổ</div>
+            <div style="font-size:18px;font-weight:700;color:#F47920">${fmtVN(Object.values(personMap).reduce((a,b)=>a+b,0))}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:4px">/ ${fmtVN(totalFund)}</div>
         </div>
     </div>` : ''}
 
@@ -1056,11 +1321,307 @@ function TabThuCong() {
     );
 }
 
+// ─────────────────── TAB 3: THIẾT KẾ NỘI THẤT (nhập thủ công) ───────────────────
+const EMPTY_FORM_NOITHAT = { code: '', name: '', area: '', looseFurnitureRevenue: '', notes: '' };
+
+function TabNoiThat() {
+    const users = useDesignUsers();
+    const [entries, setEntries]   = useState([]);
+    const [loading, setLoading]   = useState(true);
+    const [expanded, setExpanded] = useState({});
+    const [showForm, setShowForm] = useState(false);
+    const [form, setForm]         = useState(EMPTY_FORM_NOITHAT);
+    const [editId, setEditId]     = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [deleting, setDeleting] = useState({});
+    const [localAssignees, setLocalAssignees] = useState({});
+    const [localProgress2, setLocalProgress2] = useState({});
+    const [saveStatus, setSaveStatus] = useState('');
+    const saveTimers = useRef({});
+    const saveStatusTimer = useRef(null);
+    const pendingData = useRef({});
+    const latestNotes = useRef({});
+
+    const load = useCallback(() => {
+        fetch('/api/salary-noithat').then(r => r.json()).then(d => {
+            const list = d.data || [];
+            setEntries(list);
+            const initA = {}, initP = {};
+            list.forEach(e => {
+                initA[e.id] = parseJSON(e.assignees);
+                initP[e.id] = parseJSON(e.progress);
+                latestNotes.current[e.id] = e.notes || '';
+            });
+            setLocalAssignees(initA);
+            setLocalProgress2(initP);
+            setLoading(false);
+        });
+    }, []);
+
+    useEffect(() => { load(); }, [load]);
+
+    const getStages    = (e) => parseJSON(e.stages);
+    const getAssignees = (e) => localAssignees[e.id] || parseJSON(e.assignees);
+    const getProgress2 = (e) => localProgress2[e.id]  || parseJSON(e.progress);
+
+    const getSalaryInfo = (entry) => {
+        const items = noiThatItemsWithAmount(entry.area, entry.looseFurnitureRevenue);
+        const stages = getStages(entry);
+        const totalFund = items.reduce((s, it) => s + it.amount, 0);
+        const earned = items.reduce((sum, it) => sum + (stages[it.key] ? it.amount : 0), 0);
+        const pctDone = totalFund > 0 ? Math.round(earned / totalFund * 100) : 0;
+        return { totalFund, earned, pctDone, items };
+    };
+
+    const saveFull = useCallback(async (entry, newStages, newAssignees, newProgress) => {
+        setSaveStatus('saving');
+        const notes = latestNotes.current[entry.id] ?? entry.notes ?? '';
+        await fetch(`/api/salary-noithat/${entry.id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: entry.code, name: entry.name, area: entry.area, looseFurnitureRevenue: entry.looseFurnitureRevenue, notes, stages: newStages, assignees: newAssignees, progress: newProgress }),
+        });
+        setSaveStatus('saved');
+        clearTimeout(saveStatusTimer.current);
+        saveStatusTimer.current = setTimeout(() => setSaveStatus(''), 2000);
+    }, []);
+
+    const toggleStage = async (entry, stageKey) => {
+        const current = getStages(entry);
+        const updated = { ...current, [stageKey]: !current[stageKey] };
+        setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, stages: JSON.stringify(updated) } : e));
+        await saveFull(entry, updated, getAssignees(entry), getProgress2(entry));
+    };
+
+    const _scheduleSave2 = (entry, newAssignees, newProgress) => {
+        if (!pendingData.current[entry.id]) pendingData.current[entry.id] = {};
+        if (newAssignees !== undefined) pendingData.current[entry.id].assignees = newAssignees;
+        if (newProgress !== undefined) pendingData.current[entry.id].progress = newProgress;
+        clearTimeout(saveTimers.current[entry.id]);
+        saveTimers.current[entry.id] = setTimeout(() => {
+            const p = pendingData.current[entry.id] || {};
+            const a = p.assignees ?? getAssignees(entry);
+            const prog = p.progress ?? getProgress2(entry);
+            delete pendingData.current[entry.id];
+            saveFull(entry, getStages(entry), a, prog);
+        }, 800);
+    };
+
+    const _saveAssignees2 = (entry, updated) => {
+        setLocalAssignees(prev => ({ ...prev, [entry.id]: updated }));
+        _scheduleSave2(entry, updated, undefined);
+    };
+
+    const handleAssigneeChange = (entry, itemKey, idx, value) => {
+        const cur = toEntries(getAssignees(entry)[itemKey]);
+        const newList = cur.map((e, i) => i === idx ? { ...e, name: value } : e);
+        _saveAssignees2(entry, { ...getAssignees(entry), [itemKey]: newList });
+    };
+
+    const handleAssigneePctChange = (entry, itemKey, idx, value) => {
+        const cur = toEntries(getAssignees(entry)[itemKey]);
+        const newList = cur.map((e, i) => i === idx ? { ...e, pct: value === '' ? '' : Number(value) } : e);
+        _saveAssignees2(entry, { ...getAssignees(entry), [itemKey]: newList });
+    };
+
+    const handleAssigneeDateChange = (entry, itemKey, idx, field, value) => {
+        const cur = toEntries(getAssignees(entry)[itemKey]);
+        const newList = cur.map((e, i) => i === idx ? { ...e, [field]: value } : e);
+        _saveAssignees2(entry, { ...getAssignees(entry), [itemKey]: newList });
+    };
+
+    const handleAssigneeAdd = (entry, itemKey) => {
+        const cur = toEntries(getAssignees(entry)[itemKey]);
+        if (cur.length >= 3) return;
+        const n = cur.length + 1;
+        const share = Math.floor(100 / n);
+        const newList = [...cur.map((e, i) => ({ ...e, pct: i === cur.length - 1 ? 100 - share * (n - 1) : share })), { name: '', pct: share }];
+        _saveAssignees2(entry, { ...getAssignees(entry), [itemKey]: newList });
+    };
+
+    const handleAssigneeRemove = (entry, itemKey, idx) => {
+        const cur = toEntries(getAssignees(entry)[itemKey]);
+        const newList = cur.filter((_, i) => i !== idx);
+        const result = newList.length ? newList : [{ name: '', pct: 100 }];
+        if (result.length === 1) result[0] = { ...result[0], pct: 100 };
+        _saveAssignees2(entry, { ...getAssignees(entry), [itemKey]: result });
+    };
+
+    const handleProgressChange2 = (entry, itemKey, field, value) => {
+        const cur = toStageData(getProgress2(entry)[itemKey]);
+        const updated = { ...getProgress2(entry), [itemKey]: { ...cur, [field]: field === 'pct' ? (value === '' ? 0 : Math.min(100, Math.max(0, Number(value)))) : value } };
+        setLocalProgress2(prev => ({ ...prev, [entry.id]: updated }));
+        _scheduleSave2(entry, undefined, updated);
+    };
+
+    const toggleExpand = (entry) => {
+        const isOpen = expanded[entry.id];
+        if (isOpen) {
+            clearTimeout(saveTimers.current[entry.id]);
+            const p = pendingData.current[entry.id] || {};
+            const a = p.assignees ?? getAssignees(entry);
+            const prog = p.progress ?? getProgress2(entry);
+            delete pendingData.current[entry.id];
+            saveFull(entry, getStages(entry), a, prog);
+        }
+        setExpanded(e => ({ ...e, [entry.id]: !e[entry.id] }));
+    };
+
+    const openEdit = (entry) => {
+        setForm({ code: entry.code, name: entry.name, area: entry.area, looseFurnitureRevenue: entry.looseFurnitureRevenue, notes: entry.notes || '' });
+        setEditId(entry.id);
+        setShowForm(true);
+    };
+
+    const closeForm = () => { setShowForm(false); setForm(EMPTY_FORM_NOITHAT); setEditId(null); };
+
+    const submit = async () => {
+        if (!form.code || !form.name) return;
+        setSubmitting(true);
+        const body = { ...form, area: parseFloat(form.area) || 0, looseFurnitureRevenue: parseFloat(form.looseFurnitureRevenue) || 0 };
+        if (editId) {
+            clearTimeout(saveTimers.current[editId]);
+            delete pendingData.current[editId];
+            latestNotes.current[editId] = form.notes || '';
+            const entry = entries.find(e => e.id === editId);
+            body.stages = parseJSON(entry?.stages);
+            body.assignees = getAssignees(entry || {});
+            body.progress = getProgress2(entry || {});
+            await fetch(`/api/salary-noithat/${editId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        } else {
+            await fetch('/api/salary-noithat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        }
+        setSubmitting(false);
+        closeForm();
+        load();
+    };
+
+    const deleteEntry = async (id) => {
+        if (!confirm('Xóa mục này?')) return;
+        setDeleting(d => ({ ...d, [id]: true }));
+        await fetch(`/api/salary-noithat/${id}`, { method: 'DELETE' });
+        setEntries(prev => prev.filter(e => e.id !== id));
+    };
+
+    const totalEarned = entries.reduce((s, e) => s + getSalaryInfo(e).earned, 0);
+    const totalFund   = entries.reduce((s, e) => s + getSalaryInfo(e).totalFund, 0);
+
+    const allItems = entries.flatMap(entry => {
+        const { items } = getSalaryInfo(entry);
+        const stages = getStages(entry);
+        const assignees = getAssignees(entry);
+        return items.filter(it => stages[it.key]).map(it => ({ entries: toEntries(assignees[it.key]), amount: it.amount }));
+    });
+
+    return (
+        <div>
+            <div className="stats-grid" style={{ marginBottom: 20 }}>
+                <div className="stat-card"><div className="stat-icon">📋</div><div><div className="stat-value">{entries.length}</div><div className="stat-label">Công trình / mục</div></div></div>
+                <div className="stat-card"><div className="stat-icon">💰</div><div><div className="stat-value" style={{ fontSize: 14, color: 'var(--text-muted)' }}>{fmt(totalFund)}</div><div className="stat-label">Tổng quỹ lương</div></div></div>
+                <div className="stat-card"><div className="stat-icon">✅</div><div><div className="stat-value" style={{ fontSize: 14, color: 'var(--accent-primary)' }}>{fmt(totalEarned)}</div><div className="stat-label">Đã tích lũy</div></div></div>
+            </div>
+
+            <SummaryTable items={allItems} />
+
+            <div className="card" style={{ marginTop: 20 }}>
+                <div className="card-header" style={{ justifyContent: 'flex-end', gap: 12 }}>
+                    {saveStatus && (
+                        <span style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4,
+                            color: saveStatus === 'saved' ? '#16a34a' : '#F47920' }}>
+                            {saveStatus === 'saving' ? '⏳ Đang lưu...' : '✓ Đã lưu'}
+                        </span>
+                    )}
+                    <button className="btn btn-primary" onClick={() => { setForm(EMPTY_FORM_NOITHAT); setEditId(null); setShowForm(true); }}>+ Thêm công trình</button>
+                </div>
+
+                {showForm && (
+                    <div style={{ margin: '0 16px 16px', padding: 16, borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                        <div style={{ fontWeight: 600, marginBottom: 12 }}>{editId ? 'Sửa công trình' : 'Thêm công trình'}</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+                            <div><div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Mã *</div><input className="form-input" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} placeholder="VD: NT-01" /></div>
+                            <div><div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Tên KH / công trình *</div><input className="form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Tên khách hàng / công trình" /></div>
+                            <div><div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Diện tích (m²)</div><input className="form-input" type="number" value={form.area} onChange={e => setForm(f => ({ ...f, area: e.target.value }))} placeholder="0" /></div>
+                            <div><div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Doanh thu đồ rời (VND)</div><input className="form-input" type="number" value={form.looseFurnitureRevenue} onChange={e => setForm(f => ({ ...f, looseFurnitureRevenue: e.target.value }))} placeholder="0" /></div>
+                        </div>
+                        <div style={{ marginBottom: 10 }}><div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Ghi chú</div><input className="form-input" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Ghi chú..." /></div>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <button className="btn btn-secondary" onClick={closeForm}>Hủy</button>
+                            <button className="btn btn-primary" onClick={submit} disabled={submitting || !form.code || !form.name}>{submitting ? 'Đang lưu...' : (editId ? 'Cập nhật' : 'Thêm')}</button>
+                        </div>
+                    </div>
+                )}
+
+                {loading ? (
+                    <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
+                ) : entries.length === 0 ? (
+                    <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Chưa có công trình nào</div>
+                ) : (
+                    <div style={{ padding: '0 0 16px' }}>
+                        {entries.map(entry => {
+                            const { totalFund: fund, earned, pctDone, items } = getSalaryInfo(entry);
+                            const stages = getStages(entry);
+                            const assignees = getAssignees(entry);
+                            const progress = getProgress2(entry);
+                            const isExpanded = expanded[entry.id];
+                            const projectItems = items.filter(it => stages[it.key]).map(it => ({ entries: toEntries(assignees[it.key]), amount: it.amount }));
+
+                            return (
+                                <div key={entry.id} style={{ borderBottom: '1px solid var(--border)', margin: '0 16px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 0' }}>
+                                        <span style={{ fontSize: 16, cursor: 'pointer' }} onClick={() => toggleExpand(entry)}>{isExpanded ? '▾' : '▸'}</span>
+                                        <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => toggleExpand(entry)}>
+                                            <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--accent-primary)' }}>{entry.code}</div>
+                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden' }}>
+                                                <span style={{ fontSize: 12, color: 'var(--text-secondary)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>{entry.name}</span>
+                                                {entry.notes && <span style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {entry.notes}</span>}
+                                            </div>
+                                        </div>
+                                        <div style={{ textAlign: 'right', minWidth: 90 }}><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Diện tích</div><div style={{ fontSize: 12, fontWeight: 600 }}>{entry.area || 0} m²</div></div>
+                                        <div style={{ textAlign: 'right', minWidth: 110 }}><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Đồ rời</div><div style={{ fontSize: 12, fontWeight: 600 }}>{fmt(entry.looseFurnitureRevenue)}</div></div>
+                                        <div style={{ textAlign: 'right', minWidth: 110 }}><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Quỹ lương</div><div style={{ fontSize: 12, fontWeight: 600 }}>{fmt(fund)}</div></div>
+                                        <div style={{ textAlign: 'right', minWidth: 130 }}><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Đã tích lũy ({pctDone}%)</div><div style={{ fontSize: 13, fontWeight: 700, color: earned > 0 ? '#16a34a' : 'var(--text-muted)' }}>{fmt(earned)}</div></div>
+                                        <div style={{ width: 70 }}><div style={{ height: 6, background: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}><div style={{ height: '100%', background: '#16a34a', width: `${pctDone}%`, borderRadius: 3, transition: 'width 0.3s' }} /></div></div>
+                                        <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+                                            <button onClick={() => printSalaryPDFNoiThat({ code: entry.code, name: entry.name, area: entry.area, looseFurnitureRevenue: entry.looseFurnitureRevenue, stages, assignees, progress, notes: entry.notes || '' })} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', border: '1px solid #F47920', background: 'transparent', color: '#F47920' }}>📄 PDF</button>
+                                            <button onClick={() => openEdit(entry)} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-secondary)' }}>Sửa</button>
+                                            <button onClick={() => deleteEntry(entry.id)} disabled={deleting[entry.id]} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', border: '1px solid #dc2626', background: 'transparent', color: '#dc2626' }}>{deleting[entry.id] ? '...' : 'Xóa'}</button>
+                                        </div>
+                                    </div>
+
+                                    {isExpanded && (
+                                        <div style={{ padding: '8px 0 16px 28px' }}>
+                                            <ItemStageList
+                                                items={items}
+                                                stages={stages}
+                                                assignees={assignees}
+                                                progress={progress}
+                                                users={users}
+                                                onToggle={(key) => toggleStage(entry, key)}
+                                                onAssigneeChange={(key, idx, val) => handleAssigneeChange(entry, key, idx, val)}
+                                                onAssigneePctChange={(key, idx, val) => handleAssigneePctChange(entry, key, idx, val)}
+                                                onAssigneeDateChange={(key, idx, field, val) => handleAssigneeDateChange(entry, key, idx, field, val)}
+                                                onAssigneeAdd={(key) => handleAssigneeAdd(entry, key)}
+                                                onAssigneeRemove={(key, idx) => handleAssigneeRemove(entry, key, idx)}
+                                                onProgressChange={(key, field, val) => handleProgressChange2(entry, key, field, val)}
+                                            />
+                                            <SummaryTable items={projectItems} />
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 // ─────────────────────────── ROOT PAGE ───────────────────────────
 export default function LuongPage() {
     const { data: session, status } = useSession();
     const router = useRouter();
-    const [tab, setTab] = useState('du_an');
+    const [dept, setDept] = useState('kien_truc'); // 'kien_truc' | 'noi_that'
+    const [tab, setTab]   = useState('du_an');
 
     const canAccess = session?.user?.email === ALLOWED_EMAIL || BAN_GD_ROLES.includes(session?.user?.role) || DESIGN_DEPT_ROLES.includes(session?.user?.role);
 
@@ -1076,20 +1637,47 @@ export default function LuongPage() {
     return (
         <div>
             <div className="page-header" style={{ marginBottom: 20 }}>
-                <h1 style={{ fontSize: 22, fontWeight: 700 }}>Bảng tính lương — Phòng Thiết Kế Kiến Trúc</h1>
+                <h1 style={{ fontSize: 22, fontWeight: 700 }}>Bảng tính lương</h1>
             </div>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '2px solid var(--border)' }}>
-                {[{ key: 'du_an', label: 'Dự án trong hệ thống' }, { key: 'thu_cong', label: 'Mục thủ công' }].map(t => (
-                    <button key={t.key} onClick={() => setTab(t.key)} style={{
-                        padding: '8px 18px', fontSize: 13, fontWeight: 500, cursor: 'pointer', border: 'none', background: 'none',
-                        borderBottom: tab === t.key ? '2px solid var(--accent-primary)' : '2px solid transparent',
-                        color: tab === t.key ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                        marginBottom: -2, transition: 'all 0.15s',
-                    }}>{t.label}</button>
+
+            {/* Chọn phòng ban */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+                {[{ key: 'kien_truc', label: '🏛️ Phòng Thiết Kế Kiến Trúc' }, { key: 'noi_that', label: '🛋️ Phòng Thiết Kế Nội Thất' }].map(d => (
+                    <button key={d.key} onClick={() => setDept(d.key)} style={{
+                        padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', borderRadius: 8,
+                        border: `1.5px solid ${dept === d.key ? 'var(--accent-primary)' : 'var(--border)'}`,
+                        background: dept === d.key ? 'var(--accent-primary)' : 'transparent',
+                        color: dept === d.key ? '#fff' : 'var(--text-secondary)',
+                        transition: 'all 0.15s',
+                    }}>{d.label}</button>
                 ))}
             </div>
-            {tab === 'du_an'    && <TabDuAn />}
-            {tab === 'thu_cong' && <TabThuCong />}
+
+            {dept === 'kien_truc' && (
+                <>
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '2px solid var(--border)' }}>
+                        {[{ key: 'du_an', label: 'Dự án trong hệ thống' }, { key: 'thu_cong', label: 'Mục thủ công' }].map(t => (
+                            <button key={t.key} onClick={() => setTab(t.key)} style={{
+                                padding: '8px 18px', fontSize: 13, fontWeight: 500, cursor: 'pointer', border: 'none', background: 'none',
+                                borderBottom: tab === t.key ? '2px solid var(--accent-primary)' : '2px solid transparent',
+                                color: tab === t.key ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                                marginBottom: -2, transition: 'all 0.15s',
+                            }}>{t.label}</button>
+                        ))}
+                    </div>
+                    {tab === 'du_an'    && <TabDuAn />}
+                    {tab === 'thu_cong' && <TabThuCong />}
+                </>
+            )}
+
+            {dept === 'noi_that' && (
+                <>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
+                        Tính lương theo Quy định chi trả lương thiết kế nội thất — đơn giá 80.000đ/m² (đo hiện trạng, dựng 3D, tư vấn KH, bổ 3D &amp; vật liệu) + 1% doanh thu đồ rời.
+                    </div>
+                    <TabNoiThat />
+                </>
+            )}
         </div>
     );
 }
