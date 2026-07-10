@@ -141,6 +141,7 @@ model Project {
   workOrders         WorkOrder[]
   workshopTasks      WorkshopTask[]
   designOrders       DesignOrder[]
+  supervisionChecklists SupervisionChecklist[]
 
   @@index([customerId])
 }
@@ -1992,4 +1993,39 @@ model ContractProcessTemplateStep {
 
   @@index([templateId])
   @@index([parentId])
+}
+
+model SupervisionChecklist {
+  id           String                     @id @default(cuid())
+  projectId    String
+  templateKey  String
+  templateName String
+  status       String                     @default("Đang thực hiện")
+  createdBy    String                     @default("")
+  notes        String                     @default("")
+  deletedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+  project      Project                    @relation(fields: [projectId], references: [id])
+  items        SupervisionChecklistItem[]
+
+  @@index([projectId])
+}
+
+model SupervisionChecklistItem {
+  id          String               @id @default(cuid())
+  checklistId String
+  groupName   String               @default("")
+  label       String
+  hint        String               @default("")
+  status      String               @default("pending")
+  note        String               @default("")
+  photos      String               @default("[]")
+  checkedBy   String               @default("")
+  checkedAt   DateTime?
+  sortOrder   Int                  @default(0)
+  checklist   SupervisionChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  @@index([checklistId])
 }

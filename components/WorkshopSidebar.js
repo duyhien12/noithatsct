@@ -6,6 +6,7 @@ import {
     LayoutDashboard, Wrench, Building2, ShoppingCart, Package,
     ChevronRight, X, CalendarDays, Users, FileText, Warehouse,
     BarChart2, Clock, BookOpen, Banknote, Landmark, BookMarked, Settings, Factory,
+    ClipboardCheck,
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useState } from 'react';
@@ -47,6 +48,12 @@ const FULL_MENU = [
             { href: '/work-orders', icon: Clock, label: 'Phiếu công việc' },
             { href: '/production', icon: Factory, label: 'Quản lý sản xuất' },
             { href: '/cost-management', icon: BarChart2, label: 'Giá thành xưởng' },
+        ],
+    },
+    {
+        section: 'Giám sát công trình',
+        items: [
+            { href: '/workshop/supervision', icon: ClipboardCheck, label: 'Checklist giám sát' },
         ],
     },
     {
@@ -113,6 +120,12 @@ const SUPERVISOR_MENU = [
             { href: '/workshop/work-log/project-summary', icon: BarChart2, label: 'Tổng hợp công CT' },
             { href: '/workshop/timeline', icon: BarChart2, label: 'Tiến độ (Gantt)' },
             { href: '/work-orders', icon: Clock, label: 'Phiếu công việc' },
+        ],
+    },
+    {
+        section: 'Giám sát công trình',
+        items: [
+            { href: '/workshop/supervision', icon: ClipboardCheck, label: 'Checklist giám sát' },
         ],
     },
     {

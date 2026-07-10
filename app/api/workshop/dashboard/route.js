@@ -276,7 +276,7 @@ export const GET = withAuth(async () => {
             projectId: project.id,
             projectCode: project.code,
             projectName: project.name,
-            orderId: project.productionOrders[0]?.id || null,
+            orderId: project.productionOrders?.id || null,
         };
     });
 
