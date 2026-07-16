@@ -16,6 +16,19 @@ describe('getMfgPermissions — theo role/department (mục VII)', () => {
         expect(perms.approve).toBe(false);
     });
 
+    it('xưởng "Quản lý" (department thực tế đang dùng trong DB) can create/assign like Quản đốc', () => {
+        const perms = getMfgPermissions({ role: 'xuong', department: 'Quản lý' });
+        expect(perms.create).toBe(true);
+        expect(perms.assign).toBe(true);
+        expect(perms.report).toBe(true);
+    });
+
+    it('xưởng "Phó phòng" can create/assign like Quản đốc', () => {
+        const perms = getMfgPermissions({ role: 'xuong', department: 'Phó phòng' });
+        expect(perms.create).toBe(true);
+        expect(perms.manage_material).toBe(true);
+    });
+
     it('xưởng QC can do qc and resolve_issue only', () => {
         const perms = getMfgPermissions({ role: 'xuong', department: 'QC' });
         expect(perms.qc).toBe(true);
