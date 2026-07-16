@@ -14,6 +14,7 @@ import BudgetEstimateForm from '@/components/budget/BudgetEstimateForm';
 import BudgetEstimateTable from '@/components/budget/BudgetEstimateTable';
 import ProductionCostTable from '@/components/budget/ProductionCostTable';
 import MeasurementSheet, { MeasurementActions } from '@/components/contractor/MeasurementSheet';
+import ProjectManufacturingTab from '@/components/manufacturing/ProjectManufacturingTab';
 import { useSession } from 'next-auth/react';
 
 // Banner chia sẻ link + QR cho khách hàng
@@ -31,6 +32,15 @@ const PIPELINE = [
 ];
 
 const STATUS_MAP = { 'Khảo sát': 0, 'Báo giá': 0, 'Thiết kế': 1, 'Chuẩn bị thi công': 2, 'Đang thi công': 3, 'Bảo hành': 4, 'Hoàn thành': 5 };
+
+// Màu trạng thái bước "Sản xuất" trên pipeline (mục II) — độc lập với p.status, lấy từ dữ liệu module sản xuất
+const MFG_STEP_STYLE = {
+    none:        { dot: '#9ca3af', bg: '#f3f4f6', label: '#6b7280' },
+    not_started: { dot: '#9ca3af', bg: '#f3f4f6', label: '#6b7280' },
+    in_progress: { dot: '#d97706', bg: '#fef3c7', label: '#b45309' },
+    completed:   { dot: '#16a34a', bg: '#dcfce7', label: '#15803d' },
+    late:        { dot: '#dc2626', bg: '#fee2e2', label: '#b91c1c' },
+};
 
 export default function ProjectDetailPage() {
     const { id } = useParams();
@@ -121,6 +131,9 @@ export default function ProjectDetailPage() {
     const [frontPhotoUploading, setFrontPhotoUploading] = useState(false);
     const fetchData = () => { fetch(`/api/projects/${id}`).then(r => r.ok ? r.json() : r.json().then(e => { throw new Error(e.error || `HTTP ${r.status}`); })).then(d => { setData(d); setLoading(false); }).catch(e => { console.error('[ProjectDetail]', e); setData({ _error: e.message }); setLoading(false); }); };
     useEffect(fetchData, [id]);
+    const [mfgSummary, setMfgSummary] = useState(null);
+    const fetchMfgSummary = () => { fetch(`/api/projects/${id}/manufacturing-summary`).then(r => r.ok ? r.json() : null).then(setMfgSummary).catch(() => {}); };
+    useEffect(fetchMfgSummary, [id]);
     useEffect(() => {
         const check = () => setIsMobile(window.innerWidth < 768);
         check();
@@ -839,6 +852,7 @@ export default function ProjectDetailPage() {
     const tabs = [
         { key: 'documents', label: 'Tài liệu', icon: '📁', count: p.documents?.length },
         { key: 'milestones', label: 'Tiến độ', icon: '📊', count: p.milestones?.length },
+        { key: 'manufacturing', label: 'Sản xuất', icon: '🏭', count: mfgSummary?.ordersCount },
         { key: 'logs', label: 'Nhật ký lắp đặt', icon: '📷' },
         canSeeBudgetEstimate && { key: 'budget', label: 'Dự trù kinh phí', icon: '💰' },
         isXuongOrBGD && { key: 'hachtoan', label: 'Hạch toán', icon: '📊' },
@@ -989,6 +1003,28 @@ export default function ProjectDetailPage() {
                                         <span className="pipeline-label">{stage.label}</span>
                                     </div>
                                     {i < PIPELINE.length - 1 && <div className={`pipeline-line ${i < pipelineIdx ? 'completed' : ''}`}></div>}
+
+                                    {/* Bước "Sản xuất" — chèn giữa Ký HĐ (i=2) và Thi công (i=3), màu theo dữ liệu module sản xuất riêng, không phụ thuộc p.status */}
+                                    {i === 2 && (() => {
+                                        const mfgState = mfgSummary?.step?.state || 'none';
+                                        const style = MFG_STEP_STYLE[mfgState];
+                                        const mfgProgress = mfgSummary?.step?.progress;
+                                        return (
+                                            <>
+                                                <div className="pipeline-step" style={{ cursor: 'pointer' }} onClick={() => setTab('manufacturing')} title="Xem tab Sản xuất">
+                                                    <div className="pipeline-node">
+                                                        <div className="pipeline-dot" style={{ background: style.dot, borderColor: style.dot, color: 'white' }}>
+                                                            {mfgState === 'completed' ? '✓' : '🏭'}
+                                                        </div>
+                                                        <span className="pipeline-label" style={{ color: style.label, fontWeight: mfgState === 'in_progress' || mfgState === 'late' ? 700 : 500 }}>
+                                                            Sản xuất{mfgProgress != null ? ` (${mfgProgress}%)` : ''}
+                                                        </span>
+                                                    </div>
+                                                    <div className={`pipeline-line ${pipelineIdx > 2 ? 'completed' : ''}`}></div>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             ))}
                         </div>
@@ -1332,6 +1368,16 @@ export default function ProjectDetailPage() {
                     projectCode={p.code}
                     projectStartDate={p.startDate}
                     onProgressUpdate={(prog) => setData(prev => ({ ...prev, progress: prog }))}
+                />
+            )}
+
+            {/* TAB: Sản xuất */}
+            {tab === 'manufacturing' && (
+                <ProjectManufacturingTab
+                    projectId={id}
+                    projectCode={p.code}
+                    project={p}
+                    onSummaryChange={fetchMfgSummary}
                 />
             )}
 

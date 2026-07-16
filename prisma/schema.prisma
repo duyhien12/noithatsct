@@ -24,124 +24,127 @@ model User {
 }
 
 model Customer {
-  id                String            @id @default(cuid())
-  code              String            @unique
-  name              String
-  phone             String
-  email             String            @default("")
-  address           String            @default("")
-  type              String            @default("Cá nhân")
-  status            String            @default("Lead")
-  taxCode           String            @default("")
-  representative    String            @default("")
-  birthday          DateTime?
-  source            String            @default("")
-  notes             String            @default("")
-  totalRevenue      Float             @default(0)
-  gender            String            @default("Nam")
-  projectAddress    String            @default("")
-  projectName       String            @default("")
-  salesPerson       String            @default("")
-  designer          String            @default("")
-  contactPerson2    String            @default("")
-  phone2            String            @default("")
-  pipelineStage     String            @default("Lead")
-  estimatedValue    Float             @default(0)
-  nextFollowUp      DateTime?
-  score             Int               @default(0)
-  lastContactAt     DateTime?
-  deletedAt         DateTime?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  createdByRole     String            @default("")
-  processData       String            @default("")
-  branch            String            @default("HQ")
-  demand            String            @default("")
-  category          String            @default("")
-  area              Float             @default(0)
-  constructionStatus String           @default("")
-  decisionMaker     String            @default("")
-  specialRequest    String            @default("")
-  contracts         Contract[]
-  contractProcesses ContractProcess[]
-  projects          Project[]
-  documents         ProjectDocument[]
-  quotations        Quotation[]
-  trackingLogs      TrackingLog[]
-  designOrders      DesignOrder[]
+  id                 String            @id @default(cuid())
+  code               String            @unique
+  name               String
+  phone              String
+  email              String            @default("")
+  address            String            @default("")
+  type               String            @default("Cá nhân")
+  status             String            @default("Lead")
+  taxCode            String            @default("")
+  representative     String            @default("")
+  birthday           DateTime?
+  source             String            @default("")
+  notes              String            @default("")
+  totalRevenue       Float             @default(0)
+  gender             String            @default("Nam")
+  projectAddress     String            @default("")
+  projectName        String            @default("")
+  salesPerson        String            @default("")
+  designer           String            @default("")
+  contactPerson2     String            @default("")
+  phone2             String            @default("")
+  pipelineStage      String            @default("Lead")
+  estimatedValue     Float             @default(0)
+  nextFollowUp       DateTime?
+  score              Int               @default(0)
+  lastContactAt      DateTime?
+  deletedAt          DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  createdByRole      String            @default("")
+  processData        String            @default("")
+  branch             String            @default("HQ")
+  demand             String            @default("")
+  category           String            @default("")
+  area               Float             @default(0)
+  constructionStatus String            @default("")
+  decisionMaker      String            @default("")
+  specialRequest     String            @default("")
+  contracts          Contract[]
+  contractProcesses  ContractProcess[]
+  projects           Project[]
+  documents          ProjectDocument[]
+  quotations         Quotation[]
+  trackingLogs       TrackingLog[]
+  designOrders       DesignOrder[]
 }
 
 model Project {
-  id                 String                 @id @default(cuid())
-  code               String                 @unique
-  name               String
-  type               String
-  address            String                 @default("")
-  description        String                 @default("")
-  area               Float                  @default(0)
-  floors             Int                    @default(0)
-  budget             Float                  @default(0)
-  spent              Float                  @default(0)
-  contractValue      Float                  @default(0)
-  paidAmount         Float                  @default(0)
-  status             String                 @default("Khảo sát")
-  phase              String                 @default("")
-  progress           Int                    @default(0)
-  startDate          DateTime?
-  endDate            DateTime?
-  manager            String                 @default("")
-  designer           String                 @default("")
-  supervisor         String                 @default("")
-  notes              String                 @default("")
-  budgetStatus       String                 @default("draft")
-  budgetLockedAt     DateTime?
-  budgetLockedBy     String                 @default("")
-  budgetTotal        Float                  @default(0)
-  customerId         String
-  deletedAt          DateTime?
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
-  budgetEstimateData Json?
-  createdByRole      String                 @default("")
-  frontPhotos        Json?
-  latitude           Float?
-  longitude          Float?
-  routeNotes         String                 @default("")
-  siteContact        String                 @default("")
-  siteContactPhone   String                 @default("")
-  changeOrders       BudgetChangeOrder[]
-  commitments        Commitment[]
-  contracts          Contract[]
-  contractorPays     ContractorPayment[]
-  documentFolders    DocumentFolder[]
-  inventoryTx        InventoryTransaction[]
-  journalEntries     JournalEntry[]
-  maintenanceRecords MaintenanceRecord[]
-  materialPlans      MaterialPlan[]
-  requisitions       MaterialRequisition[]
-  productionCosts    ProductionCostItem[]
-  productionOrders   ProductionOrder?
-  productionPlan     ProductionPlan?
-  progressReports    ProgressReport[]
-  customer           Customer               @relation(fields: [customerId], references: [id])
-  budgets            ProjectBudget[]
-  projectChats       ProjectChatMsg[]
-  checkIns           ProjectCheckIn[]
-  documents          ProjectDocument[]
-  employees          ProjectEmployee[]
-  expenses           ProjectExpense[]
-  milestones         ProjectMilestone[]
-  purchaseOrders     PurchaseOrder[]
-  quotations         Quotation[]
-  salaryProgress     SalaryProgress?
-  scheduleTasks      ScheduleTask[]
-  trackingLogs       TrackingLog[]
-  transactions       Transaction[]
-  workLogEntries     WorkLogEntry[]
-  workOrders         WorkOrder[]
-  workshopTasks      WorkshopTask[]
-  designOrders       DesignOrder[]
+  id                    String                 @id @default(cuid())
+  code                  String                 @unique
+  name                  String
+  type                  String
+  address               String                 @default("")
+  description           String                 @default("")
+  area                  Float                  @default(0)
+  floors                Int                    @default(0)
+  budget                Float                  @default(0)
+  spent                 Float                  @default(0)
+  contractValue         Float                  @default(0)
+  paidAmount            Float                  @default(0)
+  status                String                 @default("Khảo sát")
+  phase                 String                 @default("")
+  progress              Int                    @default(0)
+  startDate             DateTime?
+  endDate               DateTime?
+  manager               String                 @default("")
+  designer              String                 @default("")
+  supervisor            String                 @default("")
+  notes                 String                 @default("")
+  budgetStatus          String                 @default("draft")
+  budgetLockedAt        DateTime?
+  budgetLockedBy        String                 @default("")
+  budgetTotal           Float                  @default(0)
+  customerId            String
+  deletedAt             DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  budgetEstimateData    Json?
+  createdByRole         String                 @default("")
+  frontPhotos           Json?
+  latitude              Float?
+  longitude             Float?
+  routeNotes            String                 @default("")
+  siteContact           String                 @default("")
+  siteContactPhone      String                 @default("")
+  changeOrders          BudgetChangeOrder[]
+  commitments           Commitment[]
+  contracts             Contract[]
+  contractorPays        ContractorPayment[]
+  documentFolders       DocumentFolder[]
+  inventoryTx           InventoryTransaction[]
+  journalEntries        JournalEntry[]
+  maintenanceRecords    MaintenanceRecord[]
+  materialPlans         MaterialPlan[]
+  requisitions          MaterialRequisition[]
+  productionCosts       ProductionCostItem[]
+  productionOrders      ProductionOrder?
+  productionPlan        ProductionPlan?
+  progressReports       ProgressReport[]
+  customer              Customer               @relation(fields: [customerId], references: [id])
+  budgets               ProjectBudget[]
+  projectChats          ProjectChatMsg[]
+  checkIns              ProjectCheckIn[]
+  documents             ProjectDocument[]
+  employees             ProjectEmployee[]
+  expenses              ProjectExpense[]
+  milestones            ProjectMilestone[]
+  purchaseOrders        PurchaseOrder[]
+  quotations            Quotation[]
+  salaryProgress        SalaryProgress?
+  scheduleTasks         ScheduleTask[]
+  trackingLogs          TrackingLog[]
+  transactions          Transaction[]
+  workLogEntries        WorkLogEntry[]
+  workOrders            WorkOrder[]
+  workshopTasks         WorkshopTask[]
+  designOrders          DesignOrder[]
   supervisionChecklists SupervisionChecklist[]
+  mfgOrders             MfgOrder[]
+  mfgItems              MfgItem[]
+  deliveryRecords       DeliveryRecord[]
 
   @@index([customerId])
 }
@@ -162,44 +165,45 @@ model ProductCategory {
 }
 
 model Product {
-  id                String                 @id @default(cuid())
-  code              String                 @unique
+  id                String                   @id @default(cuid())
+  code              String                   @unique
   name              String
   category          String
   unit              String
-  importPrice       Float                  @default(0)
-  salePrice         Float                  @default(0)
-  stock             Int                    @default(0)
-  minStock          Int                    @default(0)
-  supplier          String                 @default("")
-  description       String                 @default("")
-  dimensions        String                 @default("")
-  weight            Float                  @default(0)
-  color             String                 @default("")
-  material          String                 @default("")
-  origin            String                 @default("")
-  warranty          String                 @default("")
-  brand             String                 @default("")
-  status            String                 @default("Đang bán")
-  supplyType        String                 @default("Vật tư lưu kho")
-  leadTimeDays      Int                    @default(0)
-  location          String                 @default("")
-  image             String                 @default("")
-  coreBoard         String                 @default("")
-  surfaceCode       String                 @default("")
+  importPrice       Float                    @default(0)
+  salePrice         Float                    @default(0)
+  stock             Int                      @default(0)
+  minStock          Int                      @default(0)
+  supplier          String                   @default("")
+  description       String                   @default("")
+  dimensions        String                   @default("")
+  weight            Float                    @default(0)
+  color             String                   @default("")
+  material          String                   @default("")
+  origin            String                   @default("")
+  warranty          String                   @default("")
+  brand             String                   @default("")
+  status            String                   @default("Đang bán")
+  supplyType        String                   @default("Vật tư lưu kho")
+  leadTimeDays      Int                      @default(0)
+  location          String                   @default("")
+  image             String                   @default("")
+  coreBoard         String                   @default("")
+  surfaceCode       String                   @default("")
   categoryId        String?
   deletedAt         DateTime?
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
   inventoryTx       InventoryTransaction[]
   materialPlans     MaterialPlan[]
-  categoryRef       ProductCategory?       @relation(fields: [categoryId], references: [id])
+  categoryRef       ProductCategory?         @relation(fields: [categoryId], references: [id])
   attributes        ProductAttribute[]
-  bomUsedIn         ProductBOM[]           @relation("BOMComponent")
-  bomComponents     ProductBOM[]           @relation("BOMParent")
+  bomUsedIn         ProductBOM[]             @relation("BOMComponent")
+  bomComponents     ProductBOM[]             @relation("BOMParent")
   purchaseItems     PurchaseOrderItem[]
   quotationItems    QuotationItem[]
   workshopMaterials WorkshopTaskMaterial[]
+  mfgMaterialReqs   MfgMaterialRequirement[]
 
   @@index([categoryId])
 }
@@ -299,41 +303,41 @@ model QuotationItem {
 }
 
 model DesignOrder {
-  id                String            @id @default(cuid())
-  code              String            @unique
-  customerId        String
-  projectId         String?
-  customerName      String            @default("")
-  customerPhone     String            @default("")
-  siteAddress       String            @default("")
-  projectType       String            @default("Nhà phố")
-  designArea        Float             @default(0)
-  designStyle       String            @default("")
-  requirementLevel  String            @default("Tiêu chuẩn")
-  deadline          DateTime
-  confirmedDeadline DateTime?
-  notes             String            @default("")
-  attachments       Json?             @default("[]")
-  status            String            @default("Nháp")
-  designerAssignee  String            @default("")
-  discount          Float             @default(0)
-  discountType      String            @default("amount")
-  vatRate           Float             @default(0)
-  subtotal          Float             @default(0)
-  totalAfterDiscount Float            @default(0)
-  grandTotal        Float             @default(0)
-  createdBy         String            @default("")
-  createdByRole     String            @default("")
-  salesApprovedBy   String            @default("")
-  salesApprovedAt   DateTime?
-  designConfirmedBy String            @default("")
-  designConfirmedAt DateTime?
-  deletedAt         DateTime?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  customer          Customer          @relation(fields: [customerId], references: [id])
-  project           Project?          @relation(fields: [projectId], references: [id])
-  items             DesignOrderItem[]
+  id                 String            @id @default(cuid())
+  code               String            @unique
+  customerId         String
+  projectId          String?
+  customerName       String            @default("")
+  customerPhone      String            @default("")
+  siteAddress        String            @default("")
+  projectType        String            @default("Nhà phố")
+  designArea         Float             @default(0)
+  designStyle        String            @default("")
+  requirementLevel   String            @default("Tiêu chuẩn")
+  deadline           DateTime
+  confirmedDeadline  DateTime?
+  notes              String            @default("")
+  attachments        Json?             @default("[]")
+  status             String            @default("Nháp")
+  designerAssignee   String            @default("")
+  discount           Float             @default(0)
+  discountType       String            @default("amount")
+  vatRate            Float             @default(0)
+  subtotal           Float             @default(0)
+  totalAfterDiscount Float             @default(0)
+  grandTotal         Float             @default(0)
+  createdBy          String            @default("")
+  createdByRole      String            @default("")
+  salesApprovedBy    String            @default("")
+  salesApprovedAt    DateTime?
+  designConfirmedBy  String            @default("")
+  designConfirmedAt  DateTime?
+  deletedAt          DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  customer           Customer          @relation(fields: [customerId], references: [id])
+  project            Project?          @relation(fields: [projectId], references: [id])
+  items              DesignOrderItem[]
 
   @@index([customerId])
   @@index([projectId])
@@ -586,6 +590,7 @@ model Contract {
   quotation         Quotation?        @relation(fields: [quotationId], references: [id])
   payments          ContractPayment[]
   contractProcesses ContractProcess[]
+  mfgOrders         MfgOrder[]
 
   @@index([projectId])
   @@index([customerId])
@@ -913,6 +918,7 @@ model ProjectDocument {
   versions         ProjectDocument[] @relation("DocVersions")
   project          Project?          @relation(fields: [projectId], references: [id])
   supplier         Supplier?         @relation(fields: [supplierId], references: [id])
+  mfgItems         MfgItem[]
 
   @@index([projectId])
   @@index([customerId])
@@ -1094,17 +1100,17 @@ model SalaryEntry {
 }
 
 model InteriorSalaryEntry {
-  id                     String   @id @default(cuid())
-  code                   String   @unique
-  name                   String
-  area                   Float    @default(0)
-  looseFurnitureRevenue  Float    @default(0)
-  stages                 String   @default("{}")
-  notes                  String   @default("")
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-  assignees              String   @default("{}")
-  progress               String   @default("{}")
+  id                    String   @id @default(cuid())
+  code                  String   @unique
+  name                  String
+  area                  Float    @default(0)
+  looseFurnitureRevenue Float    @default(0)
+  stages                String   @default("{}")
+  notes                 String   @default("")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  assignees             String   @default("{}")
+  progress              String   @default("{}")
 }
 
 model QuotationTemplateItem {
@@ -1261,6 +1267,11 @@ model WorkshopWorker {
   salaryAdvances WorkerSalaryAdvance[]
   attendances    WorkshopAttendance[]
   tasks          WorkshopTaskWorker[]
+  mfgItems       MfgItem[]
+  mfgItemStages  MfgItemStage[]
+  mfgTasks       MfgTask[]
+  mfgLogs        MfgLog[]
+  qualityIssues  QualityIssue[]
 }
 
 model WorkshopTask {
@@ -2028,4 +2039,441 @@ model SupervisionChecklistItem {
   checklist   SupervisionChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
 
   @@index([checklistId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MODULE QUẢN LÝ SẢN XUẤT XƯỞNG (Manufacturing) — tiền tố Mfg/Quality/Packing/Delivery
+// Tách biệt hoàn toàn với ProductionOrder/ProductionPlan cũ (đang có dữ liệu thật ở /production).
+// Trạng thái lưu dạng String (theo convention toàn schema, không dùng Prisma enum):
+// MfgOrder.status: DRAFT, WAITING_DOCUMENTS, WAITING_APPROVAL, WAITING_MATERIALS, READY,
+//   IN_PRODUCTION, WAITING_QC, REWORK, COMPLETED_AT_FACTORY, PACKED, DELIVERED, INSTALLING,
+//   COMPLETED, PAUSED, CANCELLED
+// MfgItem.status: NOT_STARTED, WAITING_DRAWING, WAITING_MATERIAL, READY, IN_PROGRESS,
+//   WAITING_QC, REWORK, PASSED_QC, PACKED, DELIVERED, INSTALLED, COMPLETED, PAUSED, CANCELLED
+// MfgItemStage.status / MfgTask.status: NOT_STARTED, READY, IN_PROGRESS, PAUSED, BLOCKED,
+//   WAITING_APPROVAL, COMPLETED, FAILED, CANCELLED
+// ═══════════════════════════════════════════════════════════════════════
+
+model MfgOrder {
+  id                  String                   @id @default(cuid())
+  code                String                   @unique
+  projectId           String
+  contractId          String?
+  title               String
+  description         String                   @default("")
+  batchNumber         String                   @default("")
+  priority            String                   @default("NORMAL")
+  status              String                   @default("DRAFT")
+  plannedStartDate    DateTime?
+  plannedEndDate      DateTime?
+  actualStartDate     DateTime?
+  actualEndDate       DateTime?
+  progressPercent     Int                      @default(0)
+  productionManagerId String                   @default("")
+  qcManagerId         String                   @default("")
+  approvedById        String                   @default("")
+  approvedAt          DateTime?
+  note                String                   @default("")
+  cancelReason        String                   @default("")
+  createdById         String                   @default("")
+  updatedById         String                   @default("")
+  deletedAt           DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  project             Project                  @relation(fields: [projectId], references: [id])
+  contract            Contract?                @relation(fields: [contractId], references: [id])
+  items               MfgItem[]
+  tasks               MfgTask[]
+  logs                MfgLog[]
+  materialReqs        MfgMaterialRequirement[]
+  qualityInspections  QualityInspection[]
+  qualityIssues       QualityIssue[]
+  packingRecords      PackingRecord[]
+  deliveryRecords     DeliveryRecord[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([plannedEndDate])
+}
+
+model MfgItem {
+  id                  String                   @id @default(cuid())
+  code                String                   @unique
+  mfgOrderId          String
+  projectId           String
+  name                String
+  category            String                   @default("")
+  floorName           String                   @default("")
+  roomName            String                   @default("")
+  quantity            Float                    @default(1)
+  unit                String                   @default("cái")
+  length              Float                    @default(0)
+  width               Float                    @default(0)
+  height              Float                    @default(0)
+  materialDescription String                   @default("")
+  colorDescription    String                   @default("")
+  hardwareDescription String                   @default("")
+  drawingDocumentId   String?
+  drawingUrl          String                   @default("")
+  referenceImageUrl   String                   @default("")
+  status              String                   @default("NOT_STARTED")
+  progressPercent     Int                      @default(0)
+  plannedStartDate    DateTime?
+  plannedEndDate      DateTime?
+  actualStartDate     DateTime?
+  actualEndDate       DateTime?
+  assignedTeamName    String                   @default("")
+  assignedWorkerId    String?
+  priority            String                   @default("NORMAL")
+  note                String                   @default("")
+  createdById         String                   @default("")
+  updatedById         String                   @default("")
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  mfgOrder            MfgOrder                 @relation(fields: [mfgOrderId], references: [id])
+  project             Project                  @relation(fields: [projectId], references: [id])
+  drawingDoc          ProjectDocument?         @relation(fields: [drawingDocumentId], references: [id])
+  assignedWorker      WorkshopWorker?          @relation(fields: [assignedWorkerId], references: [id])
+  stages              MfgItemStage[]
+  tasks               MfgTask[]
+  logs                MfgLog[]
+  materialReqs        MfgMaterialRequirement[]
+  qualityInspections  QualityInspection[]
+  qualityIssues       QualityIssue[]
+  packingItems        PackingItem[]
+  deliveryItems       DeliveryItem[]
+
+  @@index([mfgOrderId])
+  @@index([projectId])
+  @@index([status])
+  @@index([assignedWorkerId])
+}
+
+model MfgStageTemplate {
+  id                   String         @id @default(cuid())
+  code                 String         @unique
+  name                 String
+  description          String         @default("")
+  sequence             Int            @default(0)
+  productCategory      String         @default("")
+  defaultDurationHours Float          @default(0)
+  isRequired           Boolean        @default(true)
+  isActive             Boolean        @default(true)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  itemStages           MfgItemStage[]
+
+  @@index([sequence])
+}
+
+model MfgItemStage {
+  id               String            @id @default(cuid())
+  mfgItemId        String
+  stageTemplateId  String?
+  name             String
+  sequence         Int               @default(0)
+  status           String            @default("NOT_STARTED")
+  progressPercent  Int               @default(0)
+  assignedTeamName String            @default("")
+  assignedWorkerId String?
+  plannedStartDate DateTime?
+  plannedEndDate   DateTime?
+  actualStartDate  DateTime?
+  actualEndDate    DateTime?
+  estimatedHours   Float             @default(0)
+  actualHours      Float             @default(0)
+  note             String            @default("")
+  completedById    String            @default("")
+  completedAt      DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  item             MfgItem           @relation(fields: [mfgItemId], references: [id], onDelete: Cascade)
+  stageTemplate    MfgStageTemplate? @relation(fields: [stageTemplateId], references: [id])
+  assignedWorker   WorkshopWorker?   @relation(fields: [assignedWorkerId], references: [id])
+  tasks            MfgTask[]
+  logs             MfgLog[]
+  qualityIssues    QualityIssue[]
+
+  @@index([mfgItemId])
+  @@index([status])
+  @@index([assignedWorkerId])
+}
+
+model MfgTask {
+  id               String          @id @default(cuid())
+  code             String          @unique
+  mfgOrderId       String
+  mfgItemId        String?
+  mfgItemStageId   String?
+  title            String
+  description      String          @default("")
+  assignedTeamName String          @default("")
+  assignedWorkerId String?
+  assignedById     String          @default("")
+  priority         String          @default("NORMAL")
+  status           String          @default("NOT_STARTED")
+  plannedStartDate DateTime?
+  dueDate          DateTime?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  estimatedHours   Float           @default(0)
+  actualHours      Float           @default(0)
+  progressPercent  Int             @default(0)
+  note             String          @default("")
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  mfgOrder         MfgOrder        @relation(fields: [mfgOrderId], references: [id])
+  item             MfgItem?        @relation(fields: [mfgItemId], references: [id])
+  itemStage        MfgItemStage?   @relation(fields: [mfgItemStageId], references: [id])
+  assignedWorker   WorkshopWorker? @relation(fields: [assignedWorkerId], references: [id])
+  logs             MfgLog[]
+
+  @@index([mfgOrderId])
+  @@index([mfgItemId])
+  @@index([assignedWorkerId])
+  @@index([dueDate])
+  @@index([status])
+}
+
+model MfgLog {
+  id                String          @id @default(cuid())
+  mfgOrderId        String
+  mfgItemId         String?
+  mfgItemStageId    String?
+  taskId            String?
+  logDate           DateTime        @default(now())
+  workerId          String?
+  teamName          String          @default("")
+  workDescription   String          @default("")
+  completedQuantity Float           @default(0)
+  workHours         Float           @default(0)
+  progressBefore    Int             @default(0)
+  progressAfter     Int             @default(0)
+  issueDescription  String          @default("")
+  nextPlan          String          @default("")
+  createdById       String          @default("")
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  mfgOrder          MfgOrder        @relation(fields: [mfgOrderId], references: [id])
+  item              MfgItem?        @relation(fields: [mfgItemId], references: [id])
+  itemStage         MfgItemStage?   @relation(fields: [mfgItemStageId], references: [id])
+  task              MfgTask?        @relation(fields: [taskId], references: [id])
+  worker            WorkshopWorker? @relation(fields: [workerId], references: [id])
+
+  @@index([mfgOrderId])
+  @@index([mfgItemId])
+  @@index([logDate])
+}
+
+model MfgMaterialRequirement {
+  id                 String    @id @default(cuid())
+  mfgOrderId         String
+  mfgItemId          String?
+  productId          String?
+  materialName       String    @default("")
+  specification      String    @default("")
+  unit               String    @default("")
+  estimatedQuantity  Float     @default(0)
+  issuedQuantity     Float     @default(0)
+  usedQuantity       Float     @default(0)
+  returnedQuantity   Float     @default(0)
+  missingQuantity    Float     @default(0)
+  estimatedUnitPrice Float     @default(0)
+  actualUnitPrice    Float     @default(0)
+  status             String    @default("NOT_REQUESTED")
+  requiredDate       DateTime?
+  note               String    @default("")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  mfgOrder           MfgOrder  @relation(fields: [mfgOrderId], references: [id])
+  item               MfgItem?  @relation(fields: [mfgItemId], references: [id])
+  product            Product?  @relation(fields: [productId], references: [id])
+
+  @@index([mfgOrderId])
+  @@index([mfgItemId])
+  @@index([status])
+}
+
+model QualityInspection {
+  id                String         @id @default(cuid())
+  code              String         @unique
+  mfgOrderId        String
+  mfgItemId         String?
+  inspectionType    String         @default("IN_PROCESS")
+  inspectorId       String         @default("")
+  inspectedAt       DateTime       @default(now())
+  result            String         @default("PASSED")
+  dimensionPassed   Boolean        @default(true)
+  materialPassed    Boolean        @default(true)
+  colorPassed       Boolean        @default(true)
+  hardwarePassed    Boolean        @default(true)
+  surfacePassed     Boolean        @default(true)
+  edgePassed        Boolean        @default(true)
+  structurePassed   Boolean        @default(true)
+  assemblyPassed    Boolean        @default(true)
+  cleanlinessPassed Boolean        @default(true)
+  packingPassed     Boolean        @default(true)
+  overallNote       String         @default("")
+  approvedById      String         @default("")
+  approvedAt        DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  mfgOrder          MfgOrder       @relation(fields: [mfgOrderId], references: [id])
+  item              MfgItem?       @relation(fields: [mfgItemId], references: [id])
+  issues            QualityIssue[]
+
+  @@index([mfgOrderId])
+  @@index([mfgItemId])
+  @@index([result])
+}
+
+model QualityIssue {
+  id                  String             @id @default(cuid())
+  code                String             @unique
+  mfgOrderId          String
+  mfgItemId           String?
+  mfgItemStageId      String?
+  qualityInspectionId String?
+  title               String
+  description         String             @default("")
+  severity            String             @default("NORMAL")
+  causeType           String             @default("")
+  responsibleTeamName String             @default("")
+  responsibleWorkerId String?
+  reportedById        String             @default("")
+  reportedAt          DateTime           @default(now())
+  dueDate             DateTime?
+  status              String             @default("OPEN")
+  correctiveAction    String             @default("")
+  repairCost          Float              @default(0)
+  resolvedById        String             @default("")
+  resolvedAt          DateTime?
+  verifiedById        String             @default("")
+  verifiedAt          DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  mfgOrder            MfgOrder           @relation(fields: [mfgOrderId], references: [id])
+  item                MfgItem?           @relation(fields: [mfgItemId], references: [id])
+  itemStage           MfgItemStage?      @relation(fields: [mfgItemStageId], references: [id])
+  inspection          QualityInspection? @relation(fields: [qualityInspectionId], references: [id])
+  responsibleWorker   WorkshopWorker?    @relation(fields: [responsibleWorkerId], references: [id])
+
+  @@index([mfgOrderId])
+  @@index([mfgItemId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([severity])
+}
+
+model PackingRecord {
+  id            String         @id @default(cuid())
+  code          String         @unique
+  mfgOrderId    String
+  packageNumber String         @default("")
+  packageType   String         @default("")
+  quantity      Int            @default(1)
+  packedById    String         @default("")
+  packedAt      DateTime       @default(now())
+  status        String         @default("PACKED")
+  labelCode     String         @default("")
+  qrCodeValue   String         @default("")
+  note          String         @default("")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  mfgOrder      MfgOrder       @relation(fields: [mfgOrderId], references: [id])
+  items         PackingItem[]
+  deliveryItems DeliveryItem[]
+
+  @@index([mfgOrderId])
+}
+
+model PackingItem {
+  id              String        @id @default(cuid())
+  packingRecordId String
+  mfgItemId       String
+  quantity        Float         @default(1)
+  packingRecord   PackingRecord @relation(fields: [packingRecordId], references: [id], onDelete: Cascade)
+  item            MfgItem       @relation(fields: [mfgItemId], references: [id])
+
+  @@index([packingRecordId])
+  @@index([mfgItemId])
+}
+
+model DeliveryRecord {
+  id                   String         @id @default(cuid())
+  code                 String         @unique
+  mfgOrderId           String
+  projectId            String
+  deliveryDate         DateTime       @default(now())
+  vehicleNumber        String         @default("")
+  driverName           String         @default("")
+  driverPhone          String         @default("")
+  carrierName          String         @default("")
+  deliveryContactName  String         @default("")
+  deliveryContactPhone String         @default("")
+  status               String         @default("PLANNED")
+  departedAt           DateTime?
+  arrivedAt            DateTime?
+  receivedBy           String         @default("")
+  receivedAt           DateTime?
+  note                 String         @default("")
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  mfgOrder             MfgOrder       @relation(fields: [mfgOrderId], references: [id])
+  project              Project        @relation(fields: [projectId], references: [id])
+  items                DeliveryItem[]
+
+  @@index([mfgOrderId])
+  @@index([projectId])
+}
+
+model DeliveryItem {
+  id               String         @id @default(cuid())
+  deliveryRecordId String
+  packingRecordId  String?
+  mfgItemId        String?
+  quantity         Float          @default(1)
+  deliveryRecord   DeliveryRecord @relation(fields: [deliveryRecordId], references: [id], onDelete: Cascade)
+  packingRecord    PackingRecord? @relation(fields: [packingRecordId], references: [id])
+  item             MfgItem?       @relation(fields: [mfgItemId], references: [id])
+
+  @@index([deliveryRecordId])
+  @@index([packingRecordId])
+  @@index([mfgItemId])
+}
+
+// Đính kèm dùng chung (ảnh/PDF/bản vẽ) cho toàn bộ entity của module sản xuất —
+// tránh nhân bản 8 bảng đính kèm riêng cho từng entity (Order/Item/Stage/Log/QC/Issue/Packing/Delivery).
+model MfgAttachment {
+  id             String   @id @default(cuid())
+  entityType     String
+  entityId       String
+  url            String
+  thumbnailUrl   String   @default("")
+  fileName       String   @default("")
+  mimeType       String   @default("")
+  caption        String   @default("")
+  photoStage     String   @default("")
+  uploadedById   String   @default("")
+  uploadedByName String   @default("")
+  createdAt      DateTime @default(now())
+
+  @@index([entityType, entityId])
+}
+
+// Audit log dùng chung cho các thao tác quan trọng: duyệt lệnh, đổi trạng thái, QC, hủy lệnh, xuất xưởng...
+model MfgAuditLog {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  action     String
+  fromStatus String   @default("")
+  toStatus   String   @default("")
+  byUserId   String   @default("")
+  byUserName String   @default("")
+  note       String   @default("")
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
 }

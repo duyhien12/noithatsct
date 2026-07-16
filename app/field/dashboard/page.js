@@ -200,6 +200,13 @@ export default function FieldDashboard() {
                     </button>
                 </div>
 
+                {/* Lối tắt sang công việc sản xuất xưởng */}
+                <div style={{ padding: '0 16px', marginBottom: 16 }}>
+                    <button onClick={() => router.push('/field/mfg-tasks')} style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: '1px solid rgba(139,92,246,0.25)', background: 'rgba(139,92,246,0.1)', color: '#a78bfa', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                        🏭 Công việc sản xuất xưởng
+                    </button>
+                </div>
+
                 {/* Content */}
                 <div style={{ padding: '0 16px' }}>
                     {tab === 'tasks' && (
