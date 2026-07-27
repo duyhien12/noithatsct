@@ -1,0 +1,1 @@
+ALTER TABLE "Customer" ADD COLUMN "isPriority" BOOLEAN NOT NULL DEFAULT false;

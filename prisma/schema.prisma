@@ -46,6 +46,7 @@ model Customer {
   contactPerson2     String            @default("")
   phone2             String            @default("")
   pipelineStage      String            @default("Lead")
+  isPriority         Boolean           @default(false)
   estimatedValue     Float             @default(0)
   nextFollowUp       DateTime?
   score              Int               @default(0)

@@ -127,6 +127,15 @@ export default function CustomersPage() {
         fetchCustomers();
     };
 
+    const togglePriority = async (e, c) => {
+        e.stopPropagation();
+        const next = !c.isPriority;
+        const patch = list => list.map(x => x.id === c.id ? { ...x, isPriority: next } : x);
+        setCustomers(patch); setCustomersXD(patch); setCustomersTK(patch);
+        await fetch(`/api/customers/${c.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isPriority: next }) });
+    };
+    const sortByPriority = list => [...list].sort((a, b) => (b.isPriority ? 1 : 0) - (a.isPriority ? 1 : 0));
+
     const onDragStart = (e, id) => { isDragging.current = true; setDragId(id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id); };
     const onDragEnd = () => { setTimeout(() => { isDragging.current = false; }, 100); setDragId(null); setDragOver(null); };
     const onDragOver = (e, stageKey) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver(stageKey); };
@@ -190,10 +199,10 @@ export default function CustomersPage() {
                 </div>
                 <div className="desktop-table-view kanban-board" style={{ gap: 6, paddingBottom: 20, minHeight: 400, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                     {PIPELINE_TK.map(stage => {
-                        const cards = filteredTK.filter(c => {
+                        const cards = sortByPriority(filteredTK.filter(c => {
                             const s = c.pipelineStage || 'Ưu tiên';
                             return (TK_STAGE_MAP[s] || s) === stage.key;
-                        });
+                        }));
                         const stageValue = cards.reduce((s, c) => s + (c.estimatedValue || 0), 0);
                         const isOver = dragOver === ('tk_' + stage.key);
                         return (
@@ -218,8 +227,11 @@ export default function CustomersPage() {
                                             onDragStart={e => onDragStart(e, c.id)}
                                             onDragEnd={onDragEnd}
                                             onClick={() => { if (!isDragging.current) router.push(`/customers/${c.id}`); }}
-                                            style={{ background: dragId === c.id ? stage.bg : 'var(--bg-card)', borderRadius: 8, padding: '8px 10px', cursor: 'grab', border: '1px solid var(--border-light)', boxShadow: '0 1px 2px rgba(0,0,0,.05)', transition: 'all .15s', opacity: dragId === c.id ? 0.5 : 1, WebkitTapHighlightColor: 'transparent' }}>
-                                            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                            style={{ background: dragId === c.id ? stage.bg : (c.isPriority ? '#fffbea' : 'var(--bg-card)'), borderRadius: 8, padding: '8px 10px', cursor: 'grab', border: c.isPriority ? '1px solid #f5c518' : '1px solid var(--border-light)', boxShadow: c.isPriority ? '0 1px 3px rgba(245,197,24,.35)' : '0 1px 2px rgba(0,0,0,.05)', transition: 'all .15s', opacity: dragId === c.id ? 0.5 : 1, WebkitTapHighlightColor: 'transparent', position: 'relative' }}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 4, marginBottom: 3 }}>
+                                                <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                                <span onClick={e => togglePriority(e, c)} title={c.isPriority ? 'Bỏ ưu tiên' : 'Đánh dấu ưu tiên'} style={{ cursor: 'pointer', fontSize: 13, lineHeight: 1, flexShrink: 0, filter: c.isPriority ? 'none' : 'grayscale(1) opacity(.4)' }}>⭐</span>
+                                            </div>
                                             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                                                 {c.phone && <div>📱 {c.phone}</div>}
                                                 {c.salesPerson && <div>👤 {c.salesPerson}</div>}
@@ -250,7 +262,7 @@ export default function CustomersPage() {
                     {showXDBoard && (
                     <div style={{ display: 'flex', flexDirection: 'row', gap: 6, paddingTop: 10, paddingBottom: 12, minHeight: 200, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                         {PIPELINE.filter(p => p.key !== 'Khách nội thất').map(stage => {
-                            const cards = filteredXD.filter(c => (c.pipelineStage || 'Tư vấn') === stage.key);
+                            const cards = sortByPriority(filteredXD.filter(c => (c.pipelineStage || 'Tư vấn') === stage.key));
                             const stageValue = cards.reduce((s, c) => s + (c.estimatedValue || 0), 0);
                             const isOverXD = dragOver === ('xd_' + stage.key);
                             return (
@@ -274,8 +286,11 @@ export default function CustomersPage() {
                                                 onDragStart={e => onDragStart(e, c.id)}
                                                 onDragEnd={onDragEnd}
                                                 onClick={() => { if (!isDragging.current) router.push(`/customers/${c.id}`); }}
-                                                style={{ background: dragId === c.id ? stage.bg : 'var(--bg-card)', borderRadius: 8, padding: '8px 10px', cursor: 'grab', border: '1px solid var(--border-light)', boxShadow: '0 1px 2px rgba(0,0,0,.05)', transition: 'all .15s', opacity: dragId === c.id ? 0.5 : 1, WebkitTapHighlightColor: 'transparent' }}>
-                                                <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                                style={{ background: dragId === c.id ? stage.bg : (c.isPriority ? '#fffbea' : 'var(--bg-card)'), borderRadius: 8, padding: '8px 10px', cursor: 'grab', border: c.isPriority ? '1px solid #f5c518' : '1px solid var(--border-light)', boxShadow: c.isPriority ? '0 1px 3px rgba(245,197,24,.35)' : '0 1px 2px rgba(0,0,0,.05)', transition: 'all .15s', opacity: dragId === c.id ? 0.5 : 1, WebkitTapHighlightColor: 'transparent', position: 'relative' }}>
+                                                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 4, marginBottom: 3 }}>
+                                                    <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                                    <span onClick={e => togglePriority(e, c)} title={c.isPriority ? 'Bỏ ưu tiên' : 'Đánh dấu ưu tiên'} style={{ cursor: 'pointer', fontSize: 13, lineHeight: 1, flexShrink: 0, filter: c.isPriority ? 'none' : 'grayscale(1) opacity(.4)' }}>⭐</span>
+                                                </div>
                                                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                                                     {c.phone && <div>📱 {c.phone}</div>}
                                                     {c.salesPerson && <div>👤 {c.salesPerson}</div>}
@@ -305,7 +320,7 @@ export default function CustomersPage() {
                 </div>
                 <div className="desktop-table-view kanban-board" style={{ gap: 6, paddingBottom: 20, minHeight: 400, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                     {visiblePipeline.map(stage => {
-                        const cards = filtered.filter(c => (c.pipelineStage || c.status || 'Khách nội thất') === stage.key);
+                        const cards = sortByPriority(filtered.filter(c => (c.pipelineStage || c.status || 'Khách nội thất') === stage.key));
                         const stageValue = cards.reduce((s, c) => s + (c.estimatedValue || 0), 0);
                         const isOver = dragOver === stage.key;
                         return (
@@ -330,8 +345,11 @@ export default function CustomersPage() {
                                             onDragStart={e => onDragStart(e, c.id)}
                                             onDragEnd={onDragEnd}
                                             onClick={() => { if (!isDragging.current) router.push(`/customers/${c.id}`); }}
-                                            style={{ background: dragId === c.id ? stage.bg : 'var(--bg-card)', borderRadius: 8, padding: '8px 10px', cursor: 'grab', border: '1px solid var(--border-light)', boxShadow: '0 1px 2px rgba(0,0,0,.05)', transition: 'all .15s', opacity: dragId === c.id ? 0.5 : 1, WebkitTapHighlightColor: 'transparent' }}>
-                                            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                            style={{ background: dragId === c.id ? stage.bg : (c.isPriority ? '#fffbea' : 'var(--bg-card)'), borderRadius: 8, padding: '8px 10px', cursor: 'grab', border: c.isPriority ? '1px solid #f5c518' : '1px solid var(--border-light)', boxShadow: c.isPriority ? '0 1px 3px rgba(245,197,24,.35)' : '0 1px 2px rgba(0,0,0,.05)', transition: 'all .15s', opacity: dragId === c.id ? 0.5 : 1, WebkitTapHighlightColor: 'transparent', position: 'relative' }}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 4, marginBottom: 3 }}>
+                                                <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                                <span onClick={e => togglePriority(e, c)} title={c.isPriority ? 'Bỏ ưu tiên' : 'Đánh dấu ưu tiên'} style={{ cursor: 'pointer', fontSize: 13, lineHeight: 1, flexShrink: 0, filter: c.isPriority ? 'none' : 'grayscale(1) opacity(.4)' }}>⭐</span>
+                                            </div>
                                             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                                                 {c.phone && <div>📱 {c.phone}</div>}
                                                 {c.salesPerson && <div>👤 {c.salesPerson}</div>}
@@ -357,12 +375,13 @@ export default function CustomersPage() {
                     {view === 'table' && (
                     <div className="desktop-table-view">
                         <div className="table-container"><table className="data-table">
-                            <thead><tr><th>STT</th><th>Tên KH</th><th>SĐT</th><th>Giai đoạn KD</th><th>Nguồn</th><th>Giá trị deal</th><th>Doanh thu</th><th>DA</th><th></th></tr></thead>
-                            <tbody>{filtered.map((c, idx) => {
+                            <thead><tr><th>STT</th><th></th><th>Tên KH</th><th>SĐT</th><th>Giai đoạn KD</th><th>Nguồn</th><th>Giá trị deal</th><th>Doanh thu</th><th>DA</th><th></th></tr></thead>
+                            <tbody>{sortByPriority(filtered).map((c, idx) => {
                                 const stage = PIPELINE.find(p => p.key === (c.pipelineStage || 'Khách nội thất')) || PIPELINE[0];
                                 return (
                                     <tr key={c.id} onClick={() => router.push(`/customers/${c.id}`)} style={{ cursor: 'pointer' }}>
                                         <td className="accent">{idx + 1}</td>
+                                        <td><span onClick={e => togglePriority(e, c)} title={c.isPriority ? 'Bỏ ưu tiên' : 'Đánh dấu ưu tiên'} style={{ cursor: 'pointer', filter: c.isPriority ? 'none' : 'grayscale(1) opacity(.4)' }}>⭐</span></td>
                                         <td className="primary">{c.name}</td>
                                         <td>{c.phone}</td>
                                         <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, padding: '2px 10px', borderRadius: 12, background: stage.bg, color: stage.color }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: stage.color }} />{stage.label}</span></td>
@@ -380,14 +399,17 @@ export default function CustomersPage() {
 
                     {/* Mobile card list - always rendered, CSS shows only on mobile */}
                     <div className="mobile-card-list">
-                        {filtered.map(c => {
+                        {sortByPriority(filtered).map(c => {
                             const stage = PIPELINE.find(p => p.key === (c.pipelineStage || 'Khách nội thất')) || PIPELINE[0];
                             return (
-                                <div key={c.id} className="mobile-card-item" onClick={() => router.push(`/customers/${c.id}`)}>
+                                <div key={c.id} className="mobile-card-item" onClick={() => router.push(`/customers/${c.id}`)} style={c.isPriority ? { background: '#fffbea', borderLeft: '3px solid #f5c518' } : undefined}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                                            <div className="card-subtitle">{c.code} · {c.phone}</div>
+                                        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <span onClick={e => togglePriority(e, c)} title={c.isPriority ? 'Bỏ ưu tiên' : 'Đánh dấu ưu tiên'} style={{ cursor: 'pointer', flexShrink: 0, filter: c.isPriority ? 'none' : 'grayscale(1) opacity(.4)' }}>⭐</span>
+                                            <div style={{ minWidth: 0 }}>
+                                                <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                                <div className="card-subtitle">{c.code} · {c.phone}</div>
+                                            </div>
                                         </div>
                                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: stage.bg, color: stage.color, flexShrink: 0 }}>
                                             <span style={{ width: 5, height: 5, borderRadius: '50%', background: stage.color }} />{stage.label}
