@@ -7,6 +7,7 @@ import { canEditDraft } from '@/lib/designOrderStatus';
 
 const VIEW_ROLES = ['kinh_doanh', 'thiet_ke', 'ban_gd', 'giam_doc', 'pho_gd', 'admin', 'viewer'];
 const EDIT_ROLES = ['kinh_doanh', 'ban_gd', 'giam_doc', 'pho_gd', 'admin'];
+const SCHEDULE_ROLES = ['thiet_ke', 'ban_gd', 'giam_doc', 'pho_gd', 'admin'];
 
 export const GET = withAuth(async (request, { params }) => {
     const { id } = await params;
@@ -84,6 +85,22 @@ export const PUT = withAuth(async (request, { params }, session) => {
 
     return NextResponse.json(designOrder);
 }, { roles: EDIT_ROLES });
+
+// Cập nhật nhanh ngày bắt đầu/hạn xác nhận — dùng cho kéo-thả trên biểu đồ Gantt.
+export const PATCH = withAuth(async (request, { params }, session) => {
+    const { id } = await params;
+    const existing = await prisma.designOrder.findUnique({ where: { id }, select: { id: true } });
+    if (!existing) return NextResponse.json({ error: 'Không tìm thấy phiếu' }, { status: 404 });
+
+    const body = await request.json();
+    const data = {};
+    if ('startDate' in body) data.startDate = body.startDate ? new Date(body.startDate) : null;
+    if ('confirmedDeadline' in body) data.confirmedDeadline = body.confirmedDeadline ? new Date(body.confirmedDeadline) : null;
+    if ('notes' in body) data.notes = body.notes || '';
+
+    const designOrder = await prisma.designOrder.update({ where: { id }, data });
+    return NextResponse.json(designOrder);
+}, { roles: SCHEDULE_ROLES });
 
 export const DELETE = withAuth(async (request, { params }, session) => {
     const { id } = await params;

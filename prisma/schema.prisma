@@ -70,6 +70,7 @@ model Customer {
   quotations         Quotation[]
   trackingLogs       TrackingLog[]
   designOrders       DesignOrder[]
+  designTasks        DesignTask[]
 }
 
 model Project {
@@ -315,6 +316,7 @@ model DesignOrder {
   designArea         Float             @default(0)
   designStyle        String            @default("")
   requirementLevel   String            @default("Tiêu chuẩn")
+  startDate          DateTime?
   deadline           DateTime
   confirmedDeadline  DateTime?
   notes              String            @default("")
@@ -357,6 +359,29 @@ model DesignOrderItem {
   designOrder   DesignOrder @relation(fields: [designOrderId], references: [id], onDelete: Cascade)
 
   @@index([designOrderId])
+}
+
+// Công việc thiết kế nội bộ — nhẹ, không giá/hạng mục/duyệt, dùng cho bảng "CV Thiết kế"
+// (tách biệt với DesignOrder/Phiếu đặt hàng thiết kế và luồng duyệt giá của Kinh doanh).
+model DesignTask {
+  id           String    @id @default(cuid())
+  code         String    @unique
+  customerId   String
+  customerName String    @default("")
+  title        String    @default("")
+  executorName String    @default("")
+  startDate    DateTime?
+  endDate      DateTime?
+  status       String    @default("Việc cần làm")
+  notes        String    @default("")
+  createdBy    String    @default("")
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  customer     Customer  @relation(fields: [customerId], references: [id])
+
+  @@index([customerId])
+  @@index([executorName])
 }
 
 model DesignPriceListItem {
