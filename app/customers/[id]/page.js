@@ -588,6 +588,35 @@ export default function CustomerDetailPage() {
         setProcessForm(prev => { const { _schedule, ...rest } = prev; return rest; });
     };
 
+    // Đẩy các việc đã xong xuống dưới, việc chưa xong lên trên — trong phạm vi từng nhóm (Bước),
+    // không đảo thứ tự các nhóm để giữ đúng trình tự công việc
+    const partitionDoneItems = (items) => {
+        const result = [];
+        let i = 0;
+        while (i < items.length) {
+            const item = items[i];
+            if (item.level === 0) {
+                result.push(item);
+                i++;
+                const group = [];
+                while (i < items.length && items[i].level !== 0) { group.push(items[i]); i++; }
+                const notDone = group.filter(g => g.status !== 'done');
+                const done = group.filter(g => g.status === 'done');
+                result.push(...notDone, ...done);
+            } else {
+                result.push(item);
+                i++;
+            }
+        }
+        return result;
+    };
+
+    const sortScheduleByStatus = () => {
+        setProcessForm(prev => ({ ...prev, _schedule: { ...prev._schedule, items: partitionDoneItems(prev._schedule?.items || []) } }));
+        setExpandedScheduleIdx(null);
+        setEditingNotesIdx(null);
+    };
+
     const applyCarePlan = () => {
         const items = calculateScheduleDates(CARE_PLAN_ITEMS, carePlanStartDate);
         setProcessForm(prev => ({
@@ -638,10 +667,12 @@ export default function CustomerDetailPage() {
     const onRowDragEnd = () => { dragRowIdx.current = null; setDragOverRowIdx(null); };
 
     const updateScheduleStatus = (idx, status) => {
-        setProcessForm(prev => ({
-            ...prev,
-            _schedule: { ...prev._schedule, items: prev._schedule.items.map((it, i) => i === idx ? { ...it, status } : it) },
-        }));
+        setProcessForm(prev => {
+            const updated = prev._schedule.items.map((it, i) => i === idx ? { ...it, status } : it);
+            return { ...prev, _schedule: { ...prev._schedule, items: partitionDoneItems(updated) } };
+        });
+        setExpandedScheduleIdx(null);
+        setEditingNotesIdx(null);
     };
 
     const updateScheduleItem = (idx, field, value) => {
@@ -1166,6 +1197,7 @@ export default function CustomerDetailPage() {
                                             </button>
                                         ))}
                                     </div>
+                                    <button className="btn btn-ghost btn-sm" onClick={sortScheduleByStatus} title="Đẩy việc đã xong xuống dưới, việc chưa xong lên trên (giữ đúng thứ tự trong từng bước)" style={{ fontSize: 11 }}>↕️ Sắp xếp</button>
                                     <button className="btn btn-ghost btn-sm" onClick={removeSchedule} style={{ color: 'var(--status-danger)', fontSize: 11 }}>🗑️ Xóa lịch</button>
                                 </div>
 
