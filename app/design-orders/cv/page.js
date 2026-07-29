@@ -62,6 +62,24 @@ function StatusCell({ task, onSave }) {
     );
 }
 
+// Ô người thực hiện — dropdown sửa nhanh, gán/đổi trực tiếp trên bảng.
+function ExecutorCell({ value, executors, onSave }) {
+    return (
+        <select
+            value={value || ''}
+            className="form-select"
+            style={{ fontSize: 12, padding: '3px 8px', border: '1px solid transparent', borderRadius: 6, background: 'transparent', cursor: 'pointer' }}
+            onClick={e => e.stopPropagation()}
+            onFocus={e => { e.target.style.border = '1px solid var(--border)'; e.target.style.background = 'var(--bg-card, #fff)'; }}
+            onBlur={e => { e.target.style.border = '1px solid transparent'; e.target.style.background = 'transparent'; }}
+            onChange={e => { const v = e.target.value; if (v !== (value || '')) onSave(v); }}
+        >
+            <option value="">-- Chưa phân công --</option>
+            {executors.map(d => <option key={d} value={d}>{d}</option>)}
+        </select>
+    );
+}
+
 // Ô text trong suốt — dùng chung cho tiêu đề công việc và ghi chú.
 function TextCell({ value, placeholder, onSave, taskId, muted }) {
     return (
@@ -280,6 +298,7 @@ export default function DesignTaskCvPage() {
                                 <tr>
                                     <th style={{ width: 44 }}>STT</th>
                                     <th>Khách hàng / Việc</th>
+                                    <th>Người thực hiện</th>
                                     <th>Ngày bắt đầu</th>
                                     <th>Ngày kết thúc</th>
                                     <th>Trạng thái</th>
@@ -295,7 +314,7 @@ export default function DesignTaskCvPage() {
                                 return (
                                     <tbody key={name}>
                                         <tr onClick={() => toggleCollapse(name)} style={{ cursor: 'pointer', background: 'var(--bg-secondary)' }}>
-                                            <td colSpan={7} style={{ padding: '8px 14px' }}>
+                                            <td colSpan={8} style={{ padding: '8px 14px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                     <span style={{ fontSize: 10, color: 'var(--text-muted)', width: 10 }}>{isCollapsed ? '▶' : '▼'}</span>
                                                     <Avatar name={name} />
@@ -326,6 +345,9 @@ export default function DesignTaskCvPage() {
                                                         <div className="accent" style={{ fontWeight: 700 }}>{t.customerName}</div>
                                                         <TextCell taskId={t.id} value={t.title} placeholder="Tên công việc..." muted
                                                             onSave={(v) => handleSaveField(t, 'title', v)} />
+                                                    </td>
+                                                    <td>
+                                                        <ExecutorCell value={t.executorName} executors={executors} onSave={(v) => handleSaveField(t, 'executorName', v)} />
                                                     </td>
                                                     <td>
                                                         <DateCell value={t.startDate} onSave={(iso) => handleSaveField(t, 'startDate', iso)} />
