@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, GitBranch, Users, FileText,
     ClipboardList, ChevronRight, X, Building2,
-    Wrench, CalendarDays, CreditCard, Receipt, ShoppingCart, Warehouse, Package, BarChart3, Banknote, BookMarked, GanttChart, Calendar, CheckSquare, PencilRuler,
+    Wrench, CalendarDays, CreditCard, Receipt, ShoppingCart, Warehouse, Package, BarChart3, Banknote, BookMarked, GanttChart, Calendar, CheckSquare, PencilRuler, GraduationCap,
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useSession } from 'next-auth/react';
@@ -46,6 +46,7 @@ const menuItems = [
             { href: '/work-orders', icon: Wrench, label: 'Phiếu công việc' },
             { href: '/products', icon: Package, label: 'Sản phẩm & Vật tư' },
             { href: '/tasks', icon: CheckSquare, label: 'Tác vụ' },
+            { href: '/lessons-learned', icon: GraduationCap, label: '📚 Bài học dự án' },
         ],
     },
     {

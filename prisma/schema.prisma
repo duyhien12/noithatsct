@@ -71,6 +71,7 @@ model Customer {
   trackingLogs       TrackingLog[]
   designOrders       DesignOrder[]
   designTasks        DesignTask[]
+  lessonsLearned     LessonLearned[]
 }
 
 model Project {
@@ -147,6 +148,7 @@ model Project {
   mfgOrders             MfgOrder[]
   mfgItems              MfgItem[]
   deliveryRecords       DeliveryRecord[]
+  lessonsLearned        LessonLearned[]
 
   @@index([customerId])
 }
@@ -382,6 +384,46 @@ model DesignTask {
 
   @@index([customerId])
   @@index([executorName])
+}
+
+// Bài học dự án (Lessons Learned) — lưu lỗi/sự cố/kinh nghiệm trong quá trình thực hiện dự án
+// để nhân viên tra cứu, học hỏi, tránh lặp lại sai sót. Thuộc Phòng Kinh doanh.
+model LessonLearned {
+  id            String    @id @default(cuid())
+  code          String    @unique
+  occurredAt    DateTime
+  projectId     String?
+  projectName   String    @default("")
+  customerId    String?
+  customerName  String    @default("")
+  category      String    @default("Khác")
+  severity      String    @default("Trung bình")
+  issueContent  String
+  cause         String    @default("")
+  solution      String    @default("")
+  prevention    String    @default("")
+  notes         String    @default("")
+  assignee      String    @default("")
+  status        String    @default("Đang xử lý")
+  attachments   Json?     @default("[]")
+  history       Json?     @default("[]")
+  createdBy     String    @default("")
+  createdById   String    @default("")
+  createdByRole String    @default("")
+  confirmedBy   String    @default("")
+  confirmedAt   DateTime?
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  project       Project?  @relation(fields: [projectId], references: [id])
+  customer      Customer? @relation(fields: [customerId], references: [id])
+
+  @@index([projectId])
+  @@index([customerId])
+  @@index([status])
+  @@index([category])
+  @@index([severity])
+  @@index([occurredAt])
 }
 
 model DesignPriceListItem {

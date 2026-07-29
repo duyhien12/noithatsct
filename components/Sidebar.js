@@ -6,7 +6,7 @@ import {
     LayoutDashboard, GitBranch, Users, Building2, FileText,
     Package, ClipboardList, Wrench, CreditCard, Receipt,
     ShoppingCart, Truck, Warehouse, Wallet, UserCog,
-    BarChart3, ChevronRight, Shield, X, CalendarDays, HardHat, Banknote, TrendingUp, BookMarked, Factory, ListChecks, PencilRuler
+    BarChart3, ChevronRight, Shield, X, CalendarDays, HardHat, Banknote, TrendingUp, BookMarked, Factory, ListChecks, PencilRuler, GraduationCap
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useSession } from 'next-auth/react';
@@ -136,6 +136,8 @@ const menuItems = [
         section: 'Nội bộ',
         items: [
             { href: '/tasks', icon: Wrench, label: 'Tác vụ' },
+            { href: '/lessons-learned', icon: GraduationCap, label: '📚 Bài học dự án',
+              roles: [...BAN_GD, 'admin', ...VIEWER] },
             { href: '/proposals', icon: FileText, label: 'Đề xuất - Kiến nghị' },
             { href: '/reports', icon: BarChart3, label: 'Báo cáo',
               roles: [...BAN_GD, ...KE_TOAN, ...VIEWER] },
