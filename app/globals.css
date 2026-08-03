@@ -4891,3 +4891,121 @@ select.form-input-compact {
     max-height: 200px !important;
   }
 }
+
+/* ===== Trợ lý Hồ sơ AI — trang in/xuất PDF ===== */
+.ai-doc-print-toolbar {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  padding: 16px;
+}
+
+.ai-doc-print-sheet {
+  max-width: 210mm;
+  margin: 0 auto 40px;
+  background: #fff;
+  color: #1a1a1a;
+  padding: 18mm 16mm;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.ai-doc-print-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 2px solid #E05B0A;
+  padding-bottom: 8px;
+  margin-bottom: 18px;
+}
+
+.ai-doc-print-brand {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: #1e3a5f;
+}
+
+.ai-doc-print-meta {
+  font-size: 11px;
+  color: #666;
+}
+
+.ai-doc-print-content h1,
+.ai-doc-print-content h2,
+.ai-doc-print-content h3,
+.ai-doc-print-content h4 {
+  text-align: center;
+  margin: 14px 0 10px;
+}
+
+.ai-doc-print-content h1 { font-size: 16px; }
+.ai-doc-print-content h2 { font-size: 14.5px; }
+.ai-doc-print-content h3 { font-size: 13.5px; text-align: left; }
+.ai-doc-print-content p { margin: 0 0 10px; }
+
+.ai-doc-print-content ul,
+.ai-doc-print-content ol {
+  margin: 0 0 10px 20px;
+  padding: 0;
+}
+
+.ai-doc-print-content li { margin-bottom: 4px; }
+
+.ai-doc-print-content hr {
+  border: none;
+  border-top: 1px solid #ccc;
+  margin: 14px 0;
+}
+
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 14px;
+  font-size: 12.5px;
+}
+
+.doc-table th,
+.doc-table td {
+  border: 1px solid #999;
+  padding: 5px 7px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.doc-table th {
+  background: #f0f0f0;
+  font-weight: 700;
+}
+
+.ai-doc-print-footer {
+  margin-top: 24px;
+  padding-top: 8px;
+  border-top: 1px solid #ddd;
+  font-size: 10px;
+  color: #888;
+  text-align: right;
+}
+
+@media print {
+  .ai-doc-print-toolbar { display: none; }
+  .sidebar { display: none !important; }
+  .header { display: none !important; }
+  .mobile-bottom-nav-wrapper { display: none !important; }
+  .main-content { margin-left: 0 !important; padding-top: 0 !important; }
+
+  .ai-doc-print-sheet {
+    box-shadow: none;
+    margin: 0;
+    max-width: none;
+    padding: 0;
+  }
+
+  @page {
+    size: A4;
+    margin: 18mm 16mm;
+  }
+}
