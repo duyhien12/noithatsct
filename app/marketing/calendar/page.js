@@ -386,7 +386,7 @@ function DayModal({ date, events, users, showForm, editingEvent, currentUserName
                             <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)' }}>
                                 <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
                                 <div style={{ fontSize: 14, fontWeight: 600 }}>Không có việc trong ngày này</div>
-                                <div style={{ fontSize: 12, marginTop: 4 }}>Bấm "+ Thêm việc" để tạo mới</div>
+                                <div style={{ fontSize: 12, marginTop: 4 }}>Bấm &quot;+ Thêm việc&quot; để tạo mới</div>
                             </div>
                         )}
                         {events.map(ev => (
