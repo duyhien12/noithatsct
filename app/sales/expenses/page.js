@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
@@ -139,10 +139,10 @@ export default function SalesExpensesPage() {
         setLoadingPay(false);
     };
 
-    useEffect(() => { fetchExpenses(); fetchPayments(); fetchCcSummary(ccSummaryMonth); }, []);
+    useEffect(() => { fetchExpenses(); fetchPayments(); fetchCcSummary(ccSummaryMonth); }, [ccSummaryMonth]);
 
     /* ── Chấm công fetch ── */
-    const fetchCcWorkers = async () => {
+    const fetchCcWorkers = useCallback(async () => {
         setCcLoading(true);
         const [wRes, aRes] = await Promise.all([
             fetch('/api/sales/workers').then(r => r.json()).catch(() => []),
@@ -151,7 +151,7 @@ export default function SalesExpensesPage() {
         setCcWorkers(Array.isArray(wRes) ? wRes : []);
         setCcAttendance(Array.isArray(aRes) ? aRes : []);
         setCcLoading(false);
-    };
+    }, [ccDate]);
     const fetchCcAttendance = async (date) => {
         const data = await fetch(`/api/sales/attendance?date=${date}`).then(r => r.json()).catch(() => []);
         setCcAttendance(Array.isArray(data) ? data : []);
@@ -192,8 +192,8 @@ export default function SalesExpensesPage() {
             setCcUserList(list);
         }).catch(() => {});
     }, []);
-    useEffect(() => { if (mainTab === 'cham_cong') fetchCcWorkers(); }, [mainTab]);
-    useEffect(() => { if (mainTab === 'cham_cong') fetchCcAttendance(ccDate); }, [ccDate]);
+    useEffect(() => { if (mainTab === 'cham_cong') fetchCcWorkers(); }, [mainTab, fetchCcWorkers]);
+    useEffect(() => { if (mainTab === 'cham_cong') fetchCcAttendance(ccDate); }, [ccDate, mainTab]);
     useEffect(() => { if (ccShowSummary) fetchCcSummary(ccSummaryMonth); }, [ccSummaryMonth, ccShowSummary]);
 
     /* ── Chấm công actions ── */

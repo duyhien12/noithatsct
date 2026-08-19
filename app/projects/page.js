@@ -91,7 +91,7 @@ export default function ProjectsPage() {
     const submittingRef = useRef(false);
     const router = useRouter();
 
-    const fetchProjects = () => {
+    const fetchProjects = useCallback(() => {
         setLoading(true);
         const params = new URLSearchParams();
         if (search) params.set('search', search);
@@ -112,7 +112,7 @@ export default function ProjectsPage() {
                 setLoading(false);
             });
         }
-    };
+    }, [search, filterType, isThietKe]);
 
     useEffect(() => {
         if (!openPhaseId) return;
@@ -124,8 +124,8 @@ export default function ProjectsPage() {
     useEffect(() => {
         const url = isThietKe ? '/api/customers?dept=thiet_ke&limit=1000' : '/api/customers?limit=1000';
         fetch(url).then(r => r.json()).then(d => setCustomers(d.data || []));
-    }, []);
-    useEffect(() => { fetchProjects(); }, [search, filterType, isThietKe]);
+    }, [isThietKe]);
+    useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
     const handleDelete = async (id, e) => {
         e.stopPropagation();

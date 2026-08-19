@@ -88,7 +88,7 @@ export default function WorkshopTasksPage() {
         fetchAll();
         intervalRef.current = setInterval(() => fetchAll(true), 30000);
         return () => clearInterval(intervalRef.current);
-    }, [fetchAll, role]);
+    }, [fetchAll, role, router]);
 
     const openAdd = () => { setEditTarget(null); setForm(EMPTY_FORM); setShowModal(true); };
     const openEdit = (t) => {

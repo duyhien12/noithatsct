@@ -155,7 +155,7 @@ export default function WorkshopDashboard() {
         fetchData();
         intervalRef.current = setInterval(() => fetchData(true), 30000);
         return () => clearInterval(intervalRef.current);
-    }, [role, fetchData]);
+    }, [role, fetchData, router]);
 
     useEffect(() => {
         if (!lastRefresh) return;

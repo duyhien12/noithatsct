@@ -30,7 +30,7 @@ export default function useAutoSaveDraft({ key, data, onRestore, enabled = true 
             // ignore parse errors
         }
         setRestored(true);
-    }, [key]);
+    }, [key, onRestore, restored]);
 
     // Debounced save
     useEffect(() => {

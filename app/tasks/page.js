@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import MentionTextarea from '@/components/MentionTextarea';
 import MentionText from '@/components/MentionText';
@@ -72,7 +72,7 @@ export default function TasksPage() {
         }
     }, [status, isAdmin, isPeerGroup, isManager, currentUserName]);
 
-    const fetchTasks = () => {
+    const fetchTasks = useCallback(() => {
         const params = new URLSearchParams();
         if (isAdmin) {
             if (filterUser) params.set('assignee', filterUser);
@@ -88,7 +88,7 @@ export default function TasksPage() {
             .then(r => r.json())
             .then(d => { if (d.data) setTasks(d.data); setLoading(false); })
             .catch(() => setLoading(false));
-    };
+    }, [isAdmin, filterUser, isManager, isPeerGroup, currentUserRole, currentUserName]);
 
     useEffect(() => {
         fetch('/api/users').then(r => r.json()).then(d => setUsers(Array.isArray(d) ? d : []));
@@ -98,7 +98,7 @@ export default function TasksPage() {
         if (status !== 'authenticated') return;
         setLoading(true);
         fetchTasks();
-    }, [filterUser, status, isAdmin, isManager]);
+    }, [filterUser, status, isAdmin, isManager, fetchTasks]);
 
     // Mở tác vụ trực tiếp khi vào từ link thông báo (?taskId=...)
     useEffect(() => {

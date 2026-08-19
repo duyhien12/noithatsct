@@ -127,7 +127,7 @@ export default function Dashboard() {
         if (role === 'xuong') { router.replace('/workshop'); return; }
         if (role === 'xay_dung') { router.replace('/projects'); return; }
         if (role && !canViewDashboard) { router.replace('/projects'); return; }
-    }, [role, canViewDashboard]);
+    }, [role, canViewDashboard, router]);
 
     useEffect(() => {
         if (!canViewDashboard && role) return;

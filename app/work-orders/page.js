@@ -71,7 +71,35 @@ function WorkOrderDetailModal({ wo, onClose, onUpdated, session }) {
             dueDate: toInputDate(wo.dueDate),
         });
         setTab('detail');
-    }, [wo?.id]);
+    }, [wo]);
+
+    const fetchPhotos = useCallback(async () => {
+        setPhotoLoading(true);
+        const r = await fetch(`/api/work-orders/${wo.id}/photos`);
+        setPhotos(await r.json());
+        setPhotoLoading(false);
+    }, [wo]);
+
+    const fetchQC = useCallback(async () => {
+        setQcLoading(true);
+        const r = await fetch(`/api/work-orders/${wo.id}/qc`);
+        setQcItems(await r.json());
+        setQcLoading(false);
+    }, [wo]);
+
+    const fetchCheckins = useCallback(async () => {
+        setCheckinLoading(true);
+        const r = await fetch(`/api/work-orders/${wo.id}/checkins`);
+        setCheckins(await r.json());
+        setCheckinLoading(false);
+    }, [wo]);
+
+    const fetchStageLogs = useCallback(async () => {
+        setStageLoading(true);
+        const r = await fetch(`/api/work-orders/${wo.id}/stage-logs`);
+        setStageLogs(await r.json());
+        setStageLoading(false);
+    }, [wo]);
 
     useEffect(() => {
         if (!wo) return;
@@ -79,35 +107,7 @@ function WorkOrderDetailModal({ wo, onClose, onUpdated, session }) {
         if (tab === 'qc') fetchQC();
         if (tab === 'checkins') fetchCheckins();
         if (tab === 'history') fetchStageLogs();
-    }, [tab, wo?.id]);
-
-    const fetchPhotos = async () => {
-        setPhotoLoading(true);
-        const r = await fetch(`/api/work-orders/${wo.id}/photos`);
-        setPhotos(await r.json());
-        setPhotoLoading(false);
-    };
-
-    const fetchQC = async () => {
-        setQcLoading(true);
-        const r = await fetch(`/api/work-orders/${wo.id}/qc`);
-        setQcItems(await r.json());
-        setQcLoading(false);
-    };
-
-    const fetchCheckins = async () => {
-        setCheckinLoading(true);
-        const r = await fetch(`/api/work-orders/${wo.id}/checkins`);
-        setCheckins(await r.json());
-        setCheckinLoading(false);
-    };
-
-    const fetchStageLogs = async () => {
-        setStageLoading(true);
-        const r = await fetch(`/api/work-orders/${wo.id}/stage-logs`);
-        setStageLogs(await r.json());
-        setStageLoading(false);
-    };
+    }, [tab, wo, fetchPhotos, fetchQC, fetchCheckins, fetchStageLogs]);
 
     // ── Save basic info ───────────────────────────────────────────────────────
     const saveEdit = async () => {
@@ -1258,7 +1258,7 @@ export default function WorkOrdersPage() {
         }
         fetch('/api/workshop/workers').then(r => r.json()).then(d => setWorkers(Array.isArray(d) ? d : []));
         fetch('/api/projects?limit=200').then(r => r.json()).then(d => setProjects(d?.data || []));
-    }, [role]);
+    }, [role, router]);
 
     const tabs = [
         { key: 'phieu', label: '📋 Phiếu công việc' },

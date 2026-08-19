@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useRole } from '@/contexts/RoleContext';
 
@@ -45,7 +45,7 @@ export default function SupplierDetailPage() {
     const [docNotes, setDocNotes] = useState('');
     const fileInputRef = useRef();
 
-    const fetchSupplier = async () => {
+    const fetchSupplier = useCallback(async () => {
         setLoading(true);
         const res = await fetch(`/api/suppliers/${id}`);
         if (res.ok) {
@@ -60,17 +60,17 @@ export default function SupplierDetailPage() {
             });
         }
         setLoading(false);
-    };
+    }, [id]);
 
-    const fetchDocs = async () => {
+    const fetchDocs = useCallback(async () => {
         setDocsLoading(true);
         const res = await fetch(`/api/suppliers/${id}/documents`);
         if (res.ok) setDocs(await res.json());
         setDocsLoading(false);
-    };
+    }, [id]);
 
-    useEffect(() => { fetchSupplier(); }, [id]);
-    useEffect(() => { if (tab === 'docs') fetchDocs(); }, [tab]);
+    useEffect(() => { fetchSupplier(); }, [fetchSupplier]);
+    useEffect(() => { if (tab === 'docs') fetchDocs(); }, [tab, fetchDocs]);
 
     const handleSave = async () => {
         setSaving(true);

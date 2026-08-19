@@ -498,7 +498,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                     )
                 );
             });
-    }, [projectId]);
+    }, [projectId, onTotalBudgetLoaded]);
 
     useEffect(() => { reload(); }, [reload]);
 
@@ -526,7 +526,7 @@ export default function VarianceTable({ projectId, onTotalBudgetLoaded, project 
                 pendingSavesMap.set(id, promise);
             });
         };
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, []);
 
     // Đồng bộ itemsRef với items state để cleanup effect luôn có dữ liệu mới nhất
     useEffect(() => { itemsRef.current = items; }, [items]);

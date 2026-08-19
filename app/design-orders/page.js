@@ -49,7 +49,7 @@ export default function DesignOrdersPage() {
             toast.error(e.message);
         }
         setLoading(false);
-    }, [page, search, status, projectType, fromDate, toDate]);
+    }, [page, search, status, projectType, fromDate, toDate, toast]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
     useEffect(() => { setPage(1); }, [search, status, projectType, fromDate, toDate]);

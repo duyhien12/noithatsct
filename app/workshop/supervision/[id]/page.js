@@ -133,7 +133,7 @@ export default function SupervisionChecklistDetail() {
             return;
         }
         fetchChecklist();
-    }, [role, fetchChecklist]);
+    }, [role, fetchChecklist, router]);
 
     const updateItem = async (itemId, patch) => {
         // Optimistic update

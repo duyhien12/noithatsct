@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
@@ -44,7 +44,7 @@ export default function ContractorDetailPage() {
     const [docNotes, setDocNotes] = useState('');
     const fileInputRef = useRef();
 
-    const fetchContractor = async () => {
+    const fetchContractor = useCallback(async () => {
         setLoading(true);
         const res = await fetch(`/api/contractors/${id}`);
         if (res.ok) {
@@ -59,17 +59,17 @@ export default function ContractorDetailPage() {
             });
         }
         setLoading(false);
-    };
+    }, [id]);
 
-    const fetchDocs = async () => {
+    const fetchDocs = useCallback(async () => {
         setDocsLoading(true);
         const res = await fetch(`/api/contractors/${id}/documents`);
         if (res.ok) setDocs(await res.json());
         setDocsLoading(false);
-    };
+    }, [id]);
 
-    useEffect(() => { fetchContractor(); }, [id]);
-    useEffect(() => { if (tab === 'docs') fetchDocs(); }, [tab]);
+    useEffect(() => { fetchContractor(); }, [fetchContractor]);
+    useEffect(() => { if (tab === 'docs') fetchDocs(); }, [tab, fetchDocs]);
 
     const handleSave = async () => {
         setSaving(true);

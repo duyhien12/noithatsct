@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
@@ -54,7 +54,7 @@ export default function ContractDetailPage() {
     const fileRef = useRef();
     const projectMenuRef = useRef();
 
-    const reload = () => {
+    const reload = useCallback(() => {
         fetch(`/api/contracts/${id}`)
             .then(r => r.json())
             .then(d => {
@@ -75,9 +75,9 @@ export default function ContractDetailPage() {
                     fileUrl: d.fileUrl || '',
                 });
             });
-    };
+    }, [id]);
 
-    useEffect(() => { reload(); }, [id]);
+    useEffect(() => { reload(); }, [reload]);
 
     useEffect(() => {
         if (!showProjectMenu) return;

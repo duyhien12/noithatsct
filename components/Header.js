@@ -84,7 +84,7 @@ export default function Header({ onMenuToggle }) {
         fetchNotifications();
         const timer = setInterval(fetchNotifications, 60000);
         return () => clearInterval(timer);
-    }, [session?.user?.id]);
+    }, [session?.user?.id, session?.user]);
 
     const openNotification = async (n) => {
         setShowNotifMenu(false);

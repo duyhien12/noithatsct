@@ -260,7 +260,7 @@ export default function InventoryPage() {
     useEffect(() => {
         if (activeTab === 'stock') fetchStock(true);
         else if (activeTab === 'history') fetchTx();
-    }, [activeTab, filterType, filterWarehouse, filterDateFrom, filterDateTo]);
+    }, [activeTab, filterType, filterWarehouse, filterDateFrom, filterDateTo, fetchStock, fetchTx]);
 
     useEffect(() => {
         fetch('/api/inventory/stock').then(r => r.json()).then(d => setStockData(d));

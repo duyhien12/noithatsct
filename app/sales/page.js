@@ -38,7 +38,7 @@ export default function SalesDashboard() {
             .then(r => r.json())
             .then(d => { setData(d); setLoading(false); })
             .catch(() => setLoading(false));
-    }, [role]);
+    }, [role, router]);
 
     if (loading) return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400, color: 'var(--text-muted)' }}>

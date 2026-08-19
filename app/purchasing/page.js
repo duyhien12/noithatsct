@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
@@ -70,7 +70,7 @@ function PurchasingContent() {
     const [phieuChiNotes, setPhieuChiNotes] = useState('');
     const [creatingPhieuChi, setCreatingPhieuChi] = useState(false);
 
-    const fetchOrders = (dept = filterDept) => {
+    const fetchOrders = useCallback((dept = filterDept) => {
         setLoading(true);
         let url = '/api/purchase-orders?limit=1000';
         if (isXuongView) {
@@ -79,21 +79,21 @@ function PurchasingContent() {
             url += `&projectRole=${dept}`;
         }
         fetch(url).then(r => r.json()).then(d => { setOrders(d.data || []); setLoading(false); });
-    };
+    }, [filterDept, isXuongView]);
 
-    const fetchProjects = (dept = filterDept) => {
+    const fetchProjects = useCallback((dept = filterDept) => {
         let url = '/api/projects?limit=200';
         if (isXuongView) url += '&dept=kinh_doanh';
         else if (dept === 'xay_dung') url += '&dept=xay_dung';
         else if (dept === 'kinh_doanh') url += '&dept=kinh_doanh';
         fetch(url).then(r => r.json()).then(d => setProjects(d.data || []));
-    };
+    }, [filterDept, isXuongView]);
 
     useEffect(() => {
         fetchOrders();
         fetchProjects();
         fetch('/api/suppliers?limit=1000').then(r => r.json()).then(d => setSuppliers(d.data || []));
-    }, []);
+    }, [fetchOrders, fetchProjects]);
 
     // Pre-fill from URL params (from products bulk action)
     useEffect(() => {

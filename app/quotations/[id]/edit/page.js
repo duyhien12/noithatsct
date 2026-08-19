@@ -127,7 +127,16 @@ export default function EditQuotationPage() {
             toast.error(e.message);
             setLoading(false);
         });
-    }, [params.id]);
+        // Intentionally scoped to params.id (+ the stable router/toast/setters below):
+        // `hook` is a fresh object literal returned by useQuotationForm() on every render (not
+        // memoized), and `recalc` is derived from it via useCallback([form.type]) — form.type is
+        // itself set by this effect. Adding `hook` would re-run this fetch on every render (the
+        // state updates below trigger a re-render → new `hook` → effect fires again → infinite
+        // loop). Adding `recalc` would cause an extra duplicate fetch whenever the loaded
+        // quotation's type differs from the form's default type. setForm/setMainCategories are
+        // stable React state setters; router/toast are stable per app convention.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [params.id, router, toast, setForm, setMainCategories]);
 
     // Auto-save draft
     useAutoSaveDraft({

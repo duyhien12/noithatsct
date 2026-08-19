@@ -49,7 +49,7 @@ export default function SupervisionListPage() {
             return;
         }
         fetchAll();
-    }, [role, fetchAll]);
+    }, [role, fetchAll, router]);
 
     const toggleTemplate = (key) => {
         setCreateTemplateKeys(keys => keys.includes(key) ? keys.filter(k => k !== key) : [...keys, key]);

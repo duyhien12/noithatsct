@@ -234,7 +234,7 @@ function ProjectSummaryContent() {
                 if (p) setProjectSearch(p.name);
             }
         });
-    }, [role]);
+    }, [role, router, searchParams]);
 
     const fetchEntries = useCallback(async () => {
         if (!selectedProjectId) return;

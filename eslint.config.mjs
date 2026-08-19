@@ -26,6 +26,10 @@ const eslintConfig = defineConfig([
       "react-hooks/error-boundaries": "off",
       "react-hooks/globals": "off",
       "react-hooks/gating": "off",
+      // Images here are dynamic user uploads (R2/local, blob preview URLs) with no
+      // fixed dimensions; next/image needs remotePatterns config + breaks on blob:
+      // URLs, so plain <img> is intentional across the app.
+      "@next/next/no-img-element": "off",
     },
   },
 ]);

@@ -54,7 +54,7 @@ export default function DesignOrderDetailPage() {
                 confirmedDeadline: o.confirmedDeadline ? new Date(o.confirmedDeadline).toISOString().slice(0, 10) : '',
             });
         }).catch(e => toast.error(e.message)).finally(() => setLoading(false));
-    }, [id]);
+    }, [id, toast]);
 
     useEffect(() => { load(); }, [load]);
 

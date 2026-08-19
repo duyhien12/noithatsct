@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRole } from '@/contexts/RoleContext';
 
@@ -497,20 +497,20 @@ export default function WorkLogPage() {
         fetch('/api/workshop/workers').then(r => r.json()).then(d => setWorkers(Array.isArray(d) ? d : []));
         fetch('/api/projects?limit=200&type=Thi công nội thất').then(r => r.json()).then(d => setProjects(Array.isArray(d?.data) ? d.data : []));
         fetch('/api/workshop/tasks?status=Đang làm').then(r => r.json()).then(d => setActiveTasks(Array.isArray(d) ? d : []));
-    }, [role]);
+    }, [role, router]);
 
-    useEffect(() => {
-        fetchAll();
-    }, [weekStart]);
-
-    const fetchAll = () => {
+    const fetchAll = useCallback(() => {
         setLoading(true);
         const start = toISO(weekStart);
         const end = toISO(addDays(weekStart, 6));
         fetch(`/api/workshop/work-log?start=${start}&end=${end}`)
             .then(r => r.json())
             .then(d => { setEntries(Array.isArray(d) ? d : []); setLoading(false); });
-    };
+    }, [weekStart]);
+
+    useEffect(() => {
+        fetchAll();
+    }, [weekStart, fetchAll]);
 
     const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
     const weekEnd = weekDays[6];

@@ -128,6 +128,10 @@ function DetailModal({ record: initRec, onClose, onUpdated, projects }) {
             estimatedCost: rec.estimatedCost || '', actualCost: rec.actualCost || '',
         });
         setRatingForm({ customerRating: rec.customerRating || 0, customerFeedback: rec.customerFeedback || '' });
+        // Only re-sync form when a different record is loaded (rec.id changes on remount/select).
+        // Depending on every rec.xxx field would reset the in-progress form after each save (patch()
+        // calls setRec(updated)), wiping unsaved edits on other tabs. rec.id is the correct signal.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [rec.id]);
 
     const patch = useCallback(async (data) => {
@@ -141,7 +145,7 @@ function DetailModal({ record: initRec, onClose, onUpdated, projects }) {
         onUpdated();
         setSaving(false);
         return updated;
-    }, [rec.id]);
+    }, [rec.id, onUpdated]);
 
     const advanceStatus = async () => {
         const next = NEXT_STATUS[rec.status];

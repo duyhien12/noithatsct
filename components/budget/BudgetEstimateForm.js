@@ -487,7 +487,7 @@ export default function BudgetEstimateForm({ projectId }) {
                 savingRef.current = false;
             });
         }, 1500);
-    }, [cats]);
+    }, [cats, projectId]);
 
     useEffect(() => {
         fetch(`/api/projects/${projectId}/budget-estimate`)

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
 const fmtCur = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
@@ -50,35 +50,35 @@ export default function ProductDetailPage() {
         }).catch(() => { });
     }, []);
 
-    const fetchProduct = async () => {
+    const fetchProduct = useCallback(async () => {
         const res = await fetch(`/api/products/${id}`);
         if (!res.ok) { router.push('/products'); return; }
         const p = await res.json();
         setProduct(p);
         setForm({ ...p });
-    };
+    }, [id, router]);
 
-    const fetchBom = async () => {
+    const fetchBom = useCallback(async () => {
         setLoadingBom(true);
         const res = await fetch(`/api/products/${id}/bom`);
         setBom(await res.json());
         setLoadingBom(false);
-    };
+    }, [id]);
 
-    const fetchTx = async () => {
+    const fetchTx = useCallback(async () => {
         setLoadingTx(true);
         const res = await fetch(`/api/inventory?productId=${id}&limit=50`);
         const data = await res.json();
         setTxList(data.data || []);
         setLoadingTx(false);
-    };
+    }, [id]);
 
-    const fetchAttributes = async () => {
+    const fetchAttributes = useCallback(async () => {
         const res = await fetch(`/api/products/${id}/attributes`);
         setAttributes(await res.json());
-    };
+    }, [id]);
 
-    useEffect(() => { fetchProduct(); }, [id]);
+    useEffect(() => { fetchProduct(); }, [fetchProduct]);
     useEffect(() => {
         if (tab === 'bom') {
             fetchBom();
@@ -89,7 +89,7 @@ export default function ProductDetailPage() {
             fetchAttributes();
             fetch('/api/variant-templates').then(r => r.json()).then(setVariantTemplates).catch(() => { });
         }
-    }, [tab]);
+    }, [tab, fetchBom, fetchTx, fetchAttributes]);
 
     const addAttribute = async () => {
         if (!attrForm.name.trim()) return alert('Nhập tên thuộc tính');

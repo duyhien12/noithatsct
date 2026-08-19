@@ -48,7 +48,7 @@ export default function NewDesignOrderPage() {
         if (!customerId || customers.length === 0 || form.customerId) return;
         const c = customers.find(x => x.id === customerId);
         if (c) setForm(f => ({ ...f, customerId, customerName: c.name, customerPhone: c.phone }));
-    }, [customers, searchParams]);
+    }, [customers, searchParams, form.customerId]);
 
     const filteredProjects = form.customerId ? projects.filter(p => p.customerId === form.customerId) : projects;
 

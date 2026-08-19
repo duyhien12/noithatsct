@@ -34,7 +34,7 @@ export default function QuotationsPage() {
             toast.error(e.message);
         }
         setLoading(false);
-    }, [page, filterStatus, search, isKinhDoanh]);
+    }, [page, filterStatus, search, isKinhDoanh, toast]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 

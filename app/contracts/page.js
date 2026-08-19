@@ -26,7 +26,7 @@ export default function ContractsPage() {
         if (status === 'loading') return;
         if (session?.user?.role === 'xuong') { router.replace('/'); return; }
         loadContracts();
-    }, [session, status]);
+    }, [session, status, router]);
 
     const handleDelete = async (e, id, code) => {
         e.stopPropagation();

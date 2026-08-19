@@ -18,7 +18,7 @@ export default function EditLessonPage() {
 
     const load = useCallback(() => {
         apiFetch(`/api/lessons-learned/${id}`).then(setLesson).catch(e => toast.error(e.message)).finally(() => setLoading(false));
-    }, [id]);
+    }, [id, toast]);
 
     useEffect(() => { load(); }, [load]);
     useEffect(() => {

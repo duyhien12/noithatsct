@@ -82,7 +82,7 @@ function FinanceContent() {
 
     useEffect(() => {
         if (activeTab === 'dept_expenses' && !deptFetched) fetchDeptExpenses();
-    }, [activeTab]);
+    }, [activeTab, deptFetched]);
 
     const approveDeptExpense = async (expense, newStatus) => {
         await fetch('/api/project-expenses', {

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useToast } from '@/components/ui/Toast';
 
@@ -34,7 +34,7 @@ export default function ProposalsPage() {
     const isAdmin = BAN_GD.includes(session?.user?.role);
     const myEmail = session?.user?.email || '';
 
-    const fetchData = () => {
+    const fetchData = useCallback(() => {
         const params = new URLSearchParams();
         if (filterStatus) params.set('status', filterStatus);
         if (filterType) params.set('type', filterType);
@@ -42,13 +42,13 @@ export default function ProposalsPage() {
             .then(r => r.json())
             .then(d => { setItems(d.data || []); setLoading(false); })
             .catch(() => { toast.error('Không thể tải dữ liệu'); setLoading(false); });
-    };
+    }, [filterStatus, filterType, toast]);
 
     useEffect(() => {
         if (status !== 'authenticated') return;
         setLoading(true);
         fetchData();
-    }, [status, filterStatus, filterType]);
+    }, [status, fetchData]);
 
     const submit = async () => {
         if (!form.title.trim()) return alert('Vui lòng nhập tiêu đề');

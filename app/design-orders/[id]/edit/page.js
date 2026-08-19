@@ -51,7 +51,7 @@ export default function EditDesignOrderPage() {
             setAttachments(o.attachments || []);
             setLoading(false);
         }).catch(e => { toast.error(e.message); setLoading(false); });
-    }, [id]);
+    }, [id, toast]);
 
     const filteredProjects = form?.customerId ? projects.filter(p => p.customerId === form.customerId) : projects;
 

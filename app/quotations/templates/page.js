@@ -227,7 +227,7 @@ export default function QuotationTemplatesPage() {
             setTemplates(d.data || []);
         } catch (e) { toast.error(e.message); }
         setLoading(false);
-    }, []);
+    }, [toast]);
 
     useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
 

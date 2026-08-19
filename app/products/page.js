@@ -282,7 +282,7 @@ export default function ProductsPage() {
         }).catch(() => {});
     }, []);
     useEffect(() => { fetchProducts(); }, [fetchProducts]);
-    useEffect(() => { fetchProducts(); fetchCategories(); }, [tab]); // refetch when tab changes
+    useEffect(() => { fetchProducts(); fetchCategories(); }, [tab, fetchProducts, fetchCategories]); // refetch when tab changes
 
     useEffect(() => {
         if (!sentinelRef.current) return;
@@ -310,7 +310,7 @@ export default function ProductsPage() {
         };
         document.addEventListener('paste', handler);
         return () => document.removeEventListener('paste', handler);
-    }, []);
+    }, [fetchProducts]);
 
     // --- Products handlers ---
     const visibleCategories = categories;

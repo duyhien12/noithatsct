@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { TrendingUp, TrendingDown, Plus, Pencil, Trash2, ChevronLeft, ChevronRight, X, Download, CheckSquare, Square, AlertCircle } from 'lucide-react';
 
@@ -204,7 +204,7 @@ export default function WorkshopPLPage() {
 
     const { revenue, directCosts, grossProfit, indirectCosts, netProfit } = useMemo(() => computeSummary(entries), [entries]);
 
-    async function load() {
+    const load = useCallback(async () => {
         setLoading(true);
         try {
             const res = await fetch(`/api/workshop/pl?period=${period}`);
@@ -213,9 +213,9 @@ export default function WorkshopPLPage() {
         } finally {
             setLoading(false);
         }
-    }
+    }, [period]);
 
-    useEffect(() => { load(); }, [period]);
+    useEffect(() => { load(); }, [period, load]);
 
     function openAdd() {
         setEditing(null);

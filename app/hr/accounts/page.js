@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRole } from '@/contexts/RoleContext';
 import { useRouter } from 'next/navigation';
 
@@ -142,7 +142,7 @@ export default function AccountsPage() {
         if (role && role !== 'ban_gd' && role !== 'giam_doc' && role !== 'pho_gd') {
             router.replace('/hr');
         }
-    }, [role]);
+    }, [role, router]);
 
     const fetchZaloStatus = async () => {
         try {
@@ -151,15 +151,15 @@ export default function AccountsPage() {
         } catch {}
     };
 
-    const fetchUsers = async () => {
+    const fetchUsers = useCallback(async () => {
         setLoading(true);
         const res = await fetch(`/api/users?includeInactive=${showInactive}`);
         const data = await res.json();
         setUsers(Array.isArray(data) ? data : []);
         setLoading(false);
-    };
+    }, [showInactive]);
 
-    useEffect(() => { fetchUsers(); }, [showInactive]);
+    useEffect(() => { fetchUsers(); }, [fetchUsers]);
     useEffect(() => { fetchZaloStatus(); }, []);
 
     const filtered = users.filter(u => {

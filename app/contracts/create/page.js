@@ -64,7 +64,7 @@ export default function CreateContractPage() {
         });
         fetch('/api/projects?limit=1000').then(r => r.json()).then(d => setProjects(d.data || []));
         fetch('/api/quotations?limit=1000').then(r => r.json()).then(d => setQuotations(d.data || []));
-    }, [session]);
+    }, [session, isKinhDoanh]);
 
     // Auto-load template when type changes
     useEffect(() => {
@@ -74,7 +74,7 @@ export default function CreateContractPage() {
             pct: t.pct,
             amount: Math.round((form.contractValue || 0) * t.pct / 100),
         })));
-    }, [form.type]);
+    }, [form.type, form.contractValue]);
 
     // Recalc amounts when contractValue changes
     useEffect(() => {

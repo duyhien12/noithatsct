@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRole } from '@/contexts/RoleContext';
 
@@ -65,7 +65,7 @@ export default function CustomersPage() {
 
     const visiblePipeline = PIPELINE;
 
-    const fetchCustomers = async () => {
+    const fetchCustomers = useCallback(async () => {
         setLoading(true);
         if (isThietKe) {
             const r = await fetch('/api/customers?dept=thiet_ke&limit=1000');
@@ -81,8 +81,8 @@ export default function CustomersPage() {
             setCustomersXD(d2.data || []);
         }
         setLoading(false);
-    };
-    useEffect(() => { fetchCustomers(); }, [role]);
+    }, [isThietKe]);
+    useEffect(() => { fetchCustomers(); }, [role, fetchCustomers]);
 
     const applyFilter = (list) => list.filter(c => {
         if (filterSource && c.source !== filterSource) return false;

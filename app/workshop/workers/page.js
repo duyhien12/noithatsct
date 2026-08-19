@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRole } from '@/contexts/RoleContext';
 
@@ -192,13 +192,13 @@ export default function WorkersPage() {
         });
         setPayrollRows(rows);
         setPayrollMonth(summaryMonth);
-    }, [loadingSummary, summaryMonth, summaryAttendance, summaryOvertimes, salaryAdvances, workers, payrollMonth]);
+    }, [loadingSummary, summaryMonth, summaryAttendance, summaryOvertimes, salaryAdvances, workers, payrollMonth, payrollRows]);
 
     useEffect(() => {
         if (showOvertimeList) fetchMonthlyOvertimes(overtimeMonth);
     }, [overtimeMonth, showOvertimeList]);
 
-    const fetchAll = async () => {
+    const fetchAll = useCallback(async () => {
         setLoading(true);
         const monthStr = new Date().toISOString().slice(0, 7);
         const [, , , mAttRes] = await Promise.all([
@@ -210,7 +210,7 @@ export default function WorkersPage() {
         const mAttData = await mAttRes.json();
         setMonthlyAtt(Array.isArray(mAttData) ? mAttData : []);
         setLoading(false);
-    };
+    }, [selectedDate]);
 
     useEffect(() => {
         if (role && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd', 'hanh_chinh_kt'].includes(role)) {
@@ -220,7 +220,7 @@ export default function WorkersPage() {
         fetchAll();
         intervalRef.current = setInterval(fetchWorkers, 30000);
         return () => clearInterval(intervalRef.current);
-    }, [role]);
+    }, [role, fetchAll, router]);
 
     // Khi đổi ngày → refetch chấm công + tăng ca
     useEffect(() => {

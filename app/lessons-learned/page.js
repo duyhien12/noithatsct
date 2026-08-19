@@ -64,7 +64,7 @@ export default function LessonsLearnedPage() {
             toast.error(e.message);
         }
         setLoading(false);
-    }, [page, buildParams]);
+    }, [page, buildParams, toast]);
 
     const fetchStats = useCallback(async () => {
         try {

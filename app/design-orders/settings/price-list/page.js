@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRole } from '@/contexts/RoleContext';
 import { apiFetch } from '@/lib/fetchClient';
@@ -20,11 +20,11 @@ export default function DesignPriceListSettingsPage() {
 
     const canManage = MANAGE_ROLES.includes(role);
 
-    const load = () => {
+    const load = useCallback(() => {
         apiFetch('/api/design-orders/price-list').then(setItems).catch(e => toast.error(e.message)).finally(() => setLoading(false));
-    };
+    }, [toast]);
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => { load(); }, [load]);
 
     if (!loading && !canManage) {
         return (

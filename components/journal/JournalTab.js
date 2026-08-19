@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const fmtTime = (d) => d ? new Date(d).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
@@ -35,11 +35,11 @@ export default function JournalTab({ projectId }) {
     const [manualForm, setManualForm] = useState({ title: '', type: 'request', assignee: '', deadline: '', notes: '' });
     const inputRef = useRef(null);
 
-    const fetchEntries = () => fetch(`/api/journal-entries?projectId=${projectId}`).then(r => r.json()).then(setEntries).catch(() => { });
-    const fetchCommitments = () => fetch(`/api/commitments?projectId=${projectId}`).then(r => r.json()).then(setCommitments).catch(() => { });
+    const fetchEntries = useCallback(() => fetch(`/api/journal-entries?projectId=${projectId}`).then(r => r.json()).then(setEntries).catch(() => { }), [projectId]);
+    const fetchCommitments = useCallback(() => fetch(`/api/commitments?projectId=${projectId}`).then(r => r.json()).then(setCommitments).catch(() => { }), [projectId]);
     const refresh = () => { fetchEntries(); fetchCommitments(); };
 
-    useEffect(() => { setLoading(true); Promise.all([fetchEntries(), fetchCommitments()]).finally(() => setLoading(false)); }, [projectId]);
+    useEffect(() => { setLoading(true); Promise.all([fetchEntries(), fetchCommitments()]).finally(() => setLoading(false)); }, [projectId, fetchCommitments, fetchEntries]);
 
     // ========== INPUT + AI ==========
     const handleAnalyze = async () => {

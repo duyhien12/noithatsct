@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
@@ -33,7 +33,7 @@ export default function HRPage() {
     const [form, setForm] = useState(EMPTY_FORM);
     const [deleteTarget, setDeleteTarget] = useState(null); // employee to confirm delete
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         const p = new URLSearchParams({ limit: 1000 });
         if (filterDept) p.set('departmentId', filterDept);
@@ -41,9 +41,9 @@ export default function HRPage() {
         const d = await res.json();
         setData({ employees: d.data || [], departments: d.departments || [] });
         setLoading(false);
-    };
+    }, [filterDept]);
 
-    useEffect(() => { fetchData(); }, [filterDept]);
+    useEffect(() => { fetchData(); }, [fetchData]);
 
     const openAdd = () => {
         setEditTarget(null);
