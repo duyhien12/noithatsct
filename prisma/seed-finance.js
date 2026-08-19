@@ -63,6 +63,11 @@ async function main() {
     }
 }
 
-main()
-    .catch(console.error)
-    .finally(() => prisma.$disconnect());
+module.exports = main;
+
+// Cho phép chạy độc lập: node prisma/seed-finance.js
+if (require.main === module) {
+    main()
+        .catch(console.error)
+        .finally(() => prisma.$disconnect());
+}

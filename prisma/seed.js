@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const { hashSync } = require('bcryptjs');
+const seedFinance = require('./seed-finance');
 const prisma = new PrismaClient();
 
 async function main() {
@@ -259,6 +260,9 @@ async function main() {
     for (const tx of txData) {
         await prisma.transaction.create({ data: { ...tx, date: new Date(Date.now() - Math.random() * 180 * 86400000) } });
     }
+
+    // Danh mục Thu/Chi + tài khoản kế toán cho module Nhật ký Thu - Chi
+    await seedFinance();
 
     console.log('✅ Seeding complete!');
 }
