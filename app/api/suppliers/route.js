@@ -9,7 +9,8 @@ export const GET = withAuth(async (request) => {
     const { searchParams } = new URL(request.url);
     const { page, limit, skip } = parsePagination(searchParams);
 
-    const where = {};
+    const search = searchParams.get('search');
+    const where = search ? { name: { contains: search, mode: 'insensitive' } } : {};
 
     const [data, total, poStats] = await Promise.all([
         prisma.supplier.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),

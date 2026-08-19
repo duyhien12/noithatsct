@@ -1,6 +1,7 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { BALANCE_STATUS } from '@/lib/financeJournal';
 
 const DASHBOARD_ROLES = ['ban_gd', 'giam_doc', 'pho_gd'];
 const ADMIN_EMAIL = 'admin@kientrucsct.com';
@@ -51,8 +52,15 @@ export const GET = withAuth(async (request, context, session) => {
         safe(prisma.product.count(), 0),
         safe(prisma.contract.count(), 0),
         safe(prisma.workOrder.count(), 0),
-        safe(prisma.transaction.aggregate({ where: { type: 'Thu' }, _sum: { amount: true } }), { _sum: { amount: 0 } }),
-        safe(prisma.transaction.aggregate({ where: { type: 'Chi' }, _sum: { amount: true } }), { _sum: { amount: 0 } }),
+        // Thu/Chi thực tế — lấy từ Nhật ký Thu Chi (chỉ tính giao dịch đã hạch toán)
+        safe(prisma.financeTransaction.aggregate({
+            where: { status: BALANCE_STATUS, deletedAt: null },
+            _sum: { cashIn: true, bankIn: true },
+        }), { _sum: { cashIn: 0, bankIn: 0 } }),
+        safe(prisma.financeTransaction.aggregate({
+            where: { status: BALANCE_STATUS, deletedAt: null },
+            _sum: { cashOut: true, bankOut: true },
+        }), { _sum: { cashOut: 0, bankOut: 0 } }),
         safe(prisma.project.count({ where: { status: { in: ['Thi công', 'Thiết kế', 'Đang thi công'] } } }), 0),
         safe(prisma.workOrder.count({ where: { status: 'Chờ xử lý' } }), 0),
         safe(prisma.contract.aggregate({ _sum: { contractValue: true, paidAmount: true } }), { _sum: { contractValue: 0, paidAmount: 0 } }),
@@ -67,14 +75,14 @@ export const GET = withAuth(async (request, context, session) => {
             take: 10,
         }), []),
         // 30-day expense for burn rate
-        safe(prisma.transaction.aggregate({
-            where: { type: 'Chi', date: { gte: new Date(Date.now() - 30 * 86400000) } },
-            _sum: { amount: true },
-        }), { _sum: { amount: 0 } }),
-        // Transactions for cashflow timeline
-        safe(prisma.transaction.findMany({
-            where: { date: { gte: dateFilter } },
-            select: { type: true, amount: true, date: true, category: true },
+        safe(prisma.financeTransaction.aggregate({
+            where: { status: BALANCE_STATUS, deletedAt: null, date: { gte: new Date(Date.now() - 30 * 86400000) } },
+            _sum: { cashOut: true, bankOut: true },
+        }), { _sum: { cashOut: 0, bankOut: 0 } }),
+        // Finance transactions for cashflow timeline
+        safe(prisma.financeTransaction.findMany({
+            where: { status: BALANCE_STATUS, deletedAt: null, date: { gte: dateFilter } },
+            select: { cashIn: true, cashOut: true, bankIn: true, bankOut: true, date: true },
             orderBy: { date: 'asc' },
         }), []),
         // Pending expenses for bottleneck + payable + blocked
@@ -103,8 +111,8 @@ export const GET = withAuth(async (request, context, session) => {
     ]);
 
     // --- Derived CFO metrics ---
-    const totalRevenue = income._sum.amount || 0;
-    const totalExpense = expense._sum.amount || 0;
+    const totalRevenue = (income._sum.cashIn || 0) + (income._sum.bankIn || 0);
+    const totalExpense = (expense._sum.cashOut || 0) + (expense._sum.bankOut || 0);
     const cashBalance  = totalRevenue - totalExpense;
 
     const totalContractValue = contractValueAgg._sum.contractValue || 0;
@@ -116,7 +124,7 @@ export const GET = withAuth(async (request, context, session) => {
     const blockedAmount = blocked.reduce((s, e) => s + e.amount, 0);
     const blockedCount  = blocked.length;
 
-    const burnRate30d = (expense30dAgg._sum.amount || 0) / 30;
+    const burnRate30d = ((expense30dAgg._sum.cashOut || 0) + (expense30dAgg._sum.bankOut || 0)) / 30;
     const runwayDays  = burnRate30d > 0 ? Math.round(cashBalance / burnRate30d) : 9999;
 
     // Approval bottleneck grouped by status
@@ -142,8 +150,8 @@ export const GET = withAuth(async (request, context, session) => {
     recentTransactions.forEach(tx => {
         const d = new Date(tx.date).toISOString().split('T')[0];
         if (!dailyMap[d]) dailyMap[d] = { thu: 0, chi: 0 };
-        if (tx.type === 'Thu') dailyMap[d].thu += tx.amount;
-        else dailyMap[d].chi += tx.amount;
+        dailyMap[d].thu += (tx.cashIn || 0) + (tx.bankIn || 0);
+        dailyMap[d].chi += (tx.cashOut || 0) + (tx.bankOut || 0);
     });
     const cashflowTimeline = Object.entries(dailyMap)
         .sort(([a], [b]) => a.localeCompare(b))

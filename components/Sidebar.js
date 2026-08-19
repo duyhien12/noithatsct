@@ -6,7 +6,7 @@ import {
     LayoutDashboard, GitBranch, Users, Building2, FileText,
     Package, ClipboardList, Wrench, CreditCard, Receipt,
     ShoppingCart, Truck, Warehouse, Wallet, UserCog,
-    BarChart3, ChevronRight, Shield, X, CalendarDays, HardHat, Banknote, TrendingUp, BookMarked, Factory, ListChecks, PencilRuler, GraduationCap, Sparkles
+    BarChart3, ChevronRight, Shield, X, CalendarDays, HardHat, Banknote, TrendingUp, BookMarked, Factory, ListChecks, PencilRuler, GraduationCap, Sparkles, NotebookText
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useSession } from 'next-auth/react';
@@ -64,6 +64,8 @@ const menuItems = [
               roles: [...BAN_GD, ...KE_TOAN, ...VIEWER] },
             { href: '/expenses', icon: Receipt, label: 'Chi phí',
               roles: [...BAN_GD, ...KE_TOAN, ...KY_THUAT, ...KINH_DOANH, ...VIEWER] },
+            { href: '/finance/journal', icon: NotebookText, label: 'Nhật ký Thu – Chi',
+              roles: [...BAN_GD, ...KE_TOAN, ...VIEWER] },
             { href: '/finance', icon: Wallet, label: 'Tổng hợp tài chính',
               roles: [...BAN_GD, ...KE_TOAN, ...VIEWER] },
             { href: '/finance/kinh-doanh', icon: BarChart3, label: 'Chi phí Kinh doanh',

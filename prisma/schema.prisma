@@ -117,6 +117,7 @@ model Project {
   contracts             Contract[]
   contractorPays        ContractorPayment[]
   documentFolders       DocumentFolder[]
+  financeTransactions   FinanceTransaction[]
   inventoryTx           InventoryTransaction[]
   journalEntries        JournalEntry[]
   maintenanceRecords    MaintenanceRecord[]
@@ -2544,4 +2545,139 @@ model MfgAuditLog {
 
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+// ============================================================
+// NHẬT KÝ THU – CHI — sổ thu/chi hàng ngày cho Kế toán tổng hợp
+// ============================================================
+
+model BankAccount {
+  id              String                @id @default(cuid())
+  bankName        String
+  accountNumber   String                @default("")
+  accountHolder   String                @default("")
+  branch          String                @default("")
+  status          Boolean               @default(true)
+  openingBalance  Float                 @default(0)
+  notes           String                @default("")
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  transactions    FinanceTransaction[]
+  reconciliations CashReconciliation[]
+}
+
+model AccountingAccount {
+  id            String               @id @default(cuid())
+  code          String               @unique
+  name          String
+  active        Boolean              @default(true)
+  order         Int                  @default(0)
+  createdAt     DateTime             @default(now())
+  debitEntries  FinanceTransaction[] @relation("DebitAccount")
+  creditEntries FinanceTransaction[] @relation("CreditAccount")
+}
+
+model FinanceCategory {
+  id           String               @id @default(cuid())
+  name         String
+  group        String               @default("Chi") // "Thu" | "Chi"
+  order        Int                  @default(0)
+  active       Boolean              @default(true)
+  createdAt    DateTime             @default(now())
+  transactions FinanceTransaction[]
+
+  @@index([group])
+}
+
+model FinanceTransaction {
+  id              String                    @id @default(cuid())
+  code            String                    @unique
+  date            DateTime
+  type            String // "Thu" | "Chi"
+  method          String // "Tiền mặt" | "Chuyển khoản"
+  amount          Float
+  cashIn          Float                     @default(0)
+  cashOut         Float                     @default(0)
+  bankIn          Float                     @default(0)
+  bankOut         Float                     @default(0)
+  department      String
+  projectId       String?
+  content         String
+  detail          String                    @default("")
+  debitAccountId  String
+  creditAccountId String
+  bankAccountId   String?
+  categoryId      String?
+  objectType      String                    @default("")
+  objectId        String                    @default("")
+  objectName      String                    @default("")
+  payerReceiver   String                    @default("")
+  itemName        String                    @default("")
+  itemUnit        String                    @default("")
+  itemQty         Float                     @default(0)
+  itemUnitPrice   Float                     @default(0)
+  itemAmount      Float                     @default(0)
+  documentNo      String                    @default("")
+  documentDate    DateTime?
+  attachments     Json?                     @default("[]")
+  notes           String                    @default("")
+  status          String                    @default("Nháp") // Nháp | Đã duyệt | Đã hạch toán | Hủy
+  cancelReason    String                    @default("")
+  canceledBy      String                    @default("")
+  canceledAt      DateTime?
+  createdBy       String                    @default("")
+  createdById     String                    @default("")
+  createdByRole   String                    @default("")
+  deletedAt       DateTime?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  project         Project?                  @relation(fields: [projectId], references: [id])
+  debitAccount    AccountingAccount         @relation("DebitAccount", fields: [debitAccountId], references: [id])
+  creditAccount   AccountingAccount         @relation("CreditAccount", fields: [creditAccountId], references: [id])
+  bankAccount     BankAccount?              @relation(fields: [bankAccountId], references: [id])
+  category        FinanceCategory?          @relation(fields: [categoryId], references: [id])
+  audits          FinanceTransactionAudit[]
+
+  @@index([date])
+  @@index([projectId])
+  @@index([department])
+  @@index([status])
+  @@index([type])
+  @@index([debitAccountId])
+  @@index([creditAccountId])
+  @@index([bankAccountId])
+  @@index([categoryId])
+}
+
+model FinanceTransactionAudit {
+  id            String             @id @default(cuid())
+  transactionId String
+  action        String // create | update | cancel
+  actorName     String             @default("")
+  actorId       String             @default("")
+  actorRole     String             @default("")
+  beforeData    Json?
+  afterData     Json?
+  reason        String             @default("")
+  createdAt     DateTime           @default(now())
+  transaction   FinanceTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId])
+}
+
+model CashReconciliation {
+  id            String       @id @default(cuid())
+  date          DateTime     @default(now())
+  targetType    String // "cash" | "bank"
+  bankAccountId String?
+  systemBalance Float        @default(0)
+  actualBalance Float        @default(0)
+  difference    Float        @default(0)
+  note          String       @default("")
+  reconciledBy  String       @default("")
+  createdAt     DateTime     @default(now())
+  bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
+
+  @@index([targetType])
+  @@index([bankAccountId])
 }
