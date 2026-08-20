@@ -1,9 +1,10 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import {
     DEPARTMENTS, TRANSACTION_TYPES, PAYMENT_METHODS, OBJECT_TYPES, STATUSES, STATUS_COLORS,
     ALLOWED_TRANSITIONS, getFinancePermissions, canEditTransaction, canTransitionStatus,
+    buildCategoryTree, getCategoryPath,
 } from '@/lib/financeJournal';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0));
@@ -299,7 +300,8 @@ function FilterBar({ filters, setFilters, searchInput, setSearchInput, categorie
                     <option value="">Tất cả phòng ban</option>
                     {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
-                <select className="form-select" value={filters.type} onChange={e => set('type', e.target.value)}>
+                <select className="form-select" value={filters.type}
+                    onChange={e => setFilters(f => ({ ...f, type: e.target.value, categoryId: '' }))}>
                     <option value="">Thu &amp; Chi</option>
                     {TRANSACTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
@@ -307,10 +309,7 @@ function FilterBar({ filters, setFilters, searchInput, setSearchInput, categorie
                     <option value="">Mọi phương thức</option>
                     {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
-                <select className="form-select" value={filters.categoryId} onChange={e => set('categoryId', e.target.value)}>
-                    <option value="">Mọi phân loại</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                <CategoryTreePicker categories={categories} value={filters.categoryId} onChange={id => set('categoryId', id)} rootEmptyLabel="Mọi phân loại" group={filters.type || undefined} />
                 <select className="form-select" value={filters.projectId} onChange={e => set('projectId', e.target.value)}>
                     <option value="">Mọi dự án</option>
                     {projects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
@@ -436,6 +435,45 @@ function MenuItem({ children, onClick, danger }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════
+// Chọn danh mục theo cây tối đa 3 cấp — mỗi cấp một dropdown, chọn xong cấp nào thì
+// dropdown cấp kế tiếp mới hiện ra (nếu mục vừa chọn có danh mục con). Có thể dừng lại
+// ở bất kỳ cấp nào — không bắt buộc phải chọn tới lá.
+function CategoryTreePicker({ categories, value, onChange, disabled, rootEmptyLabel = '-- chọn --', group }) {
+    const scoped = useMemo(() => (group ? categories.filter(c => c.group === group) : categories), [categories, group]);
+    const tree = useMemo(() => buildCategoryTree(scoped), [scoped]);
+    const path = useMemo(() => (value ? getCategoryPath(value, scoped) : []), [value, scoped]);
+
+    const levels = [];
+    let options = tree;
+    let i = 0;
+    while (options.length > 0) {
+        const selectedId = path[i]?.id || '';
+        levels.push({ options, selectedId });
+        if (!selectedId) break;
+        const chosen = options.find(c => c.id === selectedId);
+        options = chosen?.children || [];
+        i++;
+    }
+
+    const handleChange = (levelIdx, id) => {
+        if (!id) { onChange(levelIdx === 0 ? '' : path[levelIdx - 1].id); return; }
+        onChange(id);
+    };
+
+    return (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {levels.map((lvl, i) => (
+                <select key={i} className="form-select" disabled={disabled} value={lvl.selectedId}
+                    onChange={e => handleChange(i, e.target.value)} style={{ minWidth: 150 }}>
+                    <option value="">{i === 0 ? rootEmptyLabel : '— (dừng ở đây) —'}</option>
+                    {lvl.options.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+            ))}
+        </div>
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════
 function ObjectSelect({ objectType, objectId, objectName, onChange }) {
     const [options, setOptions] = useState([]);
     const [q, setQ] = useState('');
@@ -547,9 +585,7 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, 
                         </Row>
                         <Row>
                             <Field label="Chi tiết">
-                                <select className="form-select" disabled={isView} value={form.categoryId} onChange={e => set('categoryId', e.target.value)}>
-                                    <option value="">-- chọn --</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
+                                <CategoryTreePicker categories={categories} value={form.categoryId} onChange={id => set('categoryId', id)} disabled={isView} group={form.type} rootEmptyLabel={`-- chọn (${form.type}) --`} />
                             </Field>
                         </Row>
                         <Field label="Nội dung *"><input className="form-input" disabled={isView} value={form.content} onChange={e => set('content', e.target.value)} /></Field>
@@ -558,7 +594,8 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, 
                     <FieldsetGroup title="B · Thông tin tiền">
                         <Row>
                             <Field label="Loại giao dịch *">
-                                <select className="form-select" disabled={isView} value={form.type} onChange={e => set('type', e.target.value)}>
+                                <select className="form-select" disabled={isView} value={form.type}
+                                    onChange={e => setForm(f => ({ ...f, type: e.target.value, categoryId: '' }))}>
                                     {TRANSACTION_TYPES.map(t => <option key={t}>{t}</option>)}
                                 </select>
                             </Field>
@@ -792,24 +829,58 @@ function SettingsModal({ categories, bankAccounts, accounts, onClose, onRefresh 
 }
 
 function CategoryManager({ items, onRefresh }) {
-    const [form, setForm] = useState({ name: '', group: 'Chi' });
+    const [form, setForm] = useState({ name: '', group: 'Chi', parentId: '' });
+    const tree = useMemo(() => buildCategoryTree(items), [items]);
+    const parentOptions = items.filter(c => c.group === form.group && c.level < 3);
+
     const add = async () => {
         if (!form.name.trim()) return;
-        await fetch('/api/finance-categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
-        setForm({ name: '', group: 'Chi' });
+        const res = await fetch('/api/finance-categories', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: form.name.trim(), group: form.group, parentId: form.parentId || null }),
+        });
+        if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || 'Lỗi thêm danh mục'); return; }
+        setForm(f => ({ ...f, name: '' }));
         onRefresh();
     };
-    const del = async (id) => { await fetch(`/api/finance-categories/${id}`, { method: 'DELETE' }); onRefresh(); };
+    const del = async (id) => {
+        const res = await fetch(`/api/finance-categories/${id}`, { method: 'DELETE' });
+        if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || 'Lỗi xóa danh mục'); return; }
+        onRefresh();
+    };
+
+    const renderNode = (node, depth) => (
+        <div key={node.id}>
+            <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '6px 8px', paddingLeft: 8 + depth * 18, fontSize: 13, borderBottom: '1px dotted var(--border-color)',
+            }}>
+                <span>{depth > 0 ? '↳ ' : ''}{node.name}{node.active ? '' : ' — đã ẩn'}</span>
+                <button className="btn btn-icon" onClick={() => del(node.id)} title="Xóa / ẩn">🗑️</button>
+            </div>
+            {node.children.map(c => renderNode(c, depth + 1))}
+        </div>
+    );
+
     return (
         <div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                <input className="form-input" placeholder="Tên phân loại" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 1 }} />
-                <select className="form-select" value={form.group} onChange={e => setForm(f => ({ ...f, group: e.target.value }))}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                <input className="form-input" placeholder="Tên danh mục" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ flex: 1, minWidth: 140 }} />
+                <select className="form-select" value={form.group} onChange={e => setForm(f => ({ ...f, group: e.target.value, parentId: '' }))}>
                     <option value="Thu">Thu</option><option value="Chi">Chi</option>
+                </select>
+                <select className="form-select" value={form.parentId} onChange={e => setForm(f => ({ ...f, parentId: e.target.value }))}>
+                    <option value="">-- Nhóm cấp 1 (không có cha) --</option>
+                    {parentOptions.map(p => <option key={p.id} value={p.id}>{'—'.repeat(p.level - 1)} {p.name} (cấp {p.level})</option>)}
                 </select>
                 <button className="btn btn-primary btn-sm" onClick={add}>+ Thêm</button>
             </div>
-            <ListRows items={items} render={c => `${c.name} (${c.group})${c.active ? '' : ' — đã ẩn'}`} onDelete={del} />
+            <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--text-muted)', margin: '4px 0' }}>THU</div>
+                {tree.filter(n => n.group === 'Thu').map(n => renderNode(n, 0))}
+                <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--text-muted)', margin: '10px 0 4px' }}>CHI</div>
+                {tree.filter(n => n.group === 'Chi').map(n => renderNode(n, 0))}
+            </div>
         </div>
     );
 }

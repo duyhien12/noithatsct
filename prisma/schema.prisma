@@ -2581,12 +2581,17 @@ model FinanceCategory {
   id           String               @id @default(cuid())
   name         String
   group        String               @default("Chi") // "Thu" | "Chi"
+  parentId     String?
+  level        Int                  @default(1) // 1 = Nhóm cấp 1, 2 = cấp 2, 3 = cấp 3
   order        Int                  @default(0)
   active       Boolean              @default(true)
   createdAt    DateTime             @default(now())
+  parent       FinanceCategory?     @relation("CategoryTree", fields: [parentId], references: [id])
+  children     FinanceCategory[]    @relation("CategoryTree")
   transactions FinanceTransaction[]
 
   @@index([group])
+  @@index([parentId])
 }
 
 model FinanceTransaction {

@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 import { withCodeRetry } from '@/lib/generateCode';
 import { NextResponse } from 'next/server';
 import { financeTransactionCreateSchema } from '@/lib/validations/financeTransaction';
-import { VIEW_ROLES, CREATE_ROLES, deriveCashFields } from '@/lib/financeJournal';
+import { VIEW_ROLES, CREATE_ROLES, deriveCashFields, getCategoryDescendantIds } from '@/lib/financeJournal';
 
 const INCLUDE = {
     project: { select: { id: true, name: true, code: true } },
@@ -29,8 +29,6 @@ function buildWhere(searchParams) {
     if (type) where.type = type;
     const method = searchParams.get('method');
     if (method) where.method = method;
-    const categoryId = searchParams.get('categoryId');
-    if (categoryId) where.categoryId = categoryId;
     const projectId = searchParams.get('projectId');
     if (projectId) where.projectId = projectId;
     const objectId = searchParams.get('objectId');
@@ -60,6 +58,13 @@ export const GET = withAuth(async (request) => {
     const { searchParams } = new URL(request.url);
     const { page, limit, skip } = parsePagination(searchParams);
     const where = buildWhere(searchParams);
+
+    // Chọn 1 danh mục ở nhóm cấp 1/2 thì lọc gộp luôn tất cả danh mục con cháu của nó
+    const categoryId = searchParams.get('categoryId');
+    if (categoryId) {
+        const categories = await prisma.financeCategory.findMany({ select: { id: true, parentId: true } });
+        where.categoryId = { in: getCategoryDescendantIds(categoryId, categories) };
+    }
 
     const [data, total, agg] = await Promise.all([
         prisma.financeTransaction.findMany({
