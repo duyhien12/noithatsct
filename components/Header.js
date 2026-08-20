@@ -80,11 +80,11 @@ export default function Header({ onMenuToggle }) {
     };
 
     useEffect(() => {
-        if (!session?.user) return;
+        if (!session?.user?.id) return;
         fetchNotifications();
         const timer = setInterval(fetchNotifications, 60000);
         return () => clearInterval(timer);
-    }, [session?.user?.id, session?.user]);
+    }, [session?.user?.id]);
 
     const openNotification = async (n) => {
         setShowNotifMenu(false);

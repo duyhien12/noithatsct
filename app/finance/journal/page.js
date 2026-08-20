@@ -489,7 +489,6 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, 
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
     const itemAmount = (Number(form.itemQty) || 0) * (Number(form.itemUnitPrice) || 0);
-    const filteredCategories = categories.filter(c => c.group === form.type);
 
     const upload = async (e) => {
         const file = e.target.files?.[0];
@@ -549,7 +548,7 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, 
                         <Row>
                             <Field label="Chi tiết">
                                 <select className="form-select" disabled={isView} value={form.categoryId} onChange={e => set('categoryId', e.target.value)}>
-                                    <option value="">-- chọn --</option>{filteredCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    <option value="">-- chọn --</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
                             </Field>
                         </Row>
