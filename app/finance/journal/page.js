@@ -104,8 +104,6 @@ export default function FinanceJournalPage() {
         setSearchInput('');
     };
 
-    const netPositive = (summary.netCashFlow || 0) >= 0;
-
     // ── Actions ──────────────────────────────────────────────────────────
     const saveTransaction = async (form) => {
         const payload = {
@@ -375,7 +373,7 @@ ${txs.map(voucher).join('')}
                 </div>
             </div>
 
-            <SummaryCards summary={summary} netPositive={netPositive} />
+            <SummaryCards summary={summary} cashFunds={cashFunds} bankAccounts={bankAccounts} cashBalance={cashBalance} />
 
             <ReconcilePanel bankAccounts={bankAccounts} cashFunds={cashFunds} canSave={perms.canCreate}
                 cashBalance={cashBalance} canEditCashBalance={perms.canManageSettings}
@@ -433,32 +431,70 @@ ${txs.map(voucher).join('')}
 }
 
 // ════════════════════════════════════════════════════════════════════════
-function SummaryCards({ summary, netPositive }) {
+function SummaryCards({ summary, cashFunds, bankAccounts, cashBalance }) {
+    const fundCards = (cashFunds || []).map(f => ({
+        label: f.name, value: f.balance ?? f.openingBalance ?? 0, color: '#7C3AED', bg: 'rgba(124, 58, 237, 0.12)', icon: '👛',
+    }));
+
+    // Tồn cuối ngày tiền mặt: tách theo từng quỹ đã tạo; nếu chưa có quỹ nào thì
+    // hiện fallback 1 thẻ tổng (số dư đầu kỳ chung + phát sinh) để không mất thông tin.
+    const cashEndOfDayCards = (cashFunds && cashFunds.length > 0)
+        ? cashFunds.map(f => ({
+            label: `Tồn cuối ngày · ${f.name}`, value: f.balance ?? f.openingBalance ?? 0,
+            color: 'var(--accent-primary-hover)', bg: 'rgba(28, 58, 107, 0.12)', icon: '💰',
+        }))
+        : [{ label: 'Tồn cuối ngày tiền mặt', value: cashBalance?.balance ?? 0, color: 'var(--accent-primary-hover)', bg: 'rgba(28, 58, 107, 0.12)', icon: '💰' }];
+
+    const bankEndOfDayCards = (bankAccounts || []).map(b => ({
+        label: `Tồn cuối ngày · ${b.bankName}${b.accountNumber ? ` — ${b.accountNumber}` : ''}`,
+        value: b.balance ?? b.openingBalance ?? 0, color: 'var(--accent-primary-hover)', bg: 'rgba(28, 58, 107, 0.12)', icon: '🏛️',
+    }));
+
     const cards = [
-        { label: 'Thu tiền mặt', value: summary.totalCashIn, color: 'var(--status-success)', icon: '💵' },
-        { label: 'Chi tiền mặt', value: summary.totalCashOut, color: 'var(--status-danger)', icon: '💸' },
-        { label: 'Thu ngân hàng', value: summary.totalBankIn, color: 'var(--status-success)', icon: '🏦' },
-        { label: 'Chi ngân hàng', value: summary.totalBankOut, color: 'var(--status-danger)', icon: '🏧' },
+        ...fundCards,
+        { label: 'Thu trong ngày tiền mặt', value: summary.totalCashIn, color: 'var(--status-success)', bg: 'rgba(52, 211, 153, 0.12)', icon: '💵' },
+        { label: 'Thu trong ngày ngân hàng', value: summary.totalBankIn, color: 'var(--status-success)', bg: 'rgba(52, 211, 153, 0.12)', icon: '🏦' },
+        { label: 'Chi trong ngày tiền mặt', value: summary.totalCashOut, color: 'var(--status-danger)', bg: 'rgba(239, 68, 68, 0.12)', icon: '💸' },
+        { label: 'Chi trong ngày ngân hàng', value: summary.totalBankOut, color: 'var(--status-danger)', bg: 'rgba(239, 68, 68, 0.12)', icon: '🏧' },
+        ...cashEndOfDayCards,
+        ...bankEndOfDayCards,
     ];
     return (
         <div>
-            <div className="stats-grid" style={{ marginBottom: 12 }}>
-                {cards.map(c => (
-                    <div className="stat-card" key={c.label}>
-                        <div className="stat-icon">{c.icon}</div>
-                        <div><div className="stat-value" style={{ color: c.color }}>{fmt(c.value)}</div><div className="stat-label">{c.label}</div></div>
-                    </div>
-                ))}
-                <div className="stat-card">
-                    <div className="stat-icon">{netPositive ? '📈' : '⚠️'}</div>
-                    <div>
-                        <div className="stat-value" style={{ color: netPositive ? 'var(--status-success)' : 'var(--status-danger)' }}>{fmt(summary.netCashFlow)}</div>
-                        <div className="stat-label">Dòng tiền ròng {netPositive ? '' : '— cảnh báo âm'}</div>
-                    </div>
-                </div>
+            <div className="stats-grid" style={{ marginBottom: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                {cards.map(c => {
+                    const valueText = fmt(c.value);
+                    return (
+                        <div className="stat-card" key={c.label} style={{ overflow: 'visible' }}>
+                            <div className="stat-icon" style={{
+                                fontSize: 22, width: 44, height: 44, minWidth: 44, borderRadius: 12,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', background: c.bg,
+                            }}>{c.icon}</div>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                                <div className="stat-value" title={valueText}
+                                    style={{ color: c.color, whiteSpace: 'nowrap', overflow: 'visible', textOverflow: 'clip', lineHeight: 1.2, fontSize: statValueFontSize(valueText) }}>
+                                    {valueText}
+                                </div>
+                                <div className="stat-label" title={c.label}
+                                    style={{ whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.3, marginTop: 3 }}>
+                                    {c.label}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );
+}
+
+function statValueFontSize(text) {
+    const len = text.length;
+    if (len <= 8) return 22;
+    if (len <= 10) return 19;
+    if (len <= 12) return 17;
+    if (len <= 14) return 15;
+    return 13;
 }
 
 function FilterBar({ filters, setFilters, searchInput, setSearchInput, categories, projects, onClear, count, onPrint }) {
