@@ -609,7 +609,7 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, 
 
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 760, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 1100, width: '92vw', maxHeight: '90vh', overflowY: 'auto' }}>
                 <div className="modal-header">
                     <h3>{isView ? `Giao dịch ${tx.code}` : mode === 'edit' ? `Sửa giao dịch ${tx.code}` : '+ Thêm giao dịch'}</h3>
                     <button className="modal-close" onClick={onClose}>×</button>
@@ -712,56 +712,71 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, 
                     </FieldsetGroup>
 
                     <FieldsetGroup title="C · Hạch toán">
-                        <Row>
-                            <Field label="TK Nợ *">
-                                <select className="form-select" disabled={isView} value={form.debitAccountId} onChange={e => set('debitAccountId', e.target.value)}>
-                                    <option value="">-- chọn --</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
-                                </select>
-                            </Field>
-                            <Field label="TK Có *">
-                                <select className="form-select" disabled={isView} value={form.creditAccountId} onChange={e => set('creditAccountId', e.target.value)}>
-                                    <option value="">-- chọn --</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
-                                </select>
-                            </Field>
-                        </Row>
-                        <Row>
-                            <Field label="Loại đối tượng">
-                                <select className="form-select" disabled={isView} value={form.objectType} onChange={e => set('objectType', e.target.value)}>
-                                    <option value="">-- không có --</option>{OBJECT_TYPES.map(o => <option key={o}>{o}</option>)}
-                                </select>
-                            </Field>
-                            <Field label="Khách hàng / Đối tượng">
-                                {isView ? <input className="form-input" disabled value={form.objectName} /> :
-                                    <ObjectSelect objectType={form.objectType} objectId={form.objectId} objectName={form.objectName}
-                                        onChange={({ objectId, objectName }) => setForm(f => ({ ...f, objectId, objectName }))} />}
-                            </Field>
-                        </Row>
-                        <Field label="Người nhận / nộp tiền"><input className="form-input" disabled={isView} value={form.payerReceiver} onChange={e => set('payerReceiver', e.target.value)} /></Field>
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                            <div style={{ flex: 1, minWidth: 160 }}>
+                                <Field label="TK Nợ *">
+                                    <select className="form-select" disabled={isView} value={form.debitAccountId} onChange={e => set('debitAccountId', e.target.value)}>
+                                        <option value="">-- chọn --</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
+                                    </select>
+                                </Field>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 160 }}>
+                                <Field label="TK Có *">
+                                    <select className="form-select" disabled={isView} value={form.creditAccountId} onChange={e => set('creditAccountId', e.target.value)}>
+                                        <option value="">-- chọn --</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
+                                    </select>
+                                </Field>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 140 }}>
+                                <Field label="Loại đối tượng">
+                                    <select className="form-select" disabled={isView} value={form.objectType} onChange={e => set('objectType', e.target.value)}>
+                                        <option value="">-- không có --</option>{OBJECT_TYPES.map(o => <option key={o}>{o}</option>)}
+                                    </select>
+                                </Field>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 160 }}>
+                                <Field label="Khách hàng / Đối tượng">
+                                    {isView ? <input className="form-input" disabled value={form.objectName} /> :
+                                        <ObjectSelect objectType={form.objectType} objectId={form.objectId} objectName={form.objectName}
+                                            onChange={({ objectId, objectName }) => setForm(f => ({ ...f, objectId, objectName }))} />}
+                                </Field>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 160 }}>
+                                <Field label="Người nhận / nộp tiền"><input className="form-input" disabled={isView} value={form.payerReceiver} onChange={e => set('payerReceiver', e.target.value)} /></Field>
+                            </div>
+                        </div>
                     </FieldsetGroup>
 
                     <FieldsetGroup title="D · Hàng hóa / vật tư (không bắt buộc)">
-                        <Row>
-                            <Field label="Chủng loại"><input className="form-input" disabled={isView} value={form.itemName} onChange={e => set('itemName', e.target.value)} /></Field>
-                            <Field label="ĐVT"><input className="form-input" disabled={isView} value={form.itemUnit} onChange={e => set('itemUnit', e.target.value)} /></Field>
-                        </Row>
-                        <Row>
-                            <Field label="Số lượng"><input className="form-input" disabled={isView} type="number" value={form.itemQty} onChange={e => set('itemQty', e.target.value)} /></Field>
-                            <Field label="Đơn giá"><input className="form-input" disabled={isView} type="number" value={form.itemUnitPrice} onChange={e => set('itemUnitPrice', e.target.value)} /></Field>
-                            <Field label="Thành tiền"><input className="form-input" disabled value={fmt(itemAmount)} /></Field>
-                        </Row>
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                            <div style={{ flex: 2, minWidth: 180 }}><Field label="Chủng loại"><input className="form-input" disabled={isView} value={form.itemName} onChange={e => set('itemName', e.target.value)} /></Field></div>
+                            <div style={{ flex: 1, minWidth: 90 }}><Field label="ĐVT"><input className="form-input" disabled={isView} value={form.itemUnit} onChange={e => set('itemUnit', e.target.value)} /></Field></div>
+                            <div style={{ flex: 1, minWidth: 110 }}><Field label="Số lượng"><input className="form-input" disabled={isView} type="number" value={form.itemQty} onChange={e => set('itemQty', e.target.value)} /></Field></div>
+                            <div style={{ flex: 1, minWidth: 130 }}><Field label="Đơn giá"><input className="form-input" disabled={isView} type="number" value={form.itemUnitPrice} onChange={e => set('itemUnitPrice', e.target.value)} /></Field></div>
+                            <div style={{ flex: 1, minWidth: 130 }}><Field label="Thành tiền"><input className="form-input" disabled value={fmt(itemAmount)} /></Field></div>
+                        </div>
                     </FieldsetGroup>
 
                     <FieldsetGroup title="E · Chứng từ">
-                        <Row>
-                            <Field label="Số chứng từ"><input className="form-input" disabled={isView} value={form.documentNo} onChange={e => set('documentNo', e.target.value)} /></Field>
-                            <Field label="Ngày chứng từ"><input className="form-input" disabled={isView} type="date" value={form.documentDate} onChange={e => set('documentDate', e.target.value)} /></Field>
-                        </Row>
-                        {!isView && (
-                            <Field label="Upload file">
-                                <input ref={fileRef} type="file" onChange={upload} disabled={uploading} />
-                                {uploading && <span style={{ fontSize: 12 }}> Đang tải lên...</span>}
-                            </Field>
-                        )}
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                            <div style={{ flex: 1, minWidth: 150 }}>
+                                <Field label="Số chứng từ"><input className="form-input" disabled={isView} value={form.documentNo} onChange={e => set('documentNo', e.target.value)} /></Field>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 150 }}>
+                                <Field label="Ngày chứng từ"><input className="form-input" disabled={isView} type="date" value={form.documentDate} onChange={e => set('documentDate', e.target.value)} /></Field>
+                            </div>
+                            {!isView && (
+                                <div style={{ flex: 1, minWidth: 200 }}>
+                                    <Field label="Upload file">
+                                        <input ref={fileRef} type="file" onChange={upload} disabled={uploading} />
+                                        {uploading && <span style={{ fontSize: 12 }}> Đang tải lên...</span>}
+                                    </Field>
+                                </div>
+                            )}
+                            <div style={{ flex: 2, minWidth: 220 }}>
+                                <Field label="Ghi chú"><textarea className="form-input" disabled={isView} rows={1} value={form.notes} onChange={e => set('notes', e.target.value)} /></Field>
+                            </div>
+                        </div>
                         {form.attachments?.length > 0 && (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
                                 {form.attachments.map((a, i) => (
@@ -769,7 +784,6 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, 
                                 ))}
                             </div>
                         )}
-                        <Field label="Ghi chú"><textarea className="form-input" disabled={isView} rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} /></Field>
                     </FieldsetGroup>
 
                     {isView && tx.splitGroupId && (
