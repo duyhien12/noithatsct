@@ -21,7 +21,7 @@ export const GET = withAuth(async (request) => {
             include: { department: { select: { name: true } } },
             skip,
             take: limit,
-            orderBy: { createdAt: 'desc' },
+            orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
         }),
         prisma.employee.count({ where }),
         prisma.department.findMany({ orderBy: { name: 'asc' } }),
@@ -43,8 +43,10 @@ export const GET = withAuth(async (request) => {
 export const POST = withAuth(async (request) => {
     const body = await request.json();
     const data = employeeCreateSchema.parse(body);
+    const last = await prisma.employee.findFirst({ orderBy: { sortOrder: 'desc' }, select: { sortOrder: true } });
+    const sortOrder = (last?.sortOrder || 0) + 10;
     const employee = await withCodeRetry('employee', 'NV', (code) =>
-        prisma.employee.create({ data: { code, ...data } })
+        prisma.employee.create({ data: { code, sortOrder, ...data } })
     );
     return NextResponse.json(employee, { status: 201 });
 });
