@@ -31,6 +31,8 @@ function buildWhere(searchParams) {
     if (method) where.method = method;
     const projectId = searchParams.get('projectId');
     if (projectId) where.projectId = projectId;
+    const splitGroupId = searchParams.get('splitGroupId');
+    if (splitGroupId) where.splitGroupId = splitGroupId;
     const objectId = searchParams.get('objectId');
     if (objectId) where.objectId = objectId;
     const debitAccountId = searchParams.get('debitAccountId');

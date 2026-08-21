@@ -121,6 +121,30 @@ export default function FinanceJournalPage() {
         return true;
     };
 
+    const saveSplitTransaction = async (form) => {
+        const payload = {
+            ...form,
+            itemQty: Number(form.itemQty) || 0,
+            itemUnitPrice: Number(form.itemUnitPrice) || 0,
+            bankAccountId: form.method === 'Chuyển khoản' ? (form.bankAccountId || null) : null,
+            categoryId: form.categoryId || null,
+            documentDate: form.documentDate || null,
+            allocations: form.allocations.map(a => ({ projectId: a.projectId, amount: Number(a.amount) || 0 })),
+        };
+        delete payload.projectId;
+        delete payload.amount;
+        const res = await fetch('/api/finance-transactions/split', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const json = await res.json();
+        if (!res.ok) { alert(json.error || 'Lỗi tách giao dịch'); return false; }
+        setModal(null);
+        fetchTransactions(1);
+        return true;
+    };
+
     const changeStatus = async (tx, status, cancelReason = '') => {
         const res = await fetch(`/api/finance-transactions/${tx.id}/status`, {
             method: 'PATCH',
@@ -236,8 +260,9 @@ export default function FinanceJournalPage() {
                 <TransactionModal
                     mode={modal.mode} tx={modal.tx} user={user}
                     categories={categories} bankAccounts={bankAccounts} accounts={accounts} projects={projects}
-                    onClose={() => setModal(null)} onSave={saveTransaction}
+                    onClose={() => setModal(null)} onSave={saveTransaction} onSaveSplit={saveSplitTransaction}
                     onEdit={() => setModal({ mode: 'edit', tx: modal.tx })}
+                    onViewSibling={(sibling) => setModal({ mode: 'view', tx: sibling })}
                 />
             )}
 
@@ -382,7 +407,7 @@ function TransactionTable({ rows, loading, user, openMenuId, setOpenMenuId, onVi
                                     <td className="accent" style={{ whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => onView(t)}>{t.code}</td>
                                     <td className="primary" style={{ maxWidth: 200 }}>{t.content}</td>
                                     <td style={{ whiteSpace: 'nowrap' }}>{t.department}</td>
-                                    <td>{t.project?.code || '—'}</td>
+                                    <td>{t.project?.code || '—'}{t.splitGroupId && <span title="Đã tách từ 1 lần nhập chung cho nhiều công trình" style={{ marginLeft: 4 }}>🔗</span>}</td>
                                     <td className="amount" style={{ color: 'var(--status-success)' }}>{fmtOrBlank(t.cashIn)}</td>
                                     <td className="amount" style={{ color: 'var(--status-danger)' }}>{fmtOrBlank(t.cashOut)}</td>
                                     <td className="amount" style={{ color: 'var(--status-success)' }}>{fmtOrBlank(t.bankIn)}</td>
@@ -509,8 +534,9 @@ function ObjectSelect({ objectType, objectId, objectName, onChange }) {
     );
 }
 
-function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, projects, onClose, onSave, onEdit }) {
+function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, projects, onClose, onSave, onSaveSplit, onEdit, onViewSibling }) {
     const isView = mode === 'view';
+    const isAdd = mode === 'add';
     const [form, setForm] = useState(() => tx ? {
         date: toInputDate(tx.date), type: tx.type, method: tx.method, amount: tx.amount,
         department: tx.department, projectId: tx.projectId || '', content: tx.content, detail: tx.detail || '',
@@ -525,6 +551,20 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, 
     const [uploading, setUploading] = useState(false);
     const fileRef = useRef();
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+    const [splitMode, setSplitMode] = useState(false);
+    const [allocations, setAllocations] = useState([{ projectId: '', amount: '' }, { projectId: '', amount: '' }]);
+    const splitTotal = allocations.reduce((s, a) => s + (Number(a.amount) || 0), 0);
+    const setAllocation = (i, k, v) => setAllocations(list => list.map((a, idx) => idx === i ? { ...a, [k]: v } : a));
+    const addAllocation = () => setAllocations(list => [...list, { projectId: '', amount: '' }]);
+    const removeAllocation = (i) => setAllocations(list => list.length > 2 ? list.filter((_, idx) => idx !== i) : list);
+
+    const [siblings, setSiblings] = useState([]);
+    useEffect(() => {
+        if (!isView || !tx?.splitGroupId) { setSiblings([]); return; }
+        fetch(`/api/finance-transactions?splitGroupId=${tx.splitGroupId}&limit=50`)
+            .then(r => r.json()).then(d => setSiblings((d.data || []).filter(s => s.id !== tx.id))).catch(() => setSiblings([]));
+    }, [isView, tx?.splitGroupId, tx?.id]);
 
     const itemAmount = (Number(form.itemQty) || 0) * (Number(form.itemUnitPrice) || 0);
 
@@ -548,6 +588,18 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, 
         if (!form.content?.trim()) return alert('Vui lòng nhập nội dung');
         if (!form.debitAccountId || !form.creditAccountId) return alert('Vui lòng chọn TK Nợ và TK Có');
         if (form.debitAccountId === form.creditAccountId) return alert('TK Nợ và TK Có không được trùng nhau');
+
+        if (splitMode) {
+            if (allocations.some(a => !a.projectId)) return alert('Vui lòng chọn công trình cho tất cả các dòng phân bổ');
+            if (allocations.some(a => !(Number(a.amount) > 0))) return alert('Số tiền mỗi dòng phân bổ phải lớn hơn 0');
+            const projectIds = allocations.map(a => a.projectId);
+            if (new Set(projectIds).size !== projectIds.length) return alert('Mỗi công trình chỉ được xuất hiện một lần');
+            setSaving(true);
+            await onSaveSplit({ ...form, status: statusOverride || form.status, allocations });
+            setSaving(false);
+            return;
+        }
+
         if (!(Number(form.amount) > 0)) return alert('Số tiền phải lớn hơn 0');
         setSaving(true);
         await onSave({ ...form, status: statusOverride || form.status });
@@ -578,11 +630,23 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, 
                                 </select>
                             </Field>
                             <Field label="Dự án / Công trình">
-                                <select className="form-select" disabled={isView} value={form.projectId} onChange={e => set('projectId', e.target.value)}>
-                                    <option value="">-- không có --</option>{projects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
-                                </select>
+                                {splitMode ? (
+                                    <input className="form-input" disabled value="— xem bên dưới —" />
+                                ) : (
+                                    <select className="form-select" disabled={isView} value={form.projectId} onChange={e => set('projectId', e.target.value)}>
+                                        <option value="">-- không có --</option>{projects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+                                    </select>
+                                )}
                             </Field>
                         </Row>
+                        {isAdd && (
+                            <Row>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                                    <input type="checkbox" checked={splitMode} onChange={e => setSplitMode(e.target.checked)} />
+                                    Tách chi phí này cho nhiều công trình (VD: 1 hóa đơn NCC dùng chung cho 2 công trình)
+                                </label>
+                            </Row>
+                        )}
                         <Row>
                             <Field label="Chi tiết">
                                 <CategoryTreePicker categories={categories} value={form.categoryId} onChange={id => set('categoryId', id)} disabled={isView} group={form.type} rootEmptyLabel={`-- chọn (${form.type}) --`} />
@@ -590,6 +654,30 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, 
                         </Row>
                         <Field label="Nội dung *"><input className="form-input" disabled={isView} value={form.content} onChange={e => set('content', e.target.value)} /></Field>
                     </FieldsetGroup>
+
+                    {splitMode && (
+                        <FieldsetGroup title="A2 · Phân bổ theo công trình">
+                            {allocations.map((a, i) => (
+                                <Row key={i}>
+                                    <Field label={`Công trình ${i + 1} *`}>
+                                        <select className="form-select" value={a.projectId} onChange={e => setAllocation(i, 'projectId', e.target.value)}>
+                                            <option value="">-- chọn --</option>{projects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+                                        </select>
+                                    </Field>
+                                    <Field label="Số tiền *">
+                                        <input className="form-input" type="number" min="0" value={a.amount} onChange={e => setAllocation(i, 'amount', e.target.value)} />
+                                    </Field>
+                                    <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 4 }}>
+                                        <button type="button" className="btn btn-icon" disabled={allocations.length <= 2} onClick={() => removeAllocation(i)} title="Bỏ dòng này">🗑️</button>
+                                    </div>
+                                </Row>
+                            ))}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                                <button type="button" className="btn btn-ghost btn-sm" onClick={addAllocation}>+ Thêm công trình</button>
+                                <div style={{ fontSize: 13, fontWeight: 600 }}>Tổng: {fmt(splitTotal)}</div>
+                            </div>
+                        </FieldsetGroup>
+                    )}
 
                     <FieldsetGroup title="B · Thông tin tiền">
                         <Row>
@@ -604,7 +692,13 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, 
                                     {PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}
                                 </select>
                             </Field>
-                            <Field label="Số tiền *"><input className="form-input" disabled={isView} type="number" min="0" value={form.amount} onChange={e => set('amount', e.target.value)} /></Field>
+                            <Field label="Số tiền *">
+                                {splitMode ? (
+                                    <input className="form-input" disabled value={fmt(splitTotal)} title="Tự động tính từ tổng phân bổ bên trên" />
+                                ) : (
+                                    <input className="form-input" disabled={isView} type="number" min="0" value={form.amount} onChange={e => set('amount', e.target.value)} />
+                                )}
+                            </Field>
                         </Row>
                         {form.method === 'Chuyển khoản' && (
                             <Field label="Tài khoản ngân hàng *">
@@ -676,6 +770,21 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, 
                         )}
                         <Field label="Ghi chú"><textarea className="form-input" disabled={isView} rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} /></Field>
                     </FieldsetGroup>
+
+                    {isView && tx.splitGroupId && (
+                        <FieldsetGroup title="🔗 Các dòng cùng nhóm tách chi phí">
+                            {siblings.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Đang tải...</div>}
+                            {siblings.map(s => (
+                                <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, padding: '4px 0', borderBottom: '1px dotted var(--border-color)' }}>
+                                    <span>{s.project?.code || '—'} — {s.content}</span>
+                                    <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                        <strong>{fmt(s.amount)}</strong>
+                                        <button className="btn btn-ghost btn-sm" onClick={() => onViewSibling(s)}>Xem</button>
+                                    </span>
+                                </div>
+                            ))}
+                        </FieldsetGroup>
+                    )}
 
                     {isView && tx.audits?.length > 0 && (
                         <FieldsetGroup title="Lịch sử">
