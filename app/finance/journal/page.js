@@ -405,7 +405,7 @@ function TransactionTable({ rows, loading, user, openMenuId, setOpenMenuId, onVi
                                     <td>{i + 1}</td>
                                     <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(t.date)}</td>
                                     <td className="accent" style={{ whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => onView(t)}>{t.code}</td>
-                                    <td className="primary" style={{ maxWidth: 200 }}>{t.content}</td>
+                                    <td className="primary" title={t.content} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.content}</td>
                                     <td style={{ whiteSpace: 'nowrap' }}>{t.department}</td>
                                     <td>{t.project?.code || '—'}{t.splitGroupId && <span title="Đã tách từ 1 lần nhập chung cho nhiều công trình" style={{ marginLeft: 4 }}>🔗</span>}</td>
                                     <td className="amount" style={{ color: 'var(--status-success)' }}>{fmtOrBlank(t.cashIn)}</td>
@@ -416,7 +416,7 @@ function TransactionTable({ rows, loading, user, openMenuId, setOpenMenuId, onVi
                                     <td>{t.creditAccount?.code}</td>
                                     <td style={{ fontSize: 11 }}>{t.bankAccount?.accountNumber || '—'}</td>
                                     <td style={{ fontSize: 11 }}>{t.category?.name || '—'}</td>
-                                    <td style={{ fontSize: 11, maxWidth: 120 }}>{t.objectName || '—'}</td>
+                                    <td title={t.objectName} style={{ fontSize: 11, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.objectName || '—'}</td>
                                     <td style={{ fontSize: 11 }}>{t.payerReceiver || '—'}</td>
                                     <td style={{ fontSize: 11 }}>{t.itemName || '—'}</td>
                                     <td style={{ fontSize: 11 }}>{t.itemUnit || '—'}</td>

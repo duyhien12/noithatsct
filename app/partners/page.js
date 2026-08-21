@@ -10,6 +10,7 @@ const CONTRACTOR_TYPES = ['Thầu xây dựng', 'CTV thiết kế kiến trúc',
 
 const emptySup = { name: '', type: 'Vật tư xây dựng', contact: '', phone: '', email: '', address: '', taxCode: '', bankAccount: '', bankName: '', rating: 3, notes: '', isBlacklisted: false, creditLimit: 0 };
 const emptyCon = { name: '', type: 'Thầu xây dựng', phone: '', address: '', taxCode: '', bankAccount: '', bankName: '', rating: 3, notes: '', isBlacklisted: false, creditLimit: 0 };
+const emptyLoan = { name: '', phone: '', address: '', bankAccount: '', bankName: '', qrImage: '' };
 const FINANCE_ROLES = ['ban_gd', 'giam_doc', 'pho_gd', 'ke_toan'];
 
 export default function PartnersPage() {
@@ -32,14 +33,20 @@ export default function PartnersPage() {
     const [importing, setImporting] = useState(false);
     const [inlineEditSup, setInlineEditSup] = useState(null);
     const [inlineEditCon, setInlineEditCon] = useState(null);
+    const [loanContacts, setLoanContacts] = useState([]);
+    const [loanForm, setLoanForm] = useState(emptyLoan);
+    const [editingLoan, setEditingLoan] = useState(null);
+    const [showLoanModal, setShowLoanModal] = useState(false);
+    const [uploadingQr, setUploadingQr] = useState(false);
 
     const fetchData = async () => {
         setLoading(true);
-        const [s, c] = await Promise.all([
+        const [s, c, l] = await Promise.all([
             fetch('/api/suppliers?limit=1000').then(r => r.json()).then(d => d.data || []).catch(() => []),
             fetch('/api/contractors?limit=1000').then(r => r.json()).then(d => d.data || []).catch(() => []),
+            fetch('/api/loan-contacts?limit=1000').then(r => r.json()).then(d => d.data || []).catch(() => []),
         ]);
-        setSuppliers(s); setContractors(c); setLoading(false);
+        setSuppliers(s); setContractors(c); setLoanContacts(l); setLoading(false);
     };
     useEffect(() => { fetchData(); }, []);
 
@@ -72,6 +79,35 @@ export default function PartnersPage() {
         if (!confirm('Xóa thầu phụ này?')) return;
         setContractors(prev => prev.filter(c => c.id !== id));
         const res = await fetch(`/api/contractors/${id}`, { method: 'DELETE' });
+        if (!res.ok) fetchData();
+    };
+
+    // === Mã vay CRUD ===
+    const openCreateLoan = () => { setEditingLoan(null); setLoanForm(emptyLoan); setShowLoanModal(true); };
+    const openEditLoan = (l) => { setEditingLoan(l); setLoanForm({ name: l.name, phone: l.phone, address: l.address, bankAccount: l.bankAccount, bankName: l.bankName, qrImage: l.qrImage || '' }); setShowLoanModal(true); };
+    const uploadQrImage = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploadingQr(true);
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('type', 'qrcodes');
+        const res = await fetch('/api/upload', { method: 'POST', body: fd });
+        const json = await res.json();
+        if (json.url) setLoanForm(f => ({ ...f, qrImage: json.url }));
+        setUploadingQr(false);
+        e.target.value = '';
+    };
+    const submitLoan = async () => {
+        if (!loanForm.name.trim()) return alert('Nhập họ và tên!');
+        if (editingLoan) await fetch(`/api/loan-contacts/${editingLoan.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(loanForm) });
+        else await fetch('/api/loan-contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(loanForm) });
+        setShowLoanModal(false); fetchData();
+    };
+    const delLoan = async (id) => {
+        if (!confirm('Xóa người vay này?')) return;
+        setLoanContacts(prev => prev.filter(l => l.id !== id));
+        const res = await fetch(`/api/loan-contacts/${id}`, { method: 'DELETE' });
         if (!res.ok) fetchData();
     };
 
@@ -146,6 +182,10 @@ export default function PartnersPage() {
         if (search && !c.name.toLowerCase().includes(search.toLowerCase()) && !c.code?.toLowerCase().includes(search.toLowerCase())) return false;
         return true;
     });
+    const filteredLoan = loanContacts.filter(l => {
+        if (search && !l.name.toLowerCase().includes(search.toLowerCase()) && !l.phone?.toLowerCase().includes(search.toLowerCase())) return false;
+        return true;
+    });
 
     const totalConContract = contractors.reduce((s, c) => s + (c.payments?.reduce((t, p) => t + p.contractAmount, 0) || 0), 0);
     const totalConPaid = contractors.reduce((s, c) => s + (c.payments?.reduce((t, p) => t + p.paidAmount, 0) || 0), 0);
@@ -164,7 +204,7 @@ export default function PartnersPage() {
             <div className="card" style={{ marginTop: 24 }}>
                 <div className="card-header" style={{ flexDirection: 'column', gap: 12, alignItems: 'stretch' }}>
                     <div className="tab-bar-scroll">
-                        {[{ key: 'ncc', label: '🏭 Nhà cung cấp', count: suppliers.length }, { key: 'tp', label: '👷 Thầu phụ / CTV', count: contractors.length }].map(t => (
+                        {[{ key: 'ncc', label: '🏭 Nhà cung cấp', count: suppliers.length }, { key: 'tp', label: '👷 Thầu phụ / CTV', count: contractors.length }, { key: 'vay', label: '💳 Mã vay', count: loanContacts.length }].map(t => (
                             <button key={t.key} onClick={() => { setTab(t.key); setSearch(''); setFilterType(''); }}
                                 style={{ padding: '10px 20px', fontWeight: 600, fontSize: 13, cursor: 'pointer', border: 'none', borderBottom: tab === t.key ? '3px solid var(--accent-primary)' : '3px solid transparent', background: 'none', color: tab === t.key ? 'var(--accent-primary)' : 'var(--text-muted)', transition: '0.2s' }}>
                                 {t.label} <span className="badge muted" style={{ marginLeft: 4 }}>{t.count}</span>
@@ -173,13 +213,15 @@ export default function PartnersPage() {
                     </div>
                     <div className="filter-bar" style={{ margin: 0, border: 'none', padding: 0 }}>
                         <input className="form-input" placeholder="🔍 Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
-                        <select className="form-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
-                            <option value="">Tất cả loại</option>
-                            {(tab === 'ncc' ? SUPPLIER_TYPES : CONTRACTOR_TYPES).map(t => <option key={t}>{t}</option>)}
-                        </select>
-                        <button className="btn btn-ghost" onClick={() => openPaste(tab === 'ncc' ? 'ncc' : 'tp')}>📋 Excel</button>
-                        <button className="btn btn-primary" onClick={tab === 'ncc' ? openCreateSup : openCreateCon}>
-                            + {tab === 'ncc' ? 'NCC' : 'TP'}
+                        {tab !== 'vay' && (
+                            <select className="form-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
+                                <option value="">Tất cả loại</option>
+                                {(tab === 'ncc' ? SUPPLIER_TYPES : CONTRACTOR_TYPES).map(t => <option key={t}>{t}</option>)}
+                            </select>
+                        )}
+                        {tab !== 'vay' && <button className="btn btn-ghost" onClick={() => openPaste(tab === 'ncc' ? 'ncc' : 'tp')}>📋 Excel</button>}
+                        <button className="btn btn-primary" onClick={tab === 'ncc' ? openCreateSup : tab === 'tp' ? openCreateCon : openCreateLoan}>
+                            + {tab === 'ncc' ? 'NCC' : tab === 'tp' ? 'TP' : 'Vay'}
                         </button>
                     </div>
                 </div>
@@ -243,7 +285,7 @@ export default function PartnersPage() {
                             })}</tbody>
                         </table>
                     </div>
-                ) : (
+                ) : tab === 'tp' ? (
                     /* ========== Thầu phụ Table ========== */
                     <div style={{ overflowX: 'auto' }}>
                         <table className="data-table" style={{ margin: 0 }}>
@@ -292,6 +334,33 @@ export default function PartnersPage() {
                                     </tr>
                                 );
                             })}</tbody>
+                        </table>
+                    </div>
+                ) : (
+                    /* ========== Mã vay Table ========== */
+                    <div style={{ overflowX: 'auto' }}>
+                        <table className="data-table" style={{ margin: 0 }}>
+                            <thead><tr>
+                                <th>STT</th><th>Họ và tên</th><th>Số điện thoại</th><th>Địa chỉ</th><th>Số tài khoản</th><th>Ngân hàng</th><th style={{ width: 90 }}></th>
+                            </tr></thead>
+                            <tbody>{filteredLoan.length === 0 ? (
+                                <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>Không có dữ liệu</td></tr>
+                            ) : filteredLoan.map((l, i) => (
+                                <tr key={l.id}>
+                                    <td>{i + 1}</td>
+                                    <td className="primary">{l.name}{l.qrImage && <a href={l.qrImage} target="_blank" rel="noreferrer" title="Xem ảnh QR thanh toán" style={{ marginLeft: 6 }}>📷</a>}</td>
+                                    <td>{l.phone || '—'}</td>
+                                    <td style={{ fontSize: 12 }}>{l.address || '—'}</td>
+                                    <td style={{ fontSize: 12 }}>{l.bankAccount || '—'}</td>
+                                    <td style={{ fontSize: 12 }}>{l.bankName || '—'}</td>
+                                    <td>
+                                        <div style={{ display: 'flex', gap: 4 }}>
+                                            <button className="btn btn-ghost btn-sm" onClick={() => openEditLoan(l)}>✏️</button>
+                                            <button className="btn btn-ghost btn-sm" onClick={() => delLoan(l.id)} style={{ color: 'var(--status-danger)' }}>🗑️</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}</tbody>
                         </table>
                     </div>
                 )}
@@ -456,6 +525,47 @@ export default function PartnersPage() {
                         <div className="modal-footer">
                             <button className="btn btn-ghost" onClick={() => setShowModal(false)}>Hủy</button>
                             <button className="btn btn-primary" onClick={submitCon}>{editing ? 'Cập nhật' : 'Lưu'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Mã vay */}
+            {showLoanModal && (
+                <div className="modal-overlay" onClick={() => setShowLoanModal(false)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+                        <div className="modal-header">
+                            <h3>{editingLoan ? '✏️ Sửa người vay' : '+ Thêm người vay'}</h3>
+                            <button className="modal-close" onClick={() => setShowLoanModal(false)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="form-group"><label className="form-label">Họ và tên *</label>
+                                <input className="form-input" value={loanForm.name} onChange={e => setLoanForm({ ...loanForm, name: e.target.value })} placeholder="VD: Nguyễn Văn A" /></div>
+                            <div className="form-group"><label className="form-label">Số điện thoại</label>
+                                <input className="form-input" value={loanForm.phone} onChange={e => setLoanForm({ ...loanForm, phone: e.target.value })} /></div>
+                            <div className="form-group"><label className="form-label">Địa chỉ</label>
+                                <input className="form-input" value={loanForm.address} onChange={e => setLoanForm({ ...loanForm, address: e.target.value })} /></div>
+                            <div className="form-row">
+                                <div className="form-group"><label className="form-label">Số tài khoản</label>
+                                    <input className="form-input" value={loanForm.bankAccount} onChange={e => setLoanForm({ ...loanForm, bankAccount: e.target.value })} /></div>
+                                <div className="form-group"><label className="form-label">Ngân hàng</label>
+                                    <input className="form-input" value={loanForm.bankName} onChange={e => setLoanForm({ ...loanForm, bankName: e.target.value })} /></div>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Ảnh QR thanh toán</label>
+                                <input type="file" accept="image/*" onChange={uploadQrImage} disabled={uploadingQr} />
+                                {uploadingQr && <span style={{ fontSize: 12, marginLeft: 8 }}>Đang tải lên...</span>}
+                                {loanForm.qrImage && (
+                                    <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <img src={loanForm.qrImage} alt="QR thanh toán" style={{ width: 120, height: 120, objectFit: 'contain', border: '1px solid var(--border-color)', borderRadius: 8 }} />
+                                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setLoanForm(f => ({ ...f, qrImage: '' }))}>🗑️ Xóa ảnh</button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-ghost" onClick={() => setShowLoanModal(false)}>Hủy</button>
+                            <button className="btn btn-primary" onClick={submitLoan}>{editingLoan ? 'Cập nhật' : 'Lưu'}</button>
                         </div>
                     </div>
                 </div>

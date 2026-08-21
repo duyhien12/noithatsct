@@ -541,6 +541,18 @@ model Contractor {
   documents     ProjectDocument[]
 }
 
+model LoanContact {
+  id          String    @id @default(cuid())
+  name        String
+  phone       String    @default("")
+  address     String    @default("")
+  bankAccount String    @default("")
+  bankName    String    @default("")
+  qrImage     String    @default("")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
 model ContractorPayment {
   id                String                  @id @default(cuid())
   contractAmount    Float                   @default(0)
