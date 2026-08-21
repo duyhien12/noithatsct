@@ -2580,15 +2580,19 @@ model BankAccount {
 }
 
 model CashFund {
-  id              String                @id @default(cuid())
-  name            String
-  status          Boolean               @default(true)
-  openingBalance  Float                 @default(0)
-  notes           String                @default("")
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-  transactions    FinanceTransaction[]
-  reconciliations CashReconciliation[]
+  id                  String                @id @default(cuid())
+  name                String
+  status              Boolean               @default(true)
+  openingBalance      Float                 @default(0)
+  notes               String                @default("")
+  accountingAccountId String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  accountingAccount   AccountingAccount?    @relation(fields: [accountingAccountId], references: [id])
+  transactions        FinanceTransaction[]
+  reconciliations     CashReconciliation[]
+
+  @@index([accountingAccountId])
 }
 
 model AccountingAccount {
@@ -2600,6 +2604,7 @@ model AccountingAccount {
   createdAt     DateTime             @default(now())
   debitEntries  FinanceTransaction[] @relation("DebitAccount")
   creditEntries FinanceTransaction[] @relation("CreditAccount")
+  cashFunds     CashFund[]
 }
 
 model FinanceCategory {
@@ -2633,6 +2638,7 @@ model FinanceTransaction {
   department      String
   projectId       String?
   splitGroupId    String?
+  transferGroupId String?
   content         String
   detail          String                    @default("")
   debitAccountId  String
@@ -2674,6 +2680,7 @@ model FinanceTransaction {
   @@index([date])
   @@index([projectId])
   @@index([splitGroupId])
+  @@index([transferGroupId])
   @@index([department])
   @@index([status])
   @@index([type])

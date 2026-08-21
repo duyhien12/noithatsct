@@ -99,14 +99,30 @@ export const GET = withAuth(async (request) => {
     const status = searchParams.get('status');
     const search = searchParams.get('search');
     const dept   = searchParams.get('dept');
+    const customerDept  = searchParams.get('customerDept');
+    const customerStage = searchParams.get('customerStage');
 
     const where = {};
     if (dept === 'xay_dung')      where.createdByRole = 'xay_dung';
     else if (dept === 'thiet_ke') where.createdByRole = 'thiet_ke';
-    else if (dept === 'kinh_doanh') where.NOT = { createdByRole: { in: ['xay_dung', 'thiet_ke'] } };
+    else if (dept === 'xuong')    where.createdByRole = 'xuong';
+    else if (dept === 'kinh_doanh') where.NOT = { createdByRole: { in: ['xay_dung', 'thiet_ke', 'xuong'] } };
     if (type)   where.type   = type;
     if (status) where.status = status;
     if (search) where.name   = { contains: search };
+
+    // Lọc theo khách hàng liên kết — dùng cho ô chọn Dự án trong phiếu Thu-Chi:
+    // chỉ lấy dự án của khách đang ở cột "Khách hợp đồng" (pipelineStage) thuộc
+    // đúng phòng ban (Kinh doanh/Xây dựng), y hệt định nghĩa ở /api/customers,
+    // và bỏ khách hàng đã xóa (deletedAt) — đây là phần trước đó bị thiếu khiến
+    // danh sách lẫn cả khách đã xóa rồi lại không khớp với cột Khách hợp đồng thật.
+    if (customerDept || customerStage) {
+        where.customer = { deletedAt: null };
+        if (customerStage) where.customer.pipelineStage = customerStage;
+        if (customerDept === 'xay_dung') where.customer.createdByRole = 'xay_dung';
+        else if (customerDept === 'kinh_doanh') where.customer.NOT = { createdByRole: 'xay_dung' };
+        where.deletedAt = null; // bỏ dự án đã xóa khỏi ô chọn phiếu Thu-Chi
+    }
 
     const [projects, total] = await Promise.all([
         prisma.project.findMany({

@@ -9,10 +9,14 @@ const schema = z.object({
     status: z.boolean().optional().default(true),
     openingBalance: z.number().optional().default(0),
     notes: z.string().trim().optional().default(''),
+    accountingAccountId: z.string().optional().nullable().default(null),
 }).strict();
 
 export const GET = withAuth(async () => {
-    const funds = await prisma.cashFund.findMany({ orderBy: { createdAt: 'asc' } });
+    const funds = await prisma.cashFund.findMany({
+        orderBy: { createdAt: 'asc' },
+        include: { accountingAccount: { select: { id: true, code: true, name: true } } },
+    });
     const sums = await prisma.financeTransaction.groupBy({
         by: ['cashFundId'],
         where: { status: BALANCE_STATUS, deletedAt: null, cashFundId: { not: null } },

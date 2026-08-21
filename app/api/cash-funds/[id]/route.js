@@ -9,6 +9,7 @@ const schema = z.object({
     status: z.boolean().optional().default(true),
     openingBalance: z.number().optional().default(0),
     notes: z.string().trim().optional().default(''),
+    accountingAccountId: z.string().optional().nullable().default(null),
 }).strict();
 
 export const PUT = withAuth(async (request, { params }) => {

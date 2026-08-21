@@ -46,6 +46,7 @@ export default function FinanceJournalPage() {
     const [cashFunds, setCashFunds] = useState([]);
     const [accounts, setAccounts] = useState([]);
     const [projects, setProjects] = useState([]);
+    const [customerStubs, setCustomerStubs] = useState([]); // Khách "Khách hợp đồng" chưa có Dự án — vẫn chọn được, không gắn projectId
     const [cashBalance, setCashBalance] = useState({ openingBalance: 0, balance: 0 });
 
     const [filters, setFilters] = useState({ from: '', to: '', department: '', type: '', method: '', categoryId: '', projectId: '', status: '', search: '' });
@@ -57,21 +58,39 @@ export default function FinanceJournalPage() {
     const [openMenuId, setOpenMenuId] = useState(null);
     const [showDeleted, setShowDeleted] = useState(false);
     const [printOpen, setPrintOpen] = useState(false);
+    const [transferOpen, setTransferOpen] = useState(false);
 
     const fetchLookups = useCallback(async () => {
-        const [cats, banks, funds, accs, projs, cash] = await Promise.all([
+        // Dự án/Công trình cho phiếu Thu-Chi: chỉ lấy dự án của khách hàng đang ở cột
+        // "Khách hợp đồng" (pipelineStage = "Thi công") trên bảng Khách hàng, thuộc
+        // Phòng Kinh doanh hoặc Phòng Xây dựng (bỏ khách còn ở Lead/tiềm năng/chăm sóc,
+        // và bỏ khách bên Phòng Thiết kế).
+        const stageParam = `customerStage=${encodeURIComponent('Thi công')}`;
+        const [cats, banks, funds, accs, projsKD, projsXD, custKD, custXD, cash] = await Promise.all([
             fetch('/api/finance-categories').then(r => r.json()).catch(() => []),
             fetch('/api/bank-accounts').then(r => r.json()).catch(() => []),
             fetch('/api/cash-funds').then(r => r.json()).catch(() => []),
             fetch('/api/accounting-accounts').then(r => r.json()).catch(() => []),
-            fetch('/api/projects?limit=500').then(r => r.json()).then(d => d.data || d || []).catch(() => []),
+            fetch(`/api/projects?limit=500&customerDept=kinh_doanh&${stageParam}`).then(r => r.json()).then(d => d.data || d || []).catch(() => []),
+            fetch(`/api/projects?limit=500&customerDept=xay_dung&${stageParam}`).then(r => r.json()).then(d => d.data || d || []).catch(() => []),
+            fetch('/api/customers?dept=kinh_doanh&limit=1000').then(r => r.json()).then(d => d.data || d || []).catch(() => []),
+            fetch('/api/customers?dept=xay_dung&limit=1000').then(r => r.json()).then(d => d.data || d || []).catch(() => []),
             fetch('/api/finance-cash-balance').then(r => r.json()).catch(() => null),
         ]);
         setCategories(Array.isArray(cats) ? cats : []);
         setBankAccounts(Array.isArray(banks) ? banks : []);
         setCashFunds(Array.isArray(funds) ? funds : []);
         setAccounts(Array.isArray(accs) ? accs : []);
-        setProjects(Array.isArray(projs) ? projs : []);
+        const projs = [...(Array.isArray(projsKD) ? projsKD : []), ...(Array.isArray(projsXD) ? projsXD : [])]
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setProjects(projs);
+        // Khách "Khách hợp đồng" (pipelineStage = Thi công, chưa xóa) mà chưa có Dự án nào —
+        // vẫn cho chọn trong ô Dự án/Công trình, chỉ là không gắn projectId (dùng Đối tượng thay thế).
+        const projectCustomerIds = new Set(projs.map(p => p.customerId));
+        const stubs = [...(Array.isArray(custKD) ? custKD : []), ...(Array.isArray(custXD) ? custXD : [])]
+            .filter(c => c.pipelineStage === 'Thi công' && !c.deletedAt && !projectCustomerIds.has(c.id))
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setCustomerStubs(stubs);
         if (cash) setCashBalance(cash);
     }, []);
 
@@ -369,6 +388,9 @@ ${txs.map(voucher).join('')}
                             🗑️ {showDeleted ? 'Đang xem: Đã xóa' : 'Đã xóa'}
                         </button>
                     )}
+                    {perms.canCreate && !showDeleted && (cashFunds.length >= 1 || bankAccounts.length >= 1) && (
+                        <button className="btn btn-ghost btn-sm" onClick={() => setTransferOpen(true)}>↔️ Chuyển tiền</button>
+                    )}
                     {perms.canCreate && !showDeleted && <button className="btn btn-primary btn-sm" onClick={() => setModal({ mode: 'add', tx: null })}>+ Thêm giao dịch</button>}
                 </div>
             </div>
@@ -406,7 +428,7 @@ ${txs.map(voucher).join('')}
             {modal && (
                 <TransactionModal
                     mode={modal.mode} tx={modal.tx} user={user}
-                    categories={categories} bankAccounts={bankAccounts} cashFunds={cashFunds} accounts={accounts} projects={projects}
+                    categories={categories} bankAccounts={bankAccounts} cashFunds={cashFunds} accounts={accounts} projects={projects} customerStubs={customerStubs}
                     onClose={() => setModal(null)} onSave={saveTransaction} onSaveSplit={saveSplitTransaction}
                     onEdit={() => setModal({ mode: 'edit', tx: modal.tx })}
                     onViewSibling={(sibling) => setModal({ mode: 'view', tx: sibling })}
@@ -425,6 +447,11 @@ ${txs.map(voucher).join('')}
 
             {importOpen && (
                 <ImportModal onClose={() => setImportOpen(false)} onDone={() => { setImportOpen(false); fetchTransactions(1); }} />
+            )}
+
+            {transferOpen && (
+                <TransferModal cashFunds={cashFunds} bankAccounts={bankAccounts} onClose={() => setTransferOpen(false)}
+                    onDone={() => { setTransferOpen(false); fetchLookups(); fetchTransactions(1); }} />
             )}
         </div>
     );
@@ -445,7 +472,7 @@ function SummaryCards({ summary, cashFunds, bankAccounts, cashBalance }) {
     const fundReports = (cashFunds || []).map(f => {
         const s = cashFundSums.get(f.id);
         return {
-            key: f.id, icon: '👛', title: f.name,
+            id: f.id, icon: '👛', title: f.name,
             openingBalance: f.openingBalance || 0, periodIn: s?.cashIn || 0, periodOut: s?.cashOut || 0,
             currentBalance: f.balance ?? f.openingBalance ?? 0,
         };
@@ -453,14 +480,14 @@ function SummaryCards({ summary, cashFunds, bankAccounts, cashBalance }) {
     const bankReports = (bankAccounts || []).map(b => {
         const s = bankAccountSums.get(b.id);
         return {
-            key: b.id, icon: '🏛️', title: `${b.bankName}${b.accountNumber ? ` — ${b.accountNumber}` : ''}`,
+            id: b.id, icon: '🏛️', title: `${b.bankName}${b.accountNumber ? ` — ${b.accountNumber}` : ''}`,
             openingBalance: b.openingBalance || 0, periodIn: s?.bankIn || 0, periodOut: s?.bankOut || 0,
             currentBalance: b.balance ?? b.openingBalance ?? 0,
         };
     });
     if (fundReports.length === 0) {
         fundReports.push({
-            key: 'cash-total', icon: '💰', title: 'Tiền mặt (chưa phân quỹ)',
+            id: 'cash-total', icon: '💰', title: 'Tiền mặt (chưa phân quỹ)',
             openingBalance: cashBalance?.openingBalance || 0, periodIn: summary.totalCashIn, periodOut: summary.totalCashOut,
             currentBalance: cashBalance?.balance ?? 0,
         });
@@ -495,8 +522,8 @@ function SummaryCards({ summary, cashFunds, bankAccounts, cashBalance }) {
             <details className="card" open style={{ marginBottom: 16, padding: 16 }}>
                 <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>📊 Báo cáo Quỹ tiền mặt &amp; Ngân hàng</summary>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginTop: 14 }}>
-                    {fundReports.map(r => <BalanceReportCard key={r.key} {...r} />)}
-                    {bankReports.map(r => <BalanceReportCard key={r.key} {...r} />)}
+                    {fundReports.map(r => <BalanceReportCard key={r.id} {...r} />)}
+                    {bankReports.map(r => <BalanceReportCard key={r.id} {...r} />)}
                 </div>
             </details>
         </div>
@@ -680,7 +707,9 @@ function TransactionTable({ rows, loading, user, showDeleted, openMenuId, setOpe
                                     <td><RowMenu tx={t} /></td>
                                     <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(t.date)}</td>
                                     <td className="accent" style={{ whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => onView(t)}>{t.code}</td>
-                                    <td className="primary" title={t.content} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.content}</td>
+                                    <td className="primary" title={t.content} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {t.content}{t.transferGroupId && <span title="Chuyển quỹ — có 1 phiếu liên kết" style={{ marginLeft: 4 }}>↔️</span>}
+                                    </td>
                                     <td style={{ whiteSpace: 'nowrap' }}>{t.department}</td>
                                     <td>{t.project?.code || '—'}{t.splitGroupId && <span title="Đã tách từ 1 lần nhập chung cho nhiều công trình" style={{ marginLeft: 4 }}>🔗</span>}</td>
                                     <td className="amount" style={{ color: 'var(--status-success)' }}>{fmtOrBlank(t.cashIn)}</td>
@@ -809,7 +838,7 @@ function ObjectSelect({ objectType, objectId, objectName, onChange }) {
     );
 }
 
-function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds, accounts, projects, onClose, onSave, onSaveSplit, onEdit, onViewSibling }) {
+function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds, accounts, projects, customerStubs, onClose, onSave, onSaveSplit, onEdit, onViewSibling }) {
     const isView = mode === 'view';
     const isAdd = mode === 'add';
     const [form, setForm] = useState(() => tx ? {
@@ -828,6 +857,22 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds,
     const fileRef = useRef();
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+    // Ô "Dự án/Công trình" gộp cả Dự án thật (projectId) và Khách "Khách hợp đồng" chưa
+    // có Dự án (dùng lại cơ chế Đối tượng sẵn có: objectType='Khách hàng').
+    const projectPickValue = form.projectId ? `p_${form.projectId}`
+        : (form.objectType === 'Khách hàng' && form.objectId && (customerStubs || []).some(c => c.id === form.objectId)) ? `c_${form.objectId}`
+            : '';
+    const handleProjectPick = (val) => {
+        if (val.startsWith('p_')) {
+            setForm(f => ({ ...f, projectId: val.slice(2) }));
+        } else if (val.startsWith('c_')) {
+            const cust = (customerStubs || []).find(c => c.id === val.slice(2));
+            setForm(f => ({ ...f, projectId: '', objectType: 'Khách hàng', objectId: cust?.id || '', objectName: cust?.name || '' }));
+        } else {
+            setForm(f => ({ ...f, projectId: '' }));
+        }
+    };
+
     const [splitMode, setSplitMode] = useState(false);
     const [allocations, setAllocations] = useState([{ projectId: '', amount: '' }, { projectId: '', amount: '' }]);
     const splitTotal = allocations.reduce((s, a) => s + (Number(a.amount) || 0), 0);
@@ -841,6 +886,13 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds,
         fetch(`/api/finance-transactions?splitGroupId=${tx.splitGroupId}&limit=50`)
             .then(r => r.json()).then(d => setSiblings((d.data || []).filter(s => s.id !== tx.id))).catch(() => setSiblings([]));
     }, [isView, tx?.splitGroupId, tx?.id]);
+
+    const [transferPair, setTransferPair] = useState([]);
+    useEffect(() => {
+        if (!isView || !tx?.transferGroupId) { setTransferPair([]); return; }
+        fetch(`/api/finance-transactions?transferGroupId=${tx.transferGroupId}&limit=5`)
+            .then(r => r.json()).then(d => setTransferPair((d.data || []).filter(s => s.id !== tx.id))).catch(() => setTransferPair([]));
+    }, [isView, tx?.transferGroupId, tx?.id]);
 
     const itemAmount = (Number(form.itemQty) || 0) * (Number(form.itemUnitPrice) || 0);
 
@@ -910,8 +962,18 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds,
                                 {splitMode ? (
                                     <input className="form-input" disabled value="— xem bên dưới —" />
                                 ) : (
-                                    <select className="form-select" disabled={isView} value={form.projectId} onChange={e => set('projectId', e.target.value)}>
-                                        <option value="">-- không có --</option>{projects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+                                    <select className="form-select" disabled={isView} value={projectPickValue} onChange={e => handleProjectPick(e.target.value)}>
+                                        <option value="">-- không có --</option>
+                                        {projects.length > 0 && (
+                                            <optgroup label="Dự án">
+                                                {projects.map(p => <option key={'p_' + p.id} value={'p_' + p.id}>{p.code} — {p.name}</option>)}
+                                            </optgroup>
+                                        )}
+                                        {customerStubs?.length > 0 && (
+                                            <optgroup label="Khách hợp đồng (chưa có dự án)">
+                                                {customerStubs.map(c => <option key={'c_' + c.id} value={'c_' + c.id}>{c.name}</option>)}
+                                            </optgroup>
+                                        )}
                                     </select>
                                 )}
                             </Field>
@@ -942,7 +1004,7 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds,
                                         </select>
                                     </Field>
                                     <Field label="Số tiền *">
-                                        <input className="form-input" type="number" min="0" value={a.amount} onChange={e => setAllocation(i, 'amount', e.target.value)} />
+                                        <MoneyInput value={a.amount} onChange={v => setAllocation(i, 'amount', v)} />
                                     </Field>
                                     <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 4 }}>
                                         <button type="button" className="btn btn-icon" disabled={allocations.length <= 2} onClick={() => removeAllocation(i)} title="Bỏ dòng này">🗑️</button>
@@ -973,7 +1035,7 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds,
                                 {splitMode ? (
                                     <input className="form-input" disabled value={fmt(splitTotal)} title="Tự động tính từ tổng phân bổ bên trên" />
                                 ) : (
-                                    <input className="form-input" disabled={isView} type="number" min="0" value={form.amount} onChange={e => set('amount', e.target.value)} />
+                                    <MoneyInput disabled={isView} value={form.amount} onChange={v => set('amount', v)} />
                                 )}
                             </Field>
                         </Row>
@@ -1036,7 +1098,7 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds,
                             <div style={{ flex: 2, minWidth: 180 }}><Field label="Chủng loại"><input className="form-input" disabled={isView} value={form.itemName} onChange={e => set('itemName', e.target.value)} /></Field></div>
                             <div style={{ flex: 1, minWidth: 90 }}><Field label="ĐVT"><input className="form-input" disabled={isView} value={form.itemUnit} onChange={e => set('itemUnit', e.target.value)} /></Field></div>
                             <div style={{ flex: 1, minWidth: 110 }}><Field label="Số lượng"><input className="form-input" disabled={isView} type="number" value={form.itemQty} onChange={e => set('itemQty', e.target.value)} /></Field></div>
-                            <div style={{ flex: 1, minWidth: 130 }}><Field label="Đơn giá"><input className="form-input" disabled={isView} type="number" value={form.itemUnitPrice} onChange={e => set('itemUnitPrice', e.target.value)} /></Field></div>
+                            <div style={{ flex: 1, minWidth: 130 }}><Field label="Đơn giá"><MoneyInput disabled={isView} value={form.itemUnitPrice} onChange={v => set('itemUnitPrice', v)} /></Field></div>
                             <div style={{ flex: 1, minWidth: 130 }}><Field label="Thành tiền"><input className="form-input" disabled value={fmt(itemAmount)} /></Field></div>
                         </div>
                     </FieldsetGroup>
@@ -1085,6 +1147,21 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds,
                         </FieldsetGroup>
                     )}
 
+                    {isView && tx.transferGroupId && (
+                        <FieldsetGroup title="↔️ Phiếu liên kết (chuyển quỹ)">
+                            {transferPair.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Đang tải...</div>}
+                            {transferPair.map(s => (
+                                <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, padding: '4px 0', borderBottom: '1px dotted var(--border-color)' }}>
+                                    <span>{s.code} — {s.type} {s.cashFund?.name ? `· Quỹ ${s.cashFund.name}` : ''}</span>
+                                    <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                        <strong>{fmt(s.amount)}</strong>
+                                        <button className="btn btn-ghost btn-sm" onClick={() => onViewSibling(s)}>Xem</button>
+                                    </span>
+                                </div>
+                            ))}
+                        </FieldsetGroup>
+                    )}
+
                     {isView && tx.audits?.length > 0 && (
                         <FieldsetGroup title="Lịch sử">
                             {tx.audits.map(a => (
@@ -1119,6 +1196,20 @@ function FieldsetGroup({ title, children }) {
 }
 function Row({ children }) { return <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>{Array.isArray(children) ? children.map((c, i) => <div key={i} style={{ flex: 1, minWidth: 160 }}>{c}</div>) : children}</div>; }
 function Field({ label, children }) { return <div className="form-group"><label className="form-label">{label}</label>{children}</div>; }
+
+// Ô nhập số tiền có dấu chấm ngăn cách hàng nghìn khi gõ (VD: 1.000.000), giá trị
+// thực chất vẫn là chuỗi số thuần (không dấu chấm) lưu trong state như input number.
+function MoneyInput({ value, onChange, disabled, style, placeholder, className, autoFocus }) {
+    const display = value === '' || value === null || value === undefined ? '' : fmt(value);
+    const handleChange = (e) => {
+        const raw = e.target.value.replace(/\D/g, '');
+        onChange(raw === '' ? '' : String(Number(raw)));
+    };
+    return (
+        <input className={className || 'form-input'} inputMode="numeric" disabled={disabled} style={style} placeholder={placeholder}
+            autoFocus={autoFocus} value={display} onChange={handleChange} />
+    );
+}
 
 // ════════════════════════════════════════════════════════════════════════
 function ReconcilePanel({ bankAccounts, cashFunds, canSave, cashBalance, canEditCashBalance, onCashBalanceSaved }) {
@@ -1246,7 +1337,7 @@ function ReconcilePanel({ bankAccounts, cashFunds, canSave, cashBalance, canEdit
                 <Field label="Số dư đầu kỳ">
                     {editingOpening ? (
                         <div style={{ display: 'flex', gap: 6 }}>
-                            <input className="form-input" type="number" value={openingInput} onChange={e => setOpeningInput(e.target.value)} style={{ width: 140 }} autoFocus />
+                            <MoneyInput value={openingInput} onChange={setOpeningInput} style={{ width: 140 }} autoFocus />
                             <button className="btn btn-primary btn-sm" onClick={saveOpening} disabled={savingOpening}>Lưu</button>
                             <button className="btn btn-ghost btn-sm" onClick={() => setEditingOpening(false)}>Hủy</button>
                         </div>
@@ -1260,7 +1351,7 @@ function ReconcilePanel({ bankAccounts, cashFunds, canSave, cashBalance, canEdit
                     )}
                 </Field>
                 <Field label="Số dư hệ thống"><input className="form-input" disabled value={loading ? '...' : fmt(systemBalance)} /></Field>
-                <Field label="Số dư thực tế"><input className="form-input" type="number" value={actualBalance} onChange={e => setActualBalance(e.target.value)} /></Field>
+                <Field label="Số dư thực tế"><MoneyInput value={actualBalance} onChange={setActualBalance} /></Field>
                 <Field label="Chênh lệch">
                     <input className="form-input" disabled value={diff === null ? '' : fmt(diff)}
                         style={{ color: diff && diff !== 0 ? 'var(--status-danger)' : 'var(--status-success)', fontWeight: 700 }} />
@@ -1330,6 +1421,121 @@ function PrintModal({ rows, onClose, onConfirm }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════
+const TRANSFER_KINDS = [
+    { key: 'fund_to_fund', label: 'Quỹ → Quỹ' },
+    { key: 'fund_to_bank', label: 'Nộp tiền: Quỹ → Ngân hàng' },
+    { key: 'bank_to_fund', label: 'Rút tiền: Ngân hàng → Quỹ' },
+];
+
+function TransferModal({ cashFunds, bankAccounts, onClose, onDone }) {
+    const [form, setForm] = useState({
+        kind: 'fund_to_fund', date: today(), department: '',
+        fromFundId: '', toFundId: '', fromBankAccountId: '', toBankAccountId: '',
+        amount: '', content: '', notes: '',
+    });
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+    const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setError(''); };
+    const setKind = (kind) => setForm(f => ({
+        ...f, kind, fromFundId: '', toFundId: '', fromBankAccountId: '', toBankAccountId: '',
+    }));
+
+    const fromFund = cashFunds.find(f => f.id === form.fromFundId);
+    const toFund = cashFunds.find(f => f.id === form.toFundId);
+    const fromBank = bankAccounts.find(b => b.id === form.fromBankAccountId);
+    const toBank = bankAccounts.find(b => b.id === form.toBankAccountId);
+
+    const fromLabel = form.kind === 'bank_to_fund' ? (fromBank ? `${fromBank.bankName}` : null) : (fromFund ? `Quỹ ${fromFund.name}` : null);
+    const toLabel = form.kind === 'fund_to_bank' ? (toBank ? `${toBank.bankName}` : null) : (toFund ? `Quỹ ${toFund.name}` : null);
+
+    const submit = async () => {
+        if (!form.department) return setError('Vui lòng chọn phòng ban');
+        if (form.kind === 'fund_to_fund' && (!form.fromFundId || !form.toFundId || form.fromFundId === form.toFundId)) {
+            return setError('Vui lòng chọn quỹ nguồn và quỹ đích khác nhau');
+        }
+        if (form.kind === 'fund_to_bank' && (!form.fromFundId || !form.toBankAccountId)) {
+            return setError('Vui lòng chọn quỹ nguồn và tài khoản ngân hàng đích');
+        }
+        if (form.kind === 'bank_to_fund' && (!form.fromBankAccountId || !form.toFundId)) {
+            return setError('Vui lòng chọn tài khoản ngân hàng nguồn và quỹ đích');
+        }
+        if (!(Number(form.amount) > 0)) return setError('Số tiền phải lớn hơn 0');
+        setSaving(true);
+        const res = await fetch('/api/finance-transactions/transfer', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...form, amount: Number(form.amount) }),
+        });
+        setSaving(false);
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) { setError(json.error || 'Lỗi chuyển tiền'); return; }
+        onDone();
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                <div className="modal-header"><h3>↔️ Chuyển tiền</h3><button className="modal-close" onClick={onClose}>×</button></div>
+                <div className="modal-body">
+                    <Field label="Loại chuyển tiền *">
+                        <select className="form-select" value={form.kind} onChange={e => setKind(e.target.value)}>
+                            {TRANSFER_KINDS.map(k => <option key={k.key} value={k.key}>{k.label}</option>)}
+                        </select>
+                    </Field>
+                    <Row>
+                        <Field label="Ngày *"><input className="form-input" type="date" value={form.date} onChange={e => set('date', e.target.value)} /></Field>
+                        <Field label="Phòng ban *">
+                            <select className="form-select" value={form.department} onChange={e => set('department', e.target.value)}>
+                                <option value="">-- chọn --</option>{DEPARTMENTS.map(d => <option key={d}>{d}</option>)}
+                            </select>
+                        </Field>
+                    </Row>
+                    <Row>
+                        <Field label={form.kind === 'bank_to_fund' ? 'Ngân hàng nguồn *' : 'Quỹ nguồn *'}>
+                            {form.kind === 'bank_to_fund' ? (
+                                <select className="form-select" value={form.fromBankAccountId} onChange={e => set('fromBankAccountId', e.target.value)}>
+                                    <option value="">-- chọn --</option>
+                                    {bankAccounts.map(b => <option key={b.id} value={b.id}>{b.bankName} ({fmt(b.balance ?? b.openingBalance)})</option>)}
+                                </select>
+                            ) : (
+                                <select className="form-select" value={form.fromFundId} onChange={e => set('fromFundId', e.target.value)}>
+                                    <option value="">-- chọn --</option>
+                                    {cashFunds.map(f => <option key={f.id} value={f.id}>{f.name} ({fmt(f.balance ?? f.openingBalance)})</option>)}
+                                </select>
+                            )}
+                        </Field>
+                        <Field label={form.kind === 'fund_to_bank' ? 'Ngân hàng đích *' : 'Quỹ đích *'}>
+                            {form.kind === 'fund_to_bank' ? (
+                                <select className="form-select" value={form.toBankAccountId} onChange={e => set('toBankAccountId', e.target.value)}>
+                                    <option value="">-- chọn --</option>
+                                    {bankAccounts.map(b => <option key={b.id} value={b.id}>{b.bankName} ({fmt(b.balance ?? b.openingBalance)})</option>)}
+                                </select>
+                            ) : (
+                                <select className="form-select" value={form.toFundId} onChange={e => set('toFundId', e.target.value)}>
+                                    <option value="">-- chọn --</option>
+                                    {cashFunds.filter(f => f.id !== form.fromFundId).map(f => <option key={f.id} value={f.id}>{f.name} ({fmt(f.balance ?? f.openingBalance)})</option>)}
+                                </select>
+                            )}
+                        </Field>
+                    </Row>
+                    <Field label="Số tiền *"><MoneyInput value={form.amount} onChange={v => set('amount', v)} /></Field>
+                    <Field label="Nội dung"><input className="form-input" placeholder="VD: Bổ sung quỹ để chi công trình X" value={form.content} onChange={e => set('content', e.target.value)} /></Field>
+                    {fromLabel && toLabel && (
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                            Sẽ tạo 1 phiếu Chi ({fromLabel}) và 1 phiếu Thu ({toLabel}), liên kết với nhau.
+                        </div>
+                    )}
+                    {error && <div style={{ fontSize: 12, color: 'var(--status-danger)', marginTop: 8 }}>{error}</div>}
+                </div>
+                <div className="modal-footer">
+                    <button className="btn btn-ghost" onClick={onClose}>Hủy</button>
+                    <button className="btn btn-primary" onClick={submit} disabled={saving}>{saving ? 'Đang lưu...' : 'Chuyển tiền'}</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════
 function SettingsModal({ categories, bankAccounts, cashFunds, accounts, onClose, onRefresh }) {
     const [tab, setTab] = useState('categories');
     return (
@@ -1344,7 +1550,7 @@ function SettingsModal({ categories, bankAccounts, cashFunds, accounts, onClose,
                 </div>
                 <div className="modal-body">
                     {tab === 'categories' && <CategoryManager items={categories} onRefresh={onRefresh} />}
-                    {tab === 'funds' && <CashFundManager items={cashFunds} onRefresh={onRefresh} />}
+                    {tab === 'funds' && <CashFundManager items={cashFunds} accounts={accounts} onRefresh={onRefresh} />}
                     {tab === 'banks' && <BankManager items={bankAccounts} onRefresh={onRefresh} />}
                     {tab === 'accounts' && <AccountManager items={accounts} onRefresh={onRefresh} />}
                 </div>
@@ -1410,35 +1616,51 @@ function CategoryManager({ items, onRefresh }) {
     );
 }
 
-function CashFundManager({ items, onRefresh }) {
-    const [form, setForm] = useState({ name: '', openingBalance: 0 });
+function CashFundManager({ items, accounts, onRefresh }) {
+    const [form, setForm] = useState({ name: '', openingBalance: 0, accountingAccountId: '' });
     const add = async () => {
         if (!form.name.trim()) return;
-        const res = await fetch('/api/cash-funds', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, openingBalance: Number(form.openingBalance) || 0 }) });
+        const res = await fetch('/api/cash-funds', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...form, openingBalance: Number(form.openingBalance) || 0, accountingAccountId: form.accountingAccountId || null }),
+        });
         if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || 'Lỗi thêm quỹ'); return; }
-        setForm({ name: '', openingBalance: 0 });
+        setForm({ name: '', openingBalance: 0, accountingAccountId: '' });
         onRefresh();
     };
     const del = async (id) => { await fetch(`/api/cash-funds/${id}`, { method: 'DELETE' }); onRefresh(); };
     const saveEdit = async (item, edited) => {
         const res = await fetch(`/api/cash-funds/${item.id}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: edited.name, status: item.status, notes: item.notes || '', openingBalance: Number(edited.openingBalance) || 0 }),
+            body: JSON.stringify({
+                name: edited.name, status: item.status, notes: item.notes || '',
+                openingBalance: Number(edited.openingBalance) || 0,
+                accountingAccountId: edited.accountingAccountId || null,
+            }),
         });
         if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || 'Lỗi cập nhật quỹ'); return; }
         onRefresh();
     };
+    const accountOptions = (accounts || []).map(a => ({ value: a.id, label: `${a.code} — ${a.name}` }));
     return (
         <div>
             <Row>
                 <input className="form-input" placeholder="Tên quỹ (VD: Quỹ Lan)" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-                <input className="form-input" type="number" placeholder="Số dư đầu kỳ" value={form.openingBalance} onChange={e => setForm(f => ({ ...f, openingBalance: e.target.value }))} />
+                <MoneyInput placeholder="Số dư đầu kỳ" value={form.openingBalance} onChange={v => setForm(f => ({ ...f, openingBalance: v }))} />
+                <select className="form-select" value={form.accountingAccountId} onChange={e => setForm(f => ({ ...f, accountingAccountId: e.target.value }))}>
+                    <option value="">-- TK kế toán (để chuyển quỹ) --</option>
+                    {accountOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
             </Row>
             <button className="btn btn-primary btn-sm" style={{ marginTop: 8 }} onClick={add}>+ Thêm quỹ tiền mặt</button>
             <div style={{ marginTop: 12 }}>
                 <EditableListRows items={items}
-                    fields={[{ key: 'name', label: 'Tên quỹ', width: 160 }, { key: 'openingBalance', label: 'Số dư đầu kỳ', type: 'number', width: 130 }]}
-                    render={f => `${f.name} · Số dư: ${fmt(f.balance ?? f.openingBalance)}`}
+                    fields={[
+                        { key: 'name', label: 'Tên quỹ', width: 160 },
+                        { key: 'openingBalance', label: 'Số dư đầu kỳ', type: 'money', width: 130 },
+                        { key: 'accountingAccountId', label: 'TK kế toán', type: 'select', width: 180, emptyLabel: '-- TK kế toán --', options: accountOptions },
+                    ]}
+                    render={f => `${f.name} · Số dư: ${fmt(f.balance ?? f.openingBalance)}${f.accountingAccount ? ` · TK ${f.accountingAccount.code}` : ''}`}
                     onSave={saveEdit} onDelete={del} />
             </div>
         </div>
@@ -1471,7 +1693,7 @@ function BankManager({ items, onRefresh }) {
                 <input className="form-input" placeholder="Tên ngân hàng" value={form.bankName} onChange={e => setForm(f => ({ ...f, bankName: e.target.value }))} />
                 <input className="form-input" placeholder="Số tài khoản" value={form.accountNumber} onChange={e => setForm(f => ({ ...f, accountNumber: e.target.value }))} />
                 <input className="form-input" placeholder="Chủ tài khoản" value={form.accountHolder} onChange={e => setForm(f => ({ ...f, accountHolder: e.target.value }))} />
-                <input className="form-input" type="number" placeholder="Số dư đầu kỳ" value={form.openingBalance} onChange={e => setForm(f => ({ ...f, openingBalance: e.target.value }))} />
+                <MoneyInput placeholder="Số dư đầu kỳ" value={form.openingBalance} onChange={v => setForm(f => ({ ...f, openingBalance: v }))} />
             </Row>
             <button className="btn btn-primary btn-sm" style={{ marginTop: 8 }} onClick={add}>+ Thêm TK ngân hàng</button>
             <div style={{ marginTop: 12 }}>
@@ -1480,7 +1702,7 @@ function BankManager({ items, onRefresh }) {
                         { key: 'bankName', label: 'Tên ngân hàng', width: 150 },
                         { key: 'accountNumber', label: 'Số tài khoản', width: 120 },
                         { key: 'accountHolder', label: 'Chủ tài khoản', width: 130 },
-                        { key: 'openingBalance', label: 'Số dư đầu kỳ', type: 'number', width: 130 },
+                        { key: 'openingBalance', label: 'Số dư đầu kỳ', type: 'money', width: 130 },
                     ]}
                     render={b => `${b.bankName} — ${b.accountNumber} (${b.accountHolder || '—'}) · Số dư: ${fmt(b.balance ?? b.openingBalance)}`}
                     onSave={saveEdit} onDelete={del} />
@@ -1533,7 +1755,16 @@ function EditableListRows({ items, fields, render, onSave, onDelete }) {
         <div style={{ maxHeight: 260, overflowY: 'auto' }}>
             {items.map(it => editingId === it.id ? (
                 <div key={it.id} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', padding: 8, border: '1px solid var(--border-color)', borderRadius: 6, marginBottom: 6 }}>
-                    {fields.map(fld => (
+                    {fields.map(fld => fld.type === 'select' ? (
+                        <select key={fld.key} className="form-select" style={{ width: fld.width || 120 }}
+                            value={editForm[fld.key]} onChange={e => setEditForm(f => ({ ...f, [fld.key]: e.target.value }))}>
+                            <option value="">{fld.emptyLabel || `-- ${fld.label} --`}</option>
+                            {fld.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                    ) : fld.type === 'money' ? (
+                        <MoneyInput key={fld.key} placeholder={fld.label} style={{ width: fld.width || 120 }}
+                            value={editForm[fld.key]} onChange={v => setEditForm(f => ({ ...f, [fld.key]: v }))} />
+                    ) : (
                         <input key={fld.key} className="form-input" type={fld.type || 'text'} placeholder={fld.label}
                             style={{ width: fld.width || 120 }}
                             value={editForm[fld.key]} onChange={e => setEditForm(f => ({ ...f, [fld.key]: e.target.value }))} />
