@@ -244,7 +244,7 @@ export default function FinanceJournalPage() {
   <div class="top-bar"></div>
   <div class="header">
     <div class="logo-area">
-      <svg width="62" height="62" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg width="42" height="42" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
         <g transform="translate(80,80) rotate(45) translate(-54,-54)"><rect width="108" height="108" rx="6" fill="${accent}"/></g>
         <text x="80" y="100" text-anchor="middle" fill="#fff" font-size="86" font-weight="900" font-family="Arial Black,Arial,sans-serif" letter-spacing="-4">K</text>
       </svg>
@@ -298,48 +298,49 @@ export default function FinanceJournalPage() {
         const w = window.open('', '_blank', 'width=860,height=900');
         w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>In phiếu - ${txs.map(t => t.code).join(', ')}</title>
 <style>
+@page{size:A5;margin:6mm}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f5;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.page{max-width:800px;margin:20px auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.12);page-break-after:always}
+body{font-family:Arial,sans-serif;font-size:10px;color:#1a1a1a;background:#f5f5f5;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{width:148mm;min-height:198mm;margin:10mm auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.12);page-break-after:always}
 .page:last-child{page-break-after:auto}
-.top-bar{height:8px;background:var(--accent)}
-.header{display:flex;align-items:center;justify-content:space-between;padding:20px 36px 16px;border-bottom:1px solid #f0ebe5}
-.logo-area{display:flex;align-items:center;gap:14px}
-.co-name{font-size:15px;font-weight:900;color:#1a1a1a;text-transform:uppercase;letter-spacing:.8px;line-height:1.2}
-.co-tagline{font-size:9px;color:var(--accent);font-style:italic;margin-top:2px;letter-spacing:.3px}
-.co-info{font-size:8.5px;color:#666;margin-top:6px;line-height:1.8}
-.co-info span{margin-right:14px}
-.header-right{text-align:right;font-size:9px;color:#888;line-height:2}
-.header-right strong{color:#1a1a1a;font-size:10px}
-.title-banner{background:var(--accent);padding:18px 36px;display:flex;align-items:center;justify-content:space-between}
-.title-banner h1{font-size:26px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:6px}
-.title-banner .sub{font-size:10px;color:rgba(255,255,255,.75);letter-spacing:3px;text-transform:uppercase;margin-top:4px}
-.code-badge{background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.6);border-radius:24px;padding:6px 20px;color:#fff;font-weight:900;font-size:14px;letter-spacing:2px;white-space:nowrap}
-.body{padding:28px 36px}
-.info-grid{display:grid;grid-template-columns:180px 1fr;gap:0;margin-bottom:20px;border:1px solid #f0ebe5;border-radius:8px;overflow:hidden}
+.top-bar{height:5px;background:var(--accent)}
+.header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px;border-bottom:1px solid #f0ebe5}
+.logo-area{display:flex;align-items:center;gap:8px}
+.co-name{font-size:11px;font-weight:900;color:#1a1a1a;text-transform:uppercase;letter-spacing:.6px;line-height:1.2}
+.co-tagline{font-size:7px;color:var(--accent);font-style:italic;margin-top:1px;letter-spacing:.2px}
+.co-info{font-size:6.5px;color:#666;margin-top:3px;line-height:1.6}
+.co-info span{margin-right:6px}
+.header-right{text-align:right;font-size:7px;color:#888;line-height:1.6}
+.header-right strong{color:#1a1a1a;font-size:8px}
+.title-banner{background:var(--accent);padding:10px 14px;display:flex;align-items:center;justify-content:space-between}
+.title-banner h1{font-size:18px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:3px}
+.title-banner .sub{font-size:7.5px;color:rgba(255,255,255,.75);letter-spacing:1.5px;text-transform:uppercase;margin-top:2px}
+.code-badge{background:rgba(255,255,255,.2);border:1.2px solid rgba(255,255,255,.6);border-radius:18px;padding:4px 12px;color:#fff;font-weight:900;font-size:10px;letter-spacing:1px;white-space:nowrap}
+.body{padding:12px 14px}
+.info-grid{display:grid;grid-template-columns:100px 1fr;gap:0;margin-bottom:10px;border:1px solid #f0ebe5;border-radius:6px;overflow:hidden}
 .info-row{display:contents}
-.info-row .lbl{background:#fdf6f0;padding:10px 14px;font-size:11.5px;color:#888;border-bottom:1px solid #f0ebe5;font-style:italic}
-.info-row .val{background:#fff;padding:10px 14px;font-size:12px;font-weight:700;color:#1a1a1a;border-bottom:1px solid #f0ebe5}
+.info-row .lbl{background:#fdf6f0;padding:6px 8px;font-size:8.5px;color:#888;border-bottom:1px solid #f0ebe5;font-style:italic}
+.info-row .val{background:#fff;padding:6px 8px;font-size:9px;font-weight:700;color:#1a1a1a;border-bottom:1px solid #f0ebe5}
 .info-row:last-child .lbl,.info-row:last-child .val{border-bottom:none}
-.amount-wrap{margin:0 0 20px;border-radius:10px;overflow:hidden;border:2px solid var(--accent)}
-.amount-head{background:var(--accent);padding:8px 20px;font-size:9px;text-transform:uppercase;letter-spacing:3px;color:#fff;font-weight:800;text-align:center}
-.amount-body{padding:18px 20px;text-align:center;background:linear-gradient(135deg,#fff9f5,#fff)}
-.amount-val{font-size:34px;font-weight:900;color:#1a1a1a;letter-spacing:1px}
-.amount-val em{color:var(--accent);font-style:normal;font-size:26px}
-.amount-words{margin-top:10px;font-size:11px;color:#999;font-style:italic;border-top:1px dashed #f0ebe5;padding-top:10px}
-.amount-words span{display:inline-block;min-width:320px;border-bottom:1px dotted #ccc;height:18px}
-.sign-section{display:flex;justify-content:space-between;margin:8px 0 24px;gap:12px}
-.sign-col{flex:1;text-align:center;border:1px solid #f0ebe5;border-radius:8px;padding:14px 10px}
-.sign-col .role{font-weight:900;font-size:10.5px;color:#1a1a1a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
-.sign-col .role-sub{font-size:8.5px;color:#aaa;margin-bottom:52px}
-.sign-col .sign-line{border-top:1px solid #ddd;padding-top:6px;font-size:8.5px;font-style:italic;color:#bbb}
-.bottom-bar{background:var(--accent);padding:10px 36px;display:flex;justify-content:space-between;align-items:center}
-.bottom-brand{font-size:9.5px;font-weight:900;color:#fff;letter-spacing:.5px;text-transform:uppercase}
-.bottom-tagline{font-size:8.5px;color:rgba(255,255,255,.8);font-style:italic}
-.bottom-code{font-size:8.5px;color:rgba(255,255,255,.8)}
+.amount-wrap{margin:0 0 10px;border-radius:8px;overflow:hidden;border:1.5px solid var(--accent)}
+.amount-head{background:var(--accent);padding:5px 10px;font-size:7px;text-transform:uppercase;letter-spacing:1.5px;color:#fff;font-weight:800;text-align:center}
+.amount-body{padding:10px;text-align:center;background:linear-gradient(135deg,#fff9f5,#fff)}
+.amount-val{font-size:22px;font-weight:900;color:#1a1a1a;letter-spacing:.5px}
+.amount-val em{color:var(--accent);font-style:normal;font-size:16px}
+.amount-words{margin-top:6px;font-size:8px;color:#999;font-style:italic;border-top:1px dashed #f0ebe5;padding-top:6px}
+.amount-words span{display:inline-block;min-width:180px;border-bottom:1px dotted #ccc;height:12px}
+.sign-section{display:flex;justify-content:space-between;margin:6px 0 12px;gap:6px}
+.sign-col{flex:1;text-align:center;border:1px solid #f0ebe5;border-radius:6px;padding:8px 6px}
+.sign-col .role{font-weight:900;font-size:8px;color:#1a1a1a;text-transform:uppercase;letter-spacing:.4px;margin-bottom:1px}
+.sign-col .role-sub{font-size:6.5px;color:#aaa;margin-bottom:26px}
+.sign-col .sign-line{border-top:1px solid #ddd;padding-top:4px;font-size:6.5px;font-style:italic;color:#bbb}
+.bottom-bar{background:var(--accent);padding:6px 14px;display:flex;justify-content:space-between;align-items:center}
+.bottom-brand{font-size:7.5px;font-weight:900;color:#fff;letter-spacing:.4px;text-transform:uppercase}
+.bottom-tagline{font-size:6.5px;color:rgba(255,255,255,.8);font-style:italic}
+.bottom-code{font-size:6.5px;color:rgba(255,255,255,.8)}
 .no-print{position:fixed;top:16px;right:16px;z-index:9999}
 .no-print button{padding:10px 22px;font-size:13px;cursor:pointer;background:#333;color:#fff;border:none;border-radius:6px;font-weight:700;letter-spacing:.3px;box-shadow:0 3px 12px rgba(0,0,0,.3)}
-@media print{.no-print{display:none!important}body{background:#fff}.page{box-shadow:none;margin:0}}
+@media print{.no-print{display:none!important}body{background:#fff}.page{box-shadow:none;margin:0;width:auto;min-height:auto}}
 </style></head><body>
 <div class="no-print"><button onclick="window.print()">🖨️ In ${txs.length} phiếu</button></div>
 ${txs.map(voucher).join('')}
