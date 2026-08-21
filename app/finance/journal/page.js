@@ -53,6 +53,7 @@ export default function FinanceJournalPage() {
     const [importOpen, setImportOpen] = useState(false);
     const [cancelModal, setCancelModal] = useState(null); // tx
     const [openMenuId, setOpenMenuId] = useState(null);
+    const [showDeleted, setShowDeleted] = useState(false);
 
     const fetchLookups = useCallback(async () => {
         const [cats, banks, accs, projs] = await Promise.all([
@@ -73,6 +74,7 @@ export default function FinanceJournalPage() {
         Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
         params.set('page', String(page));
         params.set('limit', String(pagination.limit));
+        if (showDeleted) params.set('deleted', '1');
         const res = await fetch(`/api/finance-transactions?${params}`).then(r => r.json()).catch(() => null);
         if (res) {
             setRows(res.data || []);
@@ -80,10 +82,10 @@ export default function FinanceJournalPage() {
             setSummary(res.summary || {});
         }
         setLoading(false);
-    }, [filters, pagination.limit]);
+    }, [filters, pagination.limit, showDeleted]);
 
     useEffect(() => { fetchLookups(); }, [fetchLookups]);
-    useEffect(() => { fetchTransactions(1); }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { fetchTransactions(1); }, [filters, showDeleted]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         const t = setTimeout(() => setFilters(f => ({ ...f, search: searchInput })), 400);
@@ -166,10 +168,18 @@ export default function FinanceJournalPage() {
     };
 
     const deleteTx = async (tx) => {
-        if (!confirm(`Xóa nháp "${tx.code}"? Hành động này không thể hoàn tác.`)) return;
+        if (!confirm(`Xóa nháp "${tx.code}"? Bạn có thể khôi phục lại sau trong mục "Đã xóa".`)) return;
         const res = await fetch(`/api/finance-transactions/${tx.id}`, { method: 'DELETE' });
         const json = await res.json();
         if (!res.ok) { alert(json.error || 'Lỗi xóa'); return; }
+        fetchTransactions(pagination.page);
+    };
+
+    const restoreTx = async (tx) => {
+        if (!confirm(`Khôi phục lại phiếu "${tx.code}"?`)) return;
+        const res = await fetch(`/api/finance-transactions/${tx.id}/restore`, { method: 'POST' });
+        const json = await res.json();
+        if (!res.ok) { alert(json.error || 'Lỗi khôi phục'); return; }
         fetchTransactions(pagination.page);
     };
 
@@ -227,7 +237,12 @@ export default function FinanceJournalPage() {
                     {perms.canImportExport && <button className="btn btn-ghost btn-sm" onClick={() => setImportOpen(true)}>⬆️ Nhập Excel</button>}
                     {perms.canImportExport && <button className="btn btn-ghost btn-sm" onClick={exportExcel}>⬇️ Xuất Excel</button>}
                     {perms.canManageSettings && <button className="btn btn-ghost btn-sm" onClick={() => setSettingsOpen(true)}>⚙️ Danh mục</button>}
-                    {perms.canCreate && <button className="btn btn-primary btn-sm" onClick={() => setModal({ mode: 'add', tx: null })}>+ Thêm giao dịch</button>}
+                    {perms.canRestore && (
+                        <button className={`btn btn-sm ${showDeleted ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setShowDeleted(v => !v)}>
+                            🗑️ {showDeleted ? 'Đang xem: Đã xóa' : 'Đã xóa'}
+                        </button>
+                    )}
+                    {perms.canCreate && !showDeleted && <button className="btn btn-primary btn-sm" onClick={() => setModal({ mode: 'add', tx: null })}>+ Thêm giao dịch</button>}
                 </div>
             </div>
 
@@ -239,13 +254,14 @@ export default function FinanceJournalPage() {
                 categories={categories} projects={projects} onClear={clearFilters} count={pagination.total} />
 
             <TransactionTable
-                rows={rows} loading={loading} user={user}
+                rows={rows} loading={loading} user={user} showDeleted={showDeleted}
                 openMenuId={openMenuId} setOpenMenuId={setOpenMenuId}
                 onView={(tx) => setModal({ mode: 'view', tx })}
                 onEdit={(tx) => setModal({ mode: 'edit', tx })}
                 onDuplicate={duplicateTx}
                 onCancel={(tx) => setCancelModal(tx)}
                 onDelete={deleteTx}
+                onRestore={restoreTx}
                 onChangeStatus={changeStatus}
             />
 
@@ -356,7 +372,7 @@ function StatusBadge({ status }) {
     return <span className="badge" style={{ background: c.bg, color: c.text }}>{status}</span>;
 }
 
-function TransactionTable({ rows, loading, user, openMenuId, setOpenMenuId, onView, onEdit, onDuplicate, onCancel, onDelete, onChangeStatus }) {
+function TransactionTable({ rows, loading, user, showDeleted, openMenuId, setOpenMenuId, onView, onEdit, onDuplicate, onCancel, onDelete, onRestore, onChangeStatus }) {
     const perms = getFinancePermissions(user || {});
 
     const nextStatuses = (tx) => (ALLOWED_TRANSITIONS[tx.status] || []).filter(s => canTransitionStatus(user, tx.status, s) && s !== 'Hủy');
@@ -368,15 +384,21 @@ function TransactionTable({ rows, loading, user, openMenuId, setOpenMenuId, onVi
                 <div onMouseLeave={() => setOpenMenuId(null)}
                     style={{ position: 'absolute', right: 0, top: '100%', zIndex: 20, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 8, boxShadow: 'var(--shadow-md)', minWidth: 170, padding: 4 }}>
                     <MenuItem onClick={() => { onView(tx); setOpenMenuId(null); }}>👁️ Xem chi tiết</MenuItem>
-                    {canEditTransaction(user, tx) && <MenuItem onClick={() => { onEdit(tx); setOpenMenuId(null); }}>✏️ Sửa</MenuItem>}
-                    {perms.canCreate && <MenuItem onClick={() => { onDuplicate(tx); setOpenMenuId(null); }}>📄 Nhân bản</MenuItem>}
-                    {nextStatuses(tx).map(s => (
-                        <MenuItem key={s} onClick={() => { onChangeStatus(tx, s); setOpenMenuId(null); }}>
-                            {s === 'Đã duyệt' ? '✅ Duyệt' : s === 'Đã hạch toán' ? '📘 Hạch toán' : `→ ${s}`}
-                        </MenuItem>
-                    ))}
-                    {canTransitionStatus(user, tx.status, 'Hủy') && <MenuItem danger onClick={() => { onCancel(tx); setOpenMenuId(null); }}>🚫 Hủy giao dịch</MenuItem>}
-                    {tx.status === 'Nháp' && perms.canHardDelete && <MenuItem danger onClick={() => { onDelete(tx); setOpenMenuId(null); }}>🗑️ Xóa</MenuItem>}
+                    {showDeleted ? (
+                        perms.canRestore && <MenuItem onClick={() => { onRestore(tx); setOpenMenuId(null); }}>↩️ Khôi phục</MenuItem>
+                    ) : (
+                        <>
+                            {canEditTransaction(user, tx) && <MenuItem onClick={() => { onEdit(tx); setOpenMenuId(null); }}>✏️ Sửa</MenuItem>}
+                            {perms.canCreate && <MenuItem onClick={() => { onDuplicate(tx); setOpenMenuId(null); }}>📄 Nhân bản</MenuItem>}
+                            {nextStatuses(tx).map(s => (
+                                <MenuItem key={s} onClick={() => { onChangeStatus(tx, s); setOpenMenuId(null); }}>
+                                    {s === 'Đã duyệt' ? '✅ Duyệt' : s === 'Đã hạch toán' ? '📘 Hạch toán' : `→ ${s}`}
+                                </MenuItem>
+                            ))}
+                            {canTransitionStatus(user, tx.status, 'Hủy') && <MenuItem danger onClick={() => { onCancel(tx); setOpenMenuId(null); }}>🚫 Hủy giao dịch</MenuItem>}
+                            {tx.status === 'Nháp' && perms.canHardDelete && <MenuItem danger onClick={() => { onDelete(tx); setOpenMenuId(null); }}>🗑️ Xóa</MenuItem>}
+                        </>
+                    )}
                 </div>
             )}
         </div>
@@ -618,7 +640,8 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, 
                     {isView && (
                         <div style={{ marginBottom: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
                             <StatusBadge status={tx.status} />
-                            {canEditTransaction(user, tx) && <button className="btn btn-ghost btn-sm" onClick={onEdit}>✏️ Sửa</button>}
+                            {tx.deletedAt && <span className="badge" style={{ background: '#FEE2E2', color: '#DC2626' }}>🗑️ Đã xóa</span>}
+                            {!tx.deletedAt && canEditTransaction(user, tx) && <button className="btn btn-ghost btn-sm" onClick={onEdit}>✏️ Sửa</button>}
                         </div>
                     )}
 

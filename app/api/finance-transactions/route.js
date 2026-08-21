@@ -15,7 +15,7 @@ const INCLUDE = {
 };
 
 function buildWhere(searchParams) {
-    const where = { deletedAt: null };
+    const where = searchParams.get('deleted') === '1' ? { deletedAt: { not: null } } : { deletedAt: null };
     const from = searchParams.get('from');
     const to = searchParams.get('to');
     if (from || to) {
