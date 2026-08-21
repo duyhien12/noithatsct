@@ -2,7 +2,7 @@ import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { financeTransactionUpdateSchema } from '@/lib/validations/financeTransaction';
-import { VIEW_ROLES, CREATE_ROLES, deriveCashFields, canEditTransaction } from '@/lib/financeJournal';
+import { VIEW_ROLES, CREATE_ROLES, deriveCashFields, canEditTransaction, canDeleteTransaction } from '@/lib/financeJournal';
 
 const INCLUDE = {
     project: { select: { id: true, name: true, code: true } },
@@ -61,7 +61,7 @@ export const DELETE = withAuth(async (request, { params }, session) => {
     const existing = await prisma.financeTransaction.findFirst({ where: { id, deletedAt: null } });
     if (!existing) return NextResponse.json({ error: 'Không tìm thấy giao dịch' }, { status: 404 });
 
-    if (existing.status === 'Đã duyệt' || existing.status === 'Đã hạch toán') {
+    if (!canDeleteTransaction(session.user, existing)) {
         return NextResponse.json({ error: 'Giao dịch đã duyệt/hạch toán — vui lòng Hủy giao dịch trước khi xóa' }, { status: 400 });
     }
 

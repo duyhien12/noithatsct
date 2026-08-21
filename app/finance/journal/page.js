@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import {
     DEPARTMENTS, TRANSACTION_TYPES, PAYMENT_METHODS, OBJECT_TYPES, STATUSES, STATUS_COLORS,
-    ALLOWED_TRANSITIONS, getFinancePermissions, canEditTransaction, canTransitionStatus,
+    ALLOWED_TRANSITIONS, getFinancePermissions, canEditTransaction, canDeleteTransaction, canTransitionStatus,
     buildCategoryTree, getCategoryPath,
 } from '@/lib/financeJournal';
 
@@ -168,7 +168,7 @@ export default function FinanceJournalPage() {
     };
 
     const deleteTx = async (tx) => {
-        if (!confirm(`Xóa nháp "${tx.code}"? Bạn có thể khôi phục lại sau trong mục "Đã xóa".`)) return;
+        if (!confirm(`Xóa phiếu "${tx.code}"? Bạn có thể khôi phục lại sau trong mục "Đã xóa".`)) return;
         const res = await fetch(`/api/finance-transactions/${tx.id}`, { method: 'DELETE' });
         const json = await res.json();
         if (!res.ok) { alert(json.error || 'Lỗi xóa'); return; }
@@ -396,7 +396,7 @@ function TransactionTable({ rows, loading, user, showDeleted, openMenuId, setOpe
                                 </MenuItem>
                             ))}
                             {canTransitionStatus(user, tx.status, 'Hủy') && <MenuItem danger onClick={() => { onCancel(tx); setOpenMenuId(null); }}>🚫 Hủy giao dịch</MenuItem>}
-                            {tx.status === 'Nháp' && perms.canHardDelete && <MenuItem danger onClick={() => { onDelete(tx); setOpenMenuId(null); }}>🗑️ Xóa</MenuItem>}
+                            {canDeleteTransaction(user, tx) && <MenuItem danger onClick={() => { onDelete(tx); setOpenMenuId(null); }}>🗑️ Xóa</MenuItem>}
                         </>
                     )}
                 </div>
