@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useSession } from 'next-auth/react';
 import {
     DEPARTMENTS, TRANSACTION_TYPES, PAYMENT_METHODS, OBJECT_TYPES, STATUSES, STATUS_COLORS,
@@ -499,32 +500,65 @@ function TransactionTable({ rows, loading, user, showDeleted, openMenuId, setOpe
 
     const nextStatuses = (tx) => (ALLOWED_TRANSITIONS[tx.status] || []).filter(s => canTransitionStatus(user, tx.status, s) && s !== 'Hủy');
 
-    const RowMenu = ({ tx }) => (
-        <div style={{ position: 'relative' }}>
-            <button className="btn btn-icon" onClick={() => setOpenMenuId(openMenuId === tx.id ? null : tx.id)}>⋯</button>
-            {openMenuId === tx.id && (
-                <div onMouseLeave={() => setOpenMenuId(null)}
-                    style={{ position: 'absolute', left: 0, top: '100%', zIndex: 20, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 8, boxShadow: 'var(--shadow-md)', minWidth: 170, padding: 4 }}>
-                    <MenuItem onClick={() => { onView(tx); setOpenMenuId(null); }}>👁️ Xem chi tiết</MenuItem>
-                    {showDeleted ? (
-                        perms.canRestore && <MenuItem onClick={() => { onRestore(tx); setOpenMenuId(null); }}>↩️ Khôi phục</MenuItem>
-                    ) : (
-                        <>
-                            {canEditTransaction(user, tx) && <MenuItem onClick={() => { onEdit(tx); setOpenMenuId(null); }}>✏️ Sửa</MenuItem>}
-                            {perms.canCreate && <MenuItem onClick={() => { onDuplicate(tx); setOpenMenuId(null); }}>📄 Nhân bản</MenuItem>}
-                            {nextStatuses(tx).map(s => (
-                                <MenuItem key={s} onClick={() => { onChangeStatus(tx, s); setOpenMenuId(null); }}>
-                                    {s === 'Đã duyệt' ? '✅ Duyệt' : s === 'Đã hạch toán' ? '📘 Hạch toán' : `→ ${s}`}
-                                </MenuItem>
-                            ))}
-                            {canTransitionStatus(user, tx.status, 'Hủy') && <MenuItem danger onClick={() => { onCancel(tx); setOpenMenuId(null); }}>🚫 Hủy giao dịch</MenuItem>}
-                            {canDeleteTransaction(user, tx) && <MenuItem danger onClick={() => { onDelete(tx); setOpenMenuId(null); }}>🗑️ Xóa</MenuItem>}
-                        </>
-                    )}
-                </div>
-            )}
-        </div>
-    );
+    const RowMenu = ({ tx }) => {
+        const btnRef = useRef(null);
+        const menuRef = useRef(null);
+        const [pos, setPos] = useState(null);
+        const isOpen = openMenuId === tx.id;
+
+        useEffect(() => {
+            if (!isOpen) { setPos(null); return; }
+            const update = () => {
+                const r = btnRef.current?.getBoundingClientRect();
+                if (r) setPos({ top: r.bottom + 4, left: r.left });
+            };
+            update();
+            window.addEventListener('scroll', update, true);
+            window.addEventListener('resize', update);
+            return () => {
+                window.removeEventListener('scroll', update, true);
+                window.removeEventListener('resize', update);
+            };
+        }, [isOpen]);
+
+        useEffect(() => {
+            if (!isOpen) return;
+            const onDocMouseDown = (e) => {
+                if (btnRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return;
+                setOpenMenuId(null);
+            };
+            document.addEventListener('mousedown', onDocMouseDown);
+            return () => document.removeEventListener('mousedown', onDocMouseDown);
+        }, [isOpen]);
+
+        return (
+            <>
+                <button ref={btnRef} className="btn btn-icon" onClick={() => setOpenMenuId(isOpen ? null : tx.id)}>⋯</button>
+                {isOpen && pos && createPortal(
+                    <div ref={menuRef}
+                        style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 1000, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 8, boxShadow: 'var(--shadow-md)', minWidth: 170, padding: 4 }}>
+                        <MenuItem onClick={() => { onView(tx); setOpenMenuId(null); }}>👁️ Xem chi tiết</MenuItem>
+                        {showDeleted ? (
+                            perms.canRestore && <MenuItem onClick={() => { onRestore(tx); setOpenMenuId(null); }}>↩️ Khôi phục</MenuItem>
+                        ) : (
+                            <>
+                                {canEditTransaction(user, tx) && <MenuItem onClick={() => { onEdit(tx); setOpenMenuId(null); }}>✏️ Sửa</MenuItem>}
+                                {perms.canCreate && <MenuItem onClick={() => { onDuplicate(tx); setOpenMenuId(null); }}>📄 Nhân bản</MenuItem>}
+                                {nextStatuses(tx).map(s => (
+                                    <MenuItem key={s} onClick={() => { onChangeStatus(tx, s); setOpenMenuId(null); }}>
+                                        {s === 'Đã duyệt' ? '✅ Duyệt' : s === 'Đã hạch toán' ? '📘 Hạch toán' : `→ ${s}`}
+                                    </MenuItem>
+                                ))}
+                                {canTransitionStatus(user, tx.status, 'Hủy') && <MenuItem danger onClick={() => { onCancel(tx); setOpenMenuId(null); }}>🚫 Hủy giao dịch</MenuItem>}
+                                {canDeleteTransaction(user, tx) && <MenuItem danger onClick={() => { onDelete(tx); setOpenMenuId(null); }}>🗑️ Xóa</MenuItem>}
+                            </>
+                        )}
+                    </div>,
+                    document.body
+                )}
+            </>
+        );
+    };
 
     if (loading) return <div style={{ padding: 40, textAlign: 'center' }}>Đang tải...</div>;
     if (rows.length === 0) return <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Không có giao dịch nào</div>;
