@@ -18,6 +18,7 @@ const OBJECT_ENDPOINT = {
     'NCC': '/api/suppliers',
     'Thầu phụ': '/api/contractors',
     'Nhân viên': '/api/employees',
+    'Mã vay': '/api/loan-contacts',
 };
 
 const EMPTY_FORM = {
