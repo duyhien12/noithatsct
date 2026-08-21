@@ -2579,6 +2579,18 @@ model BankAccount {
   reconciliations CashReconciliation[]
 }
 
+model CashFund {
+  id              String                @id @default(cuid())
+  name            String
+  status          Boolean               @default(true)
+  openingBalance  Float                 @default(0)
+  notes           String                @default("")
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  transactions    FinanceTransaction[]
+  reconciliations CashReconciliation[]
+}
+
 model AccountingAccount {
   id            String               @id @default(cuid())
   code          String               @unique
@@ -2626,6 +2638,7 @@ model FinanceTransaction {
   debitAccountId  String
   creditAccountId String
   bankAccountId   String?
+  cashFundId      String?
   categoryId      String?
   objectType      String                    @default("")
   objectId        String                    @default("")
@@ -2654,6 +2667,7 @@ model FinanceTransaction {
   debitAccount    AccountingAccount         @relation("DebitAccount", fields: [debitAccountId], references: [id])
   creditAccount   AccountingAccount         @relation("CreditAccount", fields: [creditAccountId], references: [id])
   bankAccount     BankAccount?              @relation(fields: [bankAccountId], references: [id])
+  cashFund        CashFund?                 @relation(fields: [cashFundId], references: [id])
   category        FinanceCategory?          @relation(fields: [categoryId], references: [id])
   audits          FinanceTransactionAudit[]
 
@@ -2666,6 +2680,7 @@ model FinanceTransaction {
   @@index([debitAccountId])
   @@index([creditAccountId])
   @@index([bankAccountId])
+  @@index([cashFundId])
   @@index([categoryId])
 }
 
@@ -2690,6 +2705,7 @@ model CashReconciliation {
   date          DateTime     @default(now())
   targetType    String // "cash" | "bank"
   bankAccountId String?
+  cashFundId    String?
   systemBalance Float        @default(0)
   actualBalance Float        @default(0)
   difference    Float        @default(0)
@@ -2697,7 +2713,9 @@ model CashReconciliation {
   reconciledBy  String       @default("")
   createdAt     DateTime     @default(now())
   bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
+  cashFund      CashFund?    @relation(fields: [cashFundId], references: [id])
 
   @@index([targetType])
   @@index([bankAccountId])
+  @@index([cashFundId])
 }

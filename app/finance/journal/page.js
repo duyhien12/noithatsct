@@ -25,7 +25,7 @@ const OBJECT_ENDPOINT = {
 const EMPTY_FORM = {
     date: today(), type: 'Thu', method: 'Tiền mặt', amount: '',
     department: '', projectId: '', content: '', detail: '',
-    debitAccountId: '', creditAccountId: '', bankAccountId: '', categoryId: '',
+    debitAccountId: '', creditAccountId: '', bankAccountId: '', cashFundId: '', categoryId: '',
     objectType: '', objectId: '', objectName: '', payerReceiver: '',
     itemName: '', itemUnit: '', itemQty: '', itemUnitPrice: '',
     documentNo: '', documentDate: '', attachments: [], notes: '', status: 'Nháp',
@@ -43,8 +43,10 @@ export default function FinanceJournalPage() {
 
     const [categories, setCategories] = useState([]);
     const [bankAccounts, setBankAccounts] = useState([]);
+    const [cashFunds, setCashFunds] = useState([]);
     const [accounts, setAccounts] = useState([]);
     const [projects, setProjects] = useState([]);
+    const [cashBalance, setCashBalance] = useState({ openingBalance: 0, balance: 0 });
 
     const [filters, setFilters] = useState({ from: '', to: '', department: '', type: '', method: '', categoryId: '', projectId: '', status: '', search: '' });
     const [searchInput, setSearchInput] = useState('');
@@ -57,16 +59,20 @@ export default function FinanceJournalPage() {
     const [printOpen, setPrintOpen] = useState(false);
 
     const fetchLookups = useCallback(async () => {
-        const [cats, banks, accs, projs] = await Promise.all([
+        const [cats, banks, funds, accs, projs, cash] = await Promise.all([
             fetch('/api/finance-categories').then(r => r.json()).catch(() => []),
             fetch('/api/bank-accounts').then(r => r.json()).catch(() => []),
+            fetch('/api/cash-funds').then(r => r.json()).catch(() => []),
             fetch('/api/accounting-accounts').then(r => r.json()).catch(() => []),
             fetch('/api/projects?limit=500').then(r => r.json()).then(d => d.data || d || []).catch(() => []),
+            fetch('/api/finance-cash-balance').then(r => r.json()).catch(() => null),
         ]);
         setCategories(Array.isArray(cats) ? cats : []);
         setBankAccounts(Array.isArray(banks) ? banks : []);
+        setCashFunds(Array.isArray(funds) ? funds : []);
         setAccounts(Array.isArray(accs) ? accs : []);
         setProjects(Array.isArray(projs) ? projs : []);
+        if (cash) setCashBalance(cash);
     }, []);
 
     const fetchTransactions = useCallback(async (page = 1) => {
@@ -109,6 +115,7 @@ export default function FinanceJournalPage() {
             itemUnitPrice: Number(form.itemUnitPrice) || 0,
             projectId: form.projectId || null,
             bankAccountId: form.method === 'Chuyển khoản' ? (form.bankAccountId || null) : null,
+            cashFundId: form.method === 'Tiền mặt' ? (form.cashFundId || null) : null,
             categoryId: form.categoryId || null,
             documentDate: form.documentDate || null,
         };
@@ -131,6 +138,7 @@ export default function FinanceJournalPage() {
             itemQty: Number(form.itemQty) || 0,
             itemUnitPrice: Number(form.itemUnitPrice) || 0,
             bankAccountId: form.method === 'Chuyển khoản' ? (form.bankAccountId || null) : null,
+            cashFundId: form.method === 'Tiền mặt' ? (form.cashFundId || null) : null,
             categoryId: form.categoryId || null,
             documentDate: form.documentDate || null,
             allocations: form.allocations.map(a => ({ projectId: a.projectId, amount: Number(a.amount) || 0 })),
@@ -369,7 +377,9 @@ ${txs.map(voucher).join('')}
 
             <SummaryCards summary={summary} netPositive={netPositive} />
 
-            <ReconcilePanel bankAccounts={bankAccounts} canSave={perms.canCreate} />
+            <ReconcilePanel bankAccounts={bankAccounts} cashFunds={cashFunds} canSave={perms.canCreate}
+                cashBalance={cashBalance} canEditCashBalance={perms.canManageSettings}
+                onCashBalanceSaved={setCashBalance} />
 
             <FilterBar filters={filters} setFilters={setFilters} searchInput={searchInput} setSearchInput={setSearchInput}
                 categories={categories} projects={projects} onClear={clearFilters} count={pagination.total}
@@ -398,7 +408,7 @@ ${txs.map(voucher).join('')}
             {modal && (
                 <TransactionModal
                     mode={modal.mode} tx={modal.tx} user={user}
-                    categories={categories} bankAccounts={bankAccounts} accounts={accounts} projects={projects}
+                    categories={categories} bankAccounts={bankAccounts} cashFunds={cashFunds} accounts={accounts} projects={projects}
                     onClose={() => setModal(null)} onSave={saveTransaction} onSaveSplit={saveSplitTransaction}
                     onEdit={() => setModal({ mode: 'edit', tx: modal.tx })}
                     onViewSibling={(sibling) => setModal({ mode: 'view', tx: sibling })}
@@ -406,7 +416,7 @@ ${txs.map(voucher).join('')}
             )}
 
             {settingsOpen && (
-                <SettingsModal categories={categories} bankAccounts={bankAccounts} accounts={accounts}
+                <SettingsModal categories={categories} bankAccounts={bankAccounts} cashFunds={cashFunds} accounts={accounts}
                     onClose={() => setSettingsOpen(false)} onRefresh={fetchLookups} />
             )}
 
@@ -573,7 +583,7 @@ function TransactionTable({ rows, loading, user, showDeleted, openMenuId, setOpe
                                 <th>#</th><th>Thao tác</th><th>Ngày</th><th>Số phiếu</th><th>Nội dung</th><th>Phòng ban</th><th>Dự án</th>
                                 <th style={{ textAlign: 'right' }}>Thu TM</th><th style={{ textAlign: 'right' }}>Chi TM</th>
                                 <th style={{ textAlign: 'right' }}>Thu TGNH</th><th style={{ textAlign: 'right' }}>Chi TGNH</th>
-                                <th>TK Nợ</th><th>TK Có</th><th>TK ngân hàng</th><th>Phân loại</th>
+                                <th>TK Nợ</th><th>TK Có</th><th>TK ngân hàng</th><th>Quỹ TM</th><th>Phân loại</th>
                                 <th>Đối tượng</th><th>Người nhận/nộp</th><th>Chủng loại</th><th>ĐVT</th>
                                 <th>Trạng thái</th>
                             </tr>
@@ -595,6 +605,7 @@ function TransactionTable({ rows, loading, user, showDeleted, openMenuId, setOpe
                                     <td>{t.debitAccount?.code}</td>
                                     <td>{t.creditAccount?.code}</td>
                                     <td style={{ fontSize: 11 }}>{t.bankAccount?.accountNumber || '—'}</td>
+                                    <td style={{ fontSize: 11 }}>{t.cashFund?.name || '—'}</td>
                                     <td style={{ fontSize: 11 }}>{t.category?.name || '—'}</td>
                                     <td title={t.objectName} style={{ fontSize: 11, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.objectName || '—'}</td>
                                     <td style={{ fontSize: 11 }}>{t.payerReceiver || '—'}</td>
@@ -713,13 +724,14 @@ function ObjectSelect({ objectType, objectId, objectName, onChange }) {
     );
 }
 
-function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, projects, onClose, onSave, onSaveSplit, onEdit, onViewSibling }) {
+function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds, accounts, projects, onClose, onSave, onSaveSplit, onEdit, onViewSibling }) {
     const isView = mode === 'view';
     const isAdd = mode === 'add';
     const [form, setForm] = useState(() => tx ? {
         date: toInputDate(tx.date), type: tx.type, method: tx.method, amount: tx.amount,
         department: tx.department, projectId: tx.projectId || '', content: tx.content, detail: tx.detail || '',
         debitAccountId: tx.debitAccountId, creditAccountId: tx.creditAccountId, bankAccountId: tx.bankAccountId || '',
+        cashFundId: tx.cashFundId || '',
         categoryId: tx.categoryId || '', objectType: tx.objectType || '', objectId: tx.objectId || '', objectName: tx.objectName || '',
         payerReceiver: tx.payerReceiver || '', itemName: tx.itemName || '', itemUnit: tx.itemUnit || '',
         itemQty: tx.itemQty || '', itemUnitPrice: tx.itemUnitPrice || '',
@@ -888,6 +900,14 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, accounts, 
                                 </select>
                             </Field>
                         )}
+                        {form.method === 'Tiền mặt' && (
+                            <Field label="Quỹ tiền mặt">
+                                <select className="form-select" disabled={isView} value={form.cashFundId} onChange={e => set('cashFundId', e.target.value)}>
+                                    <option value="">-- không phân quỹ --</option>
+                                    {cashFunds.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                                </select>
+                            </Field>
+                        )}
                     </FieldsetGroup>
 
                     <FieldsetGroup title="C · Hạch toán">
@@ -1016,31 +1036,50 @@ function Row({ children }) { return <div style={{ display: 'flex', gap: 10, flex
 function Field({ label, children }) { return <div className="form-group"><label className="form-label">{label}</label>{children}</div>; }
 
 // ════════════════════════════════════════════════════════════════════════
-function ReconcilePanel({ bankAccounts, canSave }) {
+function ReconcilePanel({ bankAccounts, cashFunds, canSave, cashBalance, canEditCashBalance, onCashBalanceSaved }) {
     const [targetType, setTargetType] = useState('cash');
     const [bankAccountId, setBankAccountId] = useState('');
+    const [cashFundId, setCashFundId] = useState('');
     const [systemBalance, setSystemBalance] = useState(null);
+    const [openingBalance, setOpeningBalance] = useState(null);
+    const [rawTarget, setRawTarget] = useState(null); // full bank/fund record — cần để PUT lại đủ trường bắt buộc
     const [actualBalance, setActualBalance] = useState('');
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [editingOpening, setEditingOpening] = useState(false);
+    const [openingInput, setOpeningInput] = useState('');
+    const [savingOpening, setSavingOpening] = useState(false);
 
     const fetchBalance = useCallback(async () => {
-        if (targetType === 'bank' && !bankAccountId) { setSystemBalance(null); return; }
+        if (targetType === 'bank' && !bankAccountId) { setSystemBalance(null); setOpeningBalance(null); setRawTarget(null); return; }
         setLoading(true);
         if (targetType === 'cash') {
-            const agg = await fetch(`/api/finance-transactions?status=${encodeURIComponent('Đã hạch toán')}&limit=1`).then(r => r.json()).catch(() => null);
-            setSystemBalance(agg?.summary ? (agg.summary.totalCashIn - agg.summary.totalCashOut) : 0);
+            if (cashFundId) {
+                const funds = await fetch('/api/cash-funds').then(r => r.json()).catch(() => []);
+                const f = (funds || []).find(x => x.id === cashFundId);
+                setSystemBalance(f?.balance ?? 0);
+                setOpeningBalance(f?.openingBalance ?? 0);
+                setRawTarget(f || null);
+            } else {
+                const cash = await fetch('/api/finance-cash-balance').then(r => r.json()).catch(() => null);
+                if (cash) { setSystemBalance(cash.balance); setOpeningBalance(cash.openingBalance); onCashBalanceSaved?.(cash); }
+                setRawTarget(null);
+            }
         } else {
             const banks = await fetch('/api/bank-accounts').then(r => r.json()).catch(() => []);
             const b = (banks || []).find(x => x.id === bankAccountId);
             setSystemBalance(b?.balance ?? 0);
+            setOpeningBalance(b?.openingBalance ?? 0);
+            setRawTarget(b || null);
         }
         setLoading(false);
-    }, [targetType, bankAccountId]);
+    }, [targetType, bankAccountId, cashFundId, onCashBalanceSaved]);
 
     useEffect(() => { fetchBalance(); }, [fetchBalance]);
+    useEffect(() => { setEditingOpening(false); }, [targetType, bankAccountId, cashFundId]);
 
     const diff = actualBalance !== '' && systemBalance !== null ? Number(actualBalance) - systemBalance : null;
+    const canEditOpening = canEditCashBalance && (targetType === 'cash' || (targetType === 'bank' && !!bankAccountId));
 
     const save = async () => {
         if (targetType === 'bank' && !bankAccountId) return alert('Vui lòng chọn tài khoản ngân hàng');
@@ -1048,11 +1087,50 @@ function ReconcilePanel({ bankAccounts, canSave }) {
         setSaving(true);
         const res = await fetch('/api/cash-reconciliation', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ targetType, bankAccountId: targetType === 'bank' ? bankAccountId : null, actualBalance: Number(actualBalance) }),
+            body: JSON.stringify({
+                targetType,
+                bankAccountId: targetType === 'bank' ? bankAccountId : null,
+                cashFundId: targetType === 'cash' ? (cashFundId || null) : null,
+                actualBalance: Number(actualBalance),
+            }),
         });
         setSaving(false);
         if (res.ok) { alert('Đã lưu đối chiếu'); setActualBalance(''); }
         else alert((await res.json()).error || 'Lỗi lưu đối chiếu');
+    };
+
+    const startEditOpening = () => {
+        setOpeningInput(String(openingBalance ?? 0));
+        setEditingOpening(true);
+    };
+
+    const saveOpening = async () => {
+        setSavingOpening(true);
+        const newOpening = Number(openingInput) || 0;
+        let res;
+        if (targetType === 'cash' && !cashFundId) {
+            res = await fetch('/api/finance-cash-balance', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ openingBalance: newOpening }),
+            });
+        } else if (targetType === 'cash' && cashFundId) {
+            res = await fetch(`/api/cash-funds/${cashFundId}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: rawTarget?.name || '', status: rawTarget?.status ?? true, notes: rawTarget?.notes || '', openingBalance: newOpening }),
+            });
+        } else {
+            res = await fetch(`/api/bank-accounts/${bankAccountId}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    bankName: rawTarget?.bankName || '', accountNumber: rawTarget?.accountNumber || '',
+                    accountHolder: rawTarget?.accountHolder || '', branch: rawTarget?.branch || '',
+                    status: rawTarget?.status ?? true, notes: rawTarget?.notes || '', openingBalance: newOpening,
+                }),
+            });
+        }
+        setSavingOpening(false);
+        if (res.ok) { setEditingOpening(false); fetchBalance(); }
+        else alert((await res.json().catch(() => ({}))).error || 'Lỗi lưu số dư đầu kỳ');
     };
 
     return (
@@ -1060,7 +1138,7 @@ function ReconcilePanel({ bankAccounts, canSave }) {
             <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>🔍 Đối chiếu số dư</summary>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12, alignItems: 'flex-end' }}>
                 <Field label="Đối tượng">
-                    <select className="form-select" value={targetType} onChange={e => { setTargetType(e.target.value); setBankAccountId(''); }}>
+                    <select className="form-select" value={targetType} onChange={e => { setTargetType(e.target.value); setBankAccountId(''); setCashFundId(''); }}>
                         <option value="cash">Tiền mặt</option><option value="bank">Tài khoản ngân hàng</option>
                     </select>
                 </Field>
@@ -1072,6 +1150,30 @@ function ReconcilePanel({ bankAccounts, canSave }) {
                         </select>
                     </Field>
                 )}
+                {targetType === 'cash' && (
+                    <Field label="Quỹ">
+                        <select className="form-select" value={cashFundId} onChange={e => setCashFundId(e.target.value)}>
+                            <option value="">-- Tổng (chưa phân quỹ) --</option>
+                            {cashFunds.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                        </select>
+                    </Field>
+                )}
+                <Field label="Số dư đầu kỳ">
+                    {editingOpening ? (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                            <input className="form-input" type="number" value={openingInput} onChange={e => setOpeningInput(e.target.value)} style={{ width: 140 }} autoFocus />
+                            <button className="btn btn-primary btn-sm" onClick={saveOpening} disabled={savingOpening}>Lưu</button>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setEditingOpening(false)}>Hủy</button>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <input className="form-input" disabled value={loading ? '...' : fmt(openingBalance)} />
+                            {canEditOpening && (
+                                <button className="btn btn-icon" title="Sửa số dư đầu kỳ" onClick={startEditOpening}>✏️</button>
+                            )}
+                        </div>
+                    )}
+                </Field>
                 <Field label="Số dư hệ thống"><input className="form-input" disabled value={loading ? '...' : fmt(systemBalance)} /></Field>
                 <Field label="Số dư thực tế"><input className="form-input" type="number" value={actualBalance} onChange={e => setActualBalance(e.target.value)} /></Field>
                 <Field label="Chênh lệch">
@@ -1143,7 +1245,7 @@ function PrintModal({ rows, onClose, onConfirm }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-function SettingsModal({ categories, bankAccounts, accounts, onClose, onRefresh }) {
+function SettingsModal({ categories, bankAccounts, cashFunds, accounts, onClose, onRefresh }) {
     const [tab, setTab] = useState('categories');
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -1151,11 +1253,13 @@ function SettingsModal({ categories, bankAccounts, accounts, onClose, onRefresh 
                 <div className="modal-header"><h3>⚙️ Cài đặt danh mục</h3><button className="modal-close" onClick={onClose}>×</button></div>
                 <div className="tab-bar">
                     <button className={`tab-item ${tab === 'categories' ? 'active' : ''}`} onClick={() => setTab('categories')}>Phân loại Thu/Chi</button>
+                    <button className={`tab-item ${tab === 'funds' ? 'active' : ''}`} onClick={() => setTab('funds')}>Quỹ tiền mặt</button>
                     <button className={`tab-item ${tab === 'banks' ? 'active' : ''}`} onClick={() => setTab('banks')}>TK ngân hàng</button>
                     <button className={`tab-item ${tab === 'accounts' ? 'active' : ''}`} onClick={() => setTab('accounts')}>TK kế toán</button>
                 </div>
                 <div className="modal-body">
                     {tab === 'categories' && <CategoryManager items={categories} onRefresh={onRefresh} />}
+                    {tab === 'funds' && <CashFundManager items={cashFunds} onRefresh={onRefresh} />}
                     {tab === 'banks' && <BankManager items={bankAccounts} onRefresh={onRefresh} />}
                     {tab === 'accounts' && <AccountManager items={accounts} onRefresh={onRefresh} />}
                 </div>
@@ -1221,6 +1325,41 @@ function CategoryManager({ items, onRefresh }) {
     );
 }
 
+function CashFundManager({ items, onRefresh }) {
+    const [form, setForm] = useState({ name: '', openingBalance: 0 });
+    const add = async () => {
+        if (!form.name.trim()) return;
+        const res = await fetch('/api/cash-funds', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, openingBalance: Number(form.openingBalance) || 0 }) });
+        if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || 'Lỗi thêm quỹ'); return; }
+        setForm({ name: '', openingBalance: 0 });
+        onRefresh();
+    };
+    const del = async (id) => { await fetch(`/api/cash-funds/${id}`, { method: 'DELETE' }); onRefresh(); };
+    const saveEdit = async (item, edited) => {
+        const res = await fetch(`/api/cash-funds/${item.id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: edited.name, status: item.status, notes: item.notes || '', openingBalance: Number(edited.openingBalance) || 0 }),
+        });
+        if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || 'Lỗi cập nhật quỹ'); return; }
+        onRefresh();
+    };
+    return (
+        <div>
+            <Row>
+                <input className="form-input" placeholder="Tên quỹ (VD: Quỹ Lan)" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+                <input className="form-input" type="number" placeholder="Số dư đầu kỳ" value={form.openingBalance} onChange={e => setForm(f => ({ ...f, openingBalance: e.target.value }))} />
+            </Row>
+            <button className="btn btn-primary btn-sm" style={{ marginTop: 8 }} onClick={add}>+ Thêm quỹ tiền mặt</button>
+            <div style={{ marginTop: 12 }}>
+                <EditableListRows items={items}
+                    fields={[{ key: 'name', label: 'Tên quỹ', width: 160 }, { key: 'openingBalance', label: 'Số dư đầu kỳ', type: 'number', width: 130 }]}
+                    render={f => `${f.name} · Số dư: ${fmt(f.balance ?? f.openingBalance)}`}
+                    onSave={saveEdit} onDelete={del} />
+            </div>
+        </div>
+    );
+}
+
 function BankManager({ items, onRefresh }) {
     const [form, setForm] = useState({ bankName: '', accountNumber: '', accountHolder: '', openingBalance: 0 });
     const add = async () => {
@@ -1230,6 +1369,17 @@ function BankManager({ items, onRefresh }) {
         onRefresh();
     };
     const del = async (id) => { await fetch(`/api/bank-accounts/${id}`, { method: 'DELETE' }); onRefresh(); };
+    const saveEdit = async (item, edited) => {
+        const res = await fetch(`/api/bank-accounts/${item.id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                bankName: edited.bankName, accountNumber: edited.accountNumber, accountHolder: edited.accountHolder,
+                branch: item.branch || '', status: item.status, notes: item.notes || '', openingBalance: Number(edited.openingBalance) || 0,
+            }),
+        });
+        if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || 'Lỗi cập nhật tài khoản'); return; }
+        onRefresh();
+    };
     return (
         <div>
             <Row>
@@ -1240,7 +1390,15 @@ function BankManager({ items, onRefresh }) {
             </Row>
             <button className="btn btn-primary btn-sm" style={{ marginTop: 8 }} onClick={add}>+ Thêm TK ngân hàng</button>
             <div style={{ marginTop: 12 }}>
-                <ListRows items={items} render={b => `${b.bankName} — ${b.accountNumber} (${b.accountHolder || '—'}) · Số dư: ${fmt(b.balance ?? b.openingBalance)}`} onDelete={del} />
+                <EditableListRows items={items}
+                    fields={[
+                        { key: 'bankName', label: 'Tên ngân hàng', width: 150 },
+                        { key: 'accountNumber', label: 'Số tài khoản', width: 120 },
+                        { key: 'accountHolder', label: 'Chủ tài khoản', width: 130 },
+                        { key: 'openingBalance', label: 'Số dư đầu kỳ', type: 'number', width: 130 },
+                    ]}
+                    render={b => `${b.bankName} — ${b.accountNumber} (${b.accountHolder || '—'}) · Số dư: ${fmt(b.balance ?? b.openingBalance)}`}
+                    onSave={saveEdit} onDelete={del} />
             </div>
         </div>
     );
@@ -1263,6 +1421,51 @@ function AccountManager({ items, onRefresh }) {
                 <button className="btn btn-primary btn-sm" onClick={add}>+ Thêm</button>
             </div>
             <ListRows items={items} render={a => `${a.code} — ${a.name}${a.active ? '' : ' — đã ẩn'}`} onDelete={del} />
+        </div>
+    );
+}
+
+function EditableListRows({ items, fields, render, onSave, onDelete }) {
+    const [editingId, setEditingId] = useState(null);
+    const [editForm, setEditForm] = useState(null);
+    const [saving, setSaving] = useState(false);
+
+    const startEdit = (item) => {
+        setEditingId(item.id);
+        const f = {};
+        fields.forEach(fld => { f[fld.key] = item[fld.key] ?? ''; });
+        setEditForm(f);
+    };
+    const cancelEdit = () => { setEditingId(null); setEditForm(null); };
+    const saveEdit = async (item) => {
+        setSaving(true);
+        await onSave(item, editForm);
+        setSaving(false);
+        setEditingId(null); setEditForm(null);
+    };
+
+    return (
+        <div style={{ maxHeight: 260, overflowY: 'auto' }}>
+            {items.map(it => editingId === it.id ? (
+                <div key={it.id} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', padding: 8, border: '1px solid var(--border-color)', borderRadius: 6, marginBottom: 6 }}>
+                    {fields.map(fld => (
+                        <input key={fld.key} className="form-input" type={fld.type || 'text'} placeholder={fld.label}
+                            style={{ width: fld.width || 120 }}
+                            value={editForm[fld.key]} onChange={e => setEditForm(f => ({ ...f, [fld.key]: e.target.value }))} />
+                    ))}
+                    <button className="btn btn-primary btn-sm" onClick={() => saveEdit(it)} disabled={saving}>Lưu</button>
+                    <button className="btn btn-ghost btn-sm" onClick={cancelEdit}>Hủy</button>
+                </div>
+            ) : (
+                <div key={it.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', fontSize: 13, borderBottom: '1px dotted var(--border-color)' }}>
+                    <span>{render(it)}</span>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                        <button className="btn btn-icon" onClick={() => startEdit(it)} title="Sửa">✏️</button>
+                        <button className="btn btn-icon" onClick={() => onDelete(it.id)} title="Xóa / ẩn">🗑️</button>
+                    </div>
+                </div>
+            ))}
+            {items.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13, padding: 8 }}>Chưa có dữ liệu</div>}
         </div>
     );
 }

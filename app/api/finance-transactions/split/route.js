@@ -12,6 +12,7 @@ const INCLUDE = {
     debitAccount: { select: { id: true, code: true, name: true } },
     creditAccount: { select: { id: true, code: true, name: true } },
     bankAccount: { select: { id: true, bankName: true, accountNumber: true } },
+    cashFund: { select: { id: true, name: true } },
 };
 
 // Tách 1 lần nhập chung thành nhiều giao dịch — mỗi công trình 1 phiếu riêng,

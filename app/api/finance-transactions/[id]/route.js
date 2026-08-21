@@ -10,6 +10,7 @@ const INCLUDE = {
     debitAccount: { select: { id: true, code: true, name: true } },
     creditAccount: { select: { id: true, code: true, name: true } },
     bankAccount: { select: { id: true, bankName: true, accountNumber: true } },
+    cashFund: { select: { id: true, name: true } },
     audits: { orderBy: { createdAt: 'desc' } },
 };
 

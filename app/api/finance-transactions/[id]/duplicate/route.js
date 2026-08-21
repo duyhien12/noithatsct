@@ -26,6 +26,7 @@ export const POST = withAuth(async (request, { params }, session) => {
                 debitAccountId: src.debitAccountId,
                 creditAccountId: src.creditAccountId,
                 bankAccountId: src.bankAccountId,
+                cashFundId: src.cashFundId,
                 categoryId: src.categoryId,
                 objectType: src.objectType,
                 objectId: src.objectId,
