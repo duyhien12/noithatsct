@@ -14,16 +14,13 @@ export const PATCH = withAuth(async (request, { params }, session) => {
     if (!canTransitionStatus(session.user, existing.status, status)) {
         return NextResponse.json({ error: 'Bạn không có quyền chuyển trạng thái này' }, { status: 403 });
     }
-    if (status === 'Hủy' && !cancelReason?.trim()) {
-        return NextResponse.json({ error: 'Vui lòng nhập lý do hủy giao dịch' }, { status: 400 });
-    }
     if (status === 'Đã hạch toán' && !(existing.amount > 0)) {
         return NextResponse.json({ error: 'Không thể hạch toán giao dịch có số tiền bằng 0' }, { status: 400 });
     }
 
     const data = { status };
     if (status === 'Hủy') {
-        data.cancelReason = cancelReason.trim();
+        data.cancelReason = cancelReason?.trim() || '';
         data.canceledBy = session.user.name;
         data.canceledAt = new Date();
     }
@@ -37,7 +34,7 @@ export const PATCH = withAuth(async (request, { params }, session) => {
             actorName: session.user.name,
             actorId: session.user.id,
             actorRole: session.user.role,
-            reason: status === 'Hủy' ? cancelReason.trim() : '',
+            reason: status === 'Hủy' ? (cancelReason?.trim() || '') : '',
             beforeData: { status: existing.status },
             afterData: { status },
         },

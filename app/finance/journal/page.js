@@ -51,7 +51,6 @@ export default function FinanceJournalPage() {
     const [modal, setModal] = useState(null); // { mode: 'add'|'edit'|'view', tx }
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
-    const [cancelModal, setCancelModal] = useState(null); // tx
     const [openMenuId, setOpenMenuId] = useState(null);
     const [showDeleted, setShowDeleted] = useState(false);
 
@@ -156,8 +155,12 @@ export default function FinanceJournalPage() {
         });
         const json = await res.json();
         if (!res.ok) { alert(json.error || 'Lỗi chuyển trạng thái'); return; }
-        setCancelModal(null);
         fetchTransactions(pagination.page);
+    };
+
+    const cancelTx = async (tx) => {
+        if (!confirm(`Hủy giao dịch "${tx.code}"?`)) return;
+        await changeStatus(tx, 'Hủy');
     };
 
     const duplicateTx = async (tx) => {
@@ -259,7 +262,7 @@ export default function FinanceJournalPage() {
                 onView={(tx) => setModal({ mode: 'view', tx })}
                 onEdit={(tx) => setModal({ mode: 'edit', tx })}
                 onDuplicate={duplicateTx}
-                onCancel={(tx) => setCancelModal(tx)}
+                onCancel={cancelTx}
                 onDelete={deleteTx}
                 onRestore={restoreTx}
                 onChangeStatus={changeStatus}
@@ -281,11 +284,6 @@ export default function FinanceJournalPage() {
                     onEdit={() => setModal({ mode: 'edit', tx: modal.tx })}
                     onViewSibling={(sibling) => setModal({ mode: 'view', tx: sibling })}
                 />
-            )}
-
-            {cancelModal && (
-                <CancelModal tx={cancelModal} onClose={() => setCancelModal(null)}
-                    onConfirm={(reason) => changeStatus(cancelModal, 'Hủy', reason)} />
             )}
 
             {settingsOpen && (
@@ -858,28 +856,6 @@ function FieldsetGroup({ title, children }) {
 }
 function Row({ children }) { return <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>{Array.isArray(children) ? children.map((c, i) => <div key={i} style={{ flex: 1, minWidth: 160 }}>{c}</div>) : children}</div>; }
 function Field({ label, children }) { return <div className="form-group"><label className="form-label">{label}</label>{children}</div>; }
-
-// ════════════════════════════════════════════════════════════════════════
-function CancelModal({ tx, onClose, onConfirm }) {
-    const [reason, setReason] = useState('');
-    return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
-                <div className="modal-header"><h3>🚫 Hủy giao dịch {tx.code}</h3><button className="modal-close" onClick={onClose}>×</button></div>
-                <div className="modal-body">
-                    <div className="form-group">
-                        <label className="form-label">Lý do hủy *</label>
-                        <textarea className="form-input" rows={3} value={reason} onChange={e => setReason(e.target.value)} />
-                    </div>
-                </div>
-                <div className="modal-footer">
-                    <button className="btn btn-ghost" onClick={onClose}>Đóng</button>
-                    <button className="btn btn-danger" disabled={!reason.trim()} onClick={() => onConfirm(reason)}>Xác nhận hủy</button>
-                </div>
-            </div>
-        </div>
-    );
-}
 
 // ════════════════════════════════════════════════════════════════════════
 function ReconcilePanel({ bankAccounts, canSave }) {
