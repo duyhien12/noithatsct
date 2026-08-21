@@ -53,6 +53,7 @@ export default function FinanceJournalPage() {
     const [importOpen, setImportOpen] = useState(false);
     const [openMenuId, setOpenMenuId] = useState(null);
     const [showDeleted, setShowDeleted] = useState(false);
+    const [printOpen, setPrintOpen] = useState(false);
 
     const fetchLookups = useCallback(async () => {
         const [cats, banks, accs, projs] = await Promise.all([
@@ -231,6 +232,121 @@ export default function FinanceJournalPage() {
         XLSX.writeFile(wb, 'mau-import-nhat-ky-thu-chi.xlsx');
     };
 
+    const printTransactions = (txs) => {
+        if (!txs.length) return;
+        const printedAt = new Date().toLocaleDateString('vi-VN');
+        const voucher = (t) => {
+            const isThu = t.type === 'Thu';
+            const accent = isThu ? '#1a3a5c' : '#F47920';
+            const amountText = new Intl.NumberFormat('vi-VN').format(t.amount || 0);
+            return `
+<div class="page" style="--accent:${accent}">
+  <div class="top-bar"></div>
+  <div class="header">
+    <div class="logo-area">
+      <svg width="62" height="62" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g transform="translate(80,80) rotate(45) translate(-54,-54)"><rect width="108" height="108" rx="6" fill="${accent}"/></g>
+        <text x="80" y="100" text-anchor="middle" fill="#fff" font-size="86" font-weight="900" font-family="Arial Black,Arial,sans-serif" letter-spacing="-4">K</text>
+      </svg>
+      <div>
+        <div class="co-name">Kiến Trúc Đô Thị SCT</div>
+        <div class="co-tagline">Cùng bạn xây dựng ước mơ</div>
+        <div class="co-info"><span>📍 149 Nguyễn Tất Thành, Tp. Yên Bái, Tỉnh Yên Bái</span><br><span>📞 0914 998 822</span><span>🌐 kientrucsct.com</span></div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div><strong>Ngày lập:</strong> ${fmtDate(t.date)}</div>
+      <div><strong>Phòng ban:</strong> ${t.department || '—'}</div>
+      <div><strong>Trạng thái:</strong> ${t.status}</div>
+    </div>
+  </div>
+  <div class="title-banner">
+    <div><h1>Phiếu ${isThu ? 'Thu' : 'Chi'} Tiền</h1><div class="sub">${isThu ? 'Receipt' : 'Payment'} Voucher</div></div>
+    <div class="code-badge">Số: ${t.code}</div>
+  </div>
+  <div class="body">
+    <div class="info-grid">
+      <div class="info-row"><div class="lbl">${isThu ? 'Người nộp tiền' : 'Người nhận tiền'}</div><div class="val">${t.payerReceiver || t.objectName || '...'}</div></div>
+      ${t.objectName ? `<div class="info-row"><div class="lbl">Đối tượng</div><div class="val">${t.objectName}</div></div>` : ''}
+      ${t.project ? `<div class="info-row"><div class="lbl">Công trình / Dự án</div><div class="val">${t.project.code} — ${t.project.name || ''}</div></div>` : ''}
+      <div class="info-row"><div class="lbl">Nội dung</div><div class="val">${t.content}${t.detail ? ` — ${t.detail}` : ''}</div></div>
+      <div class="info-row"><div class="lbl">Phương thức</div><div class="val">${t.method}</div></div>
+      ${t.category?.name ? `<div class="info-row"><div class="lbl">Phân loại</div><div class="val">${t.category.name}</div></div>` : ''}
+      <div class="info-row"><div class="lbl">Tài khoản Nợ / Có</div><div class="val">${t.debitAccount?.code || ''} / ${t.creditAccount?.code || ''}</div></div>
+      ${t.notes ? `<div class="info-row"><div class="lbl">Ghi chú</div><div class="val">${t.notes}</div></div>` : ''}
+    </div>
+    <div class="amount-wrap">
+      <div class="amount-head">Số tiền ${isThu ? 'thu' : 'chi'}</div>
+      <div class="amount-body">
+        <div class="amount-val">${amountText} <em>đ</em></div>
+        <div class="amount-words">Bằng chữ: <span></span></div>
+      </div>
+    </div>
+    <div class="sign-section">
+      <div class="sign-col"><div class="role">Người lập phiếu</div><div class="role-sub">Ngày ${printedAt}</div><div class="sign-line">(Ký, ghi rõ họ tên)</div></div>
+      <div class="sign-col"><div class="role">Giám đốc</div><div class="role-sub">Ngày &nbsp;&nbsp;&nbsp; tháng &nbsp;&nbsp;&nbsp; năm 2026</div><div class="sign-line">(Ký, ghi rõ họ tên)</div></div>
+      <div class="sign-col"><div class="role">${isThu ? 'Người nộp tiền' : 'Người nhận tiền'}</div><div class="role-sub">Ngày ${fmtDate(t.date)}</div><div class="sign-line">(Ký, ghi rõ họ tên)</div></div>
+    </div>
+  </div>
+  <div class="bottom-bar">
+    <div><div class="bottom-brand">Kiến Trúc Đô Thị SCT</div><div class="bottom-tagline">Cùng bạn xây dựng ước mơ</div></div>
+    <div class="bottom-code">Mã: ${t.code} &nbsp;|&nbsp; ${fmtDate(t.date)}</div>
+  </div>
+</div>`;
+        };
+
+        const w = window.open('', '_blank', 'width=860,height=900');
+        w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>In phiếu - ${txs.map(t => t.code).join(', ')}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#f5f5f5;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{max-width:800px;margin:20px auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.12);page-break-after:always}
+.page:last-child{page-break-after:auto}
+.top-bar{height:8px;background:var(--accent)}
+.header{display:flex;align-items:center;justify-content:space-between;padding:20px 36px 16px;border-bottom:1px solid #f0ebe5}
+.logo-area{display:flex;align-items:center;gap:14px}
+.co-name{font-size:15px;font-weight:900;color:#1a1a1a;text-transform:uppercase;letter-spacing:.8px;line-height:1.2}
+.co-tagline{font-size:9px;color:var(--accent);font-style:italic;margin-top:2px;letter-spacing:.3px}
+.co-info{font-size:8.5px;color:#666;margin-top:6px;line-height:1.8}
+.co-info span{margin-right:14px}
+.header-right{text-align:right;font-size:9px;color:#888;line-height:2}
+.header-right strong{color:#1a1a1a;font-size:10px}
+.title-banner{background:var(--accent);padding:18px 36px;display:flex;align-items:center;justify-content:space-between}
+.title-banner h1{font-size:26px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:6px}
+.title-banner .sub{font-size:10px;color:rgba(255,255,255,.75);letter-spacing:3px;text-transform:uppercase;margin-top:4px}
+.code-badge{background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.6);border-radius:24px;padding:6px 20px;color:#fff;font-weight:900;font-size:14px;letter-spacing:2px;white-space:nowrap}
+.body{padding:28px 36px}
+.info-grid{display:grid;grid-template-columns:180px 1fr;gap:0;margin-bottom:20px;border:1px solid #f0ebe5;border-radius:8px;overflow:hidden}
+.info-row{display:contents}
+.info-row .lbl{background:#fdf6f0;padding:10px 14px;font-size:11.5px;color:#888;border-bottom:1px solid #f0ebe5;font-style:italic}
+.info-row .val{background:#fff;padding:10px 14px;font-size:12px;font-weight:700;color:#1a1a1a;border-bottom:1px solid #f0ebe5}
+.info-row:last-child .lbl,.info-row:last-child .val{border-bottom:none}
+.amount-wrap{margin:0 0 20px;border-radius:10px;overflow:hidden;border:2px solid var(--accent)}
+.amount-head{background:var(--accent);padding:8px 20px;font-size:9px;text-transform:uppercase;letter-spacing:3px;color:#fff;font-weight:800;text-align:center}
+.amount-body{padding:18px 20px;text-align:center;background:linear-gradient(135deg,#fff9f5,#fff)}
+.amount-val{font-size:34px;font-weight:900;color:#1a1a1a;letter-spacing:1px}
+.amount-val em{color:var(--accent);font-style:normal;font-size:26px}
+.amount-words{margin-top:10px;font-size:11px;color:#999;font-style:italic;border-top:1px dashed #f0ebe5;padding-top:10px}
+.amount-words span{display:inline-block;min-width:320px;border-bottom:1px dotted #ccc;height:18px}
+.sign-section{display:flex;justify-content:space-between;margin:8px 0 24px;gap:12px}
+.sign-col{flex:1;text-align:center;border:1px solid #f0ebe5;border-radius:8px;padding:14px 10px}
+.sign-col .role{font-weight:900;font-size:10.5px;color:#1a1a1a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.sign-col .role-sub{font-size:8.5px;color:#aaa;margin-bottom:52px}
+.sign-col .sign-line{border-top:1px solid #ddd;padding-top:6px;font-size:8.5px;font-style:italic;color:#bbb}
+.bottom-bar{background:var(--accent);padding:10px 36px;display:flex;justify-content:space-between;align-items:center}
+.bottom-brand{font-size:9.5px;font-weight:900;color:#fff;letter-spacing:.5px;text-transform:uppercase}
+.bottom-tagline{font-size:8.5px;color:rgba(255,255,255,.8);font-style:italic}
+.bottom-code{font-size:8.5px;color:rgba(255,255,255,.8)}
+.no-print{position:fixed;top:16px;right:16px;z-index:9999}
+.no-print button{padding:10px 22px;font-size:13px;cursor:pointer;background:#333;color:#fff;border:none;border-radius:6px;font-weight:700;letter-spacing:.3px;box-shadow:0 3px 12px rgba(0,0,0,.3)}
+@media print{.no-print{display:none!important}body{background:#fff}.page{box-shadow:none;margin:0}}
+</style></head><body>
+<div class="no-print"><button onclick="window.print()">🖨️ In ${txs.length} phiếu</button></div>
+${txs.map(voucher).join('')}
+</body></html>`);
+        w.document.close();
+    };
+
     return (
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
@@ -254,7 +370,8 @@ export default function FinanceJournalPage() {
             <ReconcilePanel bankAccounts={bankAccounts} canSave={perms.canCreate} />
 
             <FilterBar filters={filters} setFilters={setFilters} searchInput={searchInput} setSearchInput={setSearchInput}
-                categories={categories} projects={projects} onClear={clearFilters} count={pagination.total} />
+                categories={categories} projects={projects} onClear={clearFilters} count={pagination.total}
+                onPrint={() => setPrintOpen(true)} />
 
             <TransactionTable
                 rows={rows} loading={loading} user={user} showDeleted={showDeleted}
@@ -289,6 +406,11 @@ export default function FinanceJournalPage() {
             {settingsOpen && (
                 <SettingsModal categories={categories} bankAccounts={bankAccounts} accounts={accounts}
                     onClose={() => setSettingsOpen(false)} onRefresh={fetchLookups} />
+            )}
+
+            {printOpen && (
+                <PrintModal rows={rows} onClose={() => setPrintOpen(false)}
+                    onConfirm={(txs) => { printTransactions(txs); setPrintOpen(false); }} />
             )}
 
             {importOpen && (
@@ -327,7 +449,7 @@ function SummaryCards({ summary, netPositive }) {
     );
 }
 
-function FilterBar({ filters, setFilters, searchInput, setSearchInput, categories, projects, onClear, count }) {
+function FilterBar({ filters, setFilters, searchInput, setSearchInput, categories, projects, onClear, count, onPrint }) {
     const set = (k, v) => setFilters(f => ({ ...f, [k]: v }));
     return (
         <div className="card" style={{ marginBottom: 16 }}>
@@ -360,6 +482,7 @@ function FilterBar({ filters, setFilters, searchInput, setSearchInput, categorie
                 </select>
                 <button className="btn btn-ghost btn-sm" onClick={onClear}>✕ Xóa lọc</button>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', alignSelf: 'center' }}>{count} giao dịch</div>
+                <button className="btn btn-ghost btn-sm" onClick={onPrint}>🖨️ In phiếu</button>
             </div>
         </div>
     );
@@ -380,7 +503,7 @@ function TransactionTable({ rows, loading, user, showDeleted, openMenuId, setOpe
             <button className="btn btn-icon" onClick={() => setOpenMenuId(openMenuId === tx.id ? null : tx.id)}>⋯</button>
             {openMenuId === tx.id && (
                 <div onMouseLeave={() => setOpenMenuId(null)}
-                    style={{ position: 'absolute', right: 0, top: '100%', zIndex: 20, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 8, boxShadow: 'var(--shadow-md)', minWidth: 170, padding: 4 }}>
+                    style={{ position: 'absolute', left: 0, top: '100%', zIndex: 20, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 8, boxShadow: 'var(--shadow-md)', minWidth: 170, padding: 4 }}>
                     <MenuItem onClick={() => { onView(tx); setOpenMenuId(null); }}>👁️ Xem chi tiết</MenuItem>
                     {showDeleted ? (
                         perms.canRestore && <MenuItem onClick={() => { onRestore(tx); setOpenMenuId(null); }}>↩️ Khôi phục</MenuItem>
@@ -412,18 +535,19 @@ function TransactionTable({ rows, loading, user, showDeleted, openMenuId, setOpe
                     <table className="data-table" style={{ margin: 0, fontSize: 12 }}>
                         <thead>
                             <tr>
-                                <th>#</th><th>Ngày</th><th>Số phiếu</th><th>Nội dung</th><th>Phòng ban</th><th>Dự án</th>
+                                <th>#</th><th>Thao tác</th><th>Ngày</th><th>Số phiếu</th><th>Nội dung</th><th>Phòng ban</th><th>Dự án</th>
                                 <th style={{ textAlign: 'right' }}>Thu TM</th><th style={{ textAlign: 'right' }}>Chi TM</th>
                                 <th style={{ textAlign: 'right' }}>Thu TGNH</th><th style={{ textAlign: 'right' }}>Chi TGNH</th>
                                 <th>TK Nợ</th><th>TK Có</th><th>TK ngân hàng</th><th>Phân loại</th>
                                 <th>Đối tượng</th><th>Người nhận/nộp</th><th>Chủng loại</th><th>ĐVT</th>
-                                <th>Trạng thái</th><th>Thao tác</th>
+                                <th>Trạng thái</th>
                             </tr>
                         </thead>
                         <tbody>
                             {rows.map((t, i) => (
                                 <tr key={t.id} style={{ opacity: t.status === 'Hủy' ? 0.5 : 1 }}>
                                     <td>{i + 1}</td>
+                                    <td><RowMenu tx={t} /></td>
                                     <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(t.date)}</td>
                                     <td className="accent" style={{ whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => onView(t)}>{t.code}</td>
                                     <td className="primary" title={t.content} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.content}</td>
@@ -442,7 +566,6 @@ function TransactionTable({ rows, loading, user, showDeleted, openMenuId, setOpe
                                     <td style={{ fontSize: 11 }}>{t.itemName || '—'}</td>
                                     <td style={{ fontSize: 11 }}>{t.itemUnit || '—'}</td>
                                     <td><StatusBadge status={t.status} /></td>
-                                    <td><RowMenu tx={t} /></td>
                                 </tr>
                             ))}
                         </tbody>
@@ -926,6 +1049,61 @@ function ReconcilePanel({ bankAccounts, canSave }) {
                 <div style={{ marginTop: 8, fontSize: 12, color: 'var(--status-danger)' }}>⚠️ Có chênh lệch giữa sổ sách và thực tế — cần kiểm tra lại.</div>
             )}
         </details>
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════
+function PrintModal({ rows, onClose, onConfirm }) {
+    const [input, setInput] = useState('');
+    const [error, setError] = useState('');
+
+    const parseIndexes = (str) => {
+        const indexes = new Set();
+        for (let part of str.split(',').map(s => s.trim()).filter(Boolean)) {
+            const range = part.match(/^(\d+)\s*-\s*(\d+)$/);
+            if (range) {
+                let [a, b] = [Number(range[1]), Number(range[2])];
+                if (a > b) [a, b] = [b, a];
+                for (let n = a; n <= b; n++) indexes.add(n);
+            } else if (/^\d+$/.test(part)) {
+                indexes.add(Number(part));
+            } else {
+                return null;
+            }
+        }
+        return [...indexes].sort((a, b) => a - b);
+    };
+
+    const submit = () => {
+        const indexes = parseIndexes(input);
+        if (!indexes || indexes.length === 0) { setError('Nhập STT hợp lệ, ví dụ: 1,2,3'); return; }
+        const invalid = indexes.filter(n => n < 1 || n > rows.length);
+        if (invalid.length) { setError(`STT không hợp lệ: ${invalid.join(', ')} (chỉ có ${rows.length} giao dịch trên trang)`); return; }
+        onConfirm(indexes.map(n => rows[n - 1]));
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+                <div className="modal-header"><h3>🖨️ In phiếu</h3><button className="modal-close" onClick={onClose}>×</button></div>
+                <div className="modal-body">
+                    <div className="form-group">
+                        <label className="form-label">Nhập STT giao dịch cần in (theo cột #)</label>
+                        <input className="form-input" placeholder="VD: 1,2,3 hoặc 1,3,4" value={input}
+                            onChange={e => { setInput(e.target.value); setError(''); }}
+                            onKeyDown={e => e.key === 'Enter' && submit()} autoFocus />
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+                            Cách nhau bởi dấu phẩy, có thể dùng khoảng (VD: 1-3). Trang hiện có {rows.length} giao dịch.
+                        </div>
+                        {error && <div style={{ fontSize: 12, color: 'var(--status-danger)', marginTop: 6 }}>{error}</div>}
+                    </div>
+                </div>
+                <div className="modal-footer">
+                    <button className="btn btn-ghost" onClick={onClose}>Đóng</button>
+                    <button className="btn btn-primary" onClick={submit}>In</button>
+                </div>
+            </div>
+        </div>
     );
 }
 

@@ -72,7 +72,7 @@ export const GET = withAuth(async (request) => {
         prisma.financeTransaction.findMany({
             where,
             include: INCLUDE,
-            orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+            orderBy: [{ createdAt: 'asc' }],
             skip,
             take: limit,
         }),
