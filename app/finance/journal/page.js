@@ -38,7 +38,7 @@ export default function FinanceJournalPage() {
 
     const [rows, setRows] = useState([]);
     const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1 });
-    const [summary, setSummary] = useState({ totalCashIn: 0, totalCashOut: 0, totalBankIn: 0, totalBankOut: 0, netCashFlow: 0 });
+    const [summary, setSummary] = useState({ totalCashIn: 0, totalCashOut: 0, totalBankIn: 0, totalBankOut: 0, netCashFlow: 0, byCashFund: [], byBankAccount: [] });
     const [loading, setLoading] = useState(true);
 
     const [categories, setCategories] = useState([]);
@@ -432,36 +432,43 @@ ${txs.map(voucher).join('')}
 
 // ════════════════════════════════════════════════════════════════════════
 function SummaryCards({ summary, cashFunds, bankAccounts, cashBalance }) {
-    const fundCards = (cashFunds || []).map(f => ({
-        label: f.name, value: f.balance ?? f.openingBalance ?? 0, color: '#7C3AED', bg: 'rgba(124, 58, 237, 0.12)', icon: '👛',
-    }));
-
-    // Tồn cuối ngày tiền mặt: tách theo từng quỹ đã tạo; nếu chưa có quỹ nào thì
-    // hiện fallback 1 thẻ tổng (số dư đầu kỳ chung + phát sinh) để không mất thông tin.
-    const cashEndOfDayCards = (cashFunds && cashFunds.length > 0)
-        ? cashFunds.map(f => ({
-            label: `Tồn cuối ngày · ${f.name}`, value: f.balance ?? f.openingBalance ?? 0,
-            color: 'var(--accent-primary-hover)', bg: 'rgba(28, 58, 107, 0.12)', icon: '💰',
-        }))
-        : [{ label: 'Tồn cuối ngày tiền mặt', value: cashBalance?.balance ?? 0, color: 'var(--accent-primary-hover)', bg: 'rgba(28, 58, 107, 0.12)', icon: '💰' }];
-
-    const bankEndOfDayCards = (bankAccounts || []).map(b => ({
-        label: `Tồn cuối ngày · ${b.bankName}${b.accountNumber ? ` — ${b.accountNumber}` : ''}`,
-        value: b.balance ?? b.openingBalance ?? 0, color: 'var(--accent-primary-hover)', bg: 'rgba(28, 58, 107, 0.12)', icon: '🏛️',
-    }));
-
     const cards = [
-        ...fundCards,
-        { label: 'Thu trong ngày tiền mặt', value: summary.totalCashIn, color: 'var(--status-success)', bg: 'rgba(52, 211, 153, 0.12)', icon: '💵' },
-        { label: 'Thu trong ngày ngân hàng', value: summary.totalBankIn, color: 'var(--status-success)', bg: 'rgba(52, 211, 153, 0.12)', icon: '🏦' },
-        { label: 'Chi trong ngày tiền mặt', value: summary.totalCashOut, color: 'var(--status-danger)', bg: 'rgba(239, 68, 68, 0.12)', icon: '💸' },
-        { label: 'Chi trong ngày ngân hàng', value: summary.totalBankOut, color: 'var(--status-danger)', bg: 'rgba(239, 68, 68, 0.12)', icon: '🏧' },
-        ...cashEndOfDayCards,
-        ...bankEndOfDayCards,
+        { label: 'Thu trong kỳ · tiền mặt', value: summary.totalCashIn, color: 'var(--status-success)', bg: 'rgba(52, 211, 153, 0.12)', icon: '💵' },
+        { label: 'Thu trong kỳ · ngân hàng', value: summary.totalBankIn, color: 'var(--status-success)', bg: 'rgba(52, 211, 153, 0.12)', icon: '🏦' },
+        { label: 'Chi trong kỳ · tiền mặt', value: summary.totalCashOut, color: 'var(--status-danger)', bg: 'rgba(239, 68, 68, 0.12)', icon: '💸' },
+        { label: 'Chi trong kỳ · ngân hàng', value: summary.totalBankOut, color: 'var(--status-danger)', bg: 'rgba(239, 68, 68, 0.12)', icon: '🏧' },
     ];
+
+    const cashFundSums = new Map((summary.byCashFund || []).map(g => [g.cashFundId, g]));
+    const bankAccountSums = new Map((summary.byBankAccount || []).map(g => [g.bankAccountId, g]));
+
+    const fundReports = (cashFunds || []).map(f => {
+        const s = cashFundSums.get(f.id);
+        return {
+            key: f.id, icon: '👛', title: f.name,
+            openingBalance: f.openingBalance || 0, periodIn: s?.cashIn || 0, periodOut: s?.cashOut || 0,
+            currentBalance: f.balance ?? f.openingBalance ?? 0,
+        };
+    });
+    const bankReports = (bankAccounts || []).map(b => {
+        const s = bankAccountSums.get(b.id);
+        return {
+            key: b.id, icon: '🏛️', title: `${b.bankName}${b.accountNumber ? ` — ${b.accountNumber}` : ''}`,
+            openingBalance: b.openingBalance || 0, periodIn: s?.bankIn || 0, periodOut: s?.bankOut || 0,
+            currentBalance: b.balance ?? b.openingBalance ?? 0,
+        };
+    });
+    if (fundReports.length === 0) {
+        fundReports.push({
+            key: 'cash-total', icon: '💰', title: 'Tiền mặt (chưa phân quỹ)',
+            openingBalance: cashBalance?.openingBalance || 0, periodIn: summary.totalCashIn, periodOut: summary.totalCashOut,
+            currentBalance: cashBalance?.balance ?? 0,
+        });
+    }
+
     return (
         <div>
-            <div className="stats-grid" style={{ marginBottom: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+            <div className="stats-grid" style={{ marginBottom: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
                 {cards.map(c => {
                     const valueText = fmt(c.value);
                     return (
@@ -484,6 +491,48 @@ function SummaryCards({ summary, cashFunds, bankAccounts, cashBalance }) {
                     );
                 })}
             </div>
+
+            <details className="card" open style={{ marginBottom: 16, padding: 16 }}>
+                <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>📊 Báo cáo Quỹ tiền mặt &amp; Ngân hàng</summary>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginTop: 14 }}>
+                    {fundReports.map(r => <BalanceReportCard key={r.key} {...r} />)}
+                    {bankReports.map(r => <BalanceReportCard key={r.key} {...r} />)}
+                </div>
+            </details>
+        </div>
+    );
+}
+
+function BalanceReportCard({ icon, title, openingBalance, periodIn, periodOut, currentBalance }) {
+    const total = periodIn + periodOut;
+    const inPct = total > 0 ? Math.round((periodIn / total) * 100) : 50;
+    return (
+        <div className="card" style={{ padding: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14, marginBottom: 14 }}>
+                <span style={{ fontSize: 18 }}>{icon}</span>
+                <span title={title} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+            </div>
+            <ReportRow label="Số dư đầu kỳ" value={openingBalance} />
+            <ReportRow label="Thu trong kỳ" value={periodIn} color="var(--status-success)" />
+            <div style={{ height: 6, borderRadius: 3, background: 'var(--bg-secondary)', margin: '10px 0', overflow: 'hidden', display: 'flex' }}>
+                <div style={{ width: `${inPct}%`, background: 'var(--status-success)' }} />
+                <div style={{ width: `${100 - inPct}%`, background: 'var(--status-danger)' }} />
+            </div>
+            <ReportRow label="Chi trong kỳ" value={periodOut} color="var(--status-danger)" />
+            <div style={{ borderTop: '1px dashed var(--border-color)', margin: '12px 0 10px' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span style={{ fontWeight: 700, fontSize: 13 }}>Tồn hiện tại</span>
+                <span style={{ fontWeight: 800, fontSize: 17, color: 'var(--accent-primary-hover)' }}>{fmt(currentBalance)} đ</span>
+            </div>
+        </div>
+    );
+}
+
+function ReportRow({ label, value, color }) {
+    return (
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+            <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+            <span style={{ fontWeight: 700, color: color || 'var(--text-primary)' }}>{fmt(value)} đ</span>
         </div>
     );
 }

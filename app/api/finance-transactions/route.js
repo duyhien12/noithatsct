@@ -69,7 +69,7 @@ export const GET = withAuth(async (request) => {
         where.categoryId = { in: getCategoryDescendantIds(categoryId, categories) };
     }
 
-    const [data, total, agg] = await Promise.all([
+    const [data, total, agg, byCashFund, byBankAccount] = await Promise.all([
         prisma.financeTransaction.findMany({
             where,
             include: INCLUDE,
@@ -81,6 +81,16 @@ export const GET = withAuth(async (request) => {
         prisma.financeTransaction.aggregate({
             where,
             _sum: { cashIn: true, cashOut: true, bankIn: true, bankOut: true },
+        }),
+        prisma.financeTransaction.groupBy({
+            by: ['cashFundId'],
+            where: { ...where, cashFundId: { not: null } },
+            _sum: { cashIn: true, cashOut: true },
+        }),
+        prisma.financeTransaction.groupBy({
+            by: ['bankAccountId'],
+            where: { ...where, bankAccountId: { not: null } },
+            _sum: { bankIn: true, bankOut: true },
         }),
     ]);
 
@@ -96,6 +106,8 @@ export const GET = withAuth(async (request) => {
         totalBankIn,
         totalBankOut,
         netCashFlow: totalCashIn + totalBankIn - totalCashOut - totalBankOut,
+        byCashFund: byCashFund.map(g => ({ cashFundId: g.cashFundId, cashIn: g._sum.cashIn || 0, cashOut: g._sum.cashOut || 0 })),
+        byBankAccount: byBankAccount.map(g => ({ bankAccountId: g.bankAccountId, bankIn: g._sum.bankIn || 0, bankOut: g._sum.bankOut || 0 })),
     };
     return NextResponse.json(result);
 }, { roles: VIEW_ROLES });
