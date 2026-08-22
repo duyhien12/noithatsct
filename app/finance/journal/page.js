@@ -11,8 +11,21 @@ import {
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0));
 const fmtOrBlank = (n) => (!n ? '' : fmt(n));
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+const fmtDateTime = (d) => d ? `${new Date(d).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ${new Date(d).toLocaleDateString('vi-VN')}` : '—';
 const toInputDate = (d) => d ? new Date(d).toISOString().slice(0, 10) : '';
 const today = () => new Date().toISOString().slice(0, 10);
+
+// Báo cáo Quỹ/Ngân hàng chốt "ngày làm việc" lúc 17h00 (giờ máy khách) thay vì nửa đêm — số dư
+// đầu kỳ luôn là số dư tại đúng mốc 17h00 gần nhất trước hiện tại (tức lúc chốt sổ ngày hôm trước
+// nếu chưa tới 17h hôm nay, hoặc lúc 17h hôm nay nếu đã qua mốc này).
+const DAILY_REPORT_CUTOFF_HOUR = 17;
+function getDailyReportPeriodStart(cutoffHour = DAILY_REPORT_CUTOFF_HOUR) {
+    const now = new Date();
+    const boundary = new Date(now);
+    boundary.setHours(cutoffHour, 0, 0, 0);
+    if (now < boundary) boundary.setDate(boundary.getDate() - 1);
+    return boundary;
+}
 
 const OBJECT_ENDPOINT = {
     'Khách hàng': '/api/customers',
@@ -48,6 +61,8 @@ export default function FinanceJournalPage() {
     const [projects, setProjects] = useState([]);
     const [customerStubs, setCustomerStubs] = useState([]); // Khách "Khách hợp đồng" chưa có Dự án — vẫn chọn được, không gắn projectId
     const [cashBalance, setCashBalance] = useState({ openingBalance: 0, balance: 0 });
+    const [dailyPeriodStart, setDailyPeriodStart] = useState(null);
+    const [dailyFundSummary, setDailyFundSummary] = useState({ byCashFund: [], byBankAccount: [] });
 
     const [filters, setFilters] = useState({ from: '', to: '', department: '', type: '', method: '', categoryId: '', projectId: '', status: '', search: '' });
     const [searchInput, setSearchInput] = useState('');
@@ -110,8 +125,24 @@ export default function FinanceJournalPage() {
         setLoading(false);
     }, [filters, pagination.limit, showDeleted]);
 
+    // Báo cáo Quỹ/Ngân hàng (Số dư đầu ngày/Thu-Chi trong ngày) luôn tính theo "ngày làm việc"
+    // chốt lúc 17h00 — độc lập với bộ lọc ngày phía trên, không phụ thuộc trang/phân trang.
+    const fetchDailyFundSummary = useCallback(async () => {
+        const periodStart = getDailyReportPeriodStart();
+        setDailyPeriodStart(periodStart);
+        const params = new URLSearchParams({ from: periodStart.toISOString(), status: 'Đã hạch toán', limit: '1' });
+        const res = await fetch(`/api/finance-transactions?${params}`).then(r => r.json()).catch(() => null);
+        if (res) setDailyFundSummary(res.summary || { byCashFund: [], byBankAccount: [] });
+    }, []);
+
     useEffect(() => { fetchLookups(); }, [fetchLookups]);
     useEffect(() => { fetchTransactions(1); }, [filters, showDeleted]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => {
+        fetchDailyFundSummary();
+        // Tự dò mốc chốt 17h00 mỗi 5 phút để báo cáo cập nhật kỳ mới mà không cần tải lại trang.
+        const t = setInterval(fetchDailyFundSummary, 5 * 60 * 1000);
+        return () => clearInterval(t);
+    }, [fetchDailyFundSummary]);
 
     useEffect(() => {
         const t = setTimeout(() => setFilters(f => ({ ...f, search: searchInput })), 400);
@@ -146,6 +177,7 @@ export default function FinanceJournalPage() {
         if (!res.ok) { alert(json.error || 'Lỗi lưu giao dịch'); return false; }
         setModal(null);
         fetchTransactions(pagination.page);
+        fetchDailyFundSummary();
         return true;
     };
 
@@ -171,6 +203,7 @@ export default function FinanceJournalPage() {
         if (!res.ok) { alert(json.error || 'Lỗi tách giao dịch'); return false; }
         setModal(null);
         fetchTransactions(1);
+        fetchDailyFundSummary();
         return true;
     };
 
@@ -183,6 +216,7 @@ export default function FinanceJournalPage() {
         const json = await res.json();
         if (!res.ok) { alert(json.error || 'Lỗi chuyển trạng thái'); return; }
         fetchTransactions(pagination.page);
+        fetchDailyFundSummary();
     };
 
     const cancelTx = async (tx) => {
@@ -195,6 +229,7 @@ export default function FinanceJournalPage() {
         const json = await res.json();
         if (!res.ok) { alert(json.error || 'Lỗi nhân bản'); return; }
         fetchTransactions(1);
+        fetchDailyFundSummary();
     };
 
     const deleteTx = async (tx) => {
@@ -203,6 +238,7 @@ export default function FinanceJournalPage() {
         const json = await res.json();
         if (!res.ok) { alert(json.error || 'Lỗi xóa'); return; }
         fetchTransactions(pagination.page);
+        fetchDailyFundSummary();
     };
 
     const restoreTx = async (tx) => {
@@ -211,6 +247,7 @@ export default function FinanceJournalPage() {
         const json = await res.json();
         if (!res.ok) { alert(json.error || 'Lỗi khôi phục'); return; }
         fetchTransactions(pagination.page);
+        fetchDailyFundSummary();
     };
 
     const exportExcel = async () => {
@@ -400,7 +437,8 @@ ${txs.map(voucher).join('')}
                 </div>
             </div>
 
-            <SummaryCards summary={summary} cashFunds={cashFunds} bankAccounts={bankAccounts} cashBalance={cashBalance} />
+            <SummaryCards summary={summary} cashFunds={cashFunds} bankAccounts={bankAccounts} cashBalance={cashBalance}
+                dailyFundSummary={dailyFundSummary} dailyPeriodStart={dailyPeriodStart} />
 
             <ReconcilePanel bankAccounts={bankAccounts} cashFunds={cashFunds} canSave={perms.canCreate}
                 cashBalance={cashBalance} canEditCashBalance={perms.canManageSettings}
@@ -451,19 +489,19 @@ ${txs.map(voucher).join('')}
             )}
 
             {importOpen && (
-                <ImportModal onClose={() => setImportOpen(false)} onDone={() => { setImportOpen(false); fetchTransactions(1); }} />
+                <ImportModal onClose={() => setImportOpen(false)} onDone={() => { setImportOpen(false); fetchTransactions(1); fetchDailyFundSummary(); }} />
             )}
 
             {transferOpen && (
                 <TransferModal cashFunds={cashFunds} bankAccounts={bankAccounts} onClose={() => setTransferOpen(false)}
-                    onDone={() => { setTransferOpen(false); fetchLookups(); fetchTransactions(1); }} />
+                    onDone={() => { setTransferOpen(false); fetchLookups(); fetchTransactions(1); fetchDailyFundSummary(); }} />
             )}
         </div>
     );
 }
 
 // ════════════════════════════════════════════════════════════════════════
-function SummaryCards({ summary, cashFunds, bankAccounts, cashBalance }) {
+function SummaryCards({ summary, cashFunds, bankAccounts, cashBalance, dailyFundSummary, dailyPeriodStart }) {
     const cards = [
         { label: 'Thu trong kỳ · tiền mặt', value: summary.totalCashIn, color: 'var(--status-success)', bg: 'rgba(52, 211, 153, 0.12)', icon: '💵' },
         { label: 'Thu trong kỳ · ngân hàng', value: summary.totalBankIn, color: 'var(--status-success)', bg: 'rgba(52, 211, 153, 0.12)', icon: '🏦' },
@@ -471,30 +509,35 @@ function SummaryCards({ summary, cashFunds, bankAccounts, cashBalance }) {
         { label: 'Chi trong kỳ · ngân hàng', value: summary.totalBankOut, color: 'var(--status-danger)', bg: 'rgba(239, 68, 68, 0.12)', icon: '🏧' },
     ];
 
-    const cashFundSums = new Map((summary.byCashFund || []).map(g => [g.cashFundId, g]));
-    const bankAccountSums = new Map((summary.byBankAccount || []).map(g => [g.bankAccountId, g]));
+    // Số Thu/Chi "trong ngày" (kỳ chốt lúc 17h00) lấy riêng từ dailyFundSummary — độc lập với bộ lọc
+    // ngày phía trên. Số dư đầu ngày = Tồn hiện tại (live) trừ đúng phần phát sinh trong ngày này.
+    const dailyCashSums = new Map((dailyFundSummary?.byCashFund || []).map(g => [g.cashFundId, g]));
+    const dailyBankSums = new Map((dailyFundSummary?.byBankAccount || []).map(g => [g.bankAccountId, g]));
 
     const fundReports = (cashFunds || []).map(f => {
-        const s = cashFundSums.get(f.id);
+        const s = dailyCashSums.get(f.id);
+        const periodIn = s?.cashIn || 0, periodOut = s?.cashOut || 0;
+        const currentBalance = f.balance ?? f.openingBalance ?? 0;
         return {
             id: f.id, icon: '👛', title: f.name,
-            openingBalance: f.openingBalance || 0, periodIn: s?.cashIn || 0, periodOut: s?.cashOut || 0,
-            currentBalance: f.balance ?? f.openingBalance ?? 0,
+            openingBalance: currentBalance - periodIn + periodOut, periodIn, periodOut, currentBalance,
         };
     });
     const bankReports = (bankAccounts || []).map(b => {
-        const s = bankAccountSums.get(b.id);
+        const s = dailyBankSums.get(b.id);
+        const periodIn = s?.bankIn || 0, periodOut = s?.bankOut || 0;
+        const currentBalance = b.balance ?? b.openingBalance ?? 0;
         return {
             id: b.id, icon: '🏛️', title: `${b.bankName}${b.accountNumber ? ` — ${b.accountNumber}` : ''}`,
-            openingBalance: b.openingBalance || 0, periodIn: s?.bankIn || 0, periodOut: s?.bankOut || 0,
-            currentBalance: b.balance ?? b.openingBalance ?? 0,
+            openingBalance: currentBalance - periodIn + periodOut, periodIn, periodOut, currentBalance,
         };
     });
     if (fundReports.length === 0) {
+        const periodIn = dailyFundSummary?.totalCashIn || 0, periodOut = dailyFundSummary?.totalCashOut || 0;
+        const currentBalance = cashBalance?.balance ?? 0;
         fundReports.push({
             id: 'cash-total', icon: '💰', title: 'Tiền mặt (chưa phân quỹ)',
-            openingBalance: cashBalance?.openingBalance || 0, periodIn: summary.totalCashIn, periodOut: summary.totalCashOut,
-            currentBalance: cashBalance?.balance ?? 0,
+            openingBalance: currentBalance - periodIn + periodOut, periodIn, periodOut, currentBalance,
         });
     }
 
@@ -526,6 +569,11 @@ function SummaryCards({ summary, cashFunds, bankAccounts, cashBalance }) {
 
             <details className="card" style={{ marginBottom: 16, padding: 16 }}>
                 <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>📊 Báo cáo Quỹ tiền mặt &amp; Ngân hàng</summary>
+                {dailyPeriodStart && (
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
+                        Kỳ báo cáo: từ {fmtDateTime(dailyPeriodStart)} đến nay — số dư đầu ngày tự động chốt lại lúc 17:00 mỗi ngày.
+                    </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginTop: 14 }}>
                     {fundReports.map(r => <BalanceReportCard key={r.id} {...r} />)}
                     {bankReports.map(r => <BalanceReportCard key={r.id} {...r} />)}
@@ -544,13 +592,13 @@ function BalanceReportCard({ icon, title, openingBalance, periodIn, periodOut, c
                 <span style={{ fontSize: 18 }}>{icon}</span>
                 <span title={title} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
             </div>
-            <ReportRow label="Số dư đầu kỳ" value={openingBalance} />
-            <ReportRow label="Thu trong kỳ" value={periodIn} color="var(--status-success)" />
+            <ReportRow label="Số dư đầu ngày" value={openingBalance} />
+            <ReportRow label="Thu trong ngày" value={periodIn} color="var(--status-success)" />
             <div style={{ height: 6, borderRadius: 3, background: 'var(--bg-secondary)', margin: '10px 0', overflow: 'hidden', display: 'flex' }}>
                 <div style={{ width: `${inPct}%`, background: 'var(--status-success)' }} />
                 <div style={{ width: `${100 - inPct}%`, background: 'var(--status-danger)' }} />
             </div>
-            <ReportRow label="Chi trong kỳ" value={periodOut} color="var(--status-danger)" />
+            <ReportRow label="Chi trong ngày" value={periodOut} color="var(--status-danger)" />
             <div style={{ borderTop: '1px dashed var(--border-color)', margin: '12px 0 10px' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <span style={{ fontWeight: 700, fontSize: 13 }}>Tồn hiện tại</span>
