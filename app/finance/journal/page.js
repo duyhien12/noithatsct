@@ -376,7 +376,12 @@ ${txs.map(voucher).join('')}
 
     return (
         <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+            <div style={{
+                position: 'sticky', top: 'var(--header-height)', zIndex: 50,
+                background: 'var(--bg-primary)', padding: '12px 0', margin: '-12px 0 4px',
+                borderBottom: '1px solid var(--border-light)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8,
+            }}>
                 <h1 style={{ fontSize: 20, fontWeight: 700 }}>📒 Nhật ký Thu – Chi</h1>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {perms.canImportExport && <button className="btn btn-ghost btn-sm" onClick={downloadTemplate}>📄 File mẫu</button>}

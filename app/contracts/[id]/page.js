@@ -159,7 +159,7 @@ export default function ContractDetailPage() {
     const startEditPayments = () => {
         const cv = parseFloat(form.contractValue) || 0;
         setPaymentPhases((data.payments || []).map(p => ({
-            phase: p.phase, amount: p.amount || 0, paidAmount: p.paidAmount || 0,
+            id: p.id, phase: p.phase, amount: p.amount || 0, paidAmount: p.paidAmount || 0,
             pct: cv > 0 ? Math.round((p.amount || 0) / cv * 100) : 0,
             status: p.status || 'Chưa thu', notes: p.notes || '',
         })));

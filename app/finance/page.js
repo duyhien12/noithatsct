@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import CollectMethodFields from '@/components/CollectMethodFields';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
@@ -95,7 +96,7 @@ function FinanceContent() {
 
     // === Thu tiền — bắt buộc upload proof ===
     const startCollect = (payment) => {
-        setConfirmModal({ payment, file: null, amount: payment.amount - (payment.paidAmount || 0) });
+        setConfirmModal({ payment, file: null, amount: payment.amount - (payment.paidAmount || 0), method: 'Tiền mặt', bankAccountId: '', cashFundId: '' });
     };
 
     const handleProofUpload = (e) => {
@@ -105,6 +106,8 @@ function FinanceContent() {
 
     const confirmCollect = async () => {
         if (!confirmModal?.file) return alert('Vui lòng upload ảnh chuyển khoản hoặc chữ ký KH!');
+        if (!(Number(confirmModal.amount) > 0)) return alert('Nhập số tiền hợp lệ!');
+        if (confirmModal.method === 'Chuyển khoản' && !confirmModal.bankAccountId) return alert('Vui lòng chọn tài khoản ngân hàng nhận tiền!');
         setUploading(true);
 
         // Upload proof image
@@ -118,17 +121,17 @@ function FinanceContent() {
 
         // Update payment
         const p = confirmModal.payment;
-        const newPaid = (p.paidAmount || 0) + Number(confirmModal.amount);
-        await fetch(`/api/contracts/${p.contractId}/payments/${p.id}`, {
+        const res = await fetch(`/api/contracts/${p.contractId}/payments/${p.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                paidAmount: newPaid,
-                status: newPaid >= p.amount ? 'Đã thu' : 'Thu một phần',
-                proofUrl,
-                paidDate: new Date().toISOString(),
+                amount: Number(confirmModal.amount), method: confirmModal.method,
+                bankAccountId: confirmModal.bankAccountId || null, cashFundId: confirmModal.cashFundId || null,
+                proofUrl, date: new Date().toISOString(),
             }),
         });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) { setUploading(false); return alert(json.error || 'Lỗi xác nhận thu tiền'); }
 
         setUploading(false);
         setConfirmModal(null);
@@ -814,6 +817,9 @@ ${[1, 2].map(copy => `
                                     <div style={{ fontSize: 12, color: 'var(--primary)', marginTop: 4, fontWeight: 600 }}>{fmt(confirmModal.amount)}</div>
                                 )}
                             </div>
+
+                            <CollectMethodFields method={confirmModal.method} bankAccountId={confirmModal.bankAccountId} cashFundId={confirmModal.cashFundId}
+                                onChange={patch => setConfirmModal(prev => ({ ...prev, ...patch }))} />
 
                             <div className="form-group" style={{ marginTop: 14 }}>
                                 <label className="form-label">📸 Ảnh chuyển khoản / Chữ ký KH * <span style={{ color: 'var(--status-danger)' }}>(Bắt buộc)</span></label>

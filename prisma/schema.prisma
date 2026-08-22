@@ -24,54 +24,56 @@ model User {
 }
 
 model Customer {
-  id                 String            @id @default(cuid())
-  code               String            @unique
-  name               String
-  phone              String
-  email              String            @default("")
-  address            String            @default("")
-  type               String            @default("Cá nhân")
-  status             String            @default("Lead")
-  taxCode            String            @default("")
-  representative     String            @default("")
-  birthday           DateTime?
-  source             String            @default("")
-  notes              String            @default("")
-  totalRevenue       Float             @default(0)
-  gender             String            @default("Nam")
-  projectAddress     String            @default("")
-  projectName        String            @default("")
-  salesPerson        String            @default("")
-  designer           String            @default("")
-  contactPerson2     String            @default("")
-  phone2             String            @default("")
-  pipelineStage      String            @default("Lead")
-  isPriority         Boolean           @default(false)
-  estimatedValue     Float             @default(0)
-  nextFollowUp       DateTime?
-  score              Int               @default(0)
-  lastContactAt      DateTime?
-  deletedAt          DateTime?
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  createdByRole      String            @default("")
-  processData        String            @default("")
-  branch             String            @default("HQ")
-  demand             String            @default("")
-  category           String            @default("")
-  area               Float             @default(0)
-  constructionStatus String            @default("")
-  decisionMaker      String            @default("")
-  specialRequest     String            @default("")
-  contracts          Contract[]
-  contractProcesses  ContractProcess[]
-  projects           Project[]
-  documents          ProjectDocument[]
-  quotations         Quotation[]
-  trackingLogs       TrackingLog[]
-  designOrders       DesignOrder[]
-  designTasks        DesignTask[]
-  lessonsLearned     LessonLearned[]
+  id                       String            @id @default(cuid())
+  code                     String            @unique
+  name                     String
+  phone                    String
+  openingReceivableBalance Float             @default(0)
+  email                    String            @default("")
+  address                  String            @default("")
+  type                     String            @default("Cá nhân")
+  status                   String            @default("Lead")
+  taxCode                  String            @default("")
+  representative           String            @default("")
+  birthday                 DateTime?
+  source                   String            @default("")
+  notes                    String            @default("")
+  totalRevenue             Float             @default(0)
+  gender                   String            @default("Nam")
+  projectAddress           String            @default("")
+  projectName              String            @default("")
+  salesPerson              String            @default("")
+  designer                 String            @default("")
+  contactPerson2           String            @default("")
+  phone2                   String            @default("")
+  pipelineStage            String            @default("Lead")
+  isPriority               Boolean           @default(false)
+  estimatedValue           Float             @default(0)
+  nextFollowUp             DateTime?
+  score                    Int               @default(0)
+  lastContactAt            DateTime?
+  deletedAt                DateTime?
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
+  createdByRole            String            @default("")
+  processData              String            @default("")
+  branch                   String            @default("HQ")
+  demand                   String            @default("")
+  category                 String            @default("")
+  area                     Float             @default(0)
+  constructionStatus       String            @default("")
+  decisionMaker            String            @default("")
+  specialRequest           String            @default("")
+  contracts                Contract[]
+  contractProcesses        ContractProcess[]
+  projects                 Project[]
+  documents                ProjectDocument[]
+  quotations               Quotation[]
+  trackingLogs             TrackingLog[]
+  designOrders             DesignOrder[]
+  designTasks              DesignTask[]
+  lessonsLearned           LessonLearned[]
+  receivableEntries        ReceivableEntry[]
 }
 
 model Project {
@@ -150,6 +152,8 @@ model Project {
   mfgItems              MfgItem[]
   deliveryRecords       DeliveryRecord[]
   lessonsLearned        LessonLearned[]
+  employeeAdvances      EmployeeAdvance[]
+  payableEntries        PayableEntry[]
 
   @@index([customerId])
 }
@@ -491,23 +495,25 @@ model Department {
 }
 
 model Employee {
-  id           String            @id @default(cuid())
-  code         String            @unique
-  name         String
-  position     String            @default("")
-  phone        String            @default("")
-  email        String            @default("")
-  salary       Float             @default(0)
-  status       String            @default("Đang làm")
-  joinDate     DateTime?
-  departmentId String
-  deletedAt    DateTime?
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-  birthDate    DateTime?
-  sortOrder    Int               @default(0)
-  department   Department        @relation(fields: [departmentId], references: [id])
-  projects     ProjectEmployee[]
+  id                    String            @id @default(cuid())
+  code                  String            @unique
+  name                  String
+  position              String            @default("")
+  phone                 String            @default("")
+  email                 String            @default("")
+  salary                Float             @default(0)
+  status                String            @default("Đang làm")
+  joinDate              DateTime?
+  departmentId          String
+  deletedAt             DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  birthDate             DateTime?
+  sortOrder             Int               @default(0)
+  openingAdvanceBalance Float             @default(0)
+  department            Department        @relation(fields: [departmentId], references: [id])
+  projects              ProjectEmployee[]
+  advances              EmployeeAdvance[]
 }
 
 model ProjectEmployee {
@@ -543,15 +549,15 @@ model Contractor {
 }
 
 model LoanContact {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
-  phone       String    @default("")
-  address     String    @default("")
-  bankAccount String    @default("")
-  bankName    String    @default("")
-  qrImage     String    @default("")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  phone       String   @default("")
+  address     String   @default("")
+  bankAccount String   @default("")
+  bankName    String   @default("")
+  qrImage     String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model ContractorPayment {
@@ -597,26 +603,28 @@ model ContractorPaymentItem {
 }
 
 model Supplier {
-  id             String            @id @default(cuid())
-  code           String            @unique
-  name           String
-  type           String            @default("Vật tư xây dựng")
-  contact        String            @default("")
-  phone          String            @default("")
-  email          String            @default("")
-  address        String            @default("")
-  taxCode        String            @default("")
-  bankAccount    String            @default("")
-  bankName       String            @default("")
-  rating         Int               @default(3)
-  notes          String            @default("")
-  isBlacklisted  Boolean           @default(false)
-  creditLimit    Float             @default(0)
-  deletedAt      DateTime?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  documents      ProjectDocument[]
-  purchaseOrders PurchaseOrder[]
+  id                    String            @id @default(cuid())
+  code                  String            @unique
+  name                  String
+  type                  String            @default("Vật tư xây dựng")
+  contact               String            @default("")
+  phone                 String            @default("")
+  email                 String            @default("")
+  address               String            @default("")
+  taxCode               String            @default("")
+  bankAccount           String            @default("")
+  bankName              String            @default("")
+  rating                Int               @default(3)
+  notes                 String            @default("")
+  isBlacklisted         Boolean           @default(false)
+  creditLimit           Float             @default(0)
+  openingPayableBalance Float             @default(0)
+  deletedAt             DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  documents             ProjectDocument[]
+  purchaseOrders        PurchaseOrder[]
+  payableEntries        PayableEntry[]
 }
 
 model ProjectMilestone {
@@ -673,6 +681,7 @@ model Contract {
   payments          ContractPayment[]
   contractProcesses ContractProcess[]
   mfgOrders         MfgOrder[]
+  receivableEntries ReceivableEntry[]
 
   @@index([projectId])
   @@index([customerId])
@@ -888,6 +897,7 @@ model PurchaseOrder {
   orderDate       DateTime              @default(now())
   deliveryDate    DateTime?
   receivedDate    DateTime?
+  paymentDueDate  DateTime?
   notes           String                @default("")
   projectId       String?
   supplierId      String?
@@ -2565,30 +2575,30 @@ model MfgAuditLog {
 // ============================================================
 
 model BankAccount {
-  id              String                @id @default(cuid())
+  id              String               @id @default(cuid())
   bankName        String
-  accountNumber   String                @default("")
-  accountHolder   String                @default("")
-  branch          String                @default("")
-  status          Boolean               @default(true)
-  openingBalance  Float                 @default(0)
-  notes           String                @default("")
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  accountNumber   String               @default("")
+  accountHolder   String               @default("")
+  branch          String               @default("")
+  status          Boolean              @default(true)
+  openingBalance  Float                @default(0)
+  notes           String               @default("")
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
   transactions    FinanceTransaction[]
   reconciliations CashReconciliation[]
 }
 
 model CashFund {
-  id                  String                @id @default(cuid())
+  id                  String               @id @default(cuid())
   name                String
-  status              Boolean               @default(true)
-  openingBalance      Float                 @default(0)
-  notes               String                @default("")
+  status              Boolean              @default(true)
+  openingBalance      Float                @default(0)
+  notes               String               @default("")
   accountingAccountId String?
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
-  accountingAccount   AccountingAccount?    @relation(fields: [accountingAccountId], references: [id])
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  accountingAccount   AccountingAccount?   @relation(fields: [accountingAccountId], references: [id])
   transactions        FinanceTransaction[]
   reconciliations     CashReconciliation[]
 
@@ -2676,6 +2686,9 @@ model FinanceTransaction {
   cashFund        CashFund?                 @relation(fields: [cashFundId], references: [id])
   category        FinanceCategory?          @relation(fields: [categoryId], references: [id])
   audits          FinanceTransactionAudit[]
+  advanceOf       EmployeeAdvance?
+  settlementOf    AdvanceSettlement?
+  allocations     PaymentAllocation[]
 
   @@index([date])
   @@index([projectId])
@@ -2725,4 +2738,106 @@ model CashReconciliation {
   @@index([targetType])
   @@index([bankAccountId])
   @@index([cashFundId])
+}
+
+// ============================================================
+// SỔ KẾ TOÁN QUẢN TRỊ CON — liên kết với Nhật ký Thu – Chi (FinanceTransaction)
+// Nguyên tắc: mọi phát sinh tiền thật (Thu/Chi) chỉ được ghi 1 lần trong
+// FinanceTransaction; các sổ con dưới đây chỉ THAM CHIẾU tới giao dịch tiền
+// gốc, không tự tạo dòng tiền song song.
+// ============================================================
+
+model EmployeeAdvance {
+  id                   String              @id @default(cuid())
+  code                 String              @unique
+  employeeId           String
+  projectId            String?
+  advanceType          String              @default("Khác") // Lương | Công tác | Vật tư | Công trình | Chi phí | Khác
+  amount               Float
+  date                 DateTime            @default(now())
+  content              String              @default("")
+  notes                String              @default("")
+  createdBy            String              @default("")
+  financeTransactionId String              @unique
+  createdAt            DateTime            @default(now())
+  employee             Employee            @relation(fields: [employeeId], references: [id])
+  project              Project?            @relation(fields: [projectId], references: [id])
+  financeTransaction   FinanceTransaction  @relation(fields: [financeTransactionId], references: [id])
+  settlements          AdvanceSettlement[]
+
+  @@index([employeeId])
+  @@index([projectId])
+}
+
+model AdvanceSettlement {
+  id                   String              @id @default(cuid())
+  code                 String              @unique
+  advanceId            String
+  settleType           String // cash_return | expense_proof | salary_deduction
+  amount               Float
+  date                 DateTime            @default(now())
+  proofUrl             String              @default("")
+  notes                String              @default("")
+  createdBy            String              @default("")
+  financeTransactionId String?             @unique // chỉ set khi settleType = cash_return
+  createdAt            DateTime            @default(now())
+  advance              EmployeeAdvance     @relation(fields: [advanceId], references: [id])
+  financeTransaction   FinanceTransaction? @relation(fields: [financeTransactionId], references: [id])
+
+  @@index([advanceId])
+}
+
+// Cho phép 1 giao dịch tiền (FinanceTransaction) thanh toán/thu cho nhiều công
+// nợ nguồn (nhiều PurchaseOrder hoặc nhiều ContractPayment cùng lúc) mà không
+// nhân bản dòng tiền — targetType/targetId trỏ tới bản ghi công nợ tương ứng.
+model PaymentAllocation {
+  id                   String             @id @default(cuid())
+  financeTransactionId String
+  targetType           String // PurchaseOrder | ContractPayment
+  targetId             String
+  amount               Float
+  createdAt            DateTime           @default(now())
+  financeTransaction   FinanceTransaction @relation(fields: [financeTransactionId], references: [id], onDelete: Cascade)
+
+  @@index([financeTransactionId])
+  @@index([targetType, targetId])
+}
+
+// "Phát sinh" công nợ ghi tay qua nút "+ Ghi nợ mua hàng"/"+ Ghi nợ bán hàng" trong Công nợ
+// NCC/Khách hàng — bảng MỚI HOÀN TOÀN, tách biệt khỏi PurchaseOrder/ContractPayment (dữ liệu cũ
+// từ Mua sắm/Hợp đồng), để "Phát sinh trong kỳ" không bị lẫn dữ liệu lịch sử không liên quan.
+model PayableEntry {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  supplierId  String
+  amount      Float
+  date        DateTime @default(now())
+  content     String   @default("")
+  projectId   String?
+  attachments Json?    @default("[]")
+  createdBy   String   @default("")
+  createdAt   DateTime @default(now())
+  supplier    Supplier @relation(fields: [supplierId], references: [id])
+  project     Project? @relation(fields: [projectId], references: [id])
+
+  @@index([supplierId])
+  @@index([projectId])
+}
+
+model ReceivableEntry {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  customerId  String
+  amount      Float
+  date        DateTime  @default(now())
+  content     String    @default("")
+  contractId  String?
+  attachments Json?     @default("[]")
+  createdBy   String    @default("")
+  createdAt   DateTime  @default(now())
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  contract    Contract? @relation(fields: [contractId], references: [id])
+
+  @@index([customerId])
+  @@index([contractId])
 }

@@ -103,6 +103,7 @@ export const POST = withAuth(async (request, context, session) => {
             data: {
                 code,
                 supplier: poData.supplier,
+                supplierId: poData.supplierId || null,
                 totalAmount: poData.totalAmount,
                 paidAmount: poData.paidAmount,
                 status,
@@ -111,6 +112,9 @@ export const POST = withAuth(async (request, context, session) => {
                 orderDate: poData.orderDate || new Date(),
                 deliveryDate: poData.deliveryDate || null,
                 receivedDate: poData.receivedDate || null,
+                paymentDueDate: poData.paymentDueDate || null,
+                deliveryType: poData.deliveryType || undefined,
+                deliveryAddress: poData.deliveryAddress || undefined,
                 createdByRole: session?.user?.role || '',
                 items: items ? { create: items } : undefined,
             },

@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, Wrench, Building2, ShoppingCart, Package,
     ChevronRight, X, CalendarDays, Users, FileText, Warehouse,
-    BarChart2, Clock, BookOpen, Banknote, Landmark, BookMarked, Settings, Factory,
-    ClipboardCheck, LayoutGrid, ClipboardList,
+    BarChart2, Clock, BookOpen, Landmark, BookMarked, Settings, Factory,
+    ClipboardCheck, LayoutGrid, ClipboardList, NotebookText,
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useState } from 'react';
@@ -79,7 +79,13 @@ const FULL_MENU = [
     {
         section: 'Tài chính xưởng',
         items: [
-            { href: '/workshop/expenses', icon: Banknote, label: 'Chi phí xưởng' },
+            { icon: NotebookText, label: 'Nhật ký Thu – Chi',
+              children: [
+                  { href: '/finance/journal', label: 'Tổng hợp Thu – Chi' },
+                  { href: '/finance/journal/advances', label: 'Tạm ứng nhân viên' },
+                  { href: '/finance/journal/payables', label: 'Công nợ NCC / Nhà phân phối' },
+                  { href: '/finance/journal/receivables', label: 'Công nợ Khách hàng' },
+              ] },
             { href: '/workshop/assets', icon: Landmark, label: 'Tài sản cố định' },
             { href: '/workshop/pl', icon: BarChart2, label: 'P&L Xưởng' },
             { href: '/finance/tong-hop', icon: BookMarked, label: 'Báo cáo tổng hợp 2 phòng' },
@@ -161,6 +167,7 @@ export default function WorkshopSidebar({ isOpen, onClose }) {
     const pathname = usePathname();
     const { roleInfo, isXuongNhanVien, department, isPhamDuong, canSwitchRole, viewAsRole, setViewAsRole, actualRole, role, email } = useRole();
     const [showDeptPicker, setShowDeptPicker] = useState(false);
+    const [openParents, setOpenParents] = useState({});
 
     const isVanToan = email === 'vantoan@kientrucsct.com';
     const isSupervisor = SUPERVISOR_EMAILS.includes(email);
@@ -211,6 +218,42 @@ export default function WorkshopSidebar({ isOpen, onClose }) {
                         <div className="nav-section-title">{section.section}</div>
                         {section.items.map((item) => {
                             const Icon = item.icon;
+                            if (item.children) {
+                                const isParentActive = item.children.some(c => pathname.startsWith(c.href));
+                                const isOpen = openParents[item.label] !== undefined ? openParents[item.label] : isParentActive;
+                                return (
+                                    <div key={item.label}>
+                                        <button
+                                            type="button"
+                                            className={`nav-item ${isParentActive ? 'active' : ''}`}
+                                            style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                                            onClick={() => setOpenParents(m => ({ ...m, [item.label]: !isOpen }))}
+                                        >
+                                            <span className="nav-icon">
+                                                <Icon size={18} strokeWidth={isParentActive ? 2 : 1.5} />
+                                            </span>
+                                            <span style={{ flex: 1 }}>{item.label}</span>
+                                            <ChevronRight size={14} className="nav-arrow" style={{ transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }} />
+                                        </button>
+                                        {isOpen && item.children.map(c => {
+                                            const childActive = pathname.startsWith(c.href);
+                                            return (
+                                                <Link
+                                                    key={c.href}
+                                                    href={c.href}
+                                                    className={`nav-item ${childActive ? 'active' : ''}`}
+                                                    aria-current={childActive ? 'page' : undefined}
+                                                    style={{ paddingLeft: 40 }}
+                                                    onClick={handleNavClick}
+                                                >
+                                                    <span>{c.label}</span>
+                                                    {childActive && <ChevronRight size={14} className="nav-arrow" />}
+                                                </Link>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            }
                             const isActive = item.exact
                                 ? pathname === item.href
                                 : pathname.startsWith(item.href);

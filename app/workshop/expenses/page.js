@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
+import CollectMethodFields from '@/components/CollectMethodFields';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
@@ -75,6 +76,9 @@ export default function WorkshopFinancePage() {
     const [collectPreview, setCollectPreview] = useState(null);
     const [collectAmount, setCollectAmount] = useState('');
     const [collectUploading, setCollectUploading] = useState(false);
+    const [collectMethod, setCollectMethod] = useState('Tiền mặt');
+    const [collectBankAccountId, setCollectBankAccountId] = useState('');
+    const [collectCashFundId, setCollectCashFundId] = useState('');
     const collectRef = useRef();
 
     /* ── Lương & Tăng ca state ── */
@@ -232,21 +236,30 @@ export default function WorkshopFinancePage() {
         setCollectModal(p);
         setCollectFile(null); setCollectPreview(null);
         setCollectAmount(String((p.amount || 0) - (p.paidAmount || 0)));
+        setCollectMethod('Tiền mặt'); setCollectBankAccountId(''); setCollectCashFundId('');
     };
     const handleCollectFile = (file) => { if (file?.type.startsWith('image/')) { setCollectFile(file); setCollectPreview(URL.createObjectURL(file)); } };
     const confirmCollect = async () => {
         if (!collectFile) return alert('Bắt buộc upload ảnh chuyển khoản hoặc chữ ký!');
+        if (!(Number(collectAmount) > 0)) return alert('Nhập số tiền hợp lệ!');
+        if (collectMethod === 'Chuyển khoản' && !collectBankAccountId) return alert('Vui lòng chọn tài khoản ngân hàng nhận tiền!');
         setCollectUploading(true);
         const fd = new FormData(); fd.append('file', collectFile); fd.append('type', 'proofs');
         const { url: proofUrl } = await fetch('/api/upload', { method: 'POST', body: fd }).then(r => r.json());
         if (!proofUrl) { setCollectUploading(false); return alert('Upload thất bại!'); }
         const p = collectModal;
-        const newPaid = (p.paidAmount || 0) + Number(collectAmount);
-        await fetch(`/api/contracts/${p.contractId}/payments/${p.id}`, {
+        const res = await fetch(`/api/contracts/${p.contractId}/payments/${p.id}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paidAmount: newPaid, status: newPaid >= p.amount ? 'Đã thu' : 'Thu một phần', proofUrl, paidDate: new Date().toISOString() }),
+            body: JSON.stringify({
+                amount: Number(collectAmount), method: collectMethod,
+                bankAccountId: collectBankAccountId || null, cashFundId: collectCashFundId || null,
+                proofUrl, date: new Date().toISOString(),
+            }),
         });
-        setCollectUploading(false); setCollectModal(null); fetchPayments();
+        const json = await res.json().catch(() => ({}));
+        setCollectUploading(false);
+        if (!res.ok) return alert(json.error || 'Lỗi xác nhận thu tiền');
+        setCollectModal(null); fetchPayments();
     };
 
     const printReceipt = (p) => {
@@ -1295,6 +1308,8 @@ ${e.proofUrl ? `<div style="text-align:center;margin-bottom:20px"><img src="${e.
                                 <input className="form-input" type="number" value={collectAmount} onChange={e => setCollectAmount(e.target.value)} />
                                 {collectAmount > 0 && <div style={{ fontSize: 12, color: 'var(--accent-primary)', marginTop: 4, fontWeight: 600 }}>{fmt(Number(collectAmount))}</div>}
                             </div>
+                            <CollectMethodFields method={collectMethod} bankAccountId={collectBankAccountId} cashFundId={collectCashFundId}
+                                onChange={patch => { if (patch.method !== undefined) setCollectMethod(patch.method); if (patch.bankAccountId !== undefined) setCollectBankAccountId(patch.bankAccountId); if (patch.cashFundId !== undefined) setCollectCashFundId(patch.cashFundId); }} />
                             <div className="form-group">
                                 <label className="form-label">📸 Ảnh chuyển khoản / Chữ ký KH * <span style={{ color: 'var(--status-danger)', fontSize: 11 }}>(Bắt buộc)</span></label>
                                 <div onDrop={e => { e.preventDefault(); handleCollectFile(e.dataTransfer?.files?.[0]); }} onDragOver={e => e.preventDefault()}

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, GitBranch, Users, Building2, FileText,
-    Package, ClipboardList, Wrench, CreditCard, Receipt,
+    Package, ClipboardList, Wrench,
     ShoppingCart, Truck, Warehouse, Wallet, UserCog,
     BarChart3, ChevronRight, Shield, X, CalendarDays, HardHat, Banknote, TrendingUp, BookMarked, Factory, ListChecks, PencilRuler, GraduationCap, Sparkles, NotebookText
 } from 'lucide-react';
@@ -60,12 +60,14 @@ const menuItems = [
         section: 'Tài chính',
         sectionRoles: [...BAN_GD, ...KE_TOAN, ...KY_THUAT, ...KINH_DOANH, ...VIEWER],
         items: [
-            { href: '/payments', icon: CreditCard, label: 'Thu tiền',
-              roles: [...BAN_GD, ...KE_TOAN, ...VIEWER] },
-            { href: '/expenses', icon: Receipt, label: 'Chi phí',
-              roles: [...BAN_GD, ...KE_TOAN, ...KY_THUAT, ...KINH_DOANH, ...VIEWER] },
-            { href: '/finance/journal', icon: NotebookText, label: 'Nhật ký Thu – Chi',
-              roles: [...BAN_GD, ...KE_TOAN, ...VIEWER] },
+            { icon: NotebookText, label: 'Nhật ký Thu – Chi',
+              roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, 'xuong', ...VIEWER],
+              children: [
+                  { href: '/finance/journal', label: 'Tổng hợp Thu – Chi' },
+                  { href: '/finance/journal/advances', label: 'Tạm ứng nhân viên' },
+                  { href: '/finance/journal/payables', label: 'Công nợ NCC / Nhà phân phối' },
+                  { href: '/finance/journal/receivables', label: 'Công nợ Khách hàng' },
+              ] },
             { href: '/finance', icon: Wallet, label: 'Tổng hợp tài chính',
               roles: [...BAN_GD, ...KE_TOAN, ...VIEWER] },
             { href: '/finance/kinh-doanh', icon: BarChart3, label: 'Chi phí Kinh doanh',
@@ -175,6 +177,7 @@ export default function Sidebar({ isOpen, onClose }) {
     const isNgocBinh = session?.user?.email === 'ngocbinh@kientrucsct.com';
     const isDuyHien = session?.user?.email === 'duyhien@kientrucsct.com';
     const [showDeptPicker, setShowDeptPicker] = useState(false);
+    const [openParents, setOpenParents] = useState({});
 
     const handleNavClick = () => {
         if (window.innerWidth <= 768) onClose();
@@ -226,6 +229,44 @@ export default function Sidebar({ isOpen, onClose }) {
                             <div className="nav-section-title">{section.section}</div>
                             {visibleItems.map((item) => {
                                 const Icon = item.icon;
+                                if (item.children) {
+                                    const visibleChildren = item.children.filter(c => !c.roles || c.roles.includes(role));
+                                    if (visibleChildren.length === 0) return null;
+                                    const isParentActive = visibleChildren.some(c => pathname.startsWith(c.href));
+                                    const isOpen = openParents[item.label] !== undefined ? openParents[item.label] : isParentActive;
+                                    return (
+                                        <div key={item.label}>
+                                            <button
+                                                type="button"
+                                                className={`nav-item ${isParentActive ? 'active' : ''}`}
+                                                style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                                                onClick={() => setOpenParents(m => ({ ...m, [item.label]: !isOpen }))}
+                                            >
+                                                <span className="nav-icon">
+                                                    <Icon size={18} strokeWidth={isParentActive ? 2 : 1.5} />
+                                                </span>
+                                                <span style={{ flex: 1 }}>{item.label}</span>
+                                                <ChevronRight size={14} className="nav-arrow" style={{ transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }} />
+                                            </button>
+                                            {isOpen && visibleChildren.map(c => {
+                                                const childActive = pathname.startsWith(c.href);
+                                                return (
+                                                    <Link
+                                                        key={c.href}
+                                                        href={c.href}
+                                                        className={`nav-item ${childActive ? 'active' : ''}`}
+                                                        aria-current={childActive ? 'page' : undefined}
+                                                        style={{ paddingLeft: 40 }}
+                                                        onClick={handleNavClick}
+                                                    >
+                                                        <span>{c.label}</span>
+                                                        {childActive && <ChevronRight size={14} className="nav-arrow" />}
+                                                    </Link>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                }
                                 const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
                                 return (
                                     <Link

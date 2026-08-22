@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, GitBranch, Users, FileText,
     ClipboardList, ChevronRight, X, Building2,
-    Wrench, CalendarDays, CreditCard, Receipt, ShoppingCart, Warehouse, Package, BarChart3, Banknote, BookMarked, GanttChart, Calendar, CheckSquare, PencilRuler, GraduationCap,
+    Wrench, CalendarDays, ShoppingCart, Warehouse, Package, BarChart3, Banknote, BookMarked, GanttChart, Calendar, CheckSquare, PencilRuler, GraduationCap, NotebookText,
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useSession } from 'next-auth/react';
@@ -58,8 +58,13 @@ const menuItems = [
     {
         section: 'Tài chính & Mua sắm',
         items: [
-            { href: '/payments', icon: CreditCard, label: 'Thu tiền' },
-            { href: '/sales/expenses', icon: Receipt, label: 'Chi phí' },
+            { icon: NotebookText, label: 'Nhật ký Thu – Chi',
+              children: [
+                  { href: '/finance/journal', label: 'Tổng hợp Thu – Chi' },
+                  { href: '/finance/journal/advances', label: 'Tạm ứng nhân viên' },
+                  { href: '/finance/journal/payables', label: 'Công nợ NCC / Nhà phân phối' },
+                  { href: '/finance/journal/receivables', label: 'Công nợ Khách hàng' },
+              ] },
             { href: '/finance/kinh-doanh', icon: BarChart3, label: 'Tổng hợp chi phí KD' },
             { href: '/finance/luong-chi-phi', icon: Banknote, label: 'Lương & Chi phí cố định' },
             { href: '/finance/tong-hop', icon: BookMarked, label: 'Báo cáo tổng hợp 2 phòng' },
@@ -75,6 +80,7 @@ export default function SalesSidebar({ isOpen, onClose }) {
     const { data: session } = useSession();
     const isDuyHien = session?.user?.email === 'duyhien@kientrucsct.com';
     const [showDeptPicker, setShowDeptPicker] = useState(false);
+    const [openParents, setOpenParents] = useState({});
 
     const handleNavClick = () => {
         if (window.innerWidth <= 768) onClose();
@@ -108,13 +114,49 @@ export default function SalesSidebar({ isOpen, onClose }) {
                         {section.items.filter(item => {
                             if (isDuyHien && [
                                 '/work-orders', '/products',
-                                '/payments', '/sales/expenses', '/finance/kinh-doanh',
+                                '/finance/kinh-doanh',
                                 '/finance/luong-chi-phi', '/finance/tong-hop',
                                 '/purchasing', '/inventory',
                             ].includes(item.href)) return false;
                             return true;
                         }).map((item) => {
                             const Icon = item.icon;
+                            if (item.children) {
+                                const isParentActive = item.children.some(c => pathname.startsWith(c.href));
+                                const isOpen = openParents[item.label] !== undefined ? openParents[item.label] : isParentActive;
+                                return (
+                                    <div key={item.label}>
+                                        <button
+                                            type="button"
+                                            className={`nav-item ${isParentActive ? 'active' : ''}`}
+                                            style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                                            onClick={() => setOpenParents(m => ({ ...m, [item.label]: !isOpen }))}
+                                        >
+                                            <span className="nav-icon">
+                                                <Icon size={18} strokeWidth={isParentActive ? 2 : 1.5} />
+                                            </span>
+                                            <span style={{ flex: 1 }}>{item.label}</span>
+                                            <ChevronRight size={14} className="nav-arrow" style={{ transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }} />
+                                        </button>
+                                        {isOpen && item.children.map(c => {
+                                            const childActive = pathname.startsWith(c.href);
+                                            return (
+                                                <Link
+                                                    key={c.href}
+                                                    href={c.href}
+                                                    className={`nav-item ${childActive ? 'active' : ''}`}
+                                                    aria-current={childActive ? 'page' : undefined}
+                                                    style={{ paddingLeft: 40 }}
+                                                    onClick={handleNavClick}
+                                                >
+                                                    <span>{c.label}</span>
+                                                    {childActive && <ChevronRight size={14} className="nav-arrow" />}
+                                                </Link>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            }
                             const isActive = item.exact
                                 ? pathname === item.href
                                 : pathname.startsWith(item.href);
