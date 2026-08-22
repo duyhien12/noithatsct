@@ -186,7 +186,7 @@ export default function FinanceJournalPage() {
     };
 
     const cancelTx = async (tx) => {
-        if (!confirm(`Hủy giao dịch "${tx.code}"?`)) return;
+        if (!confirm(`Hủy giao dịch "${tx.displayCode || tx.code}"?`)) return;
         await changeStatus(tx, 'Hủy');
     };
 
@@ -198,7 +198,7 @@ export default function FinanceJournalPage() {
     };
 
     const deleteTx = async (tx) => {
-        if (!confirm(`Xóa phiếu "${tx.code}"? Bạn có thể khôi phục lại sau trong mục "Đã xóa".`)) return;
+        if (!confirm(`Xóa phiếu "${tx.displayCode || tx.code}"? Bạn có thể khôi phục lại sau trong mục "Đã xóa".`)) return;
         const res = await fetch(`/api/finance-transactions/${tx.id}`, { method: 'DELETE' });
         const json = await res.json();
         if (!res.ok) { alert(json.error || 'Lỗi xóa'); return; }
@@ -222,7 +222,7 @@ export default function FinanceJournalPage() {
         const data = res.data || [];
         const s = res.summary || {};
         const sheetRows = data.map(t => ({
-            'Ngày': fmtDate(t.date), 'Số phiếu': t.code, 'Nội dung': t.content, 'Chi tiết': t.detail,
+            'Ngày': fmtDate(t.date), 'Số phiếu': t.displayCode || t.code, 'Nội dung': t.content, 'Chi tiết': t.detail,
             'Phòng ban': t.department, 'Dự án': t.project?.code || '',
             'Thu TM': t.cashIn || 0, 'Chi TM': t.cashOut || 0, 'Thu TGNH': t.bankIn || 0, 'Chi TGNH': t.bankOut || 0,
             'TK Nợ': t.debitAccount?.code || '', 'TK Có': t.creditAccount?.code || '',
@@ -288,7 +288,7 @@ export default function FinanceJournalPage() {
   </div>
   <div class="title-banner">
     <div><h1>Phiếu ${isThu ? 'Thu' : 'Chi'} Tiền</h1><div class="sub">${isThu ? 'Receipt' : 'Payment'} Voucher</div></div>
-    <div class="code-badge">Số: ${t.code}</div>
+    <div class="code-badge">Số: ${t.displayCode || t.code}</div>
   </div>
   <div class="body">
     <div class="info-grid">
@@ -316,13 +316,13 @@ export default function FinanceJournalPage() {
   </div>
   <div class="bottom-bar">
     <div><div class="bottom-brand">Kiến Trúc Đô Thị SCT</div><div class="bottom-tagline">Cùng bạn xây dựng ước mơ</div></div>
-    <div class="bottom-code">Mã: ${t.code} &nbsp;|&nbsp; ${fmtDate(t.date)}</div>
+    <div class="bottom-code">Mã: ${t.displayCode || t.code} &nbsp;|&nbsp; ${fmtDate(t.date)}</div>
   </div>
 </div>`;
         };
 
         const w = window.open('', '_blank', 'width=860,height=900');
-        w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>In phiếu - ${txs.map(t => t.code).join(', ')}</title>
+        w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>In phiếu - ${txs.map(t => t.displayCode || t.code).join(', ')}</title>
 <style>
 @page{size:A5;margin:6mm}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -519,7 +519,7 @@ function SummaryCards({ summary, cashFunds, bankAccounts, cashBalance }) {
                 })}
             </div>
 
-            <details className="card" open style={{ marginBottom: 16, padding: 16 }}>
+            <details className="card" style={{ marginBottom: 16, padding: 16 }}>
                 <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>📊 Báo cáo Quỹ tiền mặt &amp; Ngân hàng</summary>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginTop: 14 }}>
                     {fundReports.map(r => <BalanceReportCard key={r.id} {...r} />)}
@@ -706,7 +706,7 @@ function TransactionTable({ rows, loading, user, showDeleted, openMenuId, setOpe
                                     <td>{i + 1}</td>
                                     <td><RowMenu tx={t} /></td>
                                     <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(t.date)}</td>
-                                    <td className="accent" style={{ whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => onView(t)}>{t.code}</td>
+                                    <td className="accent" style={{ whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => onView(t)}>{t.displayCode || t.code}</td>
                                     <td className="primary" title={t.content} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                         {t.content}{t.transferGroupId && <span title="Chuyển quỹ — có 1 phiếu liên kết" style={{ marginLeft: 4 }}>↔️</span>}
                                     </td>
@@ -737,7 +737,7 @@ function TransactionTable({ rows, loading, user, showDeleted, openMenuId, setOpe
                 {rows.map(t => (
                     <div key={t.id} className="mobile-card-item" style={{ opacity: t.status === 'Hủy' ? 0.5 : 1 }} onClick={() => onView(t)}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <div><div className="card-title">{t.content}</div><div className="card-subtitle">{t.code} · {fmtDate(t.date)} · {t.department}</div></div>
+                            <div><div className="card-title">{t.content}</div><div className="card-subtitle">{t.displayCode || t.code} · {fmtDate(t.date)} · {t.department}</div></div>
                             <StatusBadge status={t.status} />
                         </div>
                         <div className="card-row">
@@ -938,7 +938,7 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds,
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 1100, width: '92vw', maxHeight: '90vh', overflowY: 'auto' }}>
                 <div className="modal-header">
-                    <h3>{isView ? `Giao dịch ${tx.code}` : mode === 'edit' ? `Sửa giao dịch ${tx.code}` : '+ Thêm giao dịch'}</h3>
+                    <h3>{isView ? `Giao dịch ${tx.displayCode || tx.code}` : mode === 'edit' ? `Sửa giao dịch ${tx.displayCode || tx.code}` : '+ Thêm giao dịch'}</h3>
                     <button className="modal-close" onClick={onClose}>×</button>
                 </div>
                 <div className="modal-body">
@@ -1152,7 +1152,7 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds,
                             {transferPair.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Đang tải...</div>}
                             {transferPair.map(s => (
                                 <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, padding: '4px 0', borderBottom: '1px dotted var(--border-color)' }}>
-                                    <span>{s.code} — {s.type} {s.cashFund?.name ? `· Quỹ ${s.cashFund.name}` : ''}</span>
+                                    <span>{s.displayCode || s.code} — {s.type} {s.cashFund?.name ? `· Quỹ ${s.cashFund.name}` : ''}</span>
                                     <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                         <strong>{fmt(s.amount)}</strong>
                                         <button className="btn btn-ghost btn-sm" onClick={() => onViewSibling(s)}>Xem</button>

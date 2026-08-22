@@ -101,6 +101,29 @@ export const GET = withAuth(async (request) => {
     const totalBankIn = agg._sum.bankIn || 0;
     const totalBankOut = agg._sum.bankOut || 0;
 
+    // Số phiếu hiển thị: đánh số liên tục từ 1 theo từng loại (PT/PC), bỏ qua phiếu đã xóa,
+    // tính trên toàn bộ giao dịch còn hiệu lực (không phụ thuộc filter/phân trang hiện tại)
+    // để thứ tự luôn ổn định. Không đổi cột `code` gốc lưu trong DB.
+    const neededIds = new Set(data.map(t => t.id));
+    if (neededIds.size > 0) {
+        const allActive = await prisma.financeTransaction.findMany({
+            where: { deletedAt: null },
+            select: { id: true, type: true },
+            orderBy: { createdAt: 'asc' },
+        });
+        const counters = {};
+        const rankById = {};
+        for (const t of allActive) {
+            counters[t.type] = (counters[t.type] || 0) + 1;
+            if (neededIds.has(t.id)) rankById[t.id] = counters[t.type];
+        }
+        data.forEach(t => {
+            const rank = rankById[t.id];
+            const prefix = t.type === 'Thu' ? 'PT' : 'PC';
+            t.displayCode = rank ? `${prefix}${String(rank).padStart(5, '0')}` : t.code;
+        });
+    }
+
     const result = paginatedResponse(data, total, { page, limit });
     result.summary = {
         totalCashIn,
