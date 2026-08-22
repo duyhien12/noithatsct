@@ -4,7 +4,7 @@ import { parsePagination, paginatedResponse } from '@/lib/pagination';
 import { withCodeRetry } from '@/lib/generateCode';
 import { NextResponse } from 'next/server';
 import { employeeAdvanceCreateSchema } from '@/lib/validations/employeeAdvance';
-import { computeBalance } from '@/lib/employeeAdvance';
+import { computeBalance, ADVANCE_CATEGORY_BY_TYPE, DEFAULT_ADVANCE_CATEGORY } from '@/lib/employeeAdvance';
 import { VIEW_ROLES, CREATE_ROLES } from '@/lib/financeJournal';
 import { deriveCashFields } from '@/lib/financeJournal';
 
@@ -107,6 +107,12 @@ export const POST = withAuth(async (request, _ctx, session) => {
     if (!employee) return NextResponse.json({ error: 'Không tìm thấy nhân viên' }, { status: 404 });
 
     const cash = deriveCashFields('Chi', data.method, data.amount);
+    // Gắn đúng danh mục "Tạm ứng" trong Nhật ký Thu – Chi để phiếu hiện đúng ở các báo cáo lọc theo
+    // danh mục (VD sổ con Tạm ứng công tác/vật tư/tiền ăn) — không chặn tạo tạm ứng nếu thiếu danh mục.
+    const advanceCategory = await prisma.financeCategory.findFirst({
+        where: { name: ADVANCE_CATEGORY_BY_TYPE[data.advanceType] || DEFAULT_ADVANCE_CATEGORY },
+        select: { id: true },
+    });
 
     const result = await prisma.$transaction(async (tx) => {
         const financeTx = await withCodeRetry('financeTransaction', 'PC', (code) =>
@@ -122,6 +128,7 @@ export const POST = withAuth(async (request, _ctx, session) => {
                     projectId: data.projectId || null,
                     content: data.content,
                     detail: `Tạm ứng ${data.advanceType.toLowerCase()} — ${employee.name}`,
+                    categoryId: advanceCategory?.id || null,
                     debitAccountId: data.debitAccountId,
                     creditAccountId: data.creditAccountId,
                     bankAccountId: data.method === 'Chuyển khoản' ? data.bankAccountId : null,

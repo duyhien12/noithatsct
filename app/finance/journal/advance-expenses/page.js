@@ -53,8 +53,7 @@ export default function OperationalAdvancePage() {
     const fetchRows = useCallback(async (page = 1) => {
         setLoading(true);
         const params = new URLSearchParams();
-        params.set('types', filters.type ? filters.type : OPERATIONAL_ADVANCE_TYPES.join(','));
-        Object.entries(filters).forEach(([k, v]) => { if (v && k !== 'type') params.set(k, v); });
+        Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k === 'type' ? 'types' : k, v); });
         params.set('page', String(page));
         params.set('limit', String(pagination.limit));
         const res = await fetch(`/api/employee-advances/by-type?${params}`).then(r => r.json()).catch(() => null);
@@ -182,7 +181,7 @@ export default function OperationalAdvancePage() {
                                                 ? <a href="#" onClick={ev => { ev.preventDefault(); window.open(`/finance/journal?search=${r.financeTransactionCode}`, '_blank'); }}>{r.code}</a>
                                                 : r.code}</td>
                                             <td><strong>{r.employeeName}</strong> <span style={{ color: 'var(--text-muted)' }}>({r.employeeCode})</span></td>
-                                            <td><span className="badge" style={{ background: badge.bg, color: badge.color }}>{r.advanceType}</span></td>
+                                            <td><span className="badge" style={{ background: badge.bg, color: badge.color }}>{r.advanceType || 'Chưa phân loại'}</span></td>
                                             <td>{r.content}</td>
                                             <td>{r.project ? r.project.code : '—'}</td>
                                             <td style={{ textAlign: 'right', color: 'var(--status-danger)' }}>{fmt(r.amount)}</td>
@@ -198,8 +197,14 @@ export default function OperationalAdvancePage() {
                                             <td>{r.attachments?.length > 0 ? r.attachments.map((a, ai) => <a key={ai} href={a.url} target="_blank" rel="noreferrer" style={{ marginRight: 6 }}>📎</a>) : '—'}</td>
                                             {perms.canCreate && (
                                                 <td>
-                                                    {r.status === 'open' && (
-                                                        <button className="btn btn-ghost btn-sm" onClick={() => setSettleFor(r)}>Hoàn ứng</button>
+                                                    {r.status === 'open' && r.advanceId && (
+                                                        <button className="btn btn-ghost btn-sm"
+                                                            onClick={() => setSettleFor({ id: r.advanceId, code: r.code, amount: r.amount, settlements: r.settlements })}>
+                                                            Hoàn ứng
+                                                        </button>
+                                                    )}
+                                                    {r.status === 'open' && !r.advanceId && (
+                                                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }} title="Phiếu nhập trực tiếp trong Nhật ký — vào Nhật ký Thu-Chi để ghi nhận hoàn ứng">Nhập tay</span>
                                                     )}
                                                 </td>
                                             )}
