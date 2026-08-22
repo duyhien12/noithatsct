@@ -1119,7 +1119,7 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds,
                             {!isView && (
                                 <div style={{ flex: 1, minWidth: 200 }}>
                                     <Field label="Upload file">
-                                        <input ref={fileRef} type="file" onChange={upload} disabled={uploading} />
+                                        <input ref={fileRef} className="form-file" type="file" onChange={upload} disabled={uploading} />
                                         {uploading && <span style={{ fontSize: 12 }}> Đang tải lên...</span>}
                                     </Field>
                                 </div>
@@ -1845,7 +1845,7 @@ function ImportModal({ onClose, onDone }) {
                     {step === 'pick' && (
                         <div className="form-group">
                             <label className="form-label">Chọn file Excel (.xlsx) theo đúng cấu trúc file mẫu</label>
-                            <input type="file" accept=".xlsx,.xls" onChange={pickFile} />
+                            <input className="form-file" type="file" accept=".xlsx,.xls" onChange={pickFile} />
                         </div>
                     )}
                     {step === 'preview' && (

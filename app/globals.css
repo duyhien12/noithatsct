@@ -38,6 +38,7 @@
   /* Borders */
   --border-color: #E2E8F0;
   --border-light: rgba(0, 0, 0, 0.05);
+  --border-input: #CBD5E1;
 
   /* Shadows */
   --shadow-sm: 0 1px 3px rgba(28, 58, 107, 0.06);
@@ -95,6 +96,7 @@
 
   --border-color: #1C2E4A;
   --border-light: rgba(255, 255, 255, 0.05);
+  --border-input: #2C4468;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
@@ -1071,21 +1073,27 @@ body {
 .form-input,
 .form-select {
   width: 100%;
-  padding: 10px 14px;
+  padding: 13px 16px;
   background: var(--bg-input);
-  border: 1px solid var(--border-color);
+  border: 1.5px solid var(--border-input);
   border-radius: var(--border-radius-sm);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 15px;
   font-family: 'Inter', sans-serif;
   outline: none;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
   transition: all var(--transition-fast);
+}
+
+.form-input:hover,
+.form-select:hover {
+  border-color: var(--accent-primary);
 }
 
 .form-input:focus,
 .form-select:focus {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(28, 58, 107, 0.08);
+  box-shadow: var(--shadow-glow);
 }
 
 .form-input::placeholder {
@@ -1097,15 +1105,80 @@ body {
   appearance: none;
   background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
   background-repeat: no-repeat;
-  background-position: right 12px center;
-  background-size: 16px;
-  padding-right: 40px;
+  background-position: right 14px center;
+  background-size: 18px;
+  padding-right: 44px;
 }
 
 .form-row {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;
+}
+
+.form-input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px;
+  transition: filter var(--transition-fast);
+}
+
+[data-theme="dark"] .form-input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+}
+
+.form-input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  filter: drop-shadow(0 0 2px var(--accent-primary));
+}
+
+[data-theme="dark"] .form-input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  filter: invert(0.5) drop-shadow(0 0 2px var(--accent-primary));
+}
+
+.form-file {
+  width: 100%;
+  min-height: 49px;
+  display: flex;
+  align-items: center;
+  padding-right: 16px;
+  background: var(--bg-input);
+  border: 1.5px solid var(--border-input);
+  border-radius: var(--border-radius-sm);
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all var(--transition-fast);
+}
+
+.form-file:hover {
+  border-color: var(--accent-primary);
+}
+
+.form-file::file-selector-button {
+  align-self: stretch;
+  padding: 0 18px;
+  margin: 0 14px 0 0;
+  background: var(--accent-primary);
+  color: #fff;
+  border: none;
+  border-radius: 0;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.form-file::file-selector-button:hover {
+  background: var(--accent-primary-hover);
+}
+
+.form-file:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* ========================================

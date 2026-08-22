@@ -422,7 +422,7 @@ function CreateAdvanceModal({ employees, projects, bankAccounts, cashFunds, acco
 
                     <div>
                         <label className="form-label">Chứng từ</label>
-                        <input type="file" onChange={upload} disabled={uploading} />
+                        <input className="form-file" type="file" onChange={upload} disabled={uploading} />
                         {form.attachments.map((a, i) => (
                             <div key={i} style={{ fontSize: 12, marginTop: 4 }}>
                                 📎 <a href={a.url} target="_blank" rel="noreferrer">{a.name}</a>
@@ -699,7 +699,7 @@ function SettleModal({ advance, bankAccounts, cashFunds, accounts, onClose, onDo
 
                     <div>
                         <label className="form-label">Chứng từ {form.settleType === 'expense_proof' ? '*' : ''}</label>
-                        <input type="file" onChange={upload} disabled={uploading} />
+                        <input className="form-file" type="file" onChange={upload} disabled={uploading} />
                         {form.proofUrl && <div style={{ fontSize: 12, marginTop: 4 }}>📎 <a href={form.proofUrl} target="_blank" rel="noreferrer">Đã đính kèm</a></div>}
                     </div>
 

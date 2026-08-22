@@ -457,7 +457,7 @@ function DebtModal({ suppliers, projects, fixedSupplier, onClose, onDone }) {
                     )}
                     <div>
                         <label className="form-label">Chứng từ công nợ</label>
-                        <input type="file" onChange={upload} disabled={uploading} />
+                        <input className="form-file" type="file" onChange={upload} disabled={uploading} />
                         {form.attachments.map((a, i) => (
                             <div key={i} style={{ fontSize: 12, marginTop: 4 }}>
                                 📎 <a href={a.url} target="_blank" rel="noreferrer">{a.name}</a>
