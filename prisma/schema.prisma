@@ -2752,7 +2752,7 @@ model EmployeeAdvance {
   code                 String              @unique
   employeeId           String
   projectId            String?
-  advanceType          String              @default("Khác") // Lương | Công tác | Vật tư | Công trình | Chi phí | Khác
+  advanceType          String              @default("Khác") // Lương | Công tác | Vật tư | Tiền ăn | Công trình | Chi phí | Khác
   amount               Float
   date                 DateTime            @default(now())
   content              String              @default("")

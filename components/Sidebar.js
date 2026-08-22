@@ -65,6 +65,7 @@ const menuItems = [
               children: [
                   { href: '/finance/journal', label: 'Tổng hợp Thu – Chi' },
                   { href: '/finance/journal/advances', label: 'Tạm ứng nhân viên' },
+                  { href: '/finance/journal/advance-expenses', label: 'Tạm ứng công tác/vật tư/tiền ăn' },
                   { href: '/finance/journal/payables', label: 'Công nợ NCC / Nhà phân phối' },
                   { href: '/finance/journal/receivables', label: 'Công nợ Khách hàng' },
               ] },
