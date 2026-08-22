@@ -68,8 +68,6 @@ const menuItems = [
                   { href: '/finance/journal/payables', label: 'Công nợ NCC / Nhà phân phối' },
                   { href: '/finance/journal/receivables', label: 'Công nợ Khách hàng' },
               ] },
-            { href: '/finance', icon: Wallet, label: 'Tổng hợp tài chính',
-              roles: [...BAN_GD, ...KE_TOAN, ...VIEWER] },
             { href: '/finance/kinh-doanh', icon: BarChart3, label: 'Chi phí Kinh doanh',
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER] },
             { href: '/finance/luong-chi-phi', icon: Banknote, label: 'Lương & Chi phí cố định',
@@ -217,7 +215,7 @@ export default function Sidebar({ isOpen, onClose }) {
                         if (isXuongNhanVien && item.href === '/production') return false;
                         if (isDuyHien && [
                             '/work-orders', '/products',
-                            '/payments', '/expenses', '/finance', '/finance/kinh-doanh',
+                            '/payments', '/expenses', '/finance/kinh-doanh',
                             '/finance/luong-chi-phi', '/finance/tong-hop',
                             '/purchasing', '/inventory',
                         ].includes(item.href)) return false;

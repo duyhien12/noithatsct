@@ -24,7 +24,6 @@ const pageTitles = {
     '/products': 'Sản phẩm & VT',
     '/quotations': 'Báo giá',
     '/inventory': 'Kho & Tồn kho',
-    '/finance': 'Tài chính',
     '/finance/kinh-doanh': 'Chi phí Kinh doanh',
     '/workshop/tasks': 'Công việc xưởng',
     '/workshop/workers': 'Nhân công xưởng',

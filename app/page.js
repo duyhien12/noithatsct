@@ -181,7 +181,7 @@ export default function Dashboard() {
         blockedCount > 0 && { label: `${blockedCount} lệnh chi kẹt duyệt — ${fmtShort(blockedAmount)}`, href: '/expenses', color: '#dc2626' },
         overBudgetCount > 0 && { label: `${overBudgetCount} dự án vượt ngân sách`, href: '/projects', color: '#dc2626' },
         negativeMarginCount > 0 && { label: `${negativeMarginCount} dự án đang lỗ (margin âm)`, href: '/projects', color: '#dc2626' },
-        runwayDays < 30 && { label: `Cảnh báo: Runway chỉ còn ${runwayDays} ngày`, href: '/finance', color: '#dc2626' },
+        runwayDays < 30 && { label: `Cảnh báo: Runway chỉ còn ${runwayDays} ngày`, href: '/finance/journal', color: '#dc2626' },
     ].filter(Boolean);
 
     return (
@@ -248,7 +248,7 @@ export default function Dashboard() {
                     value={fmtShort(cashBalance)}
                     sub="Tổng thu – tổng chi"
                     color="#1C3A6B" bg="rgba(28,58,107,0.08)"
-                    href="/finance"
+                    href="/finance/journal"
                     icon={Icons.Wallet}
                     trend={cashBalance >= 0 ? 1 : -1}
                 />
@@ -273,7 +273,7 @@ export default function Dashboard() {
                     value={runwayLabel}
                     sub={`Burn ${fmtShort(burnRate30d)}/ngày`}
                     color={runwayColor} bg={`${runwayColor}14`}
-                    href="/finance"
+                    href="/finance/journal"
                     urgent={runwayDays < 30}
                     icon={() => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
                 />
@@ -302,7 +302,7 @@ export default function Dashboard() {
                 {/* Cashflow Timeline */}
                 <SectionCard
                     title={`Cashflow Timeline — ${period === 1 ? 'Hôm nay' : period === 90 ? 'Quý này' : `${period} ngày qua`}`}
-                    href="/finance"
+                    href="/finance/journal"
                 >
                     {/* Period summary */}
                     <div style={{ padding: '14px 18px 0' }}>
