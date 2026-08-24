@@ -42,8 +42,26 @@ function buildWhere(searchParams) {
     if (debitAccountId) where.debitAccountId = debitAccountId;
     const creditAccountId = searchParams.get('creditAccountId');
     if (creditAccountId) where.creditAccountId = creditAccountId;
+    const bankAccountId = searchParams.get('bankAccountId');
+    if (bankAccountId) where.bankAccountId = bankAccountId;
+    const cashFundId = searchParams.get('cashFundId');
+    if (cashFundId) where.cashFundId = cashFundId;
     const status = searchParams.get('status');
     if (status) where.status = status;
+    // Lọc theo cột — dùng chung 1 ô "Lọc theo cột" ở FilterBar (khác với ô tìm kiếm chung `search`
+    // ở dưới vốn quét nhiều field cùng lúc): mỗi field dưới đây lọc contains đúng 1 cột cụ thể.
+    const code = searchParams.get('code');
+    if (code) where.code = { contains: code, mode: 'insensitive' };
+    const content = searchParams.get('content');
+    if (content) where.content = { contains: content, mode: 'insensitive' };
+    const objectName = searchParams.get('objectName');
+    if (objectName) where.objectName = { contains: objectName, mode: 'insensitive' };
+    const payerReceiver = searchParams.get('payerReceiver');
+    if (payerReceiver) where.payerReceiver = { contains: payerReceiver, mode: 'insensitive' };
+    const itemName = searchParams.get('itemName');
+    if (itemName) where.itemName = { contains: itemName, mode: 'insensitive' };
+    const itemUnit = searchParams.get('itemUnit');
+    if (itemUnit) where.itemUnit = { contains: itemUnit, mode: 'insensitive' };
     const search = searchParams.get('search');
     if (search) {
         where.OR = [

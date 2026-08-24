@@ -27,6 +27,22 @@ function getDailyReportPeriodStart(cutoffHour = DAILY_REPORT_CUTOFF_HOUR) {
     return boundary;
 }
 
+// Lọc theo cột — chỉ các cột CHƯA có ô lọc riêng trong FilterBar (Ngày/Phòng ban/Loại GD/Phương
+// thức/Phân loại/Dự án/Trạng thái đã có select riêng, không lặp lại ở đây). type 'text' = lọc chứa
+// chuỗi (contains, không phân biệt hoa thường); type 'select' = chọn từ danh sách account/quỹ/NH có sẵn.
+const COLUMN_FILTER_DEFS = [
+    { key: 'code', label: 'Số phiếu', type: 'text', param: 'code' },
+    { key: 'content', label: 'Nội dung', type: 'text', param: 'content' },
+    { key: 'debitAccountId', label: 'TK Nợ', type: 'select', param: 'debitAccountId', source: 'accounts' },
+    { key: 'creditAccountId', label: 'TK Có', type: 'select', param: 'creditAccountId', source: 'accounts' },
+    { key: 'bankAccountId', label: 'TK ngân hàng', type: 'select', param: 'bankAccountId', source: 'bankAccounts' },
+    { key: 'cashFundId', label: 'Quỹ TM', type: 'select', param: 'cashFundId', source: 'cashFunds' },
+    { key: 'objectName', label: 'Đối tượng', type: 'text', param: 'objectName' },
+    { key: 'payerReceiver', label: 'Người nhận/nộp', type: 'text', param: 'payerReceiver' },
+    { key: 'itemName', label: 'Chủng loại', type: 'text', param: 'itemName' },
+    { key: 'itemUnit', label: 'ĐVT', type: 'text', param: 'itemUnit' },
+];
+
 const OBJECT_ENDPOINT = {
     'Khách hàng': '/api/customers',
     'NCC': '/api/suppliers',
@@ -64,7 +80,7 @@ export default function FinanceJournalPage() {
     const [dailyPeriodStart, setDailyPeriodStart] = useState(null);
     const [dailyFundSummary, setDailyFundSummary] = useState({ byCashFund: [], byBankAccount: [] });
 
-    const [filters, setFilters] = useState({ from: '', to: '', department: '', type: '', method: '', categoryId: '', projectId: '', status: '', search: '' });
+    const [filters, setFilters] = useState({ from: '', to: '', department: '', type: '', method: '', categoryId: '', projectId: '', status: '', search: '', columnKey: '', columnValue: '' });
     const [searchInput, setSearchInput] = useState('');
 
     const [modal, setModal] = useState(null); // { mode: 'add'|'edit'|'view', tx }
@@ -112,7 +128,16 @@ export default function FinanceJournalPage() {
     const fetchTransactions = useCallback(async (page = 1) => {
         setLoading(true);
         const params = new URLSearchParams();
-        Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
+        Object.entries(filters).forEach(([k, v]) => {
+            if (!v) return;
+            if (k === 'columnKey') return; // chỉ dùng để chọn cột, không gửi thẳng lên API
+            if (k === 'columnValue') {
+                const def = COLUMN_FILTER_DEFS.find(d => d.key === filters.columnKey);
+                if (def) params.set(def.param, v);
+                return;
+            }
+            params.set(k, v);
+        });
         params.set('page', String(page));
         params.set('limit', String(pagination.limit));
         if (showDeleted) params.set('deleted', '1');
@@ -150,7 +175,7 @@ export default function FinanceJournalPage() {
     }, [searchInput]);
 
     const clearFilters = () => {
-        setFilters({ from: '', to: '', department: '', type: '', method: '', categoryId: '', projectId: '', status: '', search: '' });
+        setFilters({ from: '', to: '', department: '', type: '', method: '', categoryId: '', projectId: '', status: '', search: '', columnKey: '', columnValue: '' });
         setSearchInput('');
     };
 
@@ -445,7 +470,8 @@ ${txs.map(voucher).join('')}
                 onCashBalanceSaved={setCashBalance} />
 
             <FilterBar filters={filters} setFilters={setFilters} searchInput={searchInput} setSearchInput={setSearchInput}
-                categories={categories} projects={projects} onClear={clearFilters} count={pagination.total}
+                categories={categories} projects={projects} accounts={accounts} bankAccounts={bankAccounts} cashFunds={cashFunds}
+                onClear={clearFilters} count={pagination.total}
                 onPrint={() => setPrintOpen(true)} />
 
             <TransactionTable
@@ -626,7 +652,7 @@ function statValueFontSize(text) {
     return 13;
 }
 
-function FilterBar({ filters, setFilters, searchInput, setSearchInput, categories, projects, onClear, count, onPrint }) {
+function FilterBar({ filters, setFilters, searchInput, setSearchInput, categories, projects, accounts, bankAccounts, cashFunds, onClear, count, onPrint }) {
     const set = (k, v) => setFilters(f => ({ ...f, [k]: v }));
     return (
         <div className="card" style={{ marginBottom: 16 }}>
@@ -657,11 +683,48 @@ function FilterBar({ filters, setFilters, searchInput, setSearchInput, categorie
                     <option value="">Mọi trạng thái</option>
                     {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
+                <ColumnValueFilter filters={filters} setFilters={setFilters} accounts={accounts} bankAccounts={bankAccounts} cashFunds={cashFunds} />
                 <button className="btn btn-ghost btn-sm" onClick={onClear}>✕ Xóa lọc</button>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', alignSelf: 'center' }}>{count} giao dịch</div>
                 <button className="btn btn-ghost btn-sm" onClick={onPrint}>🖨️ In phiếu</button>
             </div>
         </div>
+    );
+}
+
+// Ô lọc theo cột — chọn 1 cột trong COLUMN_FILTER_DEFS rồi nhập/chọn giá trị để lọc bảng ghi.
+// Đổi cột thì xóa luôn giá trị đang lọc (tránh gửi nhầm giá trị của cột cũ sang cột mới).
+function ColumnValueFilter({ filters, setFilters, accounts, bankAccounts, cashFunds }) {
+    const def = COLUMN_FILTER_DEFS.find(d => d.key === filters.columnKey);
+    const sourceList = { accounts, bankAccounts, cashFunds };
+    const optionLabel = (item) => {
+        if (def?.source === 'accounts') return `${item.code} — ${item.name}`;
+        if (def?.source === 'bankAccounts') return item.accountNumber ? `${item.bankName} - ${item.accountNumber}` : item.bankName;
+        return item.name;
+    };
+
+    const onColumnChange = (key) => setFilters(f => ({ ...f, columnKey: key, columnValue: '' }));
+    const onValueChange = (v) => setFilters(f => ({ ...f, columnValue: v }));
+
+    return (
+        <>
+            <select className="form-select" value={filters.columnKey} onChange={e => onColumnChange(e.target.value)}>
+                <option value="">Lọc theo cột...</option>
+                {COLUMN_FILTER_DEFS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+            </select>
+            {def && def.type === 'select' && (
+                <select className="form-select" value={filters.columnValue} onChange={e => onValueChange(e.target.value)}>
+                    <option value="">-- Chọn {def.label.toLowerCase()} --</option>
+                    {(sourceList[def.source] || []).map(item => (
+                        <option key={item.id} value={item.id}>{optionLabel(item)}</option>
+                    ))}
+                </select>
+            )}
+            {def && def.type === 'text' && (
+                <input className="form-input" placeholder={`Nhập ${def.label.toLowerCase()}...`}
+                    value={filters.columnValue} onChange={e => onValueChange(e.target.value)} style={{ minWidth: 160 }} />
+            )}
+        </>
     );
 }
 
