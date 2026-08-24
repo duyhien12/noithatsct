@@ -5,6 +5,26 @@ import { withCodeRetry } from '@/lib/generateCode';
 import { NextResponse } from 'next/server';
 import { employeeCreateSchema } from '@/lib/validations/employee';
 
+// Bỏ dấu tiếng Việt + hạ chữ thường, để so khớp không phân biệt hoa/thường và có dấu/không dấu.
+const COMBINING_MARKS = /[̀-ͯ]/g;
+function normalizeVi(str) {
+    return (str || '')
+        .toLowerCase()
+        .normalize('NFD').replace(COMBINING_MARKS, '')
+        .replace(/đ/g, 'd');
+}
+
+// Cho phép gõ chữ cái đầu của từng từ trong tên (VD: "nvt" → "Nguyễn Văn Tuấn"),
+// bên cạnh tìm theo chuỗi con thông thường (VD: "tuấn").
+function matchesEmployeeSearch(name, search) {
+    const normSearch = normalizeVi(search).trim();
+    if (!normSearch) return true;
+    const normName = normalizeVi(name);
+    if (normName.includes(normSearch)) return true;
+    const initials = normName.split(/\s+/).filter(Boolean).map(w => w[0]).join('');
+    return initials.includes(normSearch);
+}
+
 export const GET = withAuth(async (request) => {
     const { searchParams } = new URL(request.url);
     const { page, limit, skip } = parsePagination(searchParams);
@@ -13,17 +33,13 @@ export const GET = withAuth(async (request) => {
 
     const where = {};
     if (departmentId) where.departmentId = departmentId;
-    if (search) where.name = { contains: search };
 
-    const [data, total, rawDepts, empCounts] = await Promise.all([
+    const [employees, rawDepts, empCounts] = await Promise.all([
         prisma.employee.findMany({
             where,
             include: { department: { select: { name: true } } },
-            skip,
-            take: limit,
             orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
         }),
-        prisma.employee.count({ where }),
         prisma.department.findMany({ orderBy: { name: 'asc' } }),
         // Count only active (non-deleted) employees per department
         prisma.employee.groupBy({
@@ -32,6 +48,9 @@ export const GET = withAuth(async (request) => {
             _count: { id: true },
         }),
     ]);
+    const filtered = search ? employees.filter(e => matchesEmployeeSearch(e.name, search)) : employees;
+    const total = filtered.length;
+    const data = filtered.slice(skip, skip + limit);
     const countMap = Object.fromEntries(empCounts.map(e => [e.departmentId, e._count.id]));
     const departments = rawDepts.map(d => ({ ...d, _count: { employees: countMap[d.id] || 0 } }));
     return NextResponse.json({
