@@ -89,6 +89,7 @@ function LoginForm() {
 
     const [tab, setTab] = useState('login');
     const [showHelp, setShowHelp] = useState(false);
+    const [helpCacheBust, setHelpCacheBust] = useState(0);
     const [error, setError] = useState(urlError ? (AUTH_ERRORS[urlError] || AUTH_ERRORS.Default) : '');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
@@ -152,7 +153,7 @@ function LoginForm() {
         }}>
             <button
                 type="button"
-                onClick={() => setShowHelp(true)}
+                onClick={() => { setHelpCacheBust(Date.now()); setShowHelp(true); }}
                 title="Hướng dẫn sử dụng"
                 style={{
                     position: 'absolute', top: 20, right: 20,
@@ -292,7 +293,7 @@ function LoginForm() {
             <Modal isOpen={showHelp} onClose={() => setShowHelp(false)} title="Hướng dẫn sử dụng HomeERP" maxWidth={900}>
                 <div style={{ width: '100%', height: '75vh' }}>
                     <iframe
-                        src="https://duyhien12.github.io/homeerp-guide/"
+                        src={`https://duyhien12.github.io/homeerp-guide/?v=${helpCacheBust}`}
                         title="Hướng dẫn sử dụng HomeERP"
                         style={{ width: '100%', height: '100%', border: 'none', borderRadius: 8 }}
                     />

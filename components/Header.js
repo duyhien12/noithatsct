@@ -71,6 +71,7 @@ export default function Header({ onMenuToggle }) {
     const [showNotifMenu, setShowNotifMenu] = useState(false);
     const notifMenuRef = useRef(null);
     const [showHelp, setShowHelp] = useState(false);
+    const [helpCacheBust, setHelpCacheBust] = useState(0);
 
     const fetchNotifications = () => {
         fetch('/api/notifications').then(r => r.ok ? r.json() : null).then(d => {
@@ -178,7 +179,7 @@ export default function Header({ onMenuToggle }) {
                 </div>
             </div>
             <div className="header-right">
-                <button className="header-btn" title="Hướng dẫn sử dụng" aria-label="Hướng dẫn sử dụng" onClick={() => setShowHelp(true)}>
+                <button className="header-btn" title="Hướng dẫn sử dụng" aria-label="Hướng dẫn sử dụng" onClick={() => { setHelpCacheBust(Date.now()); setShowHelp(true); }}>
                     <HelpCircle size={20} />
                 </button>
                 <button className="header-btn" title={dark ? 'Chuyển sang sáng' : 'Chuyển sang tối'} onClick={toggleTheme} aria-label="Chuyển đổi giao diện">
@@ -344,7 +345,7 @@ export default function Header({ onMenuToggle }) {
             <Modal isOpen={showHelp} onClose={() => setShowHelp(false)} title="Hướng dẫn sử dụng HomeERP" maxWidth={900}>
                 <div style={{ width: '100%', height: '75vh' }}>
                     <iframe
-                        src="https://duyhien12.github.io/homeerp-guide/"
+                        src={`https://duyhien12.github.io/homeerp-guide/?v=${helpCacheBust}`}
                         title="Hướng dẫn sử dụng HomeERP"
                         style={{ width: '100%', height: '100%', border: 'none', borderRadius: 8 }}
                     />
