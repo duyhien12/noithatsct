@@ -919,6 +919,52 @@ function CategoryTreePicker({ categories, value, onChange, disabled, rootEmptyLa
 }
 
 // ════════════════════════════════════════════════════════════════════════
+// Combobox gõ để lọc tài khoản kế toán theo mã/tên — dùng cho TK Nợ/TK Có (39 tài khoản, dropdown
+// thường quá dài để dò bằng mắt). Danh sách accounts đã có sẵn ở client nên lọc ngay, không gọi API.
+function AccountSelect({ accounts, value, onChange, disabled, placeholder = 'Tìm mã hoặc tên TK...' }) {
+    const [open, setOpen] = useState(false);
+    const [q, setQ] = useState('');
+    const wrapRef = useRef(null);
+    const selected = accounts.find(a => a.id === value);
+
+    useEffect(() => {
+        if (!open) return;
+        const onDocMouseDown = (e) => { if (!wrapRef.current?.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', onDocMouseDown);
+        return () => document.removeEventListener('mousedown', onDocMouseDown);
+    }, [open]);
+
+    const filtered = q
+        ? accounts.filter(a => `${a.code} ${a.name}`.toLowerCase().includes(q.toLowerCase()))
+        : accounts;
+
+    return (
+        <div ref={wrapRef} style={{ position: 'relative' }}>
+            <input className="form-input" disabled={disabled} placeholder={placeholder}
+                value={open ? q : (selected ? `${selected.code} — ${selected.name}` : '')}
+                onFocus={() => { setOpen(true); setQ(''); }}
+                onChange={e => setQ(e.target.value)} />
+            {open && (
+                <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, zIndex: 100,
+                    background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 6,
+                    boxShadow: 'var(--shadow-md)', maxHeight: 220, overflowY: 'auto',
+                }}>
+                    {filtered.length === 0 && <div style={{ padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)' }}>Không tìm thấy</div>}
+                    {filtered.map(a => (
+                        <div key={a.id} style={{ padding: '6px 10px', fontSize: 13, cursor: 'pointer' }}
+                            onClick={() => { onChange(a.id); setQ(''); setOpen(false); }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                            onMouseLeave={e => e.currentTarget.style.background = ''}>
+                            {a.code} — {a.name}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function ObjectSelect({ objectType, objectId, objectName, onChange }) {
     const [options, setOptions] = useState([]);
     const [q, setQ] = useState('');
@@ -1177,16 +1223,12 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds,
                         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                             <div style={{ flex: 1, minWidth: 160 }}>
                                 <Field label="TK Nợ *">
-                                    <select className="form-select" disabled={isView} value={form.debitAccountId} onChange={e => set('debitAccountId', e.target.value)}>
-                                        <option value="">-- chọn --</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
-                                    </select>
+                                    <AccountSelect accounts={accounts} disabled={isView} value={form.debitAccountId} onChange={id => set('debitAccountId', id)} />
                                 </Field>
                             </div>
                             <div style={{ flex: 1, minWidth: 160 }}>
                                 <Field label="TK Có *">
-                                    <select className="form-select" disabled={isView} value={form.creditAccountId} onChange={e => set('creditAccountId', e.target.value)}>
-                                        <option value="">-- chọn --</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
-                                    </select>
+                                    <AccountSelect accounts={accounts} disabled={isView} value={form.creditAccountId} onChange={id => set('creditAccountId', id)} />
                                 </Field>
                             </div>
                             <div style={{ flex: 1, minWidth: 140 }}>
