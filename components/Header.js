@@ -2,7 +2,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
-import { Sun, Moon, Bell, Settings, LogOut, Search, Menu, ChevronDown } from 'lucide-react';
+import { Sun, Moon, Bell, Settings, LogOut, Search, Menu, ChevronDown, HelpCircle } from 'lucide-react';
+import Modal from '@/components/ui/Modal';
 
 const ROLE_LABELS = {
     ban_gd:        { label: 'Ban giám đốc',             icon: '👑' },
@@ -69,6 +70,7 @@ export default function Header({ onMenuToggle }) {
     const [unreadCount, setUnreadCount] = useState(0);
     const [showNotifMenu, setShowNotifMenu] = useState(false);
     const notifMenuRef = useRef(null);
+    const [showHelp, setShowHelp] = useState(false);
 
     const fetchNotifications = () => {
         fetch('/api/notifications').then(r => r.ok ? r.json() : null).then(d => {
@@ -176,6 +178,9 @@ export default function Header({ onMenuToggle }) {
                 </div>
             </div>
             <div className="header-right">
+                <button className="header-btn" title="Hướng dẫn sử dụng" aria-label="Hướng dẫn sử dụng" onClick={() => setShowHelp(true)}>
+                    <HelpCircle size={20} />
+                </button>
                 <button className="header-btn" title={dark ? 'Chuyển sang sáng' : 'Chuyển sang tối'} onClick={toggleTheme} aria-label="Chuyển đổi giao diện">
                     {dark ? <Sun size={20} /> : <Moon size={20} />}
                 </button>
@@ -335,6 +340,16 @@ export default function Header({ onMenuToggle }) {
                     <LogOut size={18} />
                 </button>
             </div>
+
+            <Modal isOpen={showHelp} onClose={() => setShowHelp(false)} title="Hướng dẫn sử dụng HomeERP" maxWidth={900}>
+                <div style={{ width: '100%', height: '75vh' }}>
+                    <iframe
+                        src="https://duyhien12.github.io/homeerp-guide/"
+                        title="Hướng dẫn sử dụng HomeERP"
+                        style={{ width: '100%', height: '100%', border: 'none', borderRadius: 8 }}
+                    />
+                </div>
+            </Modal>
         </header>
     );
 }

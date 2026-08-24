@@ -3,7 +3,8 @@
 import { useState, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { LogIn, Eye, EyeOff, AlertCircle, UserPlus, CheckCircle } from 'lucide-react';
+import { LogIn, Eye, EyeOff, AlertCircle, UserPlus, CheckCircle, HelpCircle } from 'lucide-react';
+import Modal from '@/components/ui/Modal';
 
 /* ─── Constants ─────────────────────────────────────────────────── */
 const SCT_ORANGE = '#F47920';
@@ -87,6 +88,7 @@ function LoginForm() {
     const urlError = searchParams.get('error');
 
     const [tab, setTab] = useState('login');
+    const [showHelp, setShowHelp] = useState(false);
     const [error, setError] = useState(urlError ? (AUTH_ERRORS[urlError] || AUTH_ERRORS.Default) : '');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
@@ -146,8 +148,23 @@ function LoginForm() {
         <div style={{
             minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: `linear-gradient(160deg, ${SCT_ORANGE} 0%, ${SCT_DARK} 60%, #C94F12 100%)`,
-            padding: 16,
+            padding: 16, position: 'relative',
         }}>
+            <button
+                type="button"
+                onClick={() => setShowHelp(true)}
+                title="Hướng dẫn sử dụng"
+                style={{
+                    position: 'absolute', top: 20, right: 20,
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.4)',
+                    borderRadius: 8, padding: '8px 14px', color: 'white',
+                    fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                }}
+            >
+                <HelpCircle size={16} /> Hỗ trợ
+            </button>
+
             <div style={{
                 background: 'white', borderRadius: 20, padding: '40px 28px 32px',
                 width: '100%', maxWidth: 420,
@@ -271,6 +288,16 @@ function LoginForm() {
                 )}
 
             </div>
+
+            <Modal isOpen={showHelp} onClose={() => setShowHelp(false)} title="Hướng dẫn sử dụng HomeERP" maxWidth={900}>
+                <div style={{ width: '100%', height: '75vh' }}>
+                    <iframe
+                        src="https://duyhien12.github.io/homeerp-guide/"
+                        title="Hướng dẫn sử dụng HomeERP"
+                        style={{ width: '100%', height: '100%', border: 'none', borderRadius: 8 }}
+                    />
+                </div>
+            </Modal>
         </div>
     );
 }
