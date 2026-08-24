@@ -10,7 +10,10 @@ const prisma = new PrismaClient();
 const DEFAULT_CATEGORY_GROUPS = [
     { name: 'Thu khách hàng / Doanh thu', group: 'Thu', order: 1, items: ['Doanh thu KDNT', 'Doanh Thu TKNT', 'Doanh thu TKKT', 'Doanh thu XD', 'Phải thu khách hàng'] },
     { name: 'Thu tài chính', group: 'Thu', order: 2, items: ['Vay ngắn hạn', 'Lãi TK', 'Tiền gửi ngân hàng'] },
-    { name: 'Thu khác', group: 'Thu', order: 3, items: [] },
+    { name: 'Thu khác', group: 'Thu', order: 3, items: ['Thanh lý TSCĐ/CCDC', 'Thu phạt hợp đồng', 'Thuế/phí được hoàn', 'Thu khác'] },
+    { name: 'Thu hoàn ứng', group: 'Thu', order: 4, items: ['Hoàn ứng mua vật tư', 'Hoàn ứng công tác phí', 'Hoàn ứng tiền ăn', 'Thu hồi tiền chi thừa', 'Thu hồi ứng lương'] },
+    { name: 'Thu vay – vốn', group: 'Thu', order: 5, items: ['Vay ngân hàng', 'Vay cá nhân', 'Thu hồi tiền cho vay', 'Nhận vốn góp'] },
+    { name: 'Thu từ nhà cung cấp', group: 'Thu', order: 6, items: ['NCC hoàn tiền', 'Hoàn tiền hàng trả lại'] },
 
     { name: 'Chi phí công trình', group: 'Chi', order: 1, items: ['Vật tư', 'NC thuê ngoài', 'Vận chuyển', 'Máy móc', 'Sửa chữa MM', 'Công cụ dụng cụ', 'Hàng hóa', 'Chi phí công trình khác', 'Đầu tư XNT'] },
     { name: 'Chi phí nhân sự', group: 'Chi', order: 2, items: ['Lương', 'Lương SP', 'Ứng lương SP', 'T/ứng lương', 'BHXH', 'Công đoàn', 'Phụ cấp', 'Thưởng năng suất', 'Làm thêm giờ', 'Tiền ăn', 'Đồng phục', 'Phúc lợi'] },
