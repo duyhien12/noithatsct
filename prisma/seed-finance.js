@@ -18,7 +18,7 @@ const DEFAULT_CATEGORY_GROUPS = [
     { name: 'Chi phí bán hàng & marketing', group: 'Chi', order: 4, items: ['Quảng cáo', 'Đối ngoại', 'Tiếp khách', 'Tổ chức sự kiện', 'Quà tặng', 'Chiết khấu', 'Gửi HĐ'] },
     { name: 'Chi phí đi lại & xe', group: 'Chi', order: 5, items: ['Xe oto', 'Xăng xe', 'Sửa xe', 'Công tác'] },
     { name: 'Chi phí tài chính', group: 'Chi', order: 6, items: ['Lãi', 'Gốc', 'Thuế', 'Thu phí TK', 'Phí thẩm định'] },
-    { name: 'Tạm ứng & công nợ nội bộ', group: 'Chi', order: 7, items: ['T/ứng VT+ ăn+ c/tác', 'Trả NCC', 'Cho vay nội bộ', 'Chuyển quỹ'] },
+    { name: 'Tạm ứng & công nợ nội bộ', group: 'Chi', order: 7, items: ['Tạm ứng công tác', 'Tạm ứng vật tư', 'Tạm ứng ăn', 'Trả NCC', 'Cho vay nội bộ', 'Chuyển quỹ'] },
     { name: 'Chi khác', group: 'Chi', order: 8, items: ['Chi khác (chưa phân loại)', 'Chi riêng', 'Chi A', 'Liên hoan'] },
 ];
 

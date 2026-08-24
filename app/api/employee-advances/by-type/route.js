@@ -2,15 +2,17 @@ import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { parsePagination, paginatedResponse } from '@/lib/pagination';
 import { NextResponse } from 'next/server';
-import { VIEW_ROLES, getCategoryDescendantIds } from '@/lib/financeJournal';
-import { DEFAULT_ADVANCE_CATEGORY, OPERATIONAL_ADVANCE_TYPES } from '@/lib/employeeAdvance';
+import { VIEW_ROLES } from '@/lib/financeJournal';
+import { ADVANCE_CATEGORY_BY_TYPE, OPERATIONAL_ADVANCE_TYPES } from '@/lib/employeeAdvance';
 
 // Sổ con "Tạm ứng công tác/vật tư/tiền ăn" — lấy dữ liệu TRỰC TIẾP từ bảng Tổng hợp Thu – Chi
 // (FinanceTransaction, nguồn chân lý duy nhất). Một phiếu Chi được coi là tạm ứng thuộc sổ này khi:
 // (a) tạo qua modal "Tạo tạm ứng" — có liên kết advanceOf, HOẶC
-// (b) nhập trực tiếp trong Nhật ký Thu – Chi với danh mục "T/ứng VT+ ăn+ c/tác" (không bắt buộc phải
-//     qua modal — kế toán vẫn hay nhập thẳng ở Nhật ký chính).
-// Chỉ join sang EmployeeAdvance (khi có) để biết loại tạm ứng cụ thể và số dư còn lại/hoàn ứng.
+// (b) nhập trực tiếp trong Nhật ký Thu – Chi với 1 trong 3 danh mục "Tạm ứng công tác/vật tư/ăn"
+//     (không bắt buộc phải qua modal — kế toán vẫn hay nhập thẳng ở Nhật ký chính). Mỗi danh mục
+//     tương ứng đúng 1 loại (xem ADVANCE_CATEGORY_BY_TYPE) nên phiếu nhập tay vẫn xác định được loại
+//     và lọc theo loại chính xác, không cần dựa vào EmployeeAdvance.
+// Chỉ join sang EmployeeAdvance (khi có) để biết số dư còn lại/hoàn ứng.
 export const GET = withAuth(async (request) => {
     const { searchParams } = new URL(request.url);
     const { page, limit, skip } = parsePagination(searchParams);
@@ -23,16 +25,17 @@ export const GET = withAuth(async (request) => {
     const typesParam = searchParams.get('types');
     const types = typesParam ? typesParam.split(',').filter(Boolean) : OPERATIONAL_ADVANCE_TYPES;
 
-    const advanceCategory = await prisma.financeCategory.findFirst({ where: { name: DEFAULT_ADVANCE_CATEGORY }, select: { id: true } });
-    let categoryIds = [];
-    if (advanceCategory) {
-        const allCategories = await prisma.financeCategory.findMany({ select: { id: true, parentId: true } });
-        categoryIds = getCategoryDescendantIds(advanceCategory.id, allCategories);
-    }
+    const categoryNames = types.map(t => ADVANCE_CATEGORY_BY_TYPE[t]).filter(Boolean);
+    const categories = categoryNames.length
+        ? await prisma.financeCategory.findMany({ where: { name: { in: categoryNames } }, select: { id: true, name: true } })
+        : [];
+    const categoryIds = categories.map(c => c.id);
+    const typeByCategoryId = Object.fromEntries(
+        categories.map(c => [c.id, types.find(t => ADVANCE_CATEGORY_BY_TYPE[t] === c.name)])
+    );
 
-    // "Thuộc sổ này" = tạo qua modal với đúng loại Công tác/Vật tư/Tiền ăn (loại khác như Lương bị
-    // loại trừ dù có advanceOf), HOẶC nhập tay trong Nhật ký với danh mục "T/ứng VT+ ăn+ c/tác"
-    // (không phân loại được cụ thể nhưng vẫn đúng phạm vi danh mục của sổ này).
+    // "Thuộc sổ này" = tạo qua modal với đúng loại đang lọc (loại khác như Lương bị loại trừ dù có
+    // advanceOf), HOẶC nhập tay trong Nhật ký với đúng 1 trong các danh mục tương ứng loại đang lọc.
     const and = [
         { deletedAt: null },
         { type: 'Chi' },
@@ -75,7 +78,7 @@ export const GET = withAuth(async (request) => {
             employeeName: advance?.employee?.name || t.objectName || '—',
             employeeCode: advance?.employee?.code || '',
             department: t.department,
-            advanceType: advance?.advanceType || null, content: t.content,
+            advanceType: advance?.advanceType || typeByCategoryId[t.categoryId] || null, content: t.content,
             project: t.project ? { id: t.project.id, code: t.project.code, name: t.project.name } : null,
             amount: t.amount, settledAmount, remaining,
             status: remaining > 0.01 ? 'open' : 'settled',
