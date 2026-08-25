@@ -1583,6 +1583,7 @@ const TRANSFER_KINDS = [
     { key: 'fund_to_fund', label: 'Quỹ → Quỹ' },
     { key: 'fund_to_bank', label: 'Nộp tiền: Quỹ → Ngân hàng' },
     { key: 'bank_to_fund', label: 'Rút tiền: Ngân hàng → Quỹ' },
+    { key: 'bank_to_bank', label: 'Ngân hàng → Ngân hàng' },
 ];
 
 function TransferModal({ cashFunds, bankAccounts, onClose, onDone }) {
@@ -1602,9 +1603,11 @@ function TransferModal({ cashFunds, bankAccounts, onClose, onDone }) {
     const toFund = cashFunds.find(f => f.id === form.toFundId);
     const fromBank = bankAccounts.find(b => b.id === form.fromBankAccountId);
     const toBank = bankAccounts.find(b => b.id === form.toBankAccountId);
+    const fromIsBank = form.kind === 'bank_to_fund' || form.kind === 'bank_to_bank';
+    const toIsBank = form.kind === 'fund_to_bank' || form.kind === 'bank_to_bank';
 
-    const fromLabel = form.kind === 'bank_to_fund' ? (fromBank ? `${fromBank.bankName}` : null) : (fromFund ? `Quỹ ${fromFund.name}` : null);
-    const toLabel = form.kind === 'fund_to_bank' ? (toBank ? `${toBank.bankName}` : null) : (toFund ? `Quỹ ${toFund.name}` : null);
+    const fromLabel = fromIsBank ? (fromBank ? `${fromBank.bankName}` : null) : (fromFund ? `Quỹ ${fromFund.name}` : null);
+    const toLabel = toIsBank ? (toBank ? `${toBank.bankName}` : null) : (toFund ? `Quỹ ${toFund.name}` : null);
 
     const submit = async () => {
         if (!form.department) return setError('Vui lòng chọn phòng ban');
@@ -1616,6 +1619,9 @@ function TransferModal({ cashFunds, bankAccounts, onClose, onDone }) {
         }
         if (form.kind === 'bank_to_fund' && (!form.fromBankAccountId || !form.toFundId)) {
             return setError('Vui lòng chọn tài khoản ngân hàng nguồn và quỹ đích');
+        }
+        if (form.kind === 'bank_to_bank' && (!form.fromBankAccountId || !form.toBankAccountId || form.fromBankAccountId === form.toBankAccountId)) {
+            return setError('Vui lòng chọn tài khoản ngân hàng nguồn và đích khác nhau');
         }
         if (!(Number(form.amount) > 0)) return setError('Số tiền phải lớn hơn 0');
         setSaving(true);
@@ -1648,8 +1654,8 @@ function TransferModal({ cashFunds, bankAccounts, onClose, onDone }) {
                         </Field>
                     </Row>
                     <Row>
-                        <Field label={form.kind === 'bank_to_fund' ? 'Ngân hàng nguồn *' : 'Quỹ nguồn *'}>
-                            {form.kind === 'bank_to_fund' ? (
+                        <Field label={fromIsBank ? 'Ngân hàng nguồn *' : 'Quỹ nguồn *'}>
+                            {fromIsBank ? (
                                 <select className="form-select" value={form.fromBankAccountId} onChange={e => set('fromBankAccountId', e.target.value)}>
                                     <option value="">-- chọn --</option>
                                     {bankAccounts.map(b => <option key={b.id} value={b.id}>{b.bankName} ({fmt(b.balance ?? b.openingBalance)})</option>)}
@@ -1661,11 +1667,11 @@ function TransferModal({ cashFunds, bankAccounts, onClose, onDone }) {
                                 </select>
                             )}
                         </Field>
-                        <Field label={form.kind === 'fund_to_bank' ? 'Ngân hàng đích *' : 'Quỹ đích *'}>
-                            {form.kind === 'fund_to_bank' ? (
+                        <Field label={toIsBank ? 'Ngân hàng đích *' : 'Quỹ đích *'}>
+                            {toIsBank ? (
                                 <select className="form-select" value={form.toBankAccountId} onChange={e => set('toBankAccountId', e.target.value)}>
                                     <option value="">-- chọn --</option>
-                                    {bankAccounts.map(b => <option key={b.id} value={b.id}>{b.bankName} ({fmt(b.balance ?? b.openingBalance)})</option>)}
+                                    {bankAccounts.filter(b => b.id !== form.fromBankAccountId).map(b => <option key={b.id} value={b.id}>{b.bankName} ({fmt(b.balance ?? b.openingBalance)})</option>)}
                                 </select>
                             ) : (
                                 <select className="form-select" value={form.toFundId} onChange={e => set('toFundId', e.target.value)}>

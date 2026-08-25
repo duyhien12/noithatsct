@@ -18,7 +18,7 @@ const INCLUDE = {
 };
 
 const schema = z.object({
-    kind: z.enum(['fund_to_fund', 'fund_to_bank', 'bank_to_fund']),
+    kind: z.enum(['fund_to_fund', 'fund_to_bank', 'bank_to_fund', 'bank_to_bank']),
     date: z.string().min(1, 'Ngày bắt buộc').transform(v => new Date(v)),
     department: z.enum(DEPARTMENTS, { error: 'Phòng ban bắt buộc' }),
     fromFundId: z.string().optional().nullable().default(null),
@@ -37,6 +37,9 @@ const schema = z.object({
     })
     .refine(d => d.kind !== 'bank_to_fund' || (d.fromBankAccountId && d.toFundId), {
         message: 'Vui lòng chọn tài khoản ngân hàng nguồn và quỹ đích', path: ['toFundId'],
+    })
+    .refine(d => d.kind !== 'bank_to_bank' || (d.fromBankAccountId && d.toBankAccountId && d.fromBankAccountId !== d.toBankAccountId), {
+        message: 'Vui lòng chọn tài khoản ngân hàng nguồn và đích khác nhau', path: ['toBankAccountId'],
     });
 
 async function getOrCreateTransferCategory(group) {
@@ -51,10 +54,11 @@ async function getBankGlAccount() {
     return acc;
 }
 
-// Chuyển tiền nội bộ — 3 loại:
+// Chuyển tiền nội bộ — 4 loại:
 //  - fund_to_fund: Quỹ tiền mặt A → Quỹ tiền mặt B
 //  - fund_to_bank: Nộp tiền mặt từ 1 Quỹ vào 1 TK ngân hàng
 //  - bank_to_fund: Rút tiền từ 1 TK ngân hàng về 1 Quỹ tiền mặt
+//  - bank_to_bank: Chuyển khoản từ 1 TK ngân hàng sang 1 TK ngân hàng khác
 // Luôn tạo 1 cặp phiếu Chi (nguồn) + Thu (đích) liên kết bằng transferGroupId,
 // dùng chung 1 bút toán Nợ/Có (Nợ = TK của bên nhận, Có = TK của bên gửi).
 export const POST = withAuth(async (request, _ctx, session) => {
@@ -94,7 +98,7 @@ export const POST = withAuth(async (request, _ctx, session) => {
         creditAccountId = fromFund.accountingAccountId;
         fromLabel = `Quỹ ${fromFund.name}`;
         toLabel = `${toBank.bankName}${toBank.accountNumber ? ` — ${toBank.accountNumber}` : ''}`;
-    } else {
+    } else if (kind === 'bank_to_fund') {
         [fromBank, toFund] = await Promise.all([
             prisma.bankAccount.findUnique({ where: { id: data.fromBankAccountId } }),
             prisma.cashFund.findUnique({ where: { id: data.toFundId } }),
@@ -109,6 +113,18 @@ export const POST = withAuth(async (request, _ctx, session) => {
         creditAccountId = bankGl.id;
         fromLabel = `${fromBank.bankName}${fromBank.accountNumber ? ` — ${fromBank.accountNumber}` : ''}`;
         toLabel = `Quỹ ${toFund.name}`;
+    } else {
+        [fromBank, toBank] = await Promise.all([
+            prisma.bankAccount.findUnique({ where: { id: data.fromBankAccountId } }),
+            prisma.bankAccount.findUnique({ where: { id: data.toBankAccountId } }),
+        ]);
+        if (!fromBank) return NextResponse.json({ error: 'Không tìm thấy tài khoản ngân hàng nguồn' }, { status: 404 });
+        if (!toBank) return NextResponse.json({ error: 'Không tìm thấy tài khoản ngân hàng đích' }, { status: 404 });
+        const bankGl = await getBankGlAccount();
+        debitAccountId = bankGl.id;
+        creditAccountId = bankGl.id;
+        fromLabel = `${fromBank.bankName}${fromBank.accountNumber ? ` — ${fromBank.accountNumber}` : ''}`;
+        toLabel = `${toBank.bankName}${toBank.accountNumber ? ` — ${toBank.accountNumber}` : ''}`;
     }
 
     const [chiCategory, thuCategory] = await Promise.all([
@@ -119,8 +135,8 @@ export const POST = withAuth(async (request, _ctx, session) => {
     const transferGroupId = randomUUID();
     const content = `Chuyển tiền: ${fromLabel} → ${toLabel}${data.content ? ` — ${data.content}` : ''}`;
 
-    const chiIsCash = kind !== 'bank_to_fund';
-    const thuIsCash = kind !== 'fund_to_bank';
+    const chiIsCash = kind === 'fund_to_fund' || kind === 'fund_to_bank';
+    const thuIsCash = kind === 'fund_to_fund' || kind === 'bank_to_fund';
 
     const chi = await withCodeRetry('financeTransaction', 'PC', (code) =>
         prisma.financeTransaction.create({
@@ -129,8 +145,8 @@ export const POST = withAuth(async (request, _ctx, session) => {
                 method: chiIsCash ? 'Tiền mặt' : 'Chuyển khoản',
                 cashIn: 0, cashOut: chiIsCash ? amount : 0,
                 bankIn: 0, bankOut: chiIsCash ? 0 : amount,
-                cashFundId: kind === 'bank_to_fund' ? null : fromFund.id,
-                bankAccountId: kind === 'bank_to_fund' ? fromBank.id : null,
+                cashFundId: chiIsCash ? fromFund.id : null,
+                bankAccountId: chiIsCash ? null : fromBank.id,
                 debitAccountId, creditAccountId,
                 categoryId: chiCategory.id,
                 notes,
@@ -147,8 +163,8 @@ export const POST = withAuth(async (request, _ctx, session) => {
                 method: thuIsCash ? 'Tiền mặt' : 'Chuyển khoản',
                 cashIn: thuIsCash ? amount : 0, cashOut: 0,
                 bankIn: thuIsCash ? 0 : amount, bankOut: 0,
-                cashFundId: kind === 'fund_to_bank' ? null : toFund.id,
-                bankAccountId: kind === 'fund_to_bank' ? toBank.id : null,
+                cashFundId: thuIsCash ? toFund.id : null,
+                bankAccountId: thuIsCash ? null : toBank.id,
                 debitAccountId, creditAccountId,
                 categoryId: thuCategory.id,
                 notes,
