@@ -35,10 +35,20 @@ export const GET = withAuth(async (request, context, session) => {
 
     const safe = (p, fallback) => p.catch(() => fallback);
 
+    // Ký quỹ (bảo lãnh dự thầu/hợp đồng, bảo hành công trình) là tiền đặt cọc có thể
+    // thu hồi — không phải doanh thu/chi phí thực của công ty, nên loại khỏi P&L
+    // (stats.revenue/expense) dù vẫn tính vào Cash Balance/Burn Rate (tiền vẫn ra/vào quỹ thật).
+    const kyQuyParents = await prisma.financeCategory.findMany({ where: { name: 'Ký quỹ', level: 1 }, select: { id: true } });
+    const kyQuyParentIds = kyQuyParents.map(c => c.id);
+    const kyQuyChildren = kyQuyParentIds.length
+        ? await prisma.financeCategory.findMany({ where: { parentId: { in: kyQuyParentIds } }, select: { id: true } })
+        : [];
+    const kyQuyCategoryIds = [...kyQuyParentIds, ...kyQuyChildren.map(c => c.id)];
+
     const [
         // Legacy stats
         customerCount, projectCount, productCount, contractCount, workOrderCount,
-        income, expense, activeProjects, pendingWorkOrders, contractValueAgg,
+        income, expense, incomePL, expensePL, activeProjects, pendingWorkOrders, contractValueAgg,
         recentProjects, projectsByStatus, lowStockProducts,
         // CFO data
         expense30dAgg,
@@ -52,13 +62,23 @@ export const GET = withAuth(async (request, context, session) => {
         safe(prisma.product.count(), 0),
         safe(prisma.contract.count(), 0),
         safe(prisma.workOrder.count(), 0),
-        // Thu/Chi thực tế — lấy từ Nhật ký Thu Chi (chỉ tính giao dịch đã hạch toán)
+        // Thu/Chi thực tế (bao gồm ký quỹ) — dùng cho Cash Balance/Burn Rate
         safe(prisma.financeTransaction.aggregate({
             where: { status: BALANCE_STATUS, deletedAt: null },
             _sum: { cashIn: true, bankIn: true },
         }), { _sum: { cashIn: 0, bankIn: 0 } }),
         safe(prisma.financeTransaction.aggregate({
             where: { status: BALANCE_STATUS, deletedAt: null },
+            _sum: { cashOut: true, bankOut: true },
+        }), { _sum: { cashOut: 0, bankOut: 0 } }),
+        // Doanh thu/Chi phí P&L (loại trừ Ký quỹ) — dùng cho stats.revenue/expense.
+        // OR categoryId:null giữ nguyên giao dịch chưa gán category (notIn tự loại NULL theo ngữ nghĩa SQL).
+        safe(prisma.financeTransaction.aggregate({
+            where: { status: BALANCE_STATUS, deletedAt: null, OR: [{ categoryId: null }, { categoryId: { notIn: kyQuyCategoryIds } }] },
+            _sum: { cashIn: true, bankIn: true },
+        }), { _sum: { cashIn: 0, bankIn: 0 } }),
+        safe(prisma.financeTransaction.aggregate({
+            where: { status: BALANCE_STATUS, deletedAt: null, OR: [{ categoryId: null }, { categoryId: { notIn: kyQuyCategoryIds } }] },
             _sum: { cashOut: true, bankOut: true },
         }), { _sum: { cashOut: 0, bankOut: 0 } }),
         safe(prisma.project.count({ where: { status: { in: ['Thi công', 'Thiết kế', 'Đang thi công'] } } }), 0),
@@ -111,9 +131,13 @@ export const GET = withAuth(async (request, context, session) => {
     ]);
 
     // --- Derived CFO metrics ---
+    // Cash Balance/Burn Rate dùng tổng thật (bao gồm ký quỹ) — tiền vẫn thực sự ra/vào quỹ.
     const totalRevenue = (income._sum.cashIn || 0) + (income._sum.bankIn || 0);
     const totalExpense = (expense._sum.cashOut || 0) + (expense._sum.bankOut || 0);
     const cashBalance  = totalRevenue - totalExpense;
+    // Doanh thu/Chi phí (P&L) — loại trừ Ký quỹ vì đây là tiền đặt cọc có thể thu hồi, không phải chi phí/doanh thu thực.
+    const revenuePL = (incomePL._sum.cashIn || 0) + (incomePL._sum.bankIn || 0);
+    const expensePLTotal = (expensePL._sum.cashOut || 0) + (expensePL._sum.bankOut || 0);
 
     const totalContractValue = contractValueAgg._sum.contractValue || 0;
     const totalPaid          = contractValueAgg._sum.paidAmount || 0;
@@ -184,8 +208,8 @@ export const GET = withAuth(async (request, context, session) => {
     return NextResponse.json({
         // Legacy
         stats: {
-            revenue: totalRevenue,
-            expense: totalExpense,
+            revenue: revenuePL,
+            expense: expensePLTotal,
             projects: projectCount,
             activeProjects,
             customers: customerCount,
