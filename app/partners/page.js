@@ -7,6 +7,10 @@ const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency:
 
 const SUPPLIER_TYPES = ['Vật tư xây dựng', 'Thiết bị vệ sinh', 'Thiết bị điện', 'Nội thất', 'Sắt thép', 'Gạch ốp lát', 'Sơn', 'Nhôm kính', 'Cơ khí', 'Khác'];
 const CONTRACTOR_TYPES = ['Thầu xây dựng', 'CTV thiết kế kiến trúc', 'CTV Kết cấu', 'CTV 3D', 'Thầu mộc', 'Thầu điện', 'Thầu nước', 'Thầu sơn', 'Thầu đá', 'Thầu cơ khí', 'Thầu nhôm kính', 'Thầu trần thạch cao', 'Khác'];
+const CUSTOM_TYPE_OPTION = '__custom__';
+// Loại NCC/Thầu phụ là text tự do ở DB — gộp thêm các loại đã lưu ngoài danh sách mặc định
+// để dropdown hiển thị đúng khi lọc/sửa các bản ghi đã dùng loại tự thêm.
+const mergeTypes = (base, records) => Array.from(new Set([...base, ...records.map(r => r.type).filter(Boolean)]));
 
 const emptySup = { name: '', type: 'Vật tư xây dựng', contact: '', phone: '', email: '', address: '', taxCode: '', bankAccount: '', bankName: '', rating: 3, notes: '', isBlacklisted: false, creditLimit: 0 };
 const emptyCon = { name: '', type: 'Thầu xây dựng', phone: '', address: '', taxCode: '', bankAccount: '', bankName: '', rating: 3, notes: '', isBlacklisted: false, creditLimit: 0 };
@@ -38,6 +42,11 @@ export default function PartnersPage() {
     const [editingLoan, setEditingLoan] = useState(null);
     const [showLoanModal, setShowLoanModal] = useState(false);
     const [uploadingQr, setUploadingQr] = useState(false);
+    const [supTypeCustom, setSupTypeCustom] = useState(false);
+    const [conTypeCustom, setConTypeCustom] = useState(false);
+
+    const supplierTypeOptions = mergeTypes(SUPPLIER_TYPES, suppliers);
+    const contractorTypeOptions = mergeTypes(CONTRACTOR_TYPES, contractors);
 
     const fetchData = async () => {
         setLoading(true);
@@ -51,10 +60,11 @@ export default function PartnersPage() {
     useEffect(() => { fetchData(); }, []);
 
     // === Suppliers CRUD ===
-    const openCreateSup = () => { setEditing(null); setSupForm(emptySup); setShowModal('ncc'); };
-    const openEditSup = (s) => { setEditing(s); setSupForm({ name: s.name, type: s.type, contact: s.contact, phone: s.phone, email: s.email, address: s.address, taxCode: s.taxCode, bankAccount: s.bankAccount, bankName: s.bankName, rating: s.rating, notes: s.notes }); setShowModal('ncc'); };
+    const openCreateSup = () => { setEditing(null); setSupForm(emptySup); setSupTypeCustom(false); setShowModal('ncc'); };
+    const openEditSup = (s) => { setEditing(s); setSupForm({ name: s.name, type: s.type, contact: s.contact, phone: s.phone, email: s.email, address: s.address, taxCode: s.taxCode, bankAccount: s.bankAccount, bankName: s.bankName, rating: s.rating, notes: s.notes }); setSupTypeCustom(false); setShowModal('ncc'); };
     const submitSup = async () => {
         if (!supForm.name.trim()) return alert('Nhập tên NCC!');
+        if (supTypeCustom && !supForm.type.trim()) return alert('Nhập tên loại mới!');
         if (editing) await fetch(`/api/suppliers/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(supForm) });
         else await fetch('/api/suppliers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(supForm) });
         setShowModal(false); fetchData();
@@ -67,10 +77,11 @@ export default function PartnersPage() {
     };
 
     // === Contractors CRUD ===
-    const openCreateCon = () => { setEditing(null); setConForm(emptyCon); setShowModal('tp'); };
-    const openEditCon = (c) => { setEditing(c); setConForm({ name: c.name, type: c.type, phone: c.phone, address: c.address, taxCode: c.taxCode, bankAccount: c.bankAccount, bankName: c.bankName, rating: c.rating, notes: c.notes }); setShowModal('tp'); };
+    const openCreateCon = () => { setEditing(null); setConForm(emptyCon); setConTypeCustom(false); setShowModal('tp'); };
+    const openEditCon = (c) => { setEditing(c); setConForm({ name: c.name, type: c.type, phone: c.phone, address: c.address, taxCode: c.taxCode, bankAccount: c.bankAccount, bankName: c.bankName, rating: c.rating, notes: c.notes }); setConTypeCustom(false); setShowModal('tp'); };
     const submitCon = async () => {
         if (!conForm.name.trim()) return alert('Nhập tên thầu phụ!');
+        if (conTypeCustom && !conForm.type.trim()) return alert('Nhập tên loại mới!');
         if (editing) await fetch(`/api/contractors/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(conForm) });
         else await fetch('/api/contractors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(conForm) });
         setShowModal(false); fetchData();
@@ -216,7 +227,7 @@ export default function PartnersPage() {
                         {tab !== 'vay' && (
                             <select className="form-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
                                 <option value="">Tất cả loại</option>
-                                {(tab === 'ncc' ? SUPPLIER_TYPES : CONTRACTOR_TYPES).map(t => <option key={t}>{t}</option>)}
+                                {(tab === 'ncc' ? supplierTypeOptions : contractorTypeOptions).map(t => <option key={t}>{t}</option>)}
                             </select>
                         )}
                         {tab !== 'vay' && <button className="btn btn-ghost" onClick={() => openPaste(tab === 'ncc' ? 'ncc' : 'tp')}>📋 Excel</button>}
@@ -248,7 +259,7 @@ export default function PartnersPage() {
                                             <span className="primary" style={{ cursor: 'pointer', textDecoration: 'underline dotted' }} onClick={() => router.push(`/partners/suppliers/${s.id}`)}>{s.name}</span>
                                             {s.isBlacklisted && <span title="Blacklist" style={{ fontSize: 14 }}>🚫</span>}
                                         </span>}</td>
-                                    <td>{ie ? <select style={iS} value={ie.type} onChange={e => setInlineEditSup({ ...ie, type: e.target.value })}>{SUPPLIER_TYPES.map(t => <option key={t}>{t}</option>)}</select> : <span className="badge info">{s.type}</span>}</td>
+                                    <td>{ie ? <select style={iS} value={ie.type} onChange={e => setInlineEditSup({ ...ie, type: e.target.value })}>{supplierTypeOptions.map(t => <option key={t}>{t}</option>)}</select> : <span className="badge info">{s.type}</span>}</td>
                                     <td>{ie ? <input style={iS} value={ie.contact} onChange={e => setInlineEditSup({ ...ie, contact: e.target.value })} placeholder="Liên hệ" /> : <span style={{ fontSize: 12 }}>{s.contact || '—'}</span>}</td>
                                     <td>{ie ? <input style={iS} value={ie.phone} onChange={e => setInlineEditSup({ ...ie, phone: e.target.value })} placeholder="SĐT" /> : (s.phone || '—')}</td>
                                     <td style={{ fontSize: 12 }}>{ie
@@ -308,7 +319,7 @@ export default function PartnersPage() {
                                                 <span className="primary" style={{ cursor: 'pointer', textDecoration: 'underline dotted' }} onClick={() => router.push(`/partners/contractors/${c.id}`)}>{c.name}</span>
                                                 {c.isBlacklisted && <span title="Blacklist" style={{ fontSize: 14 }}>🚫</span>}
                                             </span>}</td>
-                                        <td>{ie ? <select style={iS} value={ie.type} onChange={e => setInlineEditCon({ ...ie, type: e.target.value })}>{CONTRACTOR_TYPES.map(t => <option key={t}>{t}</option>)}</select> : <span className="badge warning">{c.type}</span>}</td>
+                                        <td>{ie ? <select style={iS} value={ie.type} onChange={e => setInlineEditCon({ ...ie, type: e.target.value })}>{contractorTypeOptions.map(t => <option key={t}>{t}</option>)}</select> : <span className="badge warning">{c.type}</span>}</td>
                                         <td>{ie ? <input style={iS} value={ie.phone} onChange={e => setInlineEditCon({ ...ie, phone: e.target.value })} placeholder="SĐT" /> : (c.phone || '—')}</td>
                                         <td style={{ textAlign: 'right', fontSize: 12 }}>{fmt(contractAmt)}</td>
                                         <td style={{ textAlign: 'right', fontSize: 12, color: 'var(--status-success)', fontWeight: 600 }}>{fmt(paidAmt)}</td>
@@ -445,9 +456,22 @@ export default function PartnersPage() {
                                 <input className="form-input" value={supForm.name} onChange={e => setSupForm({ ...supForm, name: e.target.value })} placeholder="VD: An Cường, Bosch..." /></div>
                             <div className="form-row">
                                 <div className="form-group"><label className="form-label">Loại</label>
-                                    <select className="form-select" value={supForm.type} onChange={e => setSupForm({ ...supForm, type: e.target.value })}>
-                                        {SUPPLIER_TYPES.map(t => <option key={t}>{t}</option>)}
-                                    </select></div>
+                                    {supTypeCustom ? (
+                                        <div style={{ display: 'flex', gap: 6 }}>
+                                            <input className="form-input" autoFocus placeholder="Nhập loại mới..."
+                                                value={supForm.type} onChange={e => setSupForm({ ...supForm, type: e.target.value })} />
+                                            <button type="button" className="btn btn-ghost" title="Chọn từ danh sách có sẵn"
+                                                onClick={() => { setSupTypeCustom(false); setSupForm({ ...supForm, type: supplierTypeOptions[0] }); }}>↩</button>
+                                        </div>
+                                    ) : (
+                                        <select className="form-select" value={supForm.type} onChange={e => {
+                                            if (e.target.value === CUSTOM_TYPE_OPTION) { setSupTypeCustom(true); setSupForm({ ...supForm, type: '' }); }
+                                            else setSupForm({ ...supForm, type: e.target.value });
+                                        }}>
+                                            {supplierTypeOptions.map(t => <option key={t}>{t}</option>)}
+                                            <option value={CUSTOM_TYPE_OPTION}>+ Thêm loại mới...</option>
+                                        </select>
+                                    )}</div>
                                 <div className="form-group"><label className="form-label">Người liên hệ</label>
                                     <input className="form-input" value={supForm.contact} onChange={e => setSupForm({ ...supForm, contact: e.target.value })} /></div>
                             </div>
@@ -497,9 +521,22 @@ export default function PartnersPage() {
                                 <input className="form-input" value={conForm.name} onChange={e => setConForm({ ...conForm, name: e.target.value })} placeholder="VD: Anh Tuấn - Thợ mộc..." /></div>
                             <div className="form-row">
                                 <div className="form-group"><label className="form-label">Loại</label>
-                                    <select className="form-select" value={conForm.type} onChange={e => setConForm({ ...conForm, type: e.target.value })}>
-                                        {CONTRACTOR_TYPES.map(t => <option key={t}>{t}</option>)}
-                                    </select></div>
+                                    {conTypeCustom ? (
+                                        <div style={{ display: 'flex', gap: 6 }}>
+                                            <input className="form-input" autoFocus placeholder="Nhập loại mới..."
+                                                value={conForm.type} onChange={e => setConForm({ ...conForm, type: e.target.value })} />
+                                            <button type="button" className="btn btn-ghost" title="Chọn từ danh sách có sẵn"
+                                                onClick={() => { setConTypeCustom(false); setConForm({ ...conForm, type: contractorTypeOptions[0] }); }}>↩</button>
+                                        </div>
+                                    ) : (
+                                        <select className="form-select" value={conForm.type} onChange={e => {
+                                            if (e.target.value === CUSTOM_TYPE_OPTION) { setConTypeCustom(true); setConForm({ ...conForm, type: '' }); }
+                                            else setConForm({ ...conForm, type: e.target.value });
+                                        }}>
+                                            {contractorTypeOptions.map(t => <option key={t}>{t}</option>)}
+                                            <option value={CUSTOM_TYPE_OPTION}>+ Thêm loại mới...</option>
+                                        </select>
+                                    )}</div>
                                 <div className="form-group"><label className="form-label">SĐT</label>
                                     <input className="form-input" value={conForm.phone} onChange={e => setConForm({ ...conForm, phone: e.target.value })} /></div>
                             </div>
