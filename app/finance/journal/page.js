@@ -115,11 +115,10 @@ export default function FinanceJournalPage() {
         const projs = [...(Array.isArray(projsKD) ? projsKD : []), ...(Array.isArray(projsXD) ? projsXD : [])]
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setProjects(projs);
-        // Khách "Khách hợp đồng" (pipelineStage = Thi công, chưa xóa) mà chưa có Dự án nào —
-        // vẫn cho chọn trong ô Dự án/Công trình, chỉ là không gắn projectId (dùng Đối tượng thay thế).
-        const projectCustomerIds = new Set(projs.map(p => p.customerId));
+        // Khách "Khách hợp đồng" (pipelineStage = Thi công, chưa xóa) — cho chọn trong ô
+        // Dự án/Công trình dù đã có Dự án hay chưa, chỉ là không gắn projectId (dùng Đối tượng thay thế).
         const stubs = [...(Array.isArray(custKD) ? custKD : []), ...(Array.isArray(custXD) ? custXD : [])]
-            .filter(c => c.pipelineStage === 'Thi công' && !c.deletedAt && !projectCustomerIds.has(c.id))
+            .filter(c => c.pipelineStage === 'Thi công' && !c.deletedAt)
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setCustomerStubs(stubs);
         if (cash) setCashBalance(cash);
@@ -1120,7 +1119,7 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds,
                                     <option value="">-- chọn --</option>{DEPARTMENTS.map(d => <option key={d}>{d}</option>)}
                                 </select>
                             </Field>
-                            <Field label="Khách hợp đồng (chưa có dự án)">
+                            <Field label="Khách hợp đồng">
                                 {splitMode ? (
                                     <input className="form-input" disabled value="— xem bên dưới —" />
                                 ) : (

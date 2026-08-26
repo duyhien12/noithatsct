@@ -23,6 +23,7 @@ export const POST = withAuth(async (request, _ctx, session) => {
                 date: body.date ? new Date(body.date) : new Date(),
                 content: body.content || '',
                 projectId: body.projectId || null,
+                customerId: body.customerId || null,
                 attachments: Array.isArray(body.attachments) ? body.attachments : [],
                 createdBy: session.user.name,
             },

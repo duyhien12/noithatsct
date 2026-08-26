@@ -14,6 +14,7 @@ export default function PayablesPage() {
 
     const [suppliers, setSuppliers] = useState([]);
     const [projects, setProjects] = useState([]);
+    const [customerStubs, setCustomerStubs] = useState([]); // Khách "Khách hợp đồng" chưa có Dự án — vẫn chọn được cho Ghi nợ mua hàng
     const [bankAccounts, setBankAccounts] = useState([]);
     const [cashFunds, setCashFunds] = useState([]);
     const [accounts, setAccounts] = useState([]);
@@ -25,18 +26,30 @@ export default function PayablesPage() {
     const [debtOpen, setDebtOpen] = useState(false);
 
     const fetchLookups = useCallback(async () => {
-        const [sups, projs, banks, funds, accs] = await Promise.all([
+        const stageParam = `customerStage=${encodeURIComponent('Thi công')}`;
+        const [sups, projs, banks, funds, accs, projsKD, projsXD, custKD, custXD] = await Promise.all([
             fetch('/api/suppliers?limit=500').then(r => r.json()).then(d => d.data || d || []).catch(() => []),
             fetch('/api/projects?limit=500').then(r => r.json()).then(d => d.data || d || []).catch(() => []),
             fetch('/api/bank-accounts').then(r => r.json()).catch(() => []),
             fetch('/api/cash-funds').then(r => r.json()).catch(() => []),
             fetch('/api/accounting-accounts').then(r => r.json()).catch(() => []),
+            fetch(`/api/projects?limit=500&customerDept=kinh_doanh&${stageParam}`).then(r => r.json()).then(d => d.data || d || []).catch(() => []),
+            fetch(`/api/projects?limit=500&customerDept=xay_dung&${stageParam}`).then(r => r.json()).then(d => d.data || d || []).catch(() => []),
+            fetch('/api/customers?dept=kinh_doanh&limit=1000').then(r => r.json()).then(d => d.data || d || []).catch(() => []),
+            fetch('/api/customers?dept=xay_dung&limit=1000').then(r => r.json()).then(d => d.data || d || []).catch(() => []),
         ]);
         setSuppliers(Array.isArray(sups) ? sups : []);
         setProjects(Array.isArray(projs) ? projs : []);
         setBankAccounts(Array.isArray(banks) ? banks : []);
         setCashFunds(Array.isArray(funds) ? funds : []);
         setAccounts(Array.isArray(accs) ? accs : []);
+        // Khách "Khách hợp đồng" (pipelineStage = Thi công, chưa xóa) mà chưa có Dự án nào —
+        // Dự án đã có thì chọn qua danh sách Dự án ở trên rồi, nên chỉ bổ sung khách còn thiếu Dự án.
+        const projectCustomerIds = new Set([...(Array.isArray(projsKD) ? projsKD : []), ...(Array.isArray(projsXD) ? projsXD : [])].map(p => p.customerId));
+        const stubs = [...(Array.isArray(custKD) ? custKD : []), ...(Array.isArray(custXD) ? custXD : [])]
+            .filter(c => c.pipelineStage === 'Thi công' && !c.deletedAt && !projectCustomerIds.has(c.id))
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setCustomerStubs(stubs);
     }, []);
 
     const fetchRows = useCallback(async (page = 1) => {
@@ -122,7 +135,7 @@ export default function PayablesPage() {
             )}
 
             {drawerSupplierId && (
-                <SupplierDetailModal supplierId={drawerSupplierId} bankAccounts={bankAccounts} cashFunds={cashFunds} accounts={accounts} projects={projects}
+                <SupplierDetailModal supplierId={drawerSupplierId} bankAccounts={bankAccounts} cashFunds={cashFunds} accounts={accounts} projects={projects} customerStubs={customerStubs}
                     onClose={() => setDrawerSupplierId(null)} onChanged={() => fetchRows(pagination.page)} />
             )}
 
@@ -133,7 +146,7 @@ export default function PayablesPage() {
             )}
 
             {debtOpen && (
-                <DebtModal suppliers={suppliers} projects={projects}
+                <DebtModal suppliers={suppliers} projects={projects} customerStubs={customerStubs}
                     onClose={() => setDebtOpen(false)} onDone={() => { setDebtOpen(false); fetchRows(1); }} />
             )}
         </div>
@@ -260,7 +273,7 @@ function SupplierTable({ rows, loading, onOpen, onSaveOpening }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-function SupplierDetailModal({ supplierId, bankAccounts, cashFunds, accounts, projects, onClose, onChanged }) {
+function SupplierDetailModal({ supplierId, bankAccounts, cashFunds, accounts, projects, customerStubs, onClose, onChanged }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [payOpen, setPayOpen] = useState(false);
@@ -339,7 +352,7 @@ function SupplierDetailModal({ supplierId, bankAccounts, cashFunds, accounts, pr
                                     <td>{fmtDate(e.date)}</td>
                                     <td>{e.code}</td>
                                     <td>{e.content}</td>
-                                    <td>{e.project ? e.project.code : '—'}</td>
+                                    <td>{e.project ? e.project.code : (e.customer ? e.customer.name : '—')}</td>
                                     <td style={{ textAlign: 'right', color: 'var(--status-danger)' }}>{e.payableAmount ? fmt(e.payableAmount) : ''}</td>
                                     <td style={{ textAlign: 'right', color: 'var(--status-success)' }}>{e.paidAmount ? fmt(e.paidAmount) : ''}</td>
                                     <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(e.debtBalance)}</td>
@@ -361,7 +374,7 @@ function SupplierDetailModal({ supplierId, bankAccounts, cashFunds, accounts, pr
                     onDone={() => { setPayOpen(false); load(); onChanged(); }} />
             )}
             {debtOpen && (
-                <DebtModal fixedSupplier={{ id: supplierId, name: data.supplier.name }} projects={projects}
+                <DebtModal fixedSupplier={{ id: supplierId, name: data.supplier.name }} projects={projects} customerStubs={customerStubs}
                     onClose={() => setDebtOpen(false)}
                     onDone={() => { setDebtOpen(false); load(); onChanged(); }} />
             )}
@@ -383,12 +396,20 @@ function MiniStat({ label, value, color, bold }) {
 // ════════════════════════════════════════════════════════════════════════
 // Ghi nợ mua hàng — mua chịu, CHƯA trả tiền. Tạo PayableEntry (bảng mới, tách biệt khỏi
 // PurchaseOrder/dữ liệu Mua sắm cũ), không đụng Nhật ký Thu – Chi (không có tiền thật di chuyển).
-function DebtModal({ suppliers, projects, fixedSupplier, onClose, onDone }) {
+function DebtModal({ suppliers, projects, customerStubs, fixedSupplier, onClose, onDone }) {
     const [supplier, setSupplier] = useState(fixedSupplier || { id: '', name: '' });
-    const [form, setForm] = useState({ date: today(), content: '', amount: '', projectId: '', attachments: [] });
+    const [form, setForm] = useState({ date: today(), content: '', amount: '', projectId: '', customerId: '', attachments: [] });
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+    // Ô "Dự án/Công trình" gộp cả Dự án thật (projectId) và Khách "Khách hợp đồng" chưa có Dự án (customerId).
+    const projectPickValue = form.projectId ? `p_${form.projectId}` : form.customerId ? `c_${form.customerId}` : '';
+    const handleProjectPick = (val) => {
+        if (val.startsWith('p_')) setForm(f => ({ ...f, projectId: val.slice(2), customerId: '' }));
+        else if (val.startsWith('c_')) setForm(f => ({ ...f, projectId: '', customerId: val.slice(2) }));
+        else setForm(f => ({ ...f, projectId: '', customerId: '' }));
+    };
 
     const upload = async (e) => {
         const file = e.target.files?.[0];
@@ -413,6 +434,7 @@ function DebtModal({ suppliers, projects, fixedSupplier, onClose, onDone }) {
             body: JSON.stringify({
                 supplierId: supplier.id, amount: Number(form.amount),
                 date: form.date, content: form.content, projectId: form.projectId || null,
+                customerId: form.customerId || null,
                 attachments: form.attachments,
             }),
         });
@@ -446,12 +468,13 @@ function DebtModal({ suppliers, projects, fixedSupplier, onClose, onDone }) {
                         <label className="form-label">Số tiền *</label>
                         <input className="form-input" type="number" value={form.amount} onChange={e => set('amount', e.target.value)} placeholder="0" />
                     </div>
-                    {projects.length > 0 && (
+                    {(projects.length > 0 || customerStubs?.length > 0) && (
                         <div>
                             <label className="form-label">Dự án/Công trình</label>
-                            <select className="form-select" value={form.projectId} onChange={e => set('projectId', e.target.value)}>
+                            <select className="form-select" value={projectPickValue} onChange={e => handleProjectPick(e.target.value)}>
                                 <option value="">-- không có --</option>
-                                {projects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+                                {projects.map(p => <option key={'p_' + p.id} value={'p_' + p.id}>{p.code} — {p.name}</option>)}
+                                {customerStubs?.map(c => <option key={'c_' + c.id} value={'c_' + c.id}>{c.name} (chưa có dự án)</option>)}
                             </select>
                         </div>
                     )}

@@ -10,7 +10,14 @@ export const GET = withAuth(async (request, { params }) => {
 
     const [supplier, entries, txs] = await Promise.all([
         prisma.supplier.findUnique({ where: { id: supplierId } }),
-        prisma.payableEntry.findMany({ where: { supplierId }, include: { project: { select: { id: true, name: true, code: true } } }, orderBy: { date: 'asc' } }),
+        prisma.payableEntry.findMany({
+            where: { supplierId },
+            include: {
+                project: { select: { id: true, name: true, code: true } },
+                customer: { select: { id: true, name: true } },
+            },
+            orderBy: { date: 'asc' },
+        }),
         prisma.financeTransaction.findMany({
             where: { objectType: 'NCC', objectId: supplierId, deletedAt: null },
             include: { project: { select: { id: true, name: true, code: true } } },
@@ -24,7 +31,7 @@ export const GET = withAuth(async (request, { params }) => {
     const events = [
         ...entries.map(e => ({
             date: e.date, code: e.code, kind: 'invoice', entryId: e.id, content: e.content || `Mua nợ ${e.code}`,
-            project: e.project, payableAmount: e.amount, paidAmount: 0, attachments: e.attachments || [],
+            project: e.project, customer: e.customer, payableAmount: e.amount, paidAmount: 0, attachments: e.attachments || [],
         })),
         ...txs.map(t => ({
             date: t.date, code: t.code, kind: 'payment', content: t.content,

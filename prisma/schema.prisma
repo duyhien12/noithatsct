@@ -74,6 +74,7 @@ model Customer {
   designTasks              DesignTask[]
   lessonsLearned           LessonLearned[]
   receivableEntries        ReceivableEntry[]
+  payableEntries           PayableEntry[]
 }
 
 model Project {
@@ -2816,21 +2817,24 @@ model PaymentAllocation {
 // NCC/Khách hàng — bảng MỚI HOÀN TOÀN, tách biệt khỏi PurchaseOrder/ContractPayment (dữ liệu cũ
 // từ Mua sắm/Hợp đồng), để "Phát sinh trong kỳ" không bị lẫn dữ liệu lịch sử không liên quan.
 model PayableEntry {
-  id          String   @id @default(cuid())
-  code        String   @unique
+  id          String    @id @default(cuid())
+  code        String    @unique
   supplierId  String
   amount      Float
-  date        DateTime @default(now())
-  content     String   @default("")
+  date        DateTime  @default(now())
+  content     String    @default("")
   projectId   String?
-  attachments Json?    @default("[]")
-  createdBy   String   @default("")
-  createdAt   DateTime @default(now())
-  supplier    Supplier @relation(fields: [supplierId], references: [id])
-  project     Project? @relation(fields: [projectId], references: [id])
+  customerId  String?
+  attachments Json?     @default("[]")
+  createdBy   String    @default("")
+  createdAt   DateTime  @default(now())
+  supplier    Supplier  @relation(fields: [supplierId], references: [id])
+  project     Project?  @relation(fields: [projectId], references: [id])
+  customer    Customer? @relation(fields: [customerId], references: [id])
 
   @@index([supplierId])
   @@index([projectId])
+  @@index([customerId])
 }
 
 model ReceivableEntry {
