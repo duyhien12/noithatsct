@@ -34,11 +34,10 @@ export const PUT = withAuth(async (request, { params }, session) => {
     const data = financeTransactionUpdateSchema.parse(body);
     const cash = deriveCashFields(data.type, data.method, data.amount);
     const itemAmount = (data.itemQty || 0) * (data.itemUnitPrice || 0);
-    const cleanData = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== null));
 
     const updated = await prisma.financeTransaction.update({
         where: { id },
-        data: { ...cleanData, ...cash, itemAmount },
+        data: { ...data, ...cash, itemAmount },
         include: INCLUDE,
     });
 

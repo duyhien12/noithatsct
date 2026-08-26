@@ -1120,22 +1120,13 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds,
                                     <option value="">-- chọn --</option>{DEPARTMENTS.map(d => <option key={d}>{d}</option>)}
                                 </select>
                             </Field>
-                            <Field label="Dự án / Công trình">
+                            <Field label="Khách hợp đồng (chưa có dự án)">
                                 {splitMode ? (
                                     <input className="form-input" disabled value="— xem bên dưới —" />
                                 ) : (
                                     <select className="form-select" disabled={isView} value={projectPickValue} onChange={e => handleProjectPick(e.target.value)}>
                                         <option value="">-- không có --</option>
-                                        {projects.length > 0 && (
-                                            <optgroup label="Dự án">
-                                                {projects.map(p => <option key={'p_' + p.id} value={'p_' + p.id}>{p.code} — {p.name}</option>)}
-                                            </optgroup>
-                                        )}
-                                        {customerStubs?.length > 0 && (
-                                            <optgroup label="Khách hợp đồng (chưa có dự án)">
-                                                {customerStubs.map(c => <option key={'c_' + c.id} value={'c_' + c.id}>{c.name}</option>)}
-                                            </optgroup>
-                                        )}
+                                        {customerStubs?.map(c => <option key={'c_' + c.id} value={'c_' + c.id}>{c.name}</option>)}
                                     </select>
                                 )}
                             </Field>
