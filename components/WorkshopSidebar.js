@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, Wrench, Building2, ShoppingCart, Package,
     ChevronRight, X, CalendarDays, Users, FileText, Warehouse,
-    BarChart2, Clock, BookOpen, Landmark, BookMarked, Settings, Factory,
-    ClipboardCheck, LayoutGrid, ClipboardList, NotebookText, Boxes,
+    BarChart2, Clock, BookOpen, Landmark, Settings,
+    ClipboardCheck, NotebookText, Boxes,
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useState } from 'react';
@@ -46,19 +46,7 @@ const FULL_MENU = [
             { href: '/workshop/work-log/project-summary', icon: BarChart2, label: 'Tổng hợp công CT' },
             { href: '/workshop/timeline', icon: BarChart2, label: 'Tiến độ (Gantt)' },
             { href: '/work-orders', icon: Clock, label: 'Phiếu công việc' },
-            { href: '/production', icon: Factory, label: 'Quản lý sản xuất (cũ)' },
             { href: '/cost-management', icon: BarChart2, label: 'Giá thành xưởng' },
-        ],
-    },
-    {
-        section: 'Sản xuất xưởng',
-        items: [
-            { href: '/manufacturing', icon: LayoutDashboard, label: 'Dashboard sản xuất', exact: true },
-            { href: '/manufacturing/orders', icon: Factory, label: 'Lệnh sản xuất' },
-            { href: '/manufacturing/kanban', icon: LayoutGrid, label: 'Kanban sản xuất' },
-            { href: '/manufacturing/tasks', icon: ClipboardList, label: 'Giao việc sản xuất' },
-            { href: '/manufacturing/logs', icon: BookOpen, label: 'Nhật ký sản xuất' },
-            { href: '/manufacturing/reports', icon: BarChart2, label: 'Báo cáo sản xuất' },
         ],
     },
     {
@@ -70,10 +58,8 @@ const FULL_MENU = [
     {
         section: 'Kho & Mua sắm',
         items: [
-            { href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho' },
             { href: '/inventory-v2', icon: Boxes, label: 'Kho vật tư 2.0' },
             { href: '/purchasing?view=xuong', icon: ShoppingCart, label: 'Mua sắm vật tư' },
-            { href: '/workshop/materials', icon: Package, label: 'Vật tư kho' },
             { href: '/products', icon: Package, label: 'Danh mục sản phẩm' },
         ],
     },
@@ -89,7 +75,6 @@ const FULL_MENU = [
               ] },
             { href: '/workshop/assets', icon: Landmark, label: 'Tài sản cố định' },
             { href: '/workshop/pl', icon: BarChart2, label: 'P&L Xưởng' },
-            { href: '/finance/tong-hop', icon: BookMarked, label: 'Báo cáo tổng hợp 2 phòng' },
         ],
     },
     {

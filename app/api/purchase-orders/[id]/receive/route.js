@@ -1,11 +1,12 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { generateCode } from '@/lib/generateCode';
+import { postPurchaseReceiptToInvV2 } from '@/lib/inventoryV2/purchaseReceipt';
 import { NextResponse } from 'next/server';
 
 // POST /api/purchase-orders/[id]/receive
 // Body: { items: [{ id: itemId, receivedQty: N }], note: "" }
-export const POST = withAuth(async (request, { params }) => {
+export const POST = withAuth(async (request, { params }, session) => {
     const { id } = await params;
     const { items, note } = await request.json();
 
@@ -89,6 +90,18 @@ export const POST = withAuth(async (request, { params }) => {
                         where: { id: poItem.productId },
                         data: { stock: { increment: delta } },
                     });
+
+                    // Cầu nối sang Kho vật tư 2.0 — chỉ tác động nếu vật tư đã được khai báo bên đó
+                    // (InvMaterial.legacyProductId khớp); vật tư chưa khai báo thì bỏ qua, không chặn
+                    // luồng nhận hàng cũ.
+                    try {
+                        await postPurchaseReceiptToInvV2({
+                            productId: poItem.productId, quantity: delta, unitPrice: poItem.unitPrice || 0,
+                            po, session,
+                        });
+                    } catch (err) {
+                        console.error(`Lỗi ghi nhận Kho vật tư 2.0 khi nhận hàng PO ${po.code}:`, err);
+                    }
                 }
             }
         }
