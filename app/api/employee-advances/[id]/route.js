@@ -2,6 +2,7 @@ import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { VIEW_ROLES } from '@/lib/financeJournal';
+import { findOrphanAdvanceTransactions } from '@/lib/employeeAdvanceOrphans';
 
 // Sổ chi tiết tạm ứng của 1 nhân viên — lịch sử gộp Tạm ứng + Hoàn ứng theo dòng thời gian,
 // kèm số dư chạy (running balance). Click "Số phiếu" ở UI mở đúng giao dịch tương ứng trong
@@ -15,18 +16,26 @@ export const GET = withAuth(async (request, { params }) => {
     });
     if (!employee) return NextResponse.json({ error: 'Không tìm thấy nhân viên' }, { status: 404 });
 
-    const advances = await prisma.employeeAdvance.findMany({
-        where: { employeeId },
-        include: {
-            project: { select: { id: true, name: true, code: true } },
-            financeTransaction: { select: { id: true, code: true, status: true, attachments: true } },
-            settlements: {
-                include: { financeTransaction: { select: { id: true, code: true, status: true } } },
-                orderBy: { date: 'asc' },
+    // Sổ chi tiết này CHỈ hiển thị tạm ứng LƯƠNG (khớp trang /finance/journal/advances) và loại trừ
+    // phiếu/quyết toán đã bị xóa khỏi Nhật ký (đã xóa thì không còn tính vào số dư).
+    const [advances, orphanAdvances] = await Promise.all([
+        prisma.employeeAdvance.findMany({
+            where: { employeeId, advanceType: 'Lương', financeTransaction: { deletedAt: null } },
+            include: {
+                project: { select: { id: true, name: true, code: true } },
+                financeTransaction: { select: { id: true, code: true, status: true, attachments: true } },
+                settlements: {
+                    where: { financeTransaction: { deletedAt: null } },
+                    include: { financeTransaction: { select: { id: true, code: true, status: true } } },
+                    orderBy: { date: 'asc' },
+                },
             },
-        },
-        orderBy: { date: 'asc' },
-    });
+            orderBy: { date: 'asc' },
+        }),
+        // Phiếu Chi nhập trực tiếp trong Nhật ký (chưa qua modal "Tạo tạm ứng") — hiện trong sổ chi
+        // tiết như 1 dòng tạm ứng bình thường, chỉ khác là chưa có khoản mục để chọn hoàn ứng.
+        findOrphanAdvanceTransactions({ employeeId, advanceTypes: ['Lương'] }),
+    ]);
 
     const events = [];
     for (const a of advances) {
@@ -53,6 +62,15 @@ export const GET = withAuth(async (request, { params }) => {
             });
         }
     }
+    for (const o of orphanAdvances) {
+        events.push({
+            date: o.date, code: o.code, kind: 'advance', advanceId: null,
+            advanceType: o.advanceType, content: o.content,
+            project: o.project, advanceAmount: o.amount, returnedAmount: 0, deductedAmount: 0,
+            financeTransactionId: o.financeTransactionId, financeTransactionCode: o.financeTransactionCode,
+            attachments: o.attachments, isDirectEntry: true,
+        });
+    }
     events.sort((a, b) => new Date(a.date) - new Date(b.date));
 
     let running = employee.openingAdvanceBalance || 0;
@@ -61,7 +79,7 @@ export const GET = withAuth(async (request, { params }) => {
         return { ...e, remaining: running };
     });
 
-    const totalAdvance = advances.reduce((s, a) => s + a.amount, 0);
+    const totalAdvance = advances.reduce((s, a) => s + a.amount, 0) + orphanAdvances.reduce((s, o) => s + o.amount, 0);
     const allSettlements = advances.flatMap(a => a.settlements);
     const totalReturned = allSettlements.filter(s => s.settleType !== 'salary_deduction').reduce((s, x) => s + x.amount, 0);
     const totalDeducted = allSettlements.filter(s => s.settleType === 'salary_deduction').reduce((s, x) => s + x.amount, 0);

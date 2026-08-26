@@ -141,6 +141,7 @@ export default function EmployeeAdvancePage() {
 
             {createOpen && (
                 <CreateAdvanceModal employees={employees} projects={projects} bankAccounts={bankAccounts} cashFunds={cashFunds} accounts={accounts}
+                    typeOptions={['Lương']}
                     onClose={() => setCreateOpen(false)} onSave={saveAdvance} />
             )}
 

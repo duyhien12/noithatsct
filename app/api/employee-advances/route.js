@@ -5,6 +5,7 @@ import { withCodeRetry } from '@/lib/generateCode';
 import { NextResponse } from 'next/server';
 import { employeeAdvanceCreateSchema } from '@/lib/validations/employeeAdvance';
 import { computeBalance, ADVANCE_CATEGORY_BY_TYPE, DEFAULT_ADVANCE_CATEGORY } from '@/lib/employeeAdvance';
+import { findOrphanAdvanceTransactions } from '@/lib/employeeAdvanceOrphans';
 import { VIEW_ROLES, CREATE_ROLES } from '@/lib/financeJournal';
 import { deriveCashFields } from '@/lib/financeJournal';
 
@@ -25,10 +26,12 @@ export const GET = withAuth(async (request) => {
     if (departmentId) employeeWhere.departmentId = departmentId;
     if (search) employeeWhere.name = { contains: search, mode: 'insensitive' };
 
-    const advanceWhere = {};
+    // Trang "Tạm ứng nhân viên" CHỈ hiển thị tạm ứng LƯƠNG — tạm ứng công tác/vật tư/tiền ăn có
+    // sổ con riêng ở /finance/journal/advance-expenses.
+    const advanceWhere = { advanceType: 'Lương', financeTransaction: { deletedAt: null } };
     if (projectId) advanceWhere.projectId = projectId;
 
-    const [employees, advances] = await Promise.all([
+    const [employees, advances, orphanAdvances] = await Promise.all([
         prisma.employee.findMany({
             where: employeeWhere,
             include: { department: { select: { id: true, name: true } } },
@@ -36,13 +39,21 @@ export const GET = withAuth(async (request) => {
         }),
         prisma.employeeAdvance.findMany({
             where: advanceWhere,
-            include: { settlements: true },
+            include: { settlements: { where: { financeTransaction: { deletedAt: null } } } },
             orderBy: { date: 'asc' },
         }),
+        // Phiếu Chi nhập trực tiếp trong Nhật ký (đúng danh mục "T/ứng lương", gắn đối tượng Nhân
+        // viên) nhưng chưa qua modal "Tạo tạm ứng" — vẫn tính vào số dư tạm ứng của nhân viên đó.
+        findOrphanAdvanceTransactions({ advanceTypes: ['Lương'] }),
     ]);
 
     const advancesByEmployee = new Map();
     for (const a of advances) {
+        if (!advancesByEmployee.has(a.employeeId)) advancesByEmployee.set(a.employeeId, []);
+        advancesByEmployee.get(a.employeeId).push(a);
+    }
+    for (const a of orphanAdvances) {
+        if (projectId && a.project?.id !== projectId) continue;
         if (!advancesByEmployee.has(a.employeeId)) advancesByEmployee.set(a.employeeId, []);
         advancesByEmployee.get(a.employeeId).push(a);
     }
