@@ -1,8 +1,9 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
-import { VIEW_ROLES } from '@/lib/financeJournal';
+import { VIEW_ROLES, CREATE_ROLES } from '@/lib/financeJournal';
 import { findOrphanAdvanceTransactions } from '@/lib/employeeAdvanceOrphans';
+import { openingBalanceUpdateSchema } from '@/lib/validations/employeeAdvance';
 
 // Sổ chi tiết tạm ứng của 1 nhân viên — lịch sử gộp Tạm ứng + Hoàn ứng theo dòng thời gian,
 // kèm số dư chạy (running balance). Click "Số phiếu" ở UI mở đúng giao dịch tương ứng trong
@@ -99,3 +100,21 @@ export const GET = withAuth(async (request, { params }) => {
         advances, // dùng để chọn "khoản tạm ứng cần hoàn ứng" trên UI
     });
 }, { roles: VIEW_ROLES });
+
+// Cho phép nhập số dư tạm ứng đầu kỳ (VD khi triển khai ERP giữa năm, nhân viên đã có tạm ứng
+// dở dang từ trước) — id ở đây là employeeId, khớp với GET phía trên.
+export const PATCH = withAuth(async (request, { params }) => {
+    const { id: employeeId } = await params;
+    const body = await request.json();
+    const data = openingBalanceUpdateSchema.parse(body);
+
+    const employee = await prisma.employee.findUnique({ where: { id: employeeId }, select: { id: true } });
+    if (!employee) return NextResponse.json({ error: 'Không tìm thấy nhân viên' }, { status: 404 });
+
+    const updated = await prisma.employee.update({
+        where: { id: employeeId },
+        data: { openingAdvanceBalance: data.openingAdvanceBalance },
+        select: { id: true, openingAdvanceBalance: true },
+    });
+    return NextResponse.json(updated);
+}, { roles: CREATE_ROLES });

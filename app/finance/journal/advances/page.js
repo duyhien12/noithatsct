@@ -258,6 +258,9 @@ function EmployeeDetailModal({ employeeId, bankAccounts, cashFunds, accounts, ca
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [settleFor, setSettleFor] = useState(null); // advance object đang thao tác Hoàn ứng
+    const [editingOpening, setEditingOpening] = useState(false);
+    const [openingInput, setOpeningInput] = useState('');
+    const [savingOpening, setSavingOpening] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -267,6 +270,20 @@ function EmployeeDetailModal({ employeeId, bankAccounts, cashFunds, accounts, ca
     }, [employeeId]);
 
     useEffect(() => { load(); }, [load]);
+
+    const saveOpening = async () => {
+        setSavingOpening(true);
+        const res = await fetch(`/api/employee-advances/${employeeId}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ openingAdvanceBalance: Number(openingInput) || 0 }),
+        });
+        const json = await res.json();
+        setSavingOpening(false);
+        if (!res.ok) { alert(json.error || 'Lỗi cập nhật số dư đầu kỳ'); return; }
+        setEditingOpening(false);
+        await load();
+        onChanged();
+    };
 
     if (loading || !data) {
         return (
@@ -293,6 +310,27 @@ function EmployeeDetailModal({ employeeId, bankAccounts, cashFunds, accounts, ca
                 </div>
 
                 <div className="stats-grid" style={{ marginBottom: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+                    <div className="stat-card">
+                        <div style={{ width: '100%' }}>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>Số dư đầu kỳ</span>
+                                {canCreate && !editingOpening && (
+                                    <button className="btn btn-icon" style={{ fontSize: 11 }} title="Sửa số dư đầu kỳ"
+                                        onClick={() => { setOpeningInput(String(data.summary.openingBalance || 0)); setEditingOpening(true); }}>✏️</button>
+                                )}
+                            </div>
+                            {editingOpening ? (
+                                <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                                    <input className="form-input" type="number" value={openingInput} autoFocus
+                                        onChange={e => setOpeningInput(e.target.value)} style={{ fontSize: 13, padding: '4px 6px' }} />
+                                    <button className="btn btn-primary btn-sm" disabled={savingOpening} onClick={saveOpening}>✓</button>
+                                    <button className="btn btn-ghost btn-sm" disabled={savingOpening} onClick={() => setEditingOpening(false)}>✕</button>
+                                </div>
+                            ) : (
+                                <div style={{ fontSize: 16, fontWeight: 700 }}>{fmt(data.summary.openingBalance)} đ</div>
+                            )}
+                        </div>
+                    </div>
                     <MiniStat label="Tổng đã tạm ứng" value={data.summary.totalAdvance} />
                     <MiniStat label="Tổng đã hoàn" value={data.summary.totalReturned} color="var(--status-success)" />
                     <MiniStat label="Tổng đã khấu trừ" value={data.summary.totalDeducted} color="var(--status-success)" />
