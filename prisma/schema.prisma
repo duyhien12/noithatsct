@@ -154,6 +154,9 @@ model Project {
   lessonsLearned        LessonLearned[]
   employeeAdvances      EmployeeAdvance[]
   payableEntries        PayableEntry[]
+  invDocuments          InvDocument[]
+  invReservations       InvStockReservation[]
+  invRemnants           InvMaterialRemnant[]
 
   @@index([customerId])
 }
@@ -625,6 +628,8 @@ model Supplier {
   documents             ProjectDocument[]
   purchaseOrders        PurchaseOrder[]
   payableEntries        PayableEntry[]
+  invMaterials          InvMaterial[]
+  invDocuments          InvDocument[]
 }
 
 model ProjectMilestone {
@@ -1225,34 +1230,36 @@ model QuotationTemplateItem {
 }
 
 model ScheduleTask {
-  id              String           @id @default(cuid())
+  id              String                @id @default(cuid())
   name            String
-  order           Int              @default(0)
-  level           Int              @default(0)
-  wbs             String           @default("")
+  order           Int                   @default(0)
+  level           Int                   @default(0)
+  wbs             String                @default("")
   startDate       DateTime
   endDate         DateTime
-  duration        Int              @default(1)
-  progress        Int              @default(0)
-  weight          Float            @default(1)
-  status          String           @default("Chưa bắt đầu")
-  isLocked        Boolean          @default(false)
-  assignee        String           @default("")
-  notes           String           @default("")
-  color           String           @default("")
+  duration        Int                   @default(1)
+  progress        Int                   @default(0)
+  weight          Float                 @default(1)
+  status          String                @default("Chưa bắt đầu")
+  isLocked        Boolean               @default(false)
+  assignee        String                @default("")
+  notes           String                @default("")
+  color           String                @default("")
   baselineStart   DateTime?
   baselineEnd     DateTime?
   parentId        String?
   predecessorId   String?
   projectId       String
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
   progressReports ProgressReport[]
-  parent          ScheduleTask?    @relation("TaskTree", fields: [parentId], references: [id])
-  children        ScheduleTask[]   @relation("TaskTree")
-  predecessor     ScheduleTask?    @relation("TaskDep", fields: [predecessorId], references: [id])
-  successors      ScheduleTask[]   @relation("TaskDep")
-  project         Project          @relation(fields: [projectId], references: [id])
+  parent          ScheduleTask?         @relation("TaskTree", fields: [parentId], references: [id])
+  children        ScheduleTask[]        @relation("TaskTree")
+  predecessor     ScheduleTask?         @relation("TaskDep", fields: [predecessorId], references: [id])
+  successors      ScheduleTask[]        @relation("TaskDep")
+  project         Project               @relation(fields: [projectId], references: [id])
+  invDocuments    InvDocument[]
+  invReservations InvStockReservation[]
 
   @@index([projectId])
   @@index([parentId])
@@ -2182,6 +2189,8 @@ model MfgOrder {
   qualityIssues       QualityIssue[]
   packingRecords      PackingRecord[]
   deliveryRecords     DeliveryRecord[]
+  invDocuments        InvDocument[]
+  invReservations     InvStockReservation[]
 
   @@index([projectId])
   @@index([status])
@@ -2840,4 +2849,424 @@ model ReceivableEntry {
 
   @@index([customerId])
   @@index([contractId])
+}
+
+// =====================================================================
+// KHO VẬT TƯ XƯỞNG 2.0 (Inventory V2) — module hoàn toàn độc lập.
+// Không model nào ở trên bị sửa cột/kiểu dữ liệu; chỉ có 4 model
+// (Project, Supplier, ScheduleTask, MfgOrder) được thêm 1 relation-array
+// ảo (không sinh cột DB) để trỏ vào các model Inv* bên dưới.
+// Model Product/Warehouse/InventoryTransaction (kho cũ) hoàn toàn không
+// bị đụng tới — mọi tham chiếu tới dữ liệu cũ dùng field String thường
+// (legacyProductId/legacyWarehouseId), không dùng @relation.
+// =====================================================================
+
+model InvUnit {
+  id                String            @id @default(cuid())
+  code              String            @unique
+  name              String
+  active            Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  materialsPurchase InvMaterial[]     @relation("InvMaterialPurchaseUnit")
+  materialsStock    InvMaterial[]     @relation("InvMaterialStockUnit")
+  materialsIssue    InvMaterial[]     @relation("InvMaterialIssueUnit")
+  documentLines     InvDocumentLine[]
+}
+
+model InvMaterialCategory {
+  id        String                @id @default(cuid())
+  code      String                @unique
+  name      String
+  skuPrefix String                @unique
+  parentId  String?
+  order     Int                   @default(0)
+  active    Boolean               @default(true)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  parent    InvMaterialCategory?  @relation("InvCategoryTree", fields: [parentId], references: [id])
+  children  InvMaterialCategory[] @relation("InvCategoryTree")
+  materials InvMaterial[]
+
+  @@index([parentId])
+}
+
+model InvWarehouse {
+  id           String                @id @default(cuid())
+  code         String                @unique
+  name         String
+  address      String                @default("")
+  type         String                @default("Kho chính")
+  active       Boolean               @default(true)
+  notes        String                @default("")
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  locations    InvLocation[]
+  materials    InvMaterial[]
+  documents    InvDocument[]         @relation("InvDocWarehouse")
+  docTargets   InvDocument[]         @relation("InvDocTargetWarehouse")
+  ledgerRows   InvStockLedger[]
+  balances     InvStockBalance[]
+  reservations InvStockReservation[]
+  remnants     InvMaterialRemnant[]
+  stocktakes   InvStocktake[]
+
+  @@index([active])
+}
+
+model InvLocation {
+  id          String               @id @default(cuid())
+  warehouseId String
+  code        String
+  name        String
+  level       String               @default("SHELF")
+  parentId    String?
+  active      Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  warehouse   InvWarehouse         @relation(fields: [warehouseId], references: [id])
+  parent      InvLocation?         @relation("InvLocationTree", fields: [parentId], references: [id])
+  children    InvLocation[]        @relation("InvLocationTree")
+  materials   InvMaterial[]
+  ledgerRows  InvStockLedger[]
+  remnants    InvMaterialRemnant[]
+
+  @@unique([warehouseId, code])
+  @@index([parentId])
+}
+
+model InvMaterial {
+  id                   String                @id @default(cuid())
+  sku                  String                @unique
+  name                 String
+  categoryId           String
+  brand                String                @default("")
+  colorCode            String                @default("")
+  specNote             String                @default("")
+  length               Float                 @default(0)
+  width                Float                 @default(0)
+  thickness            Float                 @default(0)
+  dimensionUnit        String                @default("mm")
+  purchaseUnitId       String
+  stockUnitId          String
+  issueUnitId          String
+  purchaseToStockRatio Float                 @default(1)
+  issueToStockRatio    Float                 @default(1)
+  defaultSupplierId    String?
+  defaultWarehouseId   String?
+  defaultLocationId    String?
+  minStock             Float                 @default(0)
+  maxStock             Float                 @default(0)
+  lastImportPrice      Float                 @default(0)
+  avgCost              Float                 @default(0)
+  image                String                @default("")
+  qrCodeValue          String                @default("")
+  status               String                @default("Đang sử dụng")
+  notes                String                @default("")
+  legacyProductId      String?
+  createdById          String                @default("")
+  updatedById          String                @default("")
+  deletedAt            DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  category             InvMaterialCategory   @relation(fields: [categoryId], references: [id])
+  purchaseUnit         InvUnit               @relation("InvMaterialPurchaseUnit", fields: [purchaseUnitId], references: [id])
+  stockUnit            InvUnit               @relation("InvMaterialStockUnit", fields: [stockUnitId], references: [id])
+  issueUnit            InvUnit               @relation("InvMaterialIssueUnit", fields: [issueUnitId], references: [id])
+  defaultSupplier      Supplier?             @relation(fields: [defaultSupplierId], references: [id])
+  defaultWarehouse     InvWarehouse?         @relation(fields: [defaultWarehouseId], references: [id])
+  defaultLocation      InvLocation?          @relation(fields: [defaultLocationId], references: [id])
+  documentLines        InvDocumentLine[]
+  ledgerRows           InvStockLedger[]
+  balances             InvStockBalance[]
+  reservations         InvStockReservation[]
+  remnantsAsSku        InvMaterialRemnant[]  @relation("InvRemnantMaterial")
+  remnantsAsParent     InvMaterialRemnant[]  @relation("InvRemnantParentMaterial")
+  stocktakeLines       InvStocktakeLine[]
+  migrationTargets     InvMigrationMapping[] @relation("InvMigrationTargetMaterial")
+  migrationDuplicates  InvMigrationMapping[] @relation("InvMigrationDuplicateMaterial")
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([name])
+  @@index([legacyProductId])
+}
+
+model InvDocument {
+  id                  String                @id @default(cuid())
+  code                String                @unique
+  docType             String
+  direction           String
+  status              String                @default("DRAFT")
+  docDate             DateTime              @default(now())
+  warehouseId         String
+  targetWarehouseId   String?
+  supplierId          String?
+  projectId           String?
+  mfgOrderId          String?
+  scheduleTaskId      String?
+  delivererName       String                @default("")
+  receiverName        String                @default("")
+  departmentReceiving String                @default("")
+  employeeReceivingId String                @default("")
+  sourceDocumentId    String?
+  reason              String                @default("")
+  notes               String                @default("")
+  totalAmount         Float                 @default(0)
+  createdById         String                @default("")
+  submittedById       String                @default("")
+  submittedAt         DateTime?
+  approvedById        String                @default("")
+  approvedAt          DateTime?
+  cancelledById       String                @default("")
+  cancelledAt         DateTime?
+  cancelReason        String                @default("")
+  deletedAt           DateTime?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  warehouse           InvWarehouse          @relation("InvDocWarehouse", fields: [warehouseId], references: [id])
+  targetWarehouse     InvWarehouse?         @relation("InvDocTargetWarehouse", fields: [targetWarehouseId], references: [id])
+  supplier            Supplier?             @relation(fields: [supplierId], references: [id])
+  project             Project?              @relation(fields: [projectId], references: [id])
+  mfgOrder            MfgOrder?             @relation(fields: [mfgOrderId], references: [id])
+  scheduleTask        ScheduleTask?         @relation(fields: [scheduleTaskId], references: [id])
+  sourceDocument      InvDocument?          @relation("InvDocReversal", fields: [sourceDocumentId], references: [id])
+  reversals           InvDocument[]         @relation("InvDocReversal")
+  lines               InvDocumentLine[]
+  ledgerRows          InvStockLedger[]
+  reservations        InvStockReservation[]
+  attachments         InvAttachment[]
+
+  @@index([docType])
+  @@index([status])
+  @@index([warehouseId])
+  @@index([projectId])
+  @@index([mfgOrderId])
+  @@index([docDate])
+}
+
+model InvDocumentLine {
+  id               String      @id @default(cuid())
+  documentId       String
+  lineNo           Int         @default(0)
+  materialId       String
+  locationId       String?
+  targetLocationId String?
+  enteredQuantity  Float
+  enteredUnitId    String
+  ratioToStockUsed Float       @default(1)
+  quantity         Float
+  unitPrice        Float       @default(0)
+  amount           Float       @default(0)
+  avgCostAtPosting Float?
+  remnantId        String?
+  note             String      @default("")
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  document         InvDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  material         InvMaterial @relation(fields: [materialId], references: [id])
+  enteredUnit      InvUnit     @relation(fields: [enteredUnitId], references: [id])
+
+  @@index([documentId])
+  @@index([materialId])
+}
+
+model InvStockLedger {
+  id                  String       @id @default(cuid())
+  materialId          String
+  warehouseId         String
+  locationId          String?
+  documentId          String
+  documentLineId      String?
+  direction           String
+  quantity            Float
+  unitCostAtPosting   Float
+  amount              Float
+  balanceQtyAfter     Float
+  balanceAvgCostAfter Float
+  postedById          String       @default("")
+  postedAt            DateTime     @default(now())
+  reversalOfLedgerId  String?
+  note                String       @default("")
+  createdAt           DateTime     @default(now())
+  material            InvMaterial  @relation(fields: [materialId], references: [id])
+  warehouse           InvWarehouse @relation(fields: [warehouseId], references: [id])
+  location            InvLocation? @relation(fields: [locationId], references: [id])
+  document            InvDocument  @relation(fields: [documentId], references: [id])
+
+  @@index([materialId, warehouseId])
+  @@index([documentId])
+  @@index([postedAt])
+}
+
+model InvStockBalance {
+  id          String       @id @default(cuid())
+  materialId  String
+  warehouseId String
+  onHandQty   Float        @default(0)
+  reservedQty Float        @default(0)
+  avgCost     Float        @default(0)
+  lastInDate  DateTime?
+  lastOutDate DateTime?
+  updatedAt   DateTime     @updatedAt
+  material    InvMaterial  @relation(fields: [materialId], references: [id])
+  warehouse   InvWarehouse @relation(fields: [warehouseId], references: [id])
+
+  @@unique([materialId, warehouseId])
+}
+
+model InvStockReservation {
+  id             String        @id @default(cuid())
+  materialId     String
+  warehouseId    String
+  projectId      String?
+  mfgOrderId     String?
+  scheduleTaskId String?
+  documentId     String
+  quantity       Float
+  status         String        @default("ACTIVE")
+  reservedById   String        @default("")
+  reservedAt     DateTime      @default(now())
+  releasedById   String        @default("")
+  releasedAt     DateTime?
+  expiresAt      DateTime?
+  note           String        @default("")
+  material       InvMaterial   @relation(fields: [materialId], references: [id])
+  warehouse      InvWarehouse  @relation(fields: [warehouseId], references: [id])
+  project        Project?      @relation(fields: [projectId], references: [id])
+  mfgOrder       MfgOrder?     @relation(fields: [mfgOrderId], references: [id])
+  scheduleTask   ScheduleTask? @relation(fields: [scheduleTaskId], references: [id])
+  document       InvDocument   @relation(fields: [documentId], references: [id])
+
+  @@index([materialId, warehouseId, status])
+  @@index([projectId])
+  @@index([mfgOrderId])
+}
+
+model InvMaterialRemnant {
+  id               String       @id @default(cuid())
+  remnantCode      String       @unique
+  materialId       String
+  parentMaterialId String
+  sourceProjectId  String?
+  sourceDocumentId String?
+  length           Float
+  width            Float
+  thickness        Float        @default(0)
+  usableAreaM2     Float        @default(0)
+  warehouseId      String
+  locationId       String?
+  photo            String       @default("")
+  status           String       @default("USABLE")
+  returnedAt       DateTime     @default(now())
+  notes            String       @default("")
+  createdById      String       @default("")
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  material         InvMaterial  @relation("InvRemnantMaterial", fields: [materialId], references: [id])
+  parentMaterial   InvMaterial  @relation("InvRemnantParentMaterial", fields: [parentMaterialId], references: [id])
+  sourceProject    Project?     @relation(fields: [sourceProjectId], references: [id])
+  warehouse        InvWarehouse @relation(fields: [warehouseId], references: [id])
+  location         InvLocation? @relation(fields: [locationId], references: [id])
+
+  @@index([parentMaterialId])
+  @@index([status])
+  @@index([sourceProjectId])
+}
+
+model InvStocktake {
+  id              String             @id @default(cuid())
+  code            String             @unique
+  warehouseId     String
+  scopeCategoryId String?
+  status          String             @default("DRAFT")
+  countDate       DateTime           @default(now())
+  startedById     String             @default("")
+  approvedById    String             @default("")
+  approvedAt      DateTime?
+  note            String             @default("")
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  warehouse       InvWarehouse       @relation(fields: [warehouseId], references: [id])
+  lines           InvStocktakeLine[]
+
+  @@index([warehouseId])
+  @@index([status])
+}
+
+model InvStocktakeLine {
+  id             String       @id @default(cuid())
+  stocktakeId    String
+  materialId     String
+  locationId     String?
+  systemQty      Float        @default(0)
+  countedQty     Float?
+  varianceQty    Float        @default(0)
+  varianceValue  Float        @default(0)
+  status         String       @default("PENDING")
+  resolutionNote String       @default("")
+  countedById    String       @default("")
+  countedAt      DateTime?
+  stocktake      InvStocktake @relation(fields: [stocktakeId], references: [id], onDelete: Cascade)
+  material       InvMaterial  @relation(fields: [materialId], references: [id])
+
+  @@index([stocktakeId])
+  @@index([materialId])
+}
+
+model InvAuditLog {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  action     String
+  fromStatus String   @default("")
+  toStatus   String   @default("")
+  byUserId   String   @default("")
+  byUserName String   @default("")
+  note       String   @default("")
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model InvAttachment {
+  id             String       @id @default(cuid())
+  entityType     String
+  entityId       String
+  documentId     String?
+  url            String
+  thumbnailUrl   String       @default("")
+  fileName       String       @default("")
+  mimeType       String       @default("")
+  caption        String       @default("")
+  uploadedById   String       @default("")
+  uploadedByName String       @default("")
+  createdAt      DateTime     @default(now())
+  document       InvDocument? @relation(fields: [documentId], references: [id])
+
+  @@index([entityType, entityId])
+}
+
+model InvMigrationMapping {
+  id                     String       @id @default(cuid())
+  legacyProductId        String
+  legacyWarehouseId      String?
+  decision               String       @default("PENDING")
+  targetMaterialId       String?
+  targetWarehouseId      String?
+  duplicateOfMaterialId  String?
+  reconciledOpeningQty   Float        @default(0)
+  reconciledOpeningValue Float        @default(0)
+  status                 String       @default("PENDING_REVIEW")
+  confirmedById          String       @default("")
+  confirmedAt            DateTime?
+  notes                  String       @default("")
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  targetMaterial         InvMaterial? @relation("InvMigrationTargetMaterial", fields: [targetMaterialId], references: [id])
+  duplicateOfMaterial    InvMaterial? @relation("InvMigrationDuplicateMaterial", fields: [duplicateOfMaterialId], references: [id])
+
+  @@unique([legacyProductId, legacyWarehouseId])
+  @@index([status])
 }

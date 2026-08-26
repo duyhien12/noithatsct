@@ -12,6 +12,7 @@
     "db:reset": "npx prisma migrate reset",
     "db:studio": "npx prisma studio",
     "db:generate": "npx prisma generate",
+    "seed:inventory-v2": "node prisma/seed-inventory-v2.mjs",
     "postinstall": "npx prisma generate",
     "test": "vitest run",
     "test:watch": "vitest",

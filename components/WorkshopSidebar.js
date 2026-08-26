@@ -6,7 +6,7 @@ import {
     LayoutDashboard, Wrench, Building2, ShoppingCart, Package,
     ChevronRight, X, CalendarDays, Users, FileText, Warehouse,
     BarChart2, Clock, BookOpen, Landmark, BookMarked, Settings, Factory,
-    ClipboardCheck, LayoutGrid, ClipboardList, NotebookText,
+    ClipboardCheck, LayoutGrid, ClipboardList, NotebookText, Boxes,
 } from 'lucide-react';
 import { useRole, ROLES } from '@/contexts/RoleContext';
 import { useState } from 'react';
@@ -71,6 +71,7 @@ const FULL_MENU = [
         section: 'Kho & Mua sắm',
         items: [
             { href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho' },
+            { href: '/inventory-v2', icon: Boxes, label: 'Kho vật tư 2.0' },
             { href: '/purchasing?view=xuong', icon: ShoppingCart, label: 'Mua sắm vật tư' },
             { href: '/workshop/materials', icon: Package, label: 'Vật tư kho' },
             { href: '/products', icon: Package, label: 'Danh mục sản phẩm' },
@@ -100,7 +101,7 @@ const FULL_MENU = [
     },
 ];
 
-// Nhân viên xưởng chỉ xem các mục cơ bản
+// Nhân viên xưởng chỉ xem các mục cơ bản (bao gồm Thủ kho/Nhân viên sản xuất — cần vào Kho 2.0)
 const NHAN_VIEN_MENU = [
     {
         section: 'Quản lý Xưởng',
@@ -110,6 +111,12 @@ const NHAN_VIEN_MENU = [
             { href: '/workshop/work-log', icon: BookOpen, label: 'Nhật ký công việc' },
             { href: '/workshop/work-log/project-summary', icon: BarChart2, label: 'Tổng hợp công CT' },
             { href: '/workshop/timeline', icon: BarChart2, label: 'Tiến độ (Gantt)' },
+        ],
+    },
+    {
+        section: 'Kho & Mua sắm',
+        items: [
+            { href: '/inventory-v2', icon: Boxes, label: 'Kho vật tư 2.0' },
         ],
     },
 ];
@@ -175,15 +182,9 @@ export default function WorkshopSidebar({ isOpen, onClose }) {
         ? SUPERVISOR_MENU
         : isXuongNhanVien
         ? (isVanToan
-            ? [
-                ...NHAN_VIEN_MENU,
-                {
-                    section: 'Kho & Mua sắm',
-                    items: [
-                        { href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho' },
-                    ],
-                },
-              ]
+            ? NHAN_VIEN_MENU.map(s => s.section === 'Kho & Mua sắm'
+                ? { ...s, items: [{ href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho' }, ...s.items] }
+                : s)
             : NHAN_VIEN_MENU)
         : FULL_MENU;
 
