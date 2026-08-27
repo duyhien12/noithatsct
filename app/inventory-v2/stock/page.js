@@ -71,7 +71,7 @@ function StockPageInner() {
                             {rows.map((r, i) => (
                                 <tr key={`${r.materialId}_${r.warehouseId}`} style={{ background: r.status === 'HET_HANG' ? 'rgba(239,68,68,0.05)' : r.needsReorder ? 'rgba(245,158,11,0.05)' : undefined }}>
                                     <td className="accent">{r.sku}</td>
-                                    <td className="primary">{r.name}</td>
+                                    <td className="primary">{r.name}{r.colorCode && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {r.colorCode}</span>}</td>
                                     <td style={{ fontSize: 12 }}>{r.category?.name}</td>
                                     <td style={{ fontSize: 12 }}>{r.warehouse?.name}</td>
                                     <td style={{ fontSize: 12 }}>{r.unit?.code}</td>

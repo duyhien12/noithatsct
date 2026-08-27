@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 /** Ô chọn vật tư gõ-để-lọc (theo mã SKU/tên/mã màu/quy cách), thay cho <select> liệt kê hết. */
@@ -89,6 +89,9 @@ export default function NewDocumentPage() {
     const [lines, setLines] = useState([{ materialId: '', enteredQuantity: '', enteredUnitId: '', unitPrice: '' }]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const importRef = useRef(null);
+    const [importing, setImporting] = useState(false);
+    const [importReport, setImportReport] = useState(null);
 
     useEffect(() => {
         fetch('/api/inventory-v2/warehouses').then(r => r.json()).then(d => { setWarehouses(d.data || []); if (d.data?.[0]) setWarehouseId(d.data[0].id); });
@@ -109,6 +112,54 @@ export default function NewDocumentPage() {
     const handleMaterialSelect = (i, materialId) => {
         const m = materials.find(x => x.id === materialId);
         updateLine(i, { materialId, enteredUnitId: m?.stockUnitId || '' });
+    };
+
+    /** Xuất mẫu Excel toàn bộ danh mục vật tư để điền nhanh Số lượng/Đơn giá, dùng cho nhập tồn hàng loạt. */
+    const handleExportTemplate = async () => {
+        const XLSX = await import('xlsx');
+        const rows = materials.map(m => ({
+            'Mã SKU': m.sku, 'Tên vật tư': m.name, 'Mã màu': m.colorCode || '', 'ĐVT': m.stockUnit?.code || '',
+            'Số lượng': '', 'Đơn giá': '', 'Ghi chú': '',
+        }));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Nhap ton');
+        XLSX.writeFile(wb, `mau-nhap-ton-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
+
+    /** Import Excel (Mã SKU, Số lượng, Đơn giá, Ghi chú) → khớp với danh mục vật tư đã tải, thay thế các dòng hiện có. */
+    const handleImportFile = async (file) => {
+        if (!file) return;
+        setImporting(true); setImportReport(null);
+        try {
+            const XLSX = await import('xlsx');
+            const buf = await file.arrayBuffer();
+            const wb = XLSX.read(buf);
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(ws, { raw: false });
+            const materialBySku = new Map(materials.map(m => [m.sku.trim().toLowerCase(), m]));
+
+            const newLines = [];
+            const errors = [];
+            rows.forEach((row, idx) => {
+                const rowNo = idx + 2;
+                const sku = String(row['Mã SKU'] || '').trim();
+                const qty = Number(row['Số lượng']);
+                if (!sku && !qty) return; // dòng trống, bỏ qua
+                if (!sku) { errors.push({ row: rowNo, message: 'Thiếu mã SKU' }); return; }
+                const material = materialBySku.get(sku.toLowerCase());
+                if (!material) { errors.push({ row: rowNo, message: `Không tìm thấy vật tư "${sku}"` }); return; }
+                if (!(qty > 0)) return; // không nhập số lượng, bỏ qua dòng này
+                newLines.push({
+                    materialId: material.id, enteredQuantity: String(qty), enteredUnitId: material.stockUnitId,
+                    unitPrice: row['Đơn giá'] ? String(Number(row['Đơn giá']) || 0) : '',
+                });
+            });
+
+            if (newLines.length > 0) setLines(newLines);
+            setImportReport({ success: newLines.length, total: rows.length, errors });
+        } catch (err) { setImportReport({ errors: [{ row: '-', message: err.message }] }); }
+        finally { setImporting(false); }
     };
 
     const handleSubmit = async () => {
@@ -175,7 +226,24 @@ export default function NewDocumentPage() {
                 </div>
 
                 <div className="form-group">
-                    <label className="form-label">Dòng vật tư *</label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                        <label className="form-label" style={{ marginBottom: 0 }}>Dòng vật tư *</label>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button type="button" className="btn btn-ghost" onClick={handleExportTemplate}>📥 Tải mẫu Excel</button>
+                            <button type="button" className="btn btn-ghost" onClick={() => importRef.current?.click()} disabled={importing}>{importing ? 'Đang import...' : '📤 Import Excel'}</button>
+                            <input ref={importRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={e => { handleImportFile(e.target.files[0]); e.target.value = ''; }} />
+                        </div>
+                    </div>
+                    {importReport && (
+                        <div style={{ margin: '8px 0', padding: '8px 12px', borderRadius: 6, background: importReport.errors?.length ? '#fef2f2' : '#f0fdf4', fontSize: 13 }}>
+                            Import: {importReport.success ?? 0}/{importReport.total ?? 0} dòng thành công.
+                            {importReport.errors?.length > 0 && (
+                                <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                                    {importReport.errors.slice(0, 10).map((e, i) => <li key={i}>Dòng {e.row}: {e.message}</li>)}
+                                </ul>
+                            )}
+                        </div>
+                    )}
                     {lines.map((l, i) => (
                         <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-start' }}>
                             <MaterialCombobox materials={materials} value={l.materialId} onSelect={(id) => handleMaterialSelect(i, id)} />

@@ -55,7 +55,7 @@ export const GET = withAuth(async (request, ctx, session) => {
 
         return {
             materialId: b.materialId, warehouseId: b.warehouseId,
-            sku: b.material.sku, name: b.material.name, image: b.material.image,
+            sku: b.material.sku, name: b.material.name, colorCode: b.material.colorCode, image: b.material.image,
             category: b.material.category, unit: b.material.stockUnit,
             warehouse: b.warehouse,
             onHandQty, reservedQty, availableQty, incomingQty,
