@@ -32,6 +32,7 @@ export const GET = withAuth(async (request) => {
 
 export const POST = withAuth(async (request) => {
     const data = await request.json();
+    if (!data.nextFollowUp) data.nextFollowUp = null;
     const log = await prisma.trackingLog.create({ data });
     return NextResponse.json(log);
 });

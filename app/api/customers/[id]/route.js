@@ -80,14 +80,16 @@ export const PUT = withAuth(async (request, { params }, session) => {
     }
 
     // Parse chỉ các field có trong body để tránh Zod default() ghi đè toàn bộ
-    const parsed = customerUpdateSchema.parse(body);
+    const { lastContactAt, ...bodyRest } = body;
+    const parsed = customerUpdateSchema.parse(bodyRest);
     const updateData = {};
-    for (const key of Object.keys(body)) {
-        if (key === 'lastContactAt') {
-            updateData.lastContactAt = lastContactSchema.parse(body.lastContactAt);
-        } else if (key in parsed) {
+    for (const key of Object.keys(bodyRest)) {
+        if (key in parsed) {
             updateData[key] = parsed[key];
         }
+    }
+    if ('lastContactAt' in body) {
+        updateData.lastContactAt = lastContactSchema.parse(lastContactAt);
     }
 
     const customer = await prisma.customer.update({ where: { id }, data: updateData });
