@@ -11,7 +11,7 @@ function MaterialCombobox({ materials, value, onSelect }) {
 
     const q = text.trim().toLowerCase();
     const filtered = q
-        ? materials.filter(m => [m.sku, m.name, m.colorCode, m.specNote, m.brand].some(f => (f || '').toLowerCase().includes(q)))
+        ? materials.filter(m => [m.sku, m.name, m.colorCode, m.specNote, m.brand, Number(m.thickness) > 0 ? String(m.thickness) : ''].some(f => (f || '').toLowerCase().includes(q)))
         : materials;
 
     return (
@@ -35,6 +35,7 @@ function MaterialCombobox({ materials, value, onSelect }) {
                             onMouseLeave={e => e.currentTarget.style.background = ''}>
                             <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{m.sku}</span> — {m.name}
                             {m.colorCode && <span style={{ color: 'var(--text-muted)' }}> · mã màu {m.colorCode}</span>}
+                            {Number(m.thickness) > 0 && <span style={{ color: 'var(--text-muted)' }}> · Dày {m.thickness}mm</span>}
                         </div>
                     ))}
                 </div>
