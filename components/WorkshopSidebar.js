@@ -69,6 +69,7 @@ const FULL_MENU = [
             { icon: NotebookText, label: 'Nhật ký Thu – Chi',
               children: [
                   { href: '/finance/journal', label: 'Tổng hợp Thu – Chi' },
+                  { href: '/finance/journal/project-costs', label: 'Tổng chi phí công trình' },
                   { href: '/finance/journal/advances', label: 'Tạm ứng nhân viên' },
                   { href: '/finance/journal/payables', label: 'Công nợ NCC / Nhà phân phối' },
                   { href: '/finance/journal/receivables', label: 'Công nợ Khách hàng' },

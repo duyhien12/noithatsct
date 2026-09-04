@@ -64,6 +64,7 @@ const menuItems = [
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, 'xuong', ...VIEWER],
               children: [
                   { href: '/finance/journal', label: 'Tổng hợp Thu – Chi' },
+                  { href: '/finance/journal/project-costs', label: 'Tổng chi phí công trình' },
                   { href: '/finance/journal/advances', label: 'Tạm ứng nhân viên' },
                   { href: '/finance/journal/advance-expenses', label: 'Tạm ứng công tác/vật tư/tiền ăn' },
                   { href: '/finance/journal/payables', label: 'Công nợ NCC / Nhà phân phối' },
