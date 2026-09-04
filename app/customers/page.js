@@ -58,6 +58,8 @@ export default function CustomersPage() {
     const { role, email } = useRole();
     const isThietKe = role === 'thiet_ke';
     const canSeeXD = !isThietKe && (role !== 'xuong' || email === 'buihoa@kientrucsct.com');
+    const canSeeTK = isThietKe || role === 'hanh_chinh_kt';
+    const isTKReadOnly = canSeeTK && !isThietKe;
 
     useEffect(() => {
         if (email === 'buihoa@kientrucsct.com') setShowXDBoard(true);
@@ -72,16 +74,19 @@ export default function CustomersPage() {
             const d = await r.json();
             setCustomersTK(d.data || []);
         } else {
-            const [r1, r2] = await Promise.all([
+            const fetches = [
                 fetch('/api/customers?dept=kinh_doanh&limit=1000'),
                 fetch('/api/customers?dept=xay_dung&limit=1000'),
-            ]);
-            const [d1, d2] = await Promise.all([r1.json(), r2.json()]);
+            ];
+            if (canSeeTK) fetches.push(fetch('/api/customers?dept=thiet_ke&limit=1000'));
+            const results = await Promise.all(fetches);
+            const [d1, d2, d3] = await Promise.all(results.map(r => r.json()));
             setCustomers(d1.data || []);
             setCustomersXD(d2.data || []);
+            if (canSeeTK) setCustomersTK(d3?.data || []);
         }
         setLoading(false);
-    }, [isThietKe]);
+    }, [isThietKe, canSeeTK]);
     useEffect(() => { fetchCustomers(); }, [role, fetchCustomers]);
 
     const applyFilter = (list) => list.filter(c => {
@@ -192,10 +197,11 @@ export default function CustomersPage() {
                 {/* ========= KANBAN VIEW - desktop only ========= */}
                 {view === 'kanban' && (<>
                 {/* --- Bảng Phòng Thiết Kế --- */}
-                {isThietKe && (<>
+                {canSeeTK && (<>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: '#16a085' }}>✏️ Khách hàng Phòng Thiết Kế</span>
                     <span style={{ background: '#d1fae5', color: '#065f46', fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 8 }}>{filteredTK.length}</span>
+                    {isTKReadOnly && <span style={{ background: '#f3f4f6', color: '#6b7280', fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 8 }}>👁️ Chỉ xem</span>}
                 </div>
                 <div className="desktop-table-view kanban-board" style={{ gap: 6, paddingBottom: 20, minHeight: 400, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                     {PIPELINE_TK.map(stage => {
@@ -208,9 +214,9 @@ export default function CustomersPage() {
                         return (
                             <div key={stage.key}
                                 className="kanban-column"
-                                onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver('tk_' + stage.key); }}
-                                onDragLeave={onDragLeave}
-                                onDrop={e => { e.preventDefault(); setDragOver(null); const id = e.dataTransfer.getData('text/plain') || dragId; if (id) { moveTo(id, stage.key); setDragId(null); } }}
+                                onDragOver={isTKReadOnly ? undefined : e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver('tk_' + stage.key); }}
+                                onDragLeave={isTKReadOnly ? undefined : onDragLeave}
+                                onDrop={isTKReadOnly ? undefined : e => { e.preventDefault(); setDragOver(null); const id = e.dataTransfer.getData('text/plain') || dragId; if (id) { moveTo(id, stage.key); setDragId(null); } }}
                                 style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', background: isOver ? stage.bg : 'var(--bg-secondary)', borderRadius: 10, border: isOver ? `2px dashed ${stage.color}` : '1px solid var(--border-light)', transition: 'all .2s' }}>
                                 <div style={{ padding: '10px 10px 6px', borderBottom: '2px solid ' + stage.color }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -223,14 +229,14 @@ export default function CustomersPage() {
                                 <div style={{ flex: 1, padding: 6, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     {cards.map(c => (
                                         <div key={c.id}
-                                            draggable
-                                            onDragStart={e => onDragStart(e, c.id)}
-                                            onDragEnd={onDragEnd}
+                                            draggable={!isTKReadOnly}
+                                            onDragStart={isTKReadOnly ? undefined : e => onDragStart(e, c.id)}
+                                            onDragEnd={isTKReadOnly ? undefined : onDragEnd}
                                             onClick={() => { if (!isDragging.current) router.push(`/customers/${c.id}`); }}
-                                            style={{ background: dragId === c.id ? stage.bg : (c.isPriority ? '#fffbea' : 'var(--bg-card)'), borderRadius: 8, padding: '8px 10px', cursor: 'grab', border: c.isPriority ? '1px solid #f5c518' : '1px solid var(--border-light)', boxShadow: c.isPriority ? '0 1px 3px rgba(245,197,24,.35)' : '0 1px 2px rgba(0,0,0,.05)', transition: 'all .15s', opacity: dragId === c.id ? 0.5 : 1, WebkitTapHighlightColor: 'transparent', position: 'relative' }}>
+                                            style={{ background: dragId === c.id ? stage.bg : (c.isPriority ? '#fffbea' : 'var(--bg-card)'), borderRadius: 8, padding: '8px 10px', cursor: isTKReadOnly ? 'pointer' : 'grab', border: c.isPriority ? '1px solid #f5c518' : '1px solid var(--border-light)', boxShadow: c.isPriority ? '0 1px 3px rgba(245,197,24,.35)' : '0 1px 2px rgba(0,0,0,.05)', transition: 'all .15s', opacity: dragId === c.id ? 0.5 : 1, WebkitTapHighlightColor: 'transparent', position: 'relative' }}>
                                             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 4, marginBottom: 3 }}>
                                                 <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                                                <span onClick={e => togglePriority(e, c)} title={c.isPriority ? 'Bỏ ưu tiên' : 'Đánh dấu ưu tiên'} style={{ cursor: 'pointer', fontSize: 13, lineHeight: 1, flexShrink: 0, filter: c.isPriority ? 'none' : 'grayscale(1) opacity(.4)' }}>⭐</span>
+                                                <span onClick={isTKReadOnly ? undefined : e => togglePriority(e, c)} title={c.isPriority ? 'Bỏ ưu tiên' : 'Đánh dấu ưu tiên'} style={{ cursor: isTKReadOnly ? 'default' : 'pointer', fontSize: 13, lineHeight: 1, flexShrink: 0, filter: c.isPriority ? 'none' : 'grayscale(1) opacity(.4)' }}>⭐</span>
                                             </div>
                                             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                                                 {c.phone && <div>📱 {c.phone}</div>}
@@ -242,7 +248,7 @@ export default function CustomersPage() {
                                             </div>}
                                         </div>
                                     ))}
-                                    {cards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 11, textAlign: 'center', padding: 16, opacity: 0.5 }}>Kéo thả vào đây</div>}
+                                    {cards.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 11, textAlign: 'center', padding: 16, opacity: 0.5 }}>{isTKReadOnly ? 'Không có khách' : 'Kéo thả vào đây'}</div>}
                                 </div>
                             </div>
                         );
