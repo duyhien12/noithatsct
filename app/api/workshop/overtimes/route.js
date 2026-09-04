@@ -2,6 +2,9 @@ import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 
+// Chỉ Ban giám đốc/admin được ghi tăng ca — các phòng ban khác chỉ xem.
+const ATTENDANCE_EDIT_ROLES = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
+
 export const GET = withAuth(async (req) => {
     const { searchParams } = new URL(req.url);
     const workerId = searchParams.get('workerId');
@@ -59,4 +62,4 @@ export const POST = withAuth(async (req, ctx, session) => {
         include: { worker: { select: { id: true, name: true, hourlyRate: true } } },
     });
     return NextResponse.json(record);
-});
+}, { roles: ATTENDANCE_EDIT_ROLES });

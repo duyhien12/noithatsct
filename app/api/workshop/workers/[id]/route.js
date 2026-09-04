@@ -2,6 +2,8 @@ import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 
+const WORKER_EDIT_ROLES = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
+
 export const PUT = withAuth(async (req, { params }) => {
     const { id } = await params;
     const body = await req.json();
@@ -20,10 +22,10 @@ export const PUT = withAuth(async (req, { params }) => {
         },
     });
     return NextResponse.json(worker);
-});
+}, { roles: WORKER_EDIT_ROLES });
 
 export const DELETE = withAuth(async (req, { params }) => {
     const { id } = await params;
     await prisma.workshopWorker.delete({ where: { id } });
     return NextResponse.json({ success: true });
-});
+}, { roles: WORKER_EDIT_ROLES });

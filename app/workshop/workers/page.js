@@ -15,6 +15,8 @@ const STATUS_OPTS = ['Hoạt động', 'Tạm nghỉ', 'Nghỉ việc'];
 const STATUS_COLOR = { 'Hoạt động': '#16a34a', 'Tạm nghỉ': '#d97706', 'Nghỉ việc': '#6b7280' };
 const STATUS_BG   = { 'Hoạt động': '#dcfce7', 'Tạm nghỉ': '#fef3c7', 'Nghỉ việc': '#f3f4f6' };
 
+const WORKER_EDIT_ROLES = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
+
 const WORKER_TYPES = ['Thợ chính', 'Thợ phụ'];
 const WORKER_TYPE_COLOR = { 'Thợ chính': '#1d4ed8', 'Thợ phụ': '#6d28d9' };
 const WORKER_TYPE_BG    = { 'Thợ chính': '#dbeafe', 'Thợ phụ': '#ede9fe' };
@@ -23,6 +25,7 @@ const EMPTY_FORM = { name: '', workerType: 'Thợ chính', skill: '', phone: '',
 export default function WorkersPage() {
     const router = useRouter();
     const { role, isXuongNhanVien } = useRole();
+    const canEditWorkers = WORKER_EDIT_ROLES.includes(role);
     const [workers, setWorkers] = useState([]);
     const [workerTasks, setWorkerTasks] = useState({});
     const [attendance, setAttendance] = useState([]);
@@ -517,7 +520,7 @@ export default function WorkersPage() {
             {!isXuongNhanVien && <div className="card">
                 <div className="card-header">
                     <h3>Danh sách nhân công</h3>
-                    <button className="btn btn-primary" onClick={openAdd}>+ Thêm thợ</button>
+                    {canEditWorkers && <button className="btn btn-primary" onClick={openAdd}>+ Thêm thợ</button>}
                 </div>
                 <div className="filter-bar" style={{ borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 8 }}>
                     <input className="form-input" placeholder="🔍 Tìm theo tên, tay nghề..."
@@ -549,9 +552,11 @@ export default function WorkersPage() {
                             </button>
                         )}
                     </div>
-                    <button className="btn btn-sm" style={{ background: '#dcfce7', color: '#15803d', border: 'none', fontWeight: 600, flexShrink: 0 }} onClick={handleBulkAttend}>
-                        ✅ Chấm tất cả 8h
-                    </button>
+                    {canEditWorkers && (
+                        <button className="btn btn-sm" style={{ background: '#dcfce7', color: '#15803d', border: 'none', fontWeight: 600, flexShrink: 0 }} onClick={handleBulkAttend}>
+                            ✅ Chấm tất cả 8h
+                        </button>
+                    )}
                 </div>
 
                 {/* Tiêu đề ngày đang xem */}
@@ -683,18 +688,18 @@ export default function WorkersPage() {
                                                 </td>
                                                 <td>
                                                     <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                                                        {w.status === 'Hoạt động' && (
+                                                        {canEditWorkers && w.status === 'Hoạt động' && (
                                                             <button className="btn btn-sm" style={{ background: rec ? '#dcfce7' : '#dbeafe', color: rec ? '#15803d' : '#1d4ed8', border: 'none', fontWeight: 600 }} onClick={() => openAttend(w)}>
                                                                 {rec ? '✓ Sửa' : '+ Chấm'}
                                                             </button>
                                                         )}
-                                                        {w.status === 'Hoạt động' && (
+                                                        {canEditWorkers && w.status === 'Hoạt động' && (
                                                             <button className="btn btn-sm" style={{ background: '#fef3c7', color: '#d97706', border: 'none', fontWeight: 600 }} onClick={() => openOvertime(w)} title="Ghi tăng ca">
                                                                 ⏰ OT
                                                             </button>
                                                         )}
-                                                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(w)}>✏️</button>
-                                                        <button className="btn btn-ghost btn-sm" onClick={() => setDeleteTarget(w)} style={{ color: 'var(--status-danger)' }}>🗑️</button>
+                                                        {canEditWorkers && <button className="btn btn-ghost btn-sm" onClick={() => openEdit(w)}>✏️</button>}
+                                                        {canEditWorkers && <button className="btn btn-ghost btn-sm" onClick={() => setDeleteTarget(w)} style={{ color: 'var(--status-danger)' }}>🗑️</button>}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -736,9 +741,9 @@ export default function WorkersPage() {
                                         </div>
                                     )}
                                     <div style={{ display: 'flex', gap: 6 }}>
-                                        {w.status === 'Hoạt động' && <button className="btn btn-sm" onClick={() => openAttend(w)}>{rec ? '✓ Sửa' : '+ Chấm công'}</button>}
-                                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(w)}>✏️</button>
-                                        <button className="btn btn-ghost btn-sm" onClick={() => setDeleteTarget(w)} style={{ color: 'var(--status-danger)' }}>🗑️</button>
+                                        {canEditWorkers && w.status === 'Hoạt động' && <button className="btn btn-sm" onClick={() => openAttend(w)}>{rec ? '✓ Sửa' : '+ Chấm công'}</button>}
+                                        {canEditWorkers && <button className="btn btn-ghost btn-sm" onClick={() => openEdit(w)}>✏️</button>}
+                                        {canEditWorkers && <button className="btn btn-ghost btn-sm" onClick={() => setDeleteTarget(w)} style={{ color: 'var(--status-danger)' }}>🗑️</button>}
                                     </div>
                                 </div>
                             );
@@ -1793,8 +1798,8 @@ tfoot td{font-weight:bold;background:#fef3c7}
                                                 <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{ot.reason || '—'}</td>
                                                 <td>
                                                     <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                                                        <button className="btn btn-ghost btn-sm" onClick={() => openOvertimeEdit(ot)}>✏️</button>
-                                                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--status-danger)' }} onClick={() => handleDeleteOT(ot.id)}>🗑️</button>
+                                                        {canEditWorkers && <button className="btn btn-ghost btn-sm" onClick={() => openOvertimeEdit(ot)}>✏️</button>}
+                                                        {canEditWorkers && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--status-danger)' }} onClick={() => handleDeleteOT(ot.id)}>🗑️</button>}
                                                     </div>
                                                 </td>
                                             </tr>
