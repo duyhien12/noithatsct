@@ -115,10 +115,11 @@ export default function FinanceJournalPage() {
         const projs = [...(Array.isArray(projsKD) ? projsKD : []), ...(Array.isArray(projsXD) ? projsXD : [])]
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setProjects(projs);
-        // Khách "Khách hợp đồng" (pipelineStage = Thi công, chưa xóa) — cho chọn trong ô
-        // Dự án/Công trình dù đã có Dự án hay chưa, chỉ là không gắn projectId (dùng Đối tượng thay thế).
+        // Khách "Khách hợp đồng" (pipelineStage = Thi công, chưa xóa, và CHƯA có Dự án chính
+        // thức — khách đã có Dự án thì chọn thẳng Dự án ở trên, tránh trùng lặp lựa chọn).
+        const projectCustomerIds = new Set(projs.map(p => p.customerId));
         const stubs = [...(Array.isArray(custKD) ? custKD : []), ...(Array.isArray(custXD) ? custXD : [])]
-            .filter(c => c.pipelineStage === 'Thi công' && !c.deletedAt)
+            .filter(c => c.pipelineStage === 'Thi công' && !c.deletedAt && !projectCustomerIds.has(c.id))
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setCustomerStubs(stubs);
         if (cash) setCashBalance(cash);
@@ -1019,9 +1020,11 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds,
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
     // Ô "Dự án/Công trình" gộp cả Dự án thật (projectId) và Khách "Khách hợp đồng" chưa
-    // có Dự án (dùng lại cơ chế Đối tượng sẵn có: objectType='Khách hàng').
+    // có Dự án (dùng lại cơ chế Đối tượng sẵn có: objectType='Khách hàng') — chỉ áp dụng
+    // cho phiếu Thu (khách là người nộp tiền); phiếu Chi không đụng tới Loại đối tượng vì
+    // đối tượng của phiếu Chi là NCC/Thầu phụ..., không phải khách hàng.
     const projectPickValue = form.projectId ? `p_${form.projectId}`
-        : (form.objectType === 'Khách hàng' && form.objectId && (customerStubs || []).some(c => c.id === form.objectId)) ? `c_${form.objectId}`
+        : (form.type === 'Thu' && form.objectType === 'Khách hàng' && form.objectId && (customerStubs || []).some(c => c.id === form.objectId)) ? `c_${form.objectId}`
             : '';
     const handleProjectPick = (val) => {
         if (val.startsWith('p_')) {
@@ -1125,7 +1128,8 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds,
                                 ) : (
                                     <select className="form-select" disabled={isView} value={projectPickValue} onChange={e => handleProjectPick(e.target.value)}>
                                         <option value="">-- không có --</option>
-                                        {customerStubs?.map(c => <option key={'c_' + c.id} value={'c_' + c.id}>{c.name}</option>)}
+                                        {projects?.map(p => <option key={'p_' + p.id} value={'p_' + p.id}>{p.code} — {p.name}</option>)}
+                                        {form.type === 'Thu' && customerStubs?.map(c => <option key={'c_' + c.id} value={'c_' + c.id}>{c.name} (chưa có dự án)</option>)}
                                     </select>
                                 )}
                             </Field>
