@@ -1090,9 +1090,6 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds,
         }
 
         if (!(Number(form.amount) > 0)) return alert('Số tiền phải lớn hơn 0');
-        if (form.type === 'Chi' && ['NCC', 'Thầu phụ'].includes(form.objectType) && !form.projectId) {
-            return alert('Giao dịch Chi cho NCC/Thầu phụ bắt buộc chọn Dự án/Công trình để theo dõi đúng chi phí công trình');
-        }
         setSaving(true);
         await onSave({ ...form, status: statusOverride || form.status });
         setSaving(false);
