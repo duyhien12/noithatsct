@@ -1,9 +1,12 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { canManageAttendance } from '@/lib/manufacturing/permissions';
 
-// Chỉ Ban giám đốc/admin được ghi tăng ca — các phòng ban khác chỉ xem.
-const ATTENDANCE_EDIT_ROLES = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
+// Ban giám đốc/admin và quản lý xưởng được ghi tăng ca — các phòng ban/nhân sự xưởng khác chỉ xem.
+// Role 'xuong' được cho qua withAuth vì bao gồm cả quản lý lẫn thợ; department được kiểm tra
+// riêng trong handler qua canManageAttendance().
+const ATTENDANCE_EDIT_ROLES = ['ban_gd', 'giam_doc', 'pho_gd', 'admin', 'xuong'];
 
 export const GET = withAuth(async (req) => {
     const { searchParams } = new URL(req.url);
@@ -34,6 +37,9 @@ export const GET = withAuth(async (req) => {
 });
 
 export const POST = withAuth(async (req, ctx, session) => {
+    if (!canManageAttendance(session?.user)) {
+        return NextResponse.json({ error: 'Bạn không có quyền ghi tăng ca' }, { status: 403 });
+    }
     const body = await req.json();
     const { workerId, date, hours, rateMultiplier, reason, notes } = body;
 

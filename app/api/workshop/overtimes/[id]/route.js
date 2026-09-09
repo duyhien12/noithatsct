@@ -1,10 +1,16 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { canManageAttendance } from '@/lib/manufacturing/permissions';
 
-const ATTENDANCE_EDIT_ROLES = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
+// Role 'xuong' được cho qua withAuth vì bao gồm cả quản lý lẫn thợ; department được kiểm tra
+// riêng trong handler qua canManageAttendance().
+const ATTENDANCE_EDIT_ROLES = ['ban_gd', 'giam_doc', 'pho_gd', 'admin', 'xuong'];
 
-export const PUT = withAuth(async (req, { params }) => {
+export const PUT = withAuth(async (req, { params }, session) => {
+    if (!canManageAttendance(session?.user)) {
+        return NextResponse.json({ error: 'Bạn không có quyền sửa tăng ca' }, { status: 403 });
+    }
     const { id } = await params;
     const body = await req.json();
     const { hours, rateMultiplier, reason, notes, date } = body;
@@ -34,7 +40,10 @@ export const PUT = withAuth(async (req, { params }) => {
     return NextResponse.json(record);
 }, { roles: ATTENDANCE_EDIT_ROLES });
 
-export const DELETE = withAuth(async (req, { params }) => {
+export const DELETE = withAuth(async (req, { params }, session) => {
+    if (!canManageAttendance(session?.user)) {
+        return NextResponse.json({ error: 'Bạn không có quyền xóa tăng ca' }, { status: 403 });
+    }
     const { id } = await params;
     await prisma.workerOvertime.delete({ where: { id } });
     return NextResponse.json({ deleted: true });

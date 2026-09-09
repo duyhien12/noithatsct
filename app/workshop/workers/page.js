@@ -16,6 +16,9 @@ const STATUS_COLOR = { 'Hoạt động': '#16a34a', 'Tạm nghỉ': '#d97706', '
 const STATUS_BG   = { 'Hoạt động': '#dcfce7', 'Tạm nghỉ': '#fef3c7', 'Nghỉ việc': '#f3f4f6' };
 
 const WORKER_EDIT_ROLES = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
+// Quản lý xưởng (role 'xuong' + department quản lý) — được chấm công/OT nhưng không sửa
+// hồ sơ thợ (tên/tay nghề/đơn giá là dữ liệu lương, chỉ Ban giám đốc/admin mới sửa được).
+const XUONG_MANAGER_DEPARTMENTS = ['Quản đốc', 'Quản lý', 'Trưởng phòng', 'Phó phòng'];
 
 const WORKER_TYPES = ['Thợ chính', 'Thợ phụ'];
 const WORKER_TYPE_COLOR = { 'Thợ chính': '#1d4ed8', 'Thợ phụ': '#6d28d9' };
@@ -24,8 +27,9 @@ const EMPTY_FORM = { name: '', workerType: 'Thợ chính', skill: '', phone: '',
 
 export default function WorkersPage() {
     const router = useRouter();
-    const { role, isXuongNhanVien } = useRole();
+    const { role, department, isXuongNhanVien } = useRole();
     const canEditWorkers = WORKER_EDIT_ROLES.includes(role);
+    const canManageAttendance = canEditWorkers || (role === 'xuong' && XUONG_MANAGER_DEPARTMENTS.includes(department));
     const [workers, setWorkers] = useState([]);
     const [workerTasks, setWorkerTasks] = useState({});
     const [attendance, setAttendance] = useState([]);
@@ -169,8 +173,6 @@ export default function WorkersPage() {
     // Khởi tạo bảng thanh toán lương từ dữ liệu chấm công
     useEffect(() => {
         if (loadingSummary) return;
-        // Chỉ bỏ qua khi đã có dữ liệu ngày công thực sự (không bỏ qua khi rows toàn 0)
-        if (payrollMonth === summaryMonth && payrollRows.some(r => r.ngayCong > 0)) return;
         const congFn = (h) => h / 8;
         const byWorkerDay = {};
         summaryAttendance.forEach(a => {
@@ -193,9 +195,10 @@ export default function WorkersPage() {
                 tamUng: advance, baoHiem: 0, cd: 0, daThanhToan: 0,
             };
         });
-        setPayrollRows(rows);
+        // Chỉ bỏ qua khi đã có dữ liệu ngày công thực sự (không bỏ qua khi rows toàn 0)
+        setPayrollRows(prev => (payrollMonth === summaryMonth && prev.some(r => r.ngayCong > 0)) ? prev : rows);
         setPayrollMonth(summaryMonth);
-    }, [loadingSummary, summaryMonth, summaryAttendance, summaryOvertimes, salaryAdvances, workers, payrollMonth, payrollRows]);
+    }, [loadingSummary, summaryMonth, summaryAttendance, summaryOvertimes, salaryAdvances, workers, payrollMonth]);
 
     useEffect(() => {
         if (showOvertimeList) fetchMonthlyOvertimes(overtimeMonth);
@@ -552,7 +555,7 @@ export default function WorkersPage() {
                             </button>
                         )}
                     </div>
-                    {canEditWorkers && (
+                    {canManageAttendance && (
                         <button className="btn btn-sm" style={{ background: '#dcfce7', color: '#15803d', border: 'none', fontWeight: 600, flexShrink: 0 }} onClick={handleBulkAttend}>
                             ✅ Chấm tất cả 8h
                         </button>
@@ -688,12 +691,12 @@ export default function WorkersPage() {
                                                 </td>
                                                 <td>
                                                     <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                                                        {canEditWorkers && w.status === 'Hoạt động' && (
+                                                        {canManageAttendance && w.status === 'Hoạt động' && (
                                                             <button className="btn btn-sm" style={{ background: rec ? '#dcfce7' : '#dbeafe', color: rec ? '#15803d' : '#1d4ed8', border: 'none', fontWeight: 600 }} onClick={() => openAttend(w)}>
                                                                 {rec ? '✓ Sửa' : '+ Chấm'}
                                                             </button>
                                                         )}
-                                                        {canEditWorkers && w.status === 'Hoạt động' && (
+                                                        {canManageAttendance && w.status === 'Hoạt động' && (
                                                             <button className="btn btn-sm" style={{ background: '#fef3c7', color: '#d97706', border: 'none', fontWeight: 600 }} onClick={() => openOvertime(w)} title="Ghi tăng ca">
                                                                 ⏰ OT
                                                             </button>
@@ -741,7 +744,7 @@ export default function WorkersPage() {
                                         </div>
                                     )}
                                     <div style={{ display: 'flex', gap: 6 }}>
-                                        {canEditWorkers && w.status === 'Hoạt động' && <button className="btn btn-sm" onClick={() => openAttend(w)}>{rec ? '✓ Sửa' : '+ Chấm công'}</button>}
+                                        {canManageAttendance && w.status === 'Hoạt động' && <button className="btn btn-sm" onClick={() => openAttend(w)}>{rec ? '✓ Sửa' : '+ Chấm công'}</button>}
                                         {canEditWorkers && <button className="btn btn-ghost btn-sm" onClick={() => openEdit(w)}>✏️</button>}
                                         {canEditWorkers && <button className="btn btn-ghost btn-sm" onClick={() => setDeleteTarget(w)} style={{ color: 'var(--status-danger)' }}>🗑️</button>}
                                     </div>
@@ -1798,8 +1801,8 @@ tfoot td{font-weight:bold;background:#fef3c7}
                                                 <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{ot.reason || '—'}</td>
                                                 <td>
                                                     <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                                                        {canEditWorkers && <button className="btn btn-ghost btn-sm" onClick={() => openOvertimeEdit(ot)}>✏️</button>}
-                                                        {canEditWorkers && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--status-danger)' }} onClick={() => handleDeleteOT(ot.id)}>🗑️</button>}
+                                                        {canManageAttendance && <button className="btn btn-ghost btn-sm" onClick={() => openOvertimeEdit(ot)}>✏️</button>}
+                                                        {canManageAttendance && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--status-danger)' }} onClick={() => handleDeleteOT(ot.id)}>🗑️</button>}
                                                     </div>
                                                 </td>
                                             </tr>
