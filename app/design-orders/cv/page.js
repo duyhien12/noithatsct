@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Trash2 } from 'lucide-react';
-import { STATUSES, STATUS_COLORS, DONE_STATUSES, DESIGNERS, STATUS_PROGRESS, colorForExecutor } from '@/lib/designTaskStatus';
+import { STATUSES, STATUS_COLORS, DONE_STATUSES, ARCHIVED_STATUSES, DESIGNERS, STATUS_PROGRESS, colorForExecutor } from '@/lib/designTaskStatus';
 import { useToast } from '@/components/ui/Toast';
 import Modal from '@/components/ui/Modal';
 import FormGroup from '@/components/ui/FormGroup';
@@ -111,6 +111,7 @@ export default function DesignTaskCvPage() {
     const [filterExecutor, setFilterExecutor] = useState('');
     const [filterStatus, setFilterStatus]     = useState('');
     const [hideDone, setHideDone] = useState(false);
+    const [hideArchived, setHideArchived] = useState(false);
     const [collapsedGroups, setCollapsedGroups] = useState(new Set());
 
     const [showModal, setShowModal] = useState(false);
@@ -217,7 +218,8 @@ export default function DesignTaskCvPage() {
     const filtered = tasks.filter(t => {
         if (filterExecutor && t.executorName !== filterExecutor) return false;
         if (filterStatus && t.status !== filterStatus) return false;
-        if (hideDone && DONE_STATUSES.includes(t.status)) return false;
+        if (hideDone && t.status === 'Hoàn thành') return false;
+        if (hideArchived && ARCHIVED_STATUSES.includes(t.status)) return false;
         if (search) {
             const q = search.toLowerCase();
             if (!t.customerName?.toLowerCase().includes(q) && !t.code?.toLowerCase().includes(q) && !t.title?.toLowerCase().includes(q)) return false;
@@ -262,8 +264,12 @@ export default function DesignTaskCvPage() {
                         <input type="checkbox" checked={hideDone} onChange={e => setHideDone(e.target.checked)} />
                         Ẩn Hoàn thành
                     </label>
-                    {(filterExecutor || filterStatus || search || hideDone) && (
-                        <button className="btn btn-ghost btn-sm" onClick={() => { setFilterExecutor(''); setFilterStatus(''); setSearch(''); setHideDone(false); }}>✕ Xóa lọc</button>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, cursor: 'pointer', userSelect: 'none' }}>
+                        <input type="checkbox" checked={hideArchived} onChange={e => setHideArchived(e.target.checked)} />
+                        Ẩn Lưu trữ
+                    </label>
+                    {(filterExecutor || filterStatus || search || hideDone || hideArchived) && (
+                        <button className="btn btn-ghost btn-sm" onClick={() => { setFilterExecutor(''); setFilterStatus(''); setSearch(''); setHideDone(false); setHideArchived(false); }}>✕ Xóa lọc</button>
                     )}
 
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
