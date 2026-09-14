@@ -251,6 +251,23 @@ export default function TimelinePage() {
         if (!groupedRaw[key]) groupedRaw[key] = { projectId: t.projectId, tasks: [] };
         groupedRaw[key].tasks.push(t);
     });
+
+    // Thêm các dự án đang có nhưng chưa tạo hạng mục tiến độ nào,
+    // để dự án mới không bị "mất tích" khỏi Gantt.
+    const DONE_PROJECT_STATUSES = ['Hoàn thành', 'Bàn giao', 'Hủy'];
+    if (!filterStatus && !filterSection) {
+        const seenProjectIds = new Set(Object.values(groupedRaw).map(g => g.projectId).filter(Boolean));
+        projects.forEach(p => {
+            if (seenProjectIds.has(p.id) || groupedRaw[p.name]) return;
+            if (filterProject && p.id !== filterProject) return;
+            if (isThietKe
+                ? !['Thiết kế kiến trúc', 'Thiết kế nội thất'].includes(p.type)
+                : (filterProjectType && p.type !== filterProjectType)) return;
+            if (hideDoneProjects && DONE_PROJECT_STATUSES.includes(p.status)) return;
+            groupedRaw[p.name] = { projectId: p.id, tasks: [], empty: true };
+        });
+    }
+
     Object.values(groupedRaw).forEach(g => {
         g.tasks.sort((a, b) =>
             (a.order ?? 0) - (b.order ?? 0) ||
@@ -264,7 +281,7 @@ export default function TimelinePage() {
                     : g.tasks;
                 return [name, { ...g, tasks }];
             })
-            .filter(([, g]) => !hideDoneProjects || g.tasks.length > 0)
+            .filter(([, g]) => g.empty || !hideDoneProjects || g.tasks.length > 0)
     );
 
     // ── Bar pixel helper ─────────────────────────────────────
@@ -541,7 +558,7 @@ export default function TimelinePage() {
                                     const pEnd   = pDates.length ? new Date(Math.max(...pDates.map(d => d.getTime()))) : null;
                                     const pX  = pStart ? Math.max(0, daysBetween(minDate, pStart)) * DAY_W : null;
                                     const pW  = pStart && pEnd ? Math.max(daysBetween(pStart, pEnd), 1) * DAY_W : null;
-                                    const pDone = gt.every(t => t.status === 'Hoàn thành');
+                                    const pDone = gt.length > 0 && gt.every(t => t.status === 'Hoàn thành');
                                     const pLate = gt.some(t => t.deadline && new Date(t.deadline) < now && t.status !== 'Hoàn thành');
                                     const pPct  = gt.length ? Math.round(gt.reduce((s, t) => s + (t.progress || 0), 0) / gt.length) : 0;
 
@@ -555,7 +572,9 @@ export default function TimelinePage() {
                                                 <div style={{ minWidth: LEFT_W, padding: '0 8px', fontSize: 11, fontWeight: 700, color: pLate ? '#dc2626' : pDone ? '#16a34a' : '#1d4ed8', borderRight: '2px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, position: 'sticky', left: 0, zIndex: 30, background: pDone ? '#f0fdf4' : '#eff6ff', height: GROUP_H }}>
                                                     <span style={{ fontSize: 9, color: 'var(--text-muted)', width: 10, flexShrink: 0 }}>{isCollapsed ? '▶' : '▼'}</span>
                                                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>📁 {projectName}</span>
-                                                    <span style={{ fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{pPct}%</span>
+                                                    {gt.length === 0
+                                                        ? <span style={{ fontSize: 9, background: '#f3f4f6', color: 'var(--text-muted)', padding: '1px 4px', borderRadius: 3, fontWeight: 700, flexShrink: 0 }}>Chưa có hạng mục</span>
+                                                        : <span style={{ fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{pPct}%</span>}
                                                     {pLate && <span style={{ fontSize: 9, background: '#fee2e2', color: '#dc2626', padding: '1px 4px', borderRadius: 3, fontWeight: 700, flexShrink: 0 }}>Trễ</span>}
                                                     {pDone && <span style={{ fontSize: 9, background: '#dcfce7', color: '#16a34a', padding: '1px 4px', borderRadius: 3, fontWeight: 700, flexShrink: 0 }}>✓</span>}
                                                     <span style={{ fontSize: 9, color: 'var(--text-muted)', flexShrink: 0 }}>{gt.length}</span>
