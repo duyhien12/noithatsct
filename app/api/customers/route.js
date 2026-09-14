@@ -11,6 +11,7 @@ export const GET = withAuth(async (request) => {
 
     const type = searchParams.get('type');
     const status = searchParams.get('status');
+    const pipelineStage = searchParams.get('pipelineStage');
     const search = searchParams.get('search');
 
     const dept = searchParams.get('dept'); // 'xay_dung' | 'kinh_doanh' | 'thiet_ke' | null (all)
@@ -24,6 +25,7 @@ export const GET = withAuth(async (request) => {
     }
     if (type) where.type = type;
     if (status) where.status = status;
+    if (pipelineStage) where.pipelineStage = pipelineStage;
     if (search) where.name = { contains: search };
 
     try {

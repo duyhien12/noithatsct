@@ -122,7 +122,7 @@ export default function ProjectsPage() {
     }, [openPhaseId]);
 
     useEffect(() => {
-        const url = isThietKe ? '/api/customers?dept=thiet_ke&limit=1000' : '/api/customers?limit=1000';
+        const url = isThietKe ? '/api/customers?dept=thiet_ke&limit=1000' : `/api/customers?dept=kinh_doanh&pipelineStage=${encodeURIComponent('Thi công')}&limit=1000`;
         fetch(url).then(r => r.json()).then(d => setCustomers(d.data || []));
     }, [isThietKe]);
     useEffect(() => { fetchProjects(); }, [fetchProjects]);
