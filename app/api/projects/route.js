@@ -106,7 +106,7 @@ export const GET = withAuth(async (request) => {
     if (dept === 'xay_dung')      where.createdByRole = 'xay_dung';
     else if (dept === 'thiet_ke') where.createdByRole = 'thiet_ke';
     else if (dept === 'xuong')    where.createdByRole = 'xuong';
-    else if (dept === 'kinh_doanh') where.NOT = { createdByRole: { in: ['xay_dung', 'thiet_ke', 'xuong'] } };
+    else if (dept === 'kinh_doanh') where.NOT = { createdByRole: { in: ['xay_dung', 'thiet_ke'] } };
     if (type)   where.type   = type;
     if (status) where.status = status;
     if (search) where.name   = { contains: search };
