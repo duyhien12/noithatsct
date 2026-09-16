@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Factory, Plus, Search, X, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Factory, Plus, Search, X, ChevronRight, AlertTriangle, Trash2 } from 'lucide-react';
 import { useRole } from '@/contexts/RoleContext';
 import { getMfgPermissions } from '@/lib/manufacturing/permissions';
 import { ORDER_STATUSES, ORDER_STATUS_LABELS, PRIORITY_LABELS } from '@/lib/manufacturing/constants';
@@ -62,6 +62,17 @@ export default function ManufacturingOrdersPage() {
         }
     }
 
+    async function handleDelete(order) {
+        if (!confirm(`Xoá lệnh sản xuất "${order.code}"?\n\nChỉ xoá được lệnh chưa phát sinh QC/vật tư/đóng gói/vận chuyển.`)) return;
+        try {
+            const res = await fetch(`/api/manufacturing/orders/${order.id}`, { method: 'DELETE' });
+            const d = await res.json();
+            if (!res.ok) throw new Error(d.error || 'Lỗi xoá lệnh sản xuất');
+            toast.success('Đã xoá lệnh sản xuất');
+            load();
+        } catch (e) { toast.error(e.message); }
+    }
+
     const hasFilter = filters.search || filters.status || filters.priority || filters.overdueOnly;
 
     return (
@@ -116,7 +127,7 @@ export default function ManufacturingOrdersPage() {
                             <thead>
                                 <tr>
                                     <th>Mã lệnh</th><th>Dự án</th><th>Tiêu đề</th><th>Ưu tiên</th><th>Trạng thái</th>
-                                    <th>Sản phẩm</th><th>Tiến độ</th><th>Deadline</th><th>Lỗi mở</th><th />
+                                    <th>Sản phẩm</th><th>Tiến độ</th><th>Deadline</th><th>Lỗi mở</th><th />{perms.delete && <th />}
                                 </tr>
                             </thead>
                             <tbody>
@@ -141,6 +152,13 @@ export default function ManufacturingOrdersPage() {
                                         </td>
                                         <td>{o._count?.qualityIssues > 0 ? <span className="badge danger">{o._count.qualityIssues}</span> : '—'}</td>
                                         <td><ChevronRight size={14} color="#9ca3af" /></td>
+                                        {perms.delete && (
+                                            <td onClick={e => e.stopPropagation()}>
+                                                <button className="btn btn-ghost btn-sm" style={{ color: '#dc2626' }} onClick={() => handleDelete(o)} title="Xoá lệnh sản xuất">
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>
