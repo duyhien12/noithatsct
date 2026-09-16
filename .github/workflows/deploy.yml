@@ -76,8 +76,14 @@ jobs:
           echo "==> Cleaning up old images..."
           docker image prune -f
 
+          echo "==> Cleaning up build cache from this build (giữ ổ đĩa không đầy dần theo thời gian)..."
+          docker builder prune -af
+
           echo "==> Waiting for health check..."
           sleep 10
 
           echo "==> Container status:"
           docker ps --filter "name=noithatsct" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+          echo "==> Disk usage after deploy:"
+          df -h /
