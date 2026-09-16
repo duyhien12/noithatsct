@@ -1,45 +1,71 @@
 'use client';
+import { useState } from 'react';
+import { AlertTriangle, Trash2, Info } from 'lucide-react';
 import Modal from './Modal';
-import { AlertTriangle } from 'lucide-react';
+import Button from './Button';
 
-export default function ConfirmDialog({ isOpen, onClose, onConfirm, title = 'Xác nhận', message, confirmText = 'Xác nhận', cancelText = 'Hủy', variant = 'danger' }) {
-    const colors = {
-        danger: { bg: '#FEF2F2', border: '#FECACA', btn: '#DC2626' },
-        warning: { bg: '#FFFBEB', border: '#FDE68A', btn: '#D97706' },
-        info: { bg: '#EFF6FF', border: '#BFDBFE', btn: '#2563EB' },
+const VARIANTS = {
+    danger:  { icon: Trash2,         tone: 'danger',  btn: 'danger-solid' },
+    warning: { icon: AlertTriangle,  tone: 'warning', btn: 'primary' },
+    info:    { icon: Info,           tone: 'info',    btn: 'primary' },
+};
+
+/**
+ * Hộp thoại xác nhận dùng chung.
+ *
+ * Với hành động xóa, luôn ghi rõ ĐỐI TƯỢNG bị xóa qua `itemName`:
+ *   <ConfirmDialog ... itemName="khách hàng Nguyễn Văn A" />
+ */
+export default function ConfirmDialog({
+    isOpen,
+    onClose,
+    onConfirm,
+    title = 'Xác nhận',
+    message,
+    itemName,
+    confirmText = 'Xác nhận',
+    cancelText = 'Hủy',
+    variant = 'danger',
+}) {
+    const [busy, setBusy] = useState(false);
+    const v = VARIANTS[variant] || VARIANTS.danger;
+    const Icon = v.icon;
+
+    const handleConfirm = async () => {
+        try {
+            setBusy(true);
+            await onConfirm?.();
+            onClose?.();
+        } finally {
+            setBusy(false);
+        }
     };
-    const c = colors[variant] || colors.danger;
+
+    const body = message || (itemName
+        ? `Bạn có chắc muốn xóa ${itemName}? Hành động này không thể hoàn tác.`
+        : 'Bạn có chắc muốn thực hiện hành động này?');
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={title} maxWidth={440}>
-            <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
-                <div style={{
-                    width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-                    background: c.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                    <AlertTriangle size={20} color={c.btn} />
-                </div>
-                <p style={{ margin: 0, color: 'var(--text-primary, #333)', lineHeight: 1.5 }}>{message}</p>
-            </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button
-                    onClick={onClose}
-                    style={{
-                        padding: '8px 20px', borderRadius: 8, border: '1px solid var(--border, #d1d5db)',
-                        background: 'transparent', cursor: 'pointer', fontWeight: 500, fontSize: 14,
-                    }}
-                >
-                    {cancelText}
-                </button>
-                <button
-                    onClick={() => { onConfirm(); onClose(); }}
-                    style={{
-                        padding: '8px 20px', borderRadius: 8, border: 'none',
-                        background: c.btn, color: 'white', cursor: 'pointer', fontWeight: 500, fontSize: 14,
-                    }}
-                >
-                    {confirmText}
-                </button>
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={title}
+            maxWidth={460}
+            closeOnOverlayClick={false}
+            footer={
+                <>
+                    <Button variant="outline" onClick={onClose} disabled={busy}>{cancelText}</Button>
+                    <Button variant={v.btn} onClick={handleConfirm} loading={busy}>{confirmText}</Button>
+                </>
+            }
+        >
+            <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                <span className={`ui-state__icon ui-state__icon--${v.tone === 'info' ? 'warning' : v.tone}`} aria-hidden="true" style={{ width: 40, height: 40, flexShrink: 0 }}>
+                    <Icon size={20} />
+                </span>
+                <p style={{ margin: 0, color: 'var(--color-text)', lineHeight: 'var(--lh-normal)' }}>
+                    {body}
+                </p>
             </div>
         </Modal>
     );

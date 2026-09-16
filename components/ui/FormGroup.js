@@ -1,18 +1,11 @@
 'use client';
+import { Field } from './Form';
 
-export default function FormGroup({ label, required, children, error }) {
+/** Giữ API cũ (label/required/error) — render bằng Field của hệ thống mới. */
+export default function FormGroup({ label, required, children, error, hint }) {
     return (
-        <div style={{ marginBottom: 16 }}>
-            {label && (
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-primary)' }}>
-                    {label}
-                    {required && <span style={{ color: '#DC2626', marginLeft: 2 }}>*</span>}
-                </label>
-            )}
+        <Field label={label} required={required} error={error} hint={hint} className="ui-form-group-legacy">
             {children}
-            {error && (
-                <p style={{ margin: '4px 0 0', fontSize: 12, color: '#DC2626' }}>{error}</p>
-            )}
-        </div>
+        </Field>
     );
 }

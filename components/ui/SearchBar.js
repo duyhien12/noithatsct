@@ -1,52 +1,57 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { Search, X } from 'lucide-react';
 
-export default function SearchBar({ value, onChange, placeholder = 'Tìm kiếm...', debounceMs = 300 }) {
+/** Ô tìm kiếm có debounce + nút xóa. Giữ nguyên API cũ. */
+export default function SearchBar({
+    value,
+    onChange,
+    placeholder = 'Tìm kiếm...',
+    debounceMs = 300,
+    width = 260,
+    className = '',
+}) {
     const [internal, setInternal] = useState(value || '');
     const timer = useRef(null);
+    const id = useId();
 
-    useEffect(() => {
-        setInternal(value || '');
-    }, [value]);
+    useEffect(() => { setInternal(value || ''); }, [value]);
+    useEffect(() => () => clearTimeout(timer.current), []);
 
     const handleChange = (e) => {
         const v = e.target.value;
         setInternal(v);
         clearTimeout(timer.current);
-        timer.current = setTimeout(() => onChange(v), debounceMs);
+        timer.current = setTimeout(() => onChange?.(v), debounceMs);
     };
 
     const handleClear = () => {
+        clearTimeout(timer.current);
         setInternal('');
-        onChange('');
+        onChange?.('');
     };
 
     return (
-        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-            <Search size={16} style={{ position: 'absolute', left: 10, color: 'var(--text-muted)' }} />
+        <div className={`ui-search ${className}`.trim()} style={{ width }}>
+            <span className="ui-search__icon" aria-hidden="true"><Search size={15} /></span>
             <input
-                type="text"
+                id={id}
+                type="search"
+                className="ui-input"
                 value={internal}
                 onChange={handleChange}
                 placeholder={placeholder}
                 aria-label={placeholder}
-                style={{
-                    padding: '8px 32px 8px 34px', borderRadius: 8,
-                    border: '1px solid var(--border)', fontSize: 14,
-                    outline: 'none', width: 260, background: 'var(--bg-secondary, #f9fafb)',
-                }}
             />
             {internal && (
                 <button
+                    type="button"
+                    className="ui-search__clear"
                     onClick={handleClear}
                     aria-label="Xóa tìm kiếm"
-                    style={{
-                        position: 'absolute', right: 8, background: 'none',
-                        border: 'none', cursor: 'pointer', padding: 2, color: 'var(--text-muted)',
-                    }}
+                    title="Xóa tìm kiếm"
                 >
-                    <X size={14} />
+                    <X size={14} aria-hidden="true" />
                 </button>
             )}
         </div>

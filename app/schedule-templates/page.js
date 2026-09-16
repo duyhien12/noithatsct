@@ -1,24 +1,57 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+    Plus, Download, Upload, Trash2, Eye, ClipboardList, X,
+} from 'lucide-react';
+import {
+    PageContainer, PageHeader, Card, Button, IconButton, Badge,
+    Table, Modal, ConfirmDialog, EmptyState, useToast,
+    Field, Input, Select, Textarea, FormGrid,
+} from '@/components/ui';
+import { formatDate } from '@/lib/format';
 
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+const TYPES = ['Xây thô', 'Hoàn thiện', 'Nội thất', 'Thiết kế'];
+const COLORS = ['', '#EF4444', '#F59E0B', '#22C55E', '#3B82F6', '#8B5CF6', '#EC4899'];
+
+const TYPE_TONES = {
+    'Xây thô': 'neutral',
+    'Hoàn thiện': 'info',
+    'Nội thất': 'primary',
+    'Thiết kế': 'purple',
+};
 
 export default function ScheduleTemplatesPage() {
-    const router = useRouter();
+    const toast = useToast();
     const [templates, setTemplates] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [failed, setFailed] = useState(false);
     const [modal, setModal] = useState(null);
     const [form, setForm] = useState({ name: '', type: 'Nội thất', description: '' });
+    const [formError, setFormError] = useState({});
+    const [saving, setSaving] = useState(false);
     const [items, setItems] = useState([]);
     const [detail, setDetail] = useState(null);
+    const [toDelete, setToDelete] = useState(null);
     const [importing, setImporting] = useState(false);
     const importRef = useRef();
 
-    const fetchTemplates = () => {
-        fetch('/api/schedule-templates').then(r => r.json()).then(d => { setTemplates(d); setLoading(false); });
+    const fetchTemplates = useCallback(() => {
+        setLoading(true);
+        setFailed(false);
+        fetch('/api/schedule-templates')
+            .then(r => r.json())
+            .then(d => { setTemplates(Array.isArray(d) ? d : []); setLoading(false); })
+            .catch(() => { setFailed(true); setLoading(false); });
+    }, []);
+
+    useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
+
+    const openCreate = () => {
+        setForm({ name: '', type: 'Nội thất', description: '' });
+        setFormError({});
+        setItems([]);
+        setModal('create');
     };
-    useEffect(fetchTemplates, []);
 
     const addItem = () => {
         setItems(prev => [...prev, {
@@ -34,30 +67,60 @@ export default function ScheduleTemplatesPage() {
     const removeItem = (idx) => setItems(prev => prev.filter((_, i) => i !== idx));
 
     const createTemplate = async () => {
-        if (!form.name.trim()) return alert('Tên mẫu bắt buộc');
-        if (items.length === 0) return alert('Cần ít nhất 1 hạng mục');
-        const res = await fetch('/api/schedule-templates', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...form, items }),
-        });
-        if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi tạo mẫu'); }
-        setModal(null);
-        setForm({ name: '', type: 'Nội thất', description: '' });
-        setItems([]);
-        fetchTemplates();
+        const errors = {};
+        if (!form.name.trim()) errors.name = 'Vui lòng nhập tên mẫu.';
+        if (items.length === 0) errors.items = 'Cần ít nhất một hạng mục.';
+        setFormError(errors);
+        if (Object.keys(errors).length > 0) {
+            toast.error('Vui lòng kiểm tra các trường bắt buộc.');
+            return;
+        }
+
+        setSaving(true);
+        try {
+            const res = await fetch('/api/schedule-templates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...form, items }),
+            });
+            if (!res.ok) {
+                await res.json().catch(() => ({}));
+                toast.error('Không thể lưu mẫu tiến độ. Vui lòng kiểm tra lại dữ liệu đã nhập.');
+                return;
+            }
+            setModal(null);
+            setForm({ name: '', type: 'Nội thất', description: '' });
+            setItems([]);
+            fetchTemplates();
+            toast.success('Đã lưu mẫu tiến độ.');
+        } catch {
+            toast.error('Không kết nối được máy chủ. Vui lòng thử lại.');
+        } finally {
+            setSaving(false);
+        }
     };
 
-    const deleteTemplate = async (id) => {
-        if (!confirm('Xóa mẫu tiến độ này?')) return;
-        await fetch(`/api/schedule-templates/${id}`, { method: 'DELETE' });
-        fetchTemplates();
+    const deleteTemplate = async (tpl) => {
+        try {
+            const res = await fetch(`/api/schedule-templates/${tpl.id}`, { method: 'DELETE' });
+            if (!res.ok) {
+                toast.error(`Không thể xóa mẫu "${tpl.name}".`);
+                return;
+            }
+            fetchTemplates();
+            toast.success(`Đã xóa mẫu "${tpl.name}".`);
+        } catch {
+            toast.error('Không kết nối được máy chủ. Vui lòng thử lại.');
+        }
     };
 
     const viewDetail = async (id) => {
-        const res = await fetch(`/api/schedule-templates/${id}`);
-        const d = await res.json();
-        setDetail(d);
+        try {
+            const res = await fetch(`/api/schedule-templates/${id}`);
+            setDetail(await res.json());
+        } catch {
+            toast.error('Không tải được chi tiết mẫu tiến độ.');
+        }
     };
 
     const downloadTemplate = async () => {
@@ -115,11 +178,11 @@ export default function ScheduleTemplatesPage() {
             // Nếu file không có metadata (nhập thẳng không theo mẫu), thử đọc từ dòng 2
             let templateName = String(rows[0]?.[1] || '').trim();
             let templateType = String(rows[1]?.[1] || '').trim();
-            let templateDesc = String(rows[2]?.[1] || '').trim();
+            const templateDesc = String(rows[2]?.[1] || '').trim();
             let dataStartRow = 5;
 
             const isPlaceholder = !templateName || templateName === 'Nhập tên mẫu tiến độ vào đây';
-            const knownTypes = ['Xây thô', 'Hoàn thiện', 'Nội thất', 'Thiết kế'];
+            const knownTypes = TYPES;
 
             // Nếu không có metadata → thử đọc như file thuần (không có phần header meta)
             if (isPlaceholder) {
@@ -134,7 +197,7 @@ export default function ScheduleTemplatesPage() {
 
             const dataRows = rows.slice(dataStartRow).filter(r => r[1] && String(r[1]).trim());
             if (!dataRows.length) {
-                alert('Không có hạng mục nào trong file (bắt đầu từ dòng 6)');
+                toast.error('File không có hạng mục nào (dữ liệu bắt đầu từ dòng 6).');
                 setImporting(false);
                 return;
             }
@@ -143,7 +206,7 @@ export default function ScheduleTemplatesPage() {
                 if (!val) return null;
                 if (val instanceof Date) return val;
                 const s = String(val).trim();
-                const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+                const m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
                 if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
                 return null;
             };
@@ -164,177 +227,373 @@ export default function ScheduleTemplatesPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: templateName, type: templateType, description: templateDesc, items: parsedItems }),
             });
-            if (!res.ok) { const err = await res.json(); alert(err.error || 'Lỗi tạo mẫu'); setImporting(false); return; }
+            if (!res.ok) {
+                await res.json().catch(() => ({}));
+                toast.error('Không thể tạo mẫu từ file Excel. Vui lòng kiểm tra lại nội dung file.');
+                setImporting(false);
+                return;
+            }
             fetchTemplates();
-            alert(`Đã tạo mẫu "${templateName}" với ${parsedItems.length} hạng mục`);
-        } catch (err) {
-            alert('Lỗi đọc file: ' + err.message);
+            toast.success(`Đã tạo mẫu "${templateName}" với ${parsedItems.length} hạng mục.`);
+        } catch {
+            toast.error('Không đọc được file Excel. Vui lòng dùng đúng mẫu tải về.');
         }
         setImporting(false);
     };
 
-    if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>;
+    const columns = [
+        {
+            key: 'name',
+            header: 'Tên mẫu',
+            strong: true,
+            truncate: true,
+            render: (name, row) => (
+                <span style={{ display: 'block' }}>
+                    <span style={{ display: 'block' }}>{name}</span>
+                    <span className="ui-caption ui-truncate" style={{ display: 'block' }}>
+                        {row.description || 'Không có mô tả'}
+                    </span>
+                </span>
+            ),
+        },
+        {
+            key: 'type',
+            header: 'Loại',
+            nowrap: true,
+            width: 140,
+            render: v => <Badge tone={TYPE_TONES[v] || 'neutral'} size="sm">{v}</Badge>,
+        },
+        {
+            key: '_count',
+            header: 'Số hạng mục',
+            align: 'num',
+            width: 120,
+            render: v => v?.items ?? 0,
+        },
+        {
+            key: 'createdAt',
+            header: 'Ngày tạo',
+            align: 'num',
+            nowrap: true,
+            width: 120,
+            render: v => formatDate(v, { fallback: '—' }),
+        },
+    ];
 
-    const TYPES = ['Xây thô', 'Hoàn thiện', 'Nội thất', 'Thiết kế'];
-    const COLORS = ['', '#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
+    const rowActions = (row) => [
+        { label: 'Xem chi tiết', icon: Eye, onClick: () => viewDetail(row.id) },
+        { label: 'Xóa mẫu', icon: Trash2, danger: true, separatorBefore: true, onClick: () => setToDelete(row) },
+    ];
 
     return (
-        <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                <div>
-                    <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>📋 Mẫu tiến độ</h2>
-                    <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>Quản lý thư viện mẫu tiến độ dùng cho các dự án</p>
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn btn-ghost btn-sm" onClick={downloadTemplate} style={{ border: '1px solid #16a34a', color: '#15803d', background: '#f0fdf4' }}>📥 Tải mẫu Excel</button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => importRef.current?.click()} disabled={importing} style={{ border: '1px solid #2563eb', color: '#1d4ed8', background: '#eff6ff' }}>
-                        {importing ? 'Đang nhập...' : '📊 Nhập từ Excel'}
-                    </button>
-                    <input ref={importRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) { handleImportExcel(e.target.files[0]); e.target.value = ''; } }} />
-                    <button className="btn btn-primary" onClick={() => { setModal('create'); setItems([]); }}>+ Tạo mẫu mới</button>
-                </div>
-            </div>
+        <PageContainer>
+            <PageHeader
+                title="Mẫu tiến độ"
+                description="Thư viện mẫu tiến độ dùng chung để nhập nhanh vào dự án"
+                breadcrumbs={[{ label: 'Trang chủ', href: '/' }, { label: 'Mẫu tiến độ' }]}
+                actions={
+                    <>
+                        <Button variant="outline" icon={Download} onClick={downloadTemplate}>
+                            Tải mẫu Excel
+                        </Button>
+                        <Button
+                            variant="outline"
+                            icon={Upload}
+                            loading={importing}
+                            onClick={() => importRef.current?.click()}
+                        >
+                            {importing ? 'Đang nhập…' : 'Nhập từ Excel'}
+                        </Button>
+                        <Button variant="primary" icon={Plus} onClick={openCreate}>
+                            Tạo mẫu mới
+                        </Button>
+                        <input
+                            ref={importRef}
+                            type="file"
+                            accept=".xlsx,.xls"
+                            className="ui-sr-only"
+                            aria-label="Chọn file Excel mẫu tiến độ"
+                            onChange={e => {
+                                if (e.target.files?.[0]) { handleImportExcel(e.target.files[0]); e.target.value = ''; }
+                            }}
+                        />
+                    </>
+                }
+            />
 
-            {/* Templates Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
-                {templates.map(t => (
-                    <div key={t.id} className="card" style={{ padding: 20, cursor: 'pointer', transition: 'all 0.2s' }}
-                        onClick={() => viewDetail(t.id)}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                            <div>
-                                <div style={{ fontWeight: 700, fontSize: 15 }}>{t.name}</div>
-                                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{t.description || 'Không có mô tả'}</div>
-                            </div>
-                            <span className="badge info" style={{ flexShrink: 0 }}>{t.type}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                                📊 {t._count?.items || 0} hạng mục • {fmtDate(t.createdAt)}
-                            </span>
-                            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--status-danger)', fontSize: 12 }}
-                                onClick={(e) => { e.stopPropagation(); deleteTemplate(t.id); }}>🗑️</button>
-                        </div>
-                    </div>
-                ))}
-            </div>
+            <Card flush>
+                <Table
+                    columns={columns}
+                    data={templates}
+                    loading={loading}
+                    error={failed}
+                    onRetry={fetchTemplates}
+                    onRowClick={(row) => viewDetail(row.id)}
+                    rowActions={rowActions}
+                    stickyHeader
+                    caption="Danh sách mẫu tiến độ"
+                    empty={
+                        <EmptyState
+                            icon={ClipboardList}
+                            title="Chưa có mẫu tiến độ"
+                            description="Tạo mẫu đầu tiên để quản lý dự án có thể nhập nhanh tiến độ chuẩn vào dự án mới."
+                            action={<Button variant="primary" icon={Plus} onClick={openCreate}>Tạo mẫu đầu tiên</Button>}
+                        />
+                    }
+                />
+            </Card>
 
-            {templates.length === 0 && (
-                <div className="card" style={{ padding: 40, textAlign: 'center' }}>
-                    <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
-                    <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8 }}>Chưa có mẫu tiến độ</div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20 }}>
-                        Tạo mẫu để PM có thể import nhanh vào dự án
-                    </div>
-                    <button className="btn btn-primary" onClick={() => { setModal('create'); setItems([]); }}>+ Tạo mẫu đầu tiên</button>
-                </div>
-            )}
-
-            {/* Detail Modal */}
-            {detail && (
-                <div className="modal-overlay" onClick={() => setDetail(null)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 700 }}>
-                        <div className="modal-header">
-                            <h3>{detail.name}</h3>
-                            <button className="modal-close" onClick={() => setDetail(null)}>×</button>
+            {/* Chi tiết mẫu */}
+            <Modal
+                isOpen={!!detail}
+                onClose={() => setDetail(null)}
+                title={detail?.name}
+                maxWidth={720}
+                footer={<Button variant="outline" onClick={() => setDetail(null)}>Đóng</Button>}
+            >
+                {detail && (
+                    <>
+                        <div className="ui-row" style={{ marginBottom: 'var(--space-3)' }}>
+                            <Badge tone={TYPE_TONES[detail.type] || 'neutral'} size="sm">{detail.type}</Badge>
+                            <Badge tone="neutral" size="sm">{detail.items?.length || 0} hạng mục</Badge>
                         </div>
-                        <div className="modal-body">
-                            <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
-                                <span className="badge info">{detail.type}</span>
-                                <span className="badge muted">{detail.items?.length || 0} hạng mục</span>
-                            </div>
-                            {detail.description && <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>{detail.description}</p>}
-                            <div className="table-container"><table className="data-table">
-                                <thead><tr><th style={{ width: 30 }}>#</th><th>Hạng mục</th><th style={{ width: 50 }}>WBS</th><th style={{ width: 60 }}>Ngày</th><th style={{ width: 50 }}>TL</th></tr></thead>
-                                <tbody>{(detail.items || []).map((item, i) => (
-                                    <tr key={item.id} style={{ background: item.level === 0 ? 'var(--bg-elevated)' : 'transparent' }}>
-                                        <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>{i + 1}</td>
-                                        <td style={{ paddingLeft: item.level * 20 + 8, fontWeight: item.level === 0 ? 700 : 400 }}>
-                                            {item.color && <span style={{ display: 'inline-block', width: 4, height: 14, borderRadius: 2, background: item.color, marginRight: 6, verticalAlign: 'middle' }}></span>}
-                                            {item.name}
-                                        </td>
-                                        <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>{item.wbs}</td>
-                                        <td style={{ fontSize: 12 }}>{item.duration}d</td>
-                                        <td style={{ fontSize: 12 }}>{item.weight}</td>
+                        {detail.description && (
+                            <p className="ui-secondary" style={{ marginBottom: 'var(--space-4)' }}>{detail.description}</p>
+                        )}
+                        <div className="ui-table-wrap">
+                            <table className="ui-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: 40 }} className="is-center">#</th>
+                                        <th>Hạng mục</th>
+                                        <th style={{ width: 70 }}>WBS</th>
+                                        <th style={{ width: 70 }} className="is-num">Số ngày</th>
+                                        <th style={{ width: 70 }} className="is-num">Trọng số</th>
                                     </tr>
-                                ))}</tbody>
-                            </table></div>
+                                </thead>
+                                <tbody>
+                                    {(detail.items || []).map((item, i) => (
+                                        <tr key={item.id}>
+                                            <td className="is-center ui-caption">{i + 1}</td>
+                                            <td style={{ paddingLeft: item.level * 20 + 16, fontWeight: item.level === 0 ? 600 : 400 }}>
+                                                {item.color && (
+                                                    <span
+                                                        aria-hidden="true"
+                                                        style={{
+                                                            display: 'inline-block', width: 4, height: 14, borderRadius: 2,
+                                                            background: item.color, marginRight: 6, verticalAlign: 'middle',
+                                                        }}
+                                                    />
+                                                )}
+                                                {item.name}
+                                            </td>
+                                            <td className="ui-caption">{item.wbs}</td>
+                                            <td className="is-num">{item.duration}</td>
+                                            <td className="is-num">{item.weight}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
-                    </div>
+                    </>
+                )}
+            </Modal>
+
+            {/* Tạo mẫu mới */}
+            <Modal
+                isOpen={modal === 'create'}
+                onClose={() => setModal(null)}
+                title="Tạo mẫu tiến độ"
+                description="Khai báo thông tin chung rồi thêm từng hạng mục của tiến độ."
+                maxWidth={880}
+                closeOnOverlayClick={false}
+                footer={
+                    <>
+                        <Button variant="outline" onClick={() => setModal(null)} disabled={saving}>Hủy</Button>
+                        <Button variant="primary" onClick={createTemplate} loading={saving}>Lưu mẫu</Button>
+                    </>
+                }
+            >
+                <FormGrid>
+                    <Field label="Tên mẫu" required error={formError.name}>
+                        {({ id, ...a11y }) => (
+                            <Input
+                                id={id}
+                                {...a11y}
+                                value={form.name}
+                                onChange={e => setForm({ ...form, name: e.target.value })}
+                                placeholder="VD: Thi công nội thất tiêu chuẩn"
+                            />
+                        )}
+                    </Field>
+
+                    <Field label="Loại">
+                        {({ id }) => (
+                            <Select id={id} value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
+                                {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                            </Select>
+                        )}
+                    </Field>
+                </FormGrid>
+
+                <div style={{ marginTop: 'var(--space-4)' }}>
+                    <Field label="Mô tả" hint="Ghi chú ngắn giúp người khác biết mẫu này dùng cho loại công trình nào.">
+                        {({ id }) => (
+                            <Textarea
+                                id={id}
+                                rows={2}
+                                value={form.description}
+                                onChange={e => setForm({ ...form, description: e.target.value })}
+                            />
+                        )}
+                    </Field>
                 </div>
-            )}
 
-            {/* Create Modal */}
-            {modal === 'create' && (
-                <div className="modal-overlay" onClick={() => setModal(null)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 800 }}>
-                        <div className="modal-header"><h3>Tạo mẫu tiến độ</h3><button className="modal-close" onClick={() => setModal(null)}>×</button></div>
-                        <div className="modal-body">
-                            <div className="form-row">
-                                <div className="form-group" style={{ flex: 2 }}><label className="form-label">Tên mẫu *</label><input className="form-input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="VD: Thi công nội thất tiêu chuẩn" /></div>
-                                <div className="form-group"><label className="form-label">Loại</label>
-                                    <select className="form-select" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
-                                        {TYPES.map(t => <option key={t}>{t}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="form-group"><label className="form-label">Mô tả</label><textarea className="form-input" rows={2} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
+                <section style={{ marginTop: 'var(--space-6)' }}>
+                    <div className="ui-row ui-row--between" style={{ marginBottom: 'var(--space-2)' }}>
+                        <h3 className="ui-form-section__title">Danh sách hạng mục ({items.length})</h3>
+                        <Button variant="outline" size="sm" icon={Plus} onClick={addItem}>Thêm hạng mục</Button>
+                    </div>
 
-                            {/* Items Editor */}
-                            <div style={{ marginTop: 16, border: '1px solid var(--border-color)', borderRadius: 8, overflow: 'hidden' }}>
-                                <div style={{ background: 'var(--bg-elevated)', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontWeight: 600, fontSize: 13 }}>📊 Danh sách hạng mục ({items.length})</span>
-                                    <button type="button" className="btn btn-ghost btn-sm" onClick={addItem} style={{ fontSize: 12 }}>+ Thêm</button>
-                                </div>
-                                {items.length === 0 ? (
-                                    <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Bấm &quot;+ Thêm&quot; để thêm hạng mục</div>
-                                ) : (
-                                    <div style={{ maxHeight: 400, overflow: 'auto' }}>
-                                        <table className="data-table" style={{ marginBottom: 0 }}>
-                                            <thead><tr>
-                                                <th style={{ width: 30 }}>#</th>
-                                                <th>Tên</th>
-                                                <th style={{ width: 50 }}>WBS</th>
-                                                <th style={{ width: 50 }}>Cấp</th>
-                                                <th style={{ width: 55 }}>Ngày</th>
-                                                <th style={{ width: 45 }}>TL</th>
-                                                <th style={{ width: 40 }}>Màu</th>
-                                                <th style={{ width: 70 }}>Sau hạng mục</th>
-                                                <th style={{ width: 70 }}>Thuộc nhóm</th>
-                                                <th style={{ width: 30 }}></th>
-                                            </tr></thead>
-                                            <tbody>{items.map((item, idx) => (
-                                                <tr key={idx}>
-                                                    <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>{idx + 1}</td>
-                                                    <td><input className="form-input" value={item.name} onChange={e => updateItem(idx, 'name', e.target.value)} style={{ padding: '3px 6px', fontSize: 12 }} placeholder="Tên hạng mục" /></td>
-                                                    <td><input className="form-input" value={item.wbs} onChange={e => updateItem(idx, 'wbs', e.target.value)} style={{ padding: '3px 4px', fontSize: 11, textAlign: 'center' }} placeholder="1.1" /></td>
-                                                    <td><select className="form-select" value={item.level} onChange={e => updateItem(idx, 'level', Number(e.target.value))} style={{ padding: '3px 4px', fontSize: 11 }}>
-                                                        <option value={0}>Nhóm</option><option value={1}>Con</option>
-                                                    </select></td>
-                                                    <td><input type="number" className="form-input" min="1" value={item.duration} onChange={e => updateItem(idx, 'duration', Number(e.target.value))} style={{ padding: '3px 4px', fontSize: 11, textAlign: 'center' }} /></td>
-                                                    <td><input type="number" className="form-input" min="0" step="0.1" value={item.weight} onChange={e => updateItem(idx, 'weight', Number(e.target.value))} style={{ padding: '3px 4px', fontSize: 11, textAlign: 'center' }} /></td>
-                                                    <td><select value={item.color} onChange={e => updateItem(idx, 'color', e.target.value)} style={{ width: 30, height: 24, border: '1px solid var(--border-color)', borderRadius: 4, background: item.color || 'var(--bg-card)', cursor: 'pointer' }}>
-                                                        {COLORS.map(c => <option key={c || 'none'} value={c} style={{ background: c || '#fff' }}>{c ? '■' : '—'}</option>)}
-                                                    </select></td>
-                                                    <td><select className="form-select" value={item.predecessorIndex ?? ''} onChange={e => updateItem(idx, 'predecessorIndex', e.target.value === '' ? null : Number(e.target.value))} style={{ padding: '3px 4px', fontSize: 10 }}>
+                    {formError.items && (
+                        <p className="ui-field__error" role="alert" style={{ marginBottom: 'var(--space-2)' }}>
+                            {formError.items}
+                        </p>
+                    )}
+
+                    <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+                        {items.length === 0 ? (
+                            <EmptyState
+                                icon={ClipboardList}
+                                title="Chưa có hạng mục nào"
+                                description="Bấm “Thêm hạng mục” để bắt đầu xây dựng tiến độ mẫu."
+                            />
+                        ) : (
+                            <div className="ui-table-wrap" style={{ maxHeight: 400, overflowY: 'auto' }}>
+                                <table className="ui-table">
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: 40 }} className="is-center">#</th>
+                                            <th style={{ minWidth: 200 }}>Tên hạng mục</th>
+                                            <th style={{ width: 80 }}>WBS</th>
+                                            <th style={{ width: 100 }}>Cấp</th>
+                                            <th style={{ width: 80 }}>Số ngày</th>
+                                            <th style={{ width: 80 }}>Trọng số</th>
+                                            <th style={{ width: 70 }}>Màu</th>
+                                            <th style={{ width: 110 }}>Sau hạng mục</th>
+                                            <th style={{ width: 110 }}>Thuộc nhóm</th>
+                                            <th style={{ width: 48 }}><span className="ui-sr-only">Xóa</span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {items.map((item, idx) => (
+                                            <tr key={idx}>
+                                                <td className="is-center ui-caption">{idx + 1}</td>
+                                                <td>
+                                                    <Input
+                                                        value={item.name}
+                                                        onChange={e => updateItem(idx, 'name', e.target.value)}
+                                                        placeholder="Tên hạng mục"
+                                                        aria-label={`Tên hạng mục ${idx + 1}`}
+                                                    />
+                                                </td>
+                                                <td>
+                                                    <Input
+                                                        value={item.wbs}
+                                                        onChange={e => updateItem(idx, 'wbs', e.target.value)}
+                                                        placeholder="1.1"
+                                                        aria-label={`Mã WBS hạng mục ${idx + 1}`}
+                                                    />
+                                                </td>
+                                                <td>
+                                                    <Select
+                                                        value={item.level}
+                                                        onChange={e => updateItem(idx, 'level', Number(e.target.value))}
+                                                        aria-label={`Cấp của hạng mục ${idx + 1}`}
+                                                    >
+                                                        <option value={0}>Nhóm</option>
+                                                        <option value={1}>Con</option>
+                                                    </Select>
+                                                </td>
+                                                <td>
+                                                    <Input
+                                                        type="number"
+                                                        min="1"
+                                                        numeric
+                                                        value={item.duration}
+                                                        onChange={e => updateItem(idx, 'duration', Number(e.target.value))}
+                                                        aria-label={`Số ngày của hạng mục ${idx + 1}`}
+                                                    />
+                                                </td>
+                                                <td>
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.1"
+                                                        numeric
+                                                        value={item.weight}
+                                                        onChange={e => updateItem(idx, 'weight', Number(e.target.value))}
+                                                        aria-label={`Trọng số của hạng mục ${idx + 1}`}
+                                                    />
+                                                </td>
+                                                <td>
+                                                    <Select
+                                                        value={item.color}
+                                                        onChange={e => updateItem(idx, 'color', e.target.value)}
+                                                        aria-label={`Màu của hạng mục ${idx + 1}`}
+                                                        style={{ background: item.color || undefined }}
+                                                    >
+                                                        {COLORS.map(c => (
+                                                            <option key={c || 'none'} value={c}>{c ? '■' : '—'}</option>
+                                                        ))}
+                                                    </Select>
+                                                </td>
+                                                <td>
+                                                    <Select
+                                                        value={item.predecessorIndex ?? ''}
+                                                        onChange={e => updateItem(idx, 'predecessorIndex', e.target.value === '' ? null : Number(e.target.value))}
+                                                        aria-label={`Hạng mục đứng trước hạng mục ${idx + 1}`}
+                                                    >
                                                         <option value="">—</option>
                                                         {items.map((it, i) => i < idx ? <option key={i} value={i}>#{i + 1}</option> : null)}
-                                                    </select></td>
-                                                    <td><select className="form-select" value={item.parentIndex ?? ''} onChange={e => updateItem(idx, 'parentIndex', e.target.value === '' ? null : Number(e.target.value))} style={{ padding: '3px 4px', fontSize: 10 }}>
+                                                    </Select>
+                                                </td>
+                                                <td>
+                                                    <Select
+                                                        value={item.parentIndex ?? ''}
+                                                        onChange={e => updateItem(idx, 'parentIndex', e.target.value === '' ? null : Number(e.target.value))}
+                                                        aria-label={`Nhóm cha của hạng mục ${idx + 1}`}
+                                                    >
                                                         <option value="">—</option>
                                                         {items.map((it, i) => i < idx && it.level === 0 ? <option key={i} value={i}>#{i + 1}</option> : null)}
-                                                    </select></td>
-                                                    <td><button onClick={() => removeItem(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-danger)', fontSize: 14, padding: 2 }}>×</button></td>
-                                                </tr>
-                                            ))}</tbody>
-                                        </table>
-                                    </div>
-                                )}
+                                                    </Select>
+                                                </td>
+                                                <td className="is-center">
+                                                    <IconButton
+                                                        icon={X}
+                                                        label={`Xóa hạng mục ${idx + 1}`}
+                                                        size="sm"
+                                                        onClick={() => removeItem(idx)}
+                                                    />
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
-                        </div>
-                        <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setModal(null)}>Hủy</button><button className="btn btn-primary" onClick={createTemplate}>💾 Lưu mẫu</button></div>
+                        )}
                     </div>
-                </div>
-            )}
-        </div>
+                </section>
+            </Modal>
+
+            <ConfirmDialog
+                isOpen={!!toDelete}
+                onClose={() => setToDelete(null)}
+                onConfirm={() => deleteTemplate(toDelete)}
+                title="Xóa mẫu tiến độ"
+                itemName={`mẫu tiến độ “${toDelete?.name}”`}
+                confirmText="Xóa mẫu"
+            />
+        </PageContainer>
     );
 }

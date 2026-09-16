@@ -1,32 +1,27 @@
 'use client';
+import StatCard from './StatCard';
 
-export default function KPICard({ icon: Icon, value, label, trend, color = '#1C3A6B' }) {
+/**
+ * Giữ API cũ (icon/value/label/trend) — nay dùng StatCard của hệ thống mới.
+ * `color` không còn cần thiết (màu lấy từ token) nhưng vẫn nhận để không vỡ trang cũ.
+ */
+export default function KPICard({ icon, value, label, trend, note, href, goodDirection = 'up' }) {
+    const trendObj = (trend === 0 || trend)
+        ? {
+            value: `${trend > 0 ? '+' : ''}${trend}%`,
+            direction: trend > 0 ? 'up' : trend < 0 ? 'down' : 'neutral',
+        }
+        : undefined;
+
     return (
-        <div className="kpi-card" style={{
-            background: 'var(--bg-primary, white)', borderRadius: 12,
-            padding: '20px 24px', border: '1px solid var(--border)',
-            display: 'flex', alignItems: 'center', gap: 16,
-        }}>
-            <div style={{
-                width: 48, height: 48, borderRadius: 12,
-                background: `${color}15`, display: 'flex',
-                alignItems: 'center', justifyContent: 'center',
-            }}>
-                {Icon && <Icon size={24} color={color} />}
-            </div>
-            <div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {value}
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-                    {label}
-                </div>
-                {trend && (
-                    <div style={{ fontSize: 12, color: trend > 0 ? '#16A34A' : '#DC2626', marginTop: 4 }}>
-                        {trend > 0 ? '+' : ''}{trend}%
-                    </div>
-                )}
-            </div>
-        </div>
+        <StatCard
+            icon={icon}
+            label={label}
+            value={value}
+            trend={trendObj}
+            note={note}
+            href={href}
+            goodDirection={goodDirection}
+        />
     );
 }

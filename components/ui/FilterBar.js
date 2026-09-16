@@ -1,11 +1,9 @@
 'use client';
 
-export default function FilterBar({ children }) {
+/** Hàng bộ lọc — tự xuống dòng trên màn hình hẹp. */
+export default function FilterBar({ children, className = '' }) {
     return (
-        <div style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            flexWrap: 'wrap', marginBottom: 16,
-        }}>
+        <div className={`ui-row ${className}`.trim()} style={{ gap: 'var(--space-2)' }}>
             {children}
         </div>
     );

@@ -1,0 +1,243 @@
+/* ============================================================
+   HOMEERP — DESIGN TOKENS
+   Nguồn duy nhất cho màu sắc, khoảng cách, bo góc, bóng đổ,
+   typography của toàn hệ thống. KHÔNG hardcode mã màu trong
+   component — luôn dùng biến trong file này.
+   ============================================================ */
+
+:root {
+  /* ---------- Thương hiệu SCT (cam — chỉ dùng làm điểm nhấn) ---------- */
+  --color-primary-50:  #FFF7ED;
+  --color-primary-100: #FFEDD5;
+  --color-primary-200: #FED7AA;
+  --color-primary-300: #FDBA74;
+  --color-primary-500: #F97316;
+  --color-primary-600: #F97316;
+  --color-primary-700: #EA580C;
+  --color-primary-800: #C2410C;
+  --color-primary-rgb: 249, 115, 22;
+
+  /* ---------- Nền & bề mặt ---------- */
+  --color-bg:          #F6F7F9;
+  --color-surface:     #FFFFFF;
+  --color-surface-2:   #FAFAFB;  /* header bảng, vùng phụ */
+  --color-surface-3:   #F3F4F6;  /* hover nhẹ */
+  --color-overlay:     rgba(17, 24, 39, 0.45);
+
+  /* ---------- Viền ---------- */
+  --color-border:        #E5E7EB;
+  --color-border-strong: #D1D5DB;
+  --color-border-subtle: #F0F1F3;
+
+  /* ---------- Chữ ---------- */
+  --color-text:           #111827;
+  --color-text-secondary: #6B7280;
+  --color-text-muted:     #9CA3AF;
+  --color-text-inverse:   #FFFFFF;
+
+  /* ---------- Trạng thái ---------- */
+  --color-success:    #16A34A;
+  --color-success-bg: #ECFDF5;
+  --color-success-br: #BBF7D0;
+  --color-warning:    #D97706;
+  --color-warning-bg: #FFFBEB;
+  --color-warning-br: #FDE68A;
+  --color-danger:     #DC2626;
+  --color-danger-bg:  #FEF2F2;
+  --color-danger-br:  #FECACA;
+  --color-info:       #2563EB;
+  --color-info-bg:    #EFF6FF;
+  --color-info-br:    #BFDBFE;
+  --color-neutral:    #4B5563;
+  --color-neutral-bg: #F3F4F6;
+  --color-neutral-br: #E5E7EB;
+  --color-purple:     #7C3AED;
+  --color-purple-bg:  #F5F3FF;
+  --color-purple-br:  #DDD6FE;
+
+  /* ---------- Focus ---------- */
+  --focus-ring: 0 0 0 3px rgba(var(--color-primary-rgb), 0.28);
+
+  /* ---------- Typography ---------- */
+  --font-sans: Inter, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --font-num:  'Inter', system-ui, 'Segoe UI', sans-serif;
+
+  --fs-page-title:    24px;
+  --fs-section-title: 18px;
+  --fs-card-title:    15px;
+  --fs-body:          14px;
+  --fs-table:         13px;
+  --fs-caption:       12px;
+
+  --lh-tight:  1.3;
+  --lh-normal: 1.5;
+  --lh-loose:  1.6;
+
+  /* ---------- Khoảng cách (hệ 8px) ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --section-gap:   24px;
+  --card-padding:  20px;
+  --page-pad-x:    24px;
+  --page-pad-y:    24px;
+
+  /* ---------- Kích thước điều khiển ---------- */
+  --control-h:    40px;
+  --control-h-sm: 32px;
+  --control-h-lg: 44px;
+  --row-h:        52px;
+
+  /* ---------- Bo góc ---------- */
+  --radius-sm: 6px;
+  --radius:    8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  /* ---------- Bóng đổ (rất nhẹ) ---------- */
+  --shadow-xs: 0 1px 2px rgba(17, 24, 39, 0.04);
+  --shadow-s:  0 1px 3px rgba(17, 24, 39, 0.06), 0 1px 2px rgba(17, 24, 39, 0.04);
+  --shadow-m:  0 4px 12px rgba(17, 24, 39, 0.08);
+  --shadow-l:  0 12px 32px rgba(17, 24, 39, 0.12);
+
+  /* ---------- Layout ---------- */
+  --sidebar-width:           248px;
+  --sidebar-width-collapsed: 72px;
+  --header-height:           64px;
+  --header-height-mobile:    56px;
+  --page-max-width:          1600px;
+
+  /* ---------- Chuyển động (tối giản) ---------- */
+  --transition-fast:   0.12s ease;
+  --transition-normal: 0.18s ease;
+  --transition-slow:   0.24s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ---------- Lớp chồng ---------- */
+  --z-sidebar: 100;
+  --z-header:  90;
+  --z-overlay: 150;
+  --z-modal:   1000;
+  --z-toast:   2000;
+
+  /* ============================================================
+     TƯƠNG THÍCH NGƯỢC — các biến cũ vẫn được dùng ở 130 trang.
+     Ánh xạ sang token mới để toàn bộ hệ thống đổi giao diện
+     mà không phải sửa từng trang.
+     ============================================================ */
+  --bg-primary:   var(--color-bg);
+  --bg-secondary: var(--color-surface);
+  --bg-card:      var(--color-surface);
+  --bg-card-hover: var(--color-surface-3);
+  --bg-sidebar:   var(--color-surface);
+  --bg-input:     var(--color-surface);
+  --bg-modal:     var(--color-surface);
+  --surface-alt:  var(--color-surface-2);
+  --card-bg:      var(--color-surface);
+  --hover-bg:     var(--color-surface-3);
+
+  --primary:              var(--color-primary-600);
+  --color-primary:        var(--color-primary-600);
+  --accent-primary:       var(--color-primary-600);
+  --accent-primary-hover: var(--color-primary-700);
+  --accent-secondary:     var(--color-primary-700);
+  --accent-gradient:       var(--color-primary-600);
+  --accent-gradient-hover: var(--color-primary-700);
+  --gold:       var(--color-primary-600);
+  --gold-light: var(--color-primary-100);
+
+  --text-primary:   var(--color-text);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted:     var(--color-text-muted);
+  --text-accent:    var(--color-primary-700);
+
+  --status-success: var(--color-success);
+  --status-warning: var(--color-warning);
+  --status-danger:  var(--color-danger);
+  --status-info:    var(--color-info);
+  --status-purple:  var(--color-purple);
+
+  --border-color: var(--color-border);
+  --border:       var(--color-border);
+  --border-light: var(--color-border-subtle);
+  --border-input: var(--color-border-strong);
+
+  --shadow-sm:   var(--shadow-s);
+  --shadow-md:   var(--shadow-m);
+  --shadow-lg:   var(--shadow-l);
+  --shadow-glow: var(--focus-ring);
+
+  --border-radius:    var(--radius);
+  --border-radius-sm: var(--radius-sm);
+  --border-radius-lg: var(--radius-lg);
+}
+
+/* ============================================================
+   DARK MODE — giữ nguyên cơ chế [data-theme="dark"] sẵn có
+   ============================================================ */
+[data-theme='dark'] {
+  --color-primary-50:  #2A1408;
+  --color-primary-100: #3A1C0A;
+  --color-primary-200: #5A2C10;
+  --color-primary-300: #9A4A16;
+  --color-primary-500: #FB923C;
+  --color-primary-600: #FB923C;
+  --color-primary-700: #FDBA74;
+  --color-primary-800: #FDBA74;
+  --color-primary-rgb: 251, 146, 60;
+
+  --color-bg:        #0F1115;
+  --color-surface:   #171A21;
+  --color-surface-2: #1C2029;
+  --color-surface-3: #232833;
+  --color-overlay:   rgba(0, 0, 0, 0.6);
+
+  --color-border:        #2A2F3A;
+  --color-border-strong: #3A404D;
+  --color-border-subtle: #22262F;
+
+  --color-text:           #E9EAEE;
+  --color-text-secondary: #A1A7B3;
+  --color-text-muted:     #6F7684;
+  --color-text-inverse:   #0F1115;
+
+  --color-success:    #4ADE80;
+  --color-success-bg: #10251A;
+  --color-success-br: #1E4632;
+  --color-warning:    #FBBF24;
+  --color-warning-bg: #2A1F08;
+  --color-warning-br: #4A3712;
+  --color-danger:     #F87171;
+  --color-danger-bg:  #2A1214;
+  --color-danger-br:  #4C1D1F;
+  --color-info:       #60A5FA;
+  --color-info-bg:    #101E32;
+  --color-info-br:    #1E3A5F;
+  --color-neutral:    #9CA3AF;
+  --color-neutral-bg: #232833;
+  --color-neutral-br: #2F3542;
+  --color-purple:     #A78BFA;
+  --color-purple-bg:  #1C1630;
+  --color-purple-br:  #362B58;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-s:  0 1px 3px rgba(0, 0, 0, 0.45);
+  --shadow-m:  0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-l:  0 12px 32px rgba(0, 0, 0, 0.6);
+
+  --bg-input: var(--color-surface-2);
+}
+
+/* Người dùng bật "giảm chuyển động" — tắt hiệu ứng */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0s;
+    --transition-normal: 0s;
+    --transition-slow: 0s;
+  }
+}

@@ -1,21 +1,26 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
-import { Sun, Moon, Bell, Settings, LogOut, Search, Menu, ChevronDown, HelpCircle } from 'lucide-react';
+import {
+    Sun, Moon, Bell, LogOut, Search, Menu, ChevronDown,
+    HelpCircle, Check, Store, Repeat,
+} from 'lucide-react';
 import Modal from '@/components/ui/Modal';
+import { initials as makeInitials, timeAgo } from '@/lib/format';
 
 const ROLE_LABELS = {
-    ban_gd:        { label: 'Ban giám đốc',             icon: '👑' },
-    kinh_doanh:    { label: 'Phòng kinh doanh',         icon: '💼' },
-    xay_dung:      { label: 'Phòng xây dựng',           icon: '🏗️' },
-    thiet_ke:      { label: 'Phòng thiết kế',           icon: '✏️' },
-    marketing:     { label: 'Phòng Marketing',          icon: '📣' },
-    hanh_chinh_kt: { label: 'Phòng hành chính kế toán', icon: '📊' },
-    xuong:         { label: 'Xưởng nội thất',           icon: '🪚' },
-    viewer:        { label: 'Chỉ xem',                  icon: '👁️' },
+    ban_gd:        { label: 'Ban giám đốc' },
+    kinh_doanh:    { label: 'Phòng kinh doanh' },
+    xay_dung:      { label: 'Phòng xây dựng' },
+    thiet_ke:      { label: 'Phòng thiết kế' },
+    marketing:     { label: 'Phòng Marketing' },
+    hanh_chinh_kt: { label: 'Phòng hành chính kế toán' },
+    xuong:         { label: 'Xưởng nội thất' },
+    viewer:        { label: 'Chỉ xem' },
 };
 
+/** Tên trang theo đường dẫn — dùng cho tiêu đề header và breadcrumb. */
 const pageTitles = {
     '/': 'Dashboard',
     '/sales': 'Dashboard Kinh Doanh',
@@ -44,51 +49,56 @@ const pageTitles = {
     '/schedule-templates': 'Mẫu tiến độ',
 };
 
-function notifTimeAgo(d) {
-    if (!d) return '';
-    const diff = Date.now() - new Date(d).getTime();
-    const m = Math.floor(diff / 60000);
-    if (m < 1) return 'Vừa xong';
-    if (m < 60) return `${m} phút trước`;
-    const h = Math.floor(m / 60);
-    if (h < 24) return `${h} giờ trước`;
-    const days = Math.floor(h / 24);
-    if (days < 30) return `${days} ngày trước`;
-    return new Date(d).toLocaleDateString('vi-VN');
+/** Tìm nhánh cha gần nhất để dựng breadcrumb đơn giản. */
+function resolveTitles(pathname) {
+    const exact = pageTitles[pathname];
+    if (exact) return { title: exact, parent: pathname === '/' ? null : 'Trang chủ' };
+
+    const segments = pathname.split('/').filter(Boolean);
+    for (let i = segments.length - 1; i > 0; i--) {
+        const candidate = `/${segments.slice(0, i).join('/')}`;
+        if (pageTitles[candidate]) {
+            return { title: pageTitles[candidate], parent: 'Trang chủ' };
+        }
+    }
+    return { title: 'HomeERP', parent: null };
 }
 
 export default function Header({ onMenuToggle }) {
     const pathname = usePathname();
     const router = useRouter();
     const { data: session, update } = useSession();
-    const title = pageTitles[pathname] || 'HomeERP';
+    const { title, parent } = resolveTitles(pathname);
+
     const [dark, setDark] = useState(false);
     const [roleSwitching, setRoleSwitching] = useState(false);
-    const [showRoleMenu, setShowRoleMenu] = useState(false);
-    const roleMenuRef = useRef(null);
+    const [showAccountMenu, setShowAccountMenu] = useState(false);
+    const accountRef = useRef(null);
+
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [showNotifMenu, setShowNotifMenu] = useState(false);
     const notifMenuRef = useRef(null);
+
     const [showHelp, setShowHelp] = useState(false);
     const [helpCacheBust, setHelpCacheBust] = useState(0);
 
-    const fetchNotifications = () => {
+    const fetchNotifications = useCallback(() => {
         fetch('/api/notifications').then(r => r.ok ? r.json() : null).then(d => {
             if (!d) return;
             setNotifications(d.notifications || []);
             setUnreadCount(d.unreadCount || 0);
         }).catch(() => {});
-    };
+    }, []);
 
     useEffect(() => {
-        if (!session?.user?.id) return;
+        if (!session?.user?.id) return undefined;
         fetchNotifications();
         const timer = setInterval(fetchNotifications, 60000);
         return () => clearInterval(timer);
-    }, [session?.user?.id]);
+    }, [session?.user?.id, fetchNotifications]);
 
-    const openNotification = async (n) => {
+    const openNotification = (n) => {
         setShowNotifMenu(false);
         if (!n.read) {
             setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
@@ -110,26 +120,32 @@ export default function Header({ onMenuToggle }) {
         if (!n.read) setUnreadCount(c => Math.max(0, c - 1));
         try {
             await fetch(`/api/notifications/${n.id}/acknowledge`, { method: 'POST' });
-        } catch {}
+        } catch { /* bỏ qua */ }
     };
 
+    // Đóng dropdown khi bấm ra ngoài hoặc nhấn Escape
     useEffect(() => {
         function handleClickOutside(e) {
-            if (roleMenuRef.current && !roleMenuRef.current.contains(e.target)) {
-                setShowRoleMenu(false);
-            }
-            if (notifMenuRef.current && !notifMenuRef.current.contains(e.target)) {
-                setShowNotifMenu(false);
-            }
+            if (accountRef.current && !accountRef.current.contains(e.target)) setShowAccountMenu(false);
+            if (notifMenuRef.current && !notifMenuRef.current.contains(e.target)) setShowNotifMenu(false);
+        }
+        function handleEscape(e) {
+            if (e.key !== 'Escape') return;
+            setShowAccountMenu(false);
+            setShowNotifMenu(false);
         }
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEscape);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEscape);
+        };
     }, []);
 
     const handleSwitchRole = async (newRole) => {
-        if (newRole === session?.user?.role) { setShowRoleMenu(false); return; }
+        if (newRole === session?.user?.role) { setShowAccountMenu(false); return; }
         setRoleSwitching(true);
-        setShowRoleMenu(false);
+        setShowAccountMenu(false);
         try {
             await update({ switchToRole: newRole });
             router.push('/');
@@ -159,90 +175,117 @@ export default function Header({ onMenuToggle }) {
         }
     };
 
-    const userName = session?.user?.name || 'User';
-    const initials = userName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    const userName = session?.user?.name || 'Người dùng';
+    const initials = makeInitials(userName);
     const currentRole = session?.user?.role || '';
     const allowedRoles = session?.user?.allowedRoles || [];
     const canSwitch = allowedRoles.length > 0;
-    const currentRoleInfo = ROLE_LABELS[currentRole];
+    const currentRoleLabel = ROLE_LABELS[currentRole]?.label || currentRole;
 
     return (
         <header className="header">
             <div className="header-left">
-                <button className="mobile-menu-btn" onClick={onMenuToggle} aria-label="Mở menu">
-                    <Menu size={22} />
+                <button className="mobile-menu-btn" onClick={onMenuToggle} aria-label="Mở menu điều hướng">
+                    <Menu size={22} aria-hidden="true" />
                 </button>
-                <h2 className="header-title">{title}</h2>
+
+                <div style={{ minWidth: 0 }}>
+                    {parent && <div className="header-crumb">{parent}</div>}
+                    {/* Không dùng <h1> ở đây: mỗi trang đã có <h1> riêng trong PageHeader */}
+                    <div className="header-title">{title}</div>
+                </div>
+
                 <div className="header-search">
-                    <span className="search-icon"><Search size={16} /></span>
-                    <input type="text" placeholder="Tìm kiếm..." aria-label="Tìm kiếm" />
+                    <span className="search-icon" aria-hidden="true"><Search size={15} /></span>
+                    <input type="search" placeholder="Tìm kiếm toàn hệ thống..." aria-label="Tìm kiếm toàn hệ thống" />
                 </div>
             </div>
+
             <div className="header-right">
-                <button className="header-btn" title="Hướng dẫn sử dụng" aria-label="Hướng dẫn sử dụng" onClick={() => { setHelpCacheBust(Date.now()); setShowHelp(true); }}>
-                    <HelpCircle size={20} />
+                <button
+                    className="header-btn"
+                    title="Hướng dẫn sử dụng"
+                    aria-label="Hướng dẫn sử dụng"
+                    onClick={() => { setHelpCacheBust(Date.now()); setShowHelp(true); }}
+                >
+                    <HelpCircle size={19} aria-hidden="true" />
                 </button>
-                <button className="header-btn" title={dark ? 'Chuyển sang sáng' : 'Chuyển sang tối'} onClick={toggleTheme} aria-label="Chuyển đổi giao diện">
-                    {dark ? <Sun size={20} /> : <Moon size={20} />}
+
+                <button
+                    className="header-btn"
+                    title={dark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
+                    aria-label={dark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
+                    onClick={toggleTheme}
+                >
+                    {dark ? <Sun size={19} aria-hidden="true" /> : <Moon size={19} aria-hidden="true" />}
                 </button>
+
                 <div ref={notifMenuRef} style={{ position: 'relative' }}>
-                    <button className="header-btn" title="Thông báo" aria-label="Thông báo" onClick={() => setShowNotifMenu(v => !v)}>
-                        <Bell size={20} />
-                        {unreadCount > 0 && <span className="badge-dot"></span>}
+                    <button
+                        className="header-btn"
+                        title="Thông báo"
+                        aria-label={unreadCount > 0 ? `Thông báo, ${unreadCount} chưa đọc` : 'Thông báo'}
+                        aria-haspopup="menu"
+                        aria-expanded={showNotifMenu}
+                        onClick={() => setShowNotifMenu(v => !v)}
+                    >
+                        <Bell size={19} aria-hidden="true" />
+                        {unreadCount > 0 && <span className="badge-dot" />}
                     </button>
+
                     {showNotifMenu && (
-                        <div style={{
-                            position: 'absolute', top: '100%', right: 0, zIndex: 1000,
-                            background: 'var(--card-bg, #fff)', border: '1px solid var(--border-color, #e5e7eb)',
-                            borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-                            width: 340, marginTop: 8, overflow: 'hidden',
-                        }}>
-                            <div style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                padding: '10px 14px', fontSize: 12, color: 'var(--text-muted)',
-                                borderBottom: '1px solid var(--border-color, #e5e7eb)', fontWeight: 600,
-                            }}>
+                        <div className="header-pop" style={{ width: 340 }}>
+                            <div className="header-pop__head">
                                 <span>Thông báo</span>
                                 {unreadCount > 0 && (
-                                    <button onClick={markAllRead} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary, #3b82f6)', fontSize: 11, fontWeight: 600, padding: 0 }}>
+                                    <button
+                                        type="button"
+                                        onClick={markAllRead}
+                                        className="ui-btn ui-btn--ghost ui-btn--sm"
+                                        style={{ color: 'var(--color-primary-700)' }}
+                                    >
                                         Đánh dấu đã đọc hết
                                     </button>
                                 )}
                             </div>
                             <div style={{ maxHeight: 360, overflowY: 'auto' }}>
                                 {notifications.length === 0 && (
-                                    <div style={{ padding: '24px 14px', textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
+                                    <p className="ui-caption" style={{ padding: '24px 14px', textAlign: 'center' }}>
                                         Chưa có thông báo nào
-                                    </div>
+                                    </p>
                                 )}
                                 {notifications.map(n => (
                                     <div
                                         key={n.id}
                                         onClick={() => openNotification(n)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') openNotification(n); }}
                                         role="button"
                                         tabIndex={0}
                                         style={{
-                                            display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px',
-                                            background: n.read ? 'none' : 'var(--hover-bg, #eff6ff)',
-                                            border: 'none', borderBottom: '1px solid var(--border-color, #f3f4f6)',
-                                            cursor: 'pointer', fontFamily: 'inherit',
+                                            padding: '10px 14px',
+                                            background: n.read ? 'transparent' : 'var(--color-primary-50)',
+                                            borderBottom: '1px solid var(--color-border-subtle)',
+                                            cursor: 'pointer',
                                         }}
                                     >
-                                        <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: n.read ? 400 : 600, lineHeight: 1.4 }}>
-                                            {n.type === 'ack' && '✅ '}{n.message}
+                                        <div style={{
+                                            fontSize: 13,
+                                            color: 'var(--color-text)',
+                                            fontWeight: n.read ? 400 : 600,
+                                            lineHeight: 1.45,
+                                        }}>
+                                            {n.message}
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{notifTimeAgo(n.createdAt)}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                                            <span className="ui-caption">{timeAgo(n.createdAt)}</span>
                                             {n.type === 'mention' && (
                                                 n.acknowledged ? (
-                                                    <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✓ Đã xác nhận nhận việc</span>
+                                                    <span className="ui-badge ui-badge--success ui-badge--sm">Đã xác nhận nhận việc</span>
                                                 ) : (
                                                     <button
+                                                        type="button"
+                                                        className="ui-btn ui-btn--primary ui-btn--sm"
                                                         onClick={e => acknowledgeNotification(n, e)}
-                                                        style={{
-                                                            fontSize: 11, fontWeight: 600, color: '#fff', background: '#16a34a',
-                                                            border: 'none', borderRadius: 5, padding: '3px 8px', cursor: 'pointer',
-                                                        }}
                                                     >
                                                         Xác nhận nhận việc
                                                     </button>
@@ -255,99 +298,87 @@ export default function Header({ onMenuToggle }) {
                         </div>
                     )}
                 </div>
-                <div className="header-user">
-                    <div className="avatar">{initials}</div>
-                    <div className="user-info">
-                        <span className="user-name">{userName}</span>
-                        {canSwitch ? (
-                            <div ref={roleMenuRef} style={{ position: 'relative' }}>
-                                <button
-                                    onClick={() => setShowRoleMenu(v => !v)}
-                                    disabled={roleSwitching}
-                                    style={{
-                                        display: 'flex', alignItems: 'center', gap: 4,
-                                        background: 'none', border: 'none', padding: 0,
-                                        cursor: 'pointer', fontSize: 11, color: 'var(--text-muted)',
-                                        fontFamily: 'inherit',
-                                    }}
-                                    title="Đổi phòng ban"
-                                >
-                                    <span className="role-switch-icon">{currentRoleInfo?.icon || '●'}</span>
-                                    <span className="role-switch-label">{currentRoleInfo?.label || currentRole}</span>
-                                    <ChevronDown size={12} />
-                                </button>
-                                {showRoleMenu && (
-                                    <div style={{
-                                        position: 'absolute', top: '100%', right: 0, zIndex: 1000,
-                                        background: 'var(--card-bg, #fff)', border: '1px solid var(--border-color, #e5e7eb)',
-                                        borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-                                        minWidth: 200, marginTop: 4, overflow: 'hidden',
-                                    }}>
-                                        <div style={{ padding: '8px 12px', fontSize: 11, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color, #e5e7eb)', fontWeight: 600 }}>
-                                            Chuyển phòng ban
-                                        </div>
-                                        {allowedRoles.map(r => {
-                                            const info = ROLE_LABELS[r];
-                                            const isActive = r === currentRole;
-                                            return (
-                                                <button
-                                                    key={r}
-                                                    onClick={() => handleSwitchRole(r)}
-                                                    style={{
-                                                        display: 'flex', alignItems: 'center', gap: 8,
-                                                        width: '100%', padding: '10px 14px',
-                                                        background: isActive ? 'var(--hover-bg, #f3f4f6)' : 'none',
-                                                        border: 'none', cursor: 'pointer', fontSize: 13,
-                                                        textAlign: 'left', color: 'var(--text-primary)',
-                                                        fontFamily: 'inherit',
-                                                    }}
-                                                >
-                                                    <span style={{ fontSize: 16 }}>{info?.icon || '●'}</span>
-                                                    <span style={{ flex: 1 }}>{info?.label || r}</span>
-                                                    {isActive && <span style={{ fontSize: 11, color: 'var(--color-primary, #3b82f6)', fontWeight: 600 }}>✓</span>}
-                                                </button>
-                                            );
-                                        })}
-                                        <div style={{ borderTop: '1px solid var(--border-color, #e5e7eb)', margin: '4px 0' }} />
-                                        <button
-                                            onClick={() => { setShowRoleMenu(false); router.push('/laocai/dashboard'); }}
-                                            style={{
-                                                display: 'flex', alignItems: 'center', gap: 8,
-                                                width: '100%', padding: '10px 14px',
-                                                background: pathname.startsWith('/laocai') ? '#f0fdfa' : 'none',
-                                                border: 'none', cursor: 'pointer', fontSize: 13,
-                                                textAlign: 'left', color: '#0f766e',
-                                                fontFamily: 'inherit', fontWeight: 600,
-                                            }}
-                                        >
-                                            <span style={{ fontSize: 16 }}>🏪</span>
-                                            <span style={{ flex: 1 }}>Chi nhánh Lào Cai</span>
-                                            {pathname.startsWith('/laocai') && <span style={{ fontSize: 11, color: '#0f766e', fontWeight: 700 }}>✓</span>}
-                                        </button>
-                                    </div>
-                                )}
+
+                <div ref={accountRef} style={{ position: 'relative' }}>
+                    <button
+                        type="button"
+                        className="header-user"
+                        onClick={() => setShowAccountMenu(v => !v)}
+                        aria-haspopup="menu"
+                        aria-expanded={showAccountMenu}
+                        aria-label="Menu tài khoản"
+                        disabled={roleSwitching}
+                    >
+                        <span className="avatar" aria-hidden="true">{initials}</span>
+                        <span className="user-info">
+                            <span className="user-name">{userName}</span>
+                            <span className="user-role">{currentRoleLabel}</span>
+                        </span>
+                        <ChevronDown size={14} aria-hidden="true" style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
+                    </button>
+
+                    {showAccountMenu && (
+                        <div className="header-pop" style={{ minWidth: 248 }} role="menu">
+                            <div className="header-pop__head" style={{ display: 'block' }}>
+                                <div style={{ color: 'var(--color-text)', fontWeight: 600 }}>{userName}</div>
+                                <div style={{ fontWeight: 400, marginTop: 2 }}>{session?.user?.email}</div>
                             </div>
-                        ) : (
-                            <span className="user-role">{currentRoleInfo ? `${currentRoleInfo.icon} ${currentRoleInfo.label}` : currentRole}</span>
-                        )}
-                    </div>
+
+                            {canSwitch && (
+                                <>
+                                    <div className="header-pop__head" style={{ borderTop: 'none' }}>
+                                        <span><Repeat size={13} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }} />Chuyển phòng ban</span>
+                                    </div>
+                                    {allowedRoles.map(r => {
+                                        const isActive = r === currentRole;
+                                        return (
+                                            <button
+                                                key={r}
+                                                type="button"
+                                                role="menuitem"
+                                                className="header-pop__item"
+                                                onClick={() => handleSwitchRole(r)}
+                                                style={isActive ? { background: 'var(--color-primary-50)', color: 'var(--color-primary-700)', fontWeight: 600 } : undefined}
+                                            >
+                                                <span style={{ flex: 1 }}>{ROLE_LABELS[r]?.label || r}</span>
+                                                {isActive && <Check size={15} aria-hidden="true" />}
+                                            </button>
+                                        );
+                                    })}
+                                    <button
+                                        type="button"
+                                        role="menuitem"
+                                        className="header-pop__item"
+                                        onClick={() => { setShowAccountMenu(false); router.push('/laocai/dashboard'); }}
+                                    >
+                                        <Store size={15} aria-hidden="true" />
+                                        <span style={{ flex: 1 }}>Chi nhánh Lào Cai</span>
+                                        {pathname.startsWith('/laocai') && <Check size={15} aria-hidden="true" />}
+                                    </button>
+                                </>
+                            )}
+
+                            <div className="header-pop__sep" />
+                            <button
+                                type="button"
+                                role="menuitem"
+                                className="header-pop__item header-pop__item--danger"
+                                onClick={() => signOut({ callbackUrl: '/login' })}
+                            >
+                                <LogOut size={15} aria-hidden="true" />
+                                Đăng xuất
+                            </button>
+                        </div>
+                    )}
                 </div>
-                <button
-                    className="header-btn"
-                    title="Đăng xuất"
-                    aria-label="Đăng xuất"
-                    onClick={() => signOut({ callbackUrl: '/login' })}
-                >
-                    <LogOut size={18} />
-                </button>
             </div>
 
             <Modal isOpen={showHelp} onClose={() => setShowHelp(false)} title="Hướng dẫn sử dụng HomeERP" maxWidth={900}>
-                <div style={{ width: '100%', height: '75vh' }}>
+                <div style={{ width: '100%', height: '70vh' }}>
                     <iframe
                         src={`https://duyhien12.github.io/homeerp-guide/?v=${helpCacheBust}`}
                         title="Hướng dẫn sử dụng HomeERP"
-                        style={{ width: '100%', height: '100%', border: 'none', borderRadius: 8 }}
+                        style={{ width: '100%', height: '100%', border: 'none', borderRadius: 'var(--radius)' }}
                     />
                 </div>
             </Modal>

@@ -1,41 +1,26 @@
 'use client';
 import { createContext, useContext, useState, useCallback, useMemo } from 'react';
-import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 
 const ToastContext = createContext(null);
 
-const icons = {
-    success: <CheckCircle size={18} color="#16A34A" />,
-    error: <XCircle size={18} color="#DC2626" />,
-    warning: <AlertTriangle size={18} color="#D97706" />,
-    info: <Info size={18} color="#2563EB" />,
-};
-
-const bgColors = {
-    success: '#F0FDF4',
-    error: '#FEF2F2',
-    warning: '#FFFBEB',
-    info: '#EFF6FF',
-};
-
-const borderColors = {
-    success: '#BBF7D0',
-    error: '#FECACA',
-    warning: '#FDE68A',
-    info: '#BFDBFE',
+const CONFIG = {
+    success: { Icon: CheckCircle2,   color: 'var(--color-success)', defaultTitle: 'Thành công' },
+    error:   { Icon: XCircle,        color: 'var(--color-danger)',  defaultTitle: 'Không thực hiện được' },
+    warning: { Icon: AlertTriangle,  color: 'var(--color-warning)', defaultTitle: 'Cảnh báo' },
+    info:    { Icon: Info,           color: 'var(--color-info)',    defaultTitle: 'Thông tin' },
 };
 
 export function ToastProvider({ children }) {
     const [toasts, setToasts] = useState([]);
 
-    const addToast = useCallback((message, type = 'info', duration = 4000) => {
-        const id = Date.now() + Math.random();
-        setToasts(prev => [...prev, { id, message, type }]);
+    const addToast = useCallback((message, type = 'info', duration = 4000, title) => {
+        const id = `${Date.now()}-${Math.random()}`;
+        setToasts(prev => [...prev, { id, message, type, title }]);
         if (duration > 0) {
-            setTimeout(() => {
-                setToasts(prev => prev.filter(t => t.id !== id));
-            }, duration);
+            setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
         }
+        return id;
     }, []);
 
     const removeToast = useCallback((id) => {
@@ -43,46 +28,45 @@ export function ToastProvider({ children }) {
     }, []);
 
     const toast = useMemo(() => ({
-        success: (msg) => addToast(msg, 'success'),
-        error: (msg) => addToast(msg, 'error', 6000),
-        warning: (msg) => addToast(msg, 'warning'),
-        info: (msg) => addToast(msg, 'info'),
-    }), [addToast]);
+        success: (msg, title) => addToast(msg, 'success', 4000, title),
+        error:   (msg, title) => addToast(msg, 'error', 6000, title),
+        warning: (msg, title) => addToast(msg, 'warning', 5000, title),
+        info:    (msg, title) => addToast(msg, 'info', 4000, title),
+        dismiss: removeToast,
+    }), [addToast, removeToast]);
 
     return (
         <ToastContext.Provider value={toast}>
             {children}
-            <div
-                aria-live="polite"
-                style={{
-                    position: 'fixed', top: 16, right: 16, zIndex: 2000,
-                    display: 'flex', flexDirection: 'column', gap: 8,
-                    pointerEvents: 'none',
-                }}
-            >
-                {toasts.map(t => (
-                    <div
-                        key={t.id}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: 10,
-                            padding: '12px 16px', borderRadius: 10, minWidth: 300,
-                            background: bgColors[t.type], border: `1px solid ${borderColors[t.type]}`,
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)', pointerEvents: 'auto',
-                            animation: 'slideInRight 0.3s ease',
-                        }}
-                        role="alert"
-                    >
-                        {icons[t.type]}
-                        <span style={{ flex: 1, fontSize: 14 }}>{t.message}</span>
-                        <button
-                            onClick={() => removeToast(t.id)}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#9CA3AF' }}
-                            aria-label="Đóng thông báo"
+            <div className="ui-toasts" aria-live="polite" aria-atomic="false">
+                {toasts.map(t => {
+                    const cfg = CONFIG[t.type] || CONFIG.info;
+                    const { Icon } = cfg;
+                    return (
+                        <div
+                            key={t.id}
+                            className={`ui-toast ui-toast--${t.type}`}
+                            role={t.type === 'error' ? 'alert' : 'status'}
                         >
-                            <X size={14} />
-                        </button>
-                    </div>
-                ))}
+                            <span className="ui-toast__icon" style={{ color: cfg.color }} aria-hidden="true">
+                                <Icon size={18} />
+                            </span>
+                            <div className="ui-toast__body">
+                                <div className="ui-toast__title">{t.title || cfg.defaultTitle}</div>
+                                {t.message && <div className="ui-toast__msg">{t.message}</div>}
+                            </div>
+                            <button
+                                type="button"
+                                className="ui-icon-btn ui-icon-btn--sm"
+                                onClick={() => removeToast(t.id)}
+                                aria-label="Đóng thông báo"
+                                title="Đóng"
+                            >
+                                <X size={14} aria-hidden="true" />
+                            </button>
+                        </div>
+                    );
+                })}
             </div>
         </ToastContext.Provider>
     );
@@ -90,6 +74,14 @@ export function ToastProvider({ children }) {
 
 export function useToast() {
     const ctx = useContext(ToastContext);
-    if (!ctx) return { success: console.log, error: console.error, warning: console.warn, info: console.log };
+    if (!ctx) {
+        return {
+            success: console.log,
+            error: console.error,
+            warning: console.warn,
+            info: console.log,
+            dismiss: () => {},
+        };
+    }
     return ctx;
 }
