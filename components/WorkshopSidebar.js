@@ -4,11 +4,13 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, Wrench, Building2, ShoppingCart, Package,
-    ChevronRight, X, CalendarDays, Users, FileText, Warehouse,
+    ChevronRight, CalendarDays, Users, FileText, Warehouse,
     BarChart2, Clock, BookOpen, Landmark, Settings,
-    ClipboardCheck, NotebookText, Boxes,
+    ClipboardCheck, NotebookText, Boxes, Factory,
 } from 'lucide-react';
-import { useRole, ROLES } from '@/contexts/RoleContext';
+import SidebarBrand from '@/components/sidebar/SidebarBrand';
+import SidebarRoleFooter from '@/components/sidebar/SidebarRoleFooter';
+import { useRole } from '@/contexts/RoleContext';
 import { useState } from 'react';
 
 const DEPT_VIEWS = [
@@ -40,6 +42,7 @@ const FULL_MENU = [
     {
         section: 'Quản lý Xưởng',
         items: [
+            { href: '/manufacturing/orders', icon: Factory, label: 'Lệnh sản xuất' },
             { href: '/workshop/tasks', icon: Wrench, label: 'Công việc xưởng' },
             { href: '/workshop/workers', icon: Users, label: 'Nhân công' },
             { href: '/workshop/work-log', icon: BookOpen, label: 'Nhật ký công việc' },
@@ -156,10 +159,9 @@ const SUPERVISOR_MENU = [
 
 const SUPERVISOR_EMAILS = ['huuhung@kientrucsct.com'];
 
-export default function WorkshopSidebar({ isOpen, onClose }) {
+export default function WorkshopSidebar({ isOpen, onClose, collapsed, onToggleCollapse }) {
     const pathname = usePathname();
-    const { roleInfo, isXuongNhanVien, department, isPhamDuong, canSwitchRole, viewAsRole, setViewAsRole, actualRole, role, email } = useRole();
-    const [showDeptPicker, setShowDeptPicker] = useState(false);
+    const { roleInfo, isXuongNhanVien, department, canSwitchRole, viewAsRole, setViewAsRole, actualRole, role, email } = useRole();
     const [openParents, setOpenParents] = useState({});
 
     const isVanToan = email === 'vantoan@kientrucsct.com';
@@ -180,24 +182,13 @@ export default function WorkshopSidebar({ isOpen, onClose }) {
 
     return (
         <aside className={`sidebar ${isOpen ? 'open' : ''}`} role="navigation" aria-label="Menu xưởng nội thất">
-            <div className="sidebar-brand">
-                <div className="brand-icon" style={{ background: 'linear-gradient(135deg, #d35400, #a04000)' }}>
-                    <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
-                        <path d="M12 8 L12 40" stroke="white" strokeWidth="7" strokeLinecap="round"/>
-                        <path d="M12 24 L34 8" stroke="white" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M12 24 L34 40" stroke="white" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M20 16 L28 24" stroke="#F47920" strokeWidth="3.5" strokeLinecap="round"/>
-                        <path d="M20 32 L28 24" stroke="#F47920" strokeWidth="3.5" strokeLinecap="round"/>
-                    </svg>
-                </div>
-                <div className="brand-text">
-                    <span className="brand-name">Xưởng Nội Thất</span>
-                    <span className="brand-sub">Kiến Trúc Đô Thị SCT</span>
-                </div>
-                <button className="mobile-menu-btn" onClick={onClose} aria-label="Đóng menu" style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.7)' }}>
-                    <X size={20} />
-                </button>
-            </div>
+            <SidebarBrand
+                name="Xưởng Nội Thất"
+                sub="Kiến Trúc Đô Thị SCT"
+                collapsed={collapsed}
+                onToggleCollapse={onToggleCollapse}
+                onClose={onClose}
+            />
 
             <nav className="sidebar-nav">
                 {menuItems.map((section) => (
@@ -264,46 +255,15 @@ export default function WorkshopSidebar({ isOpen, onClose }) {
                 ))}
             </nav>
 
-            <div style={{ padding: '12px 14px', borderTop: '1px solid rgba(255,255,255,0.15)', marginTop: 'auto' }}>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
-                    Vai trò
-                </div>
-                <div
-                    onClick={() => canSwitchRole && setShowDeptPicker(v => !v)}
-                    style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.15)', color: '#FFFFFF', fontWeight: 600, fontSize: 12, cursor: canSwitchRole ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-                >
-                    <span>{roleInfo.icon} {roleInfo.label}{!canSwitchRole && department ? ` · ${department}` : ''}</span>
-                    {canSwitchRole && <span style={{ fontSize: 10, opacity: 0.7 }}>▲</span>}
-                </div>
-
-                {canSwitchRole && showDeptPicker && (
-                    <div style={{ marginTop: 8, background: 'rgba(0,0,0,0.3)', borderRadius: 8, overflow: 'hidden' }}>
-                        {viewAsRole && (
-                            <button
-                                onClick={() => { setViewAsRole(null); setShowDeptPicker(false); }}
-                                style={{ width: '100%', padding: '7px 10px', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', fontSize: 11, border: 'none', cursor: 'pointer', textAlign: 'left' }}
-                            >
-                                ↩ Về vai trò thật ({ROLES.find(r => r.key === actualRole)?.icon} {ROLES.find(r => r.key === actualRole)?.label || actualRole})
-                            </button>
-                        )}
-                        {DEPT_VIEWS.map(d => (
-                            <button
-                                key={d.key}
-                                onClick={() => { setViewAsRole(d.key); setShowDeptPicker(false); }}
-                                style={{
-                                    width: '100%', padding: '7px 10px', border: 'none', cursor: 'pointer',
-                                    textAlign: 'left', fontSize: 12, fontWeight: role === d.key ? 700 : 400,
-                                    background: role === d.key ? 'rgba(255,255,255,0.2)' : 'transparent',
-                                    color: role === d.key ? '#FFFFFF' : 'rgba(255,255,255,0.75)',
-                                }}
-                            >
-                                {d.icon} {d.label}
-                                {role === d.key && <span style={{ marginLeft: 4, fontSize: 10 }}>✓</span>}
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
+            <SidebarRoleFooter
+                roleInfo={roleInfo}
+                role={role}
+                actualRole={actualRole}
+                canSwitchRole={canSwitchRole}
+                viewAsRole={viewAsRole}
+                setViewAsRole={setViewAsRole}
+                deptViews={DEPT_VIEWS}
+            />
         </aside>
     );
 }

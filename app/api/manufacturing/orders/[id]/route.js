@@ -72,6 +72,8 @@ export const PUT = withAuth(async (request, { params }, session) => {
             ...(data.productionManagerId !== undefined && { productionManagerId: data.productionManagerId }),
             ...(data.qcManagerId !== undefined && { qcManagerId: data.qcManagerId }),
             ...(data.note !== undefined && { note: data.note }),
+            ...(data.prepChecklist !== undefined && { prepChecklist: JSON.stringify(data.prepChecklist) }),
+            ...(data.cuttingList !== undefined && { cuttingList: JSON.stringify(data.cuttingList) }),
             updatedById: session.user.id,
         },
         include: { project: { select: { code: true, name: true } } },

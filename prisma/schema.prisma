@@ -2175,6 +2175,8 @@ model MfgOrder {
   approvedAt          DateTime?
   note                String                   @default("")
   cancelReason        String                   @default("")
+  prepChecklist       String                   @default("[]")
+  cuttingList         String                   @default("[]")
   createdById         String                   @default("")
   updatedById         String                   @default("")
   deletedAt           DateTime?

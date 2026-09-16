@@ -8,6 +8,7 @@ import { ORDER_STATUS_LABELS, ITEM_STATUS_LABELS, PRIORITY_LABELS } from '@/lib/
 import { useToast } from '@/components/ui/Toast';
 import Modal from '@/components/ui/Modal';
 import ItemDetailDrawer from '@/components/manufacturing/ItemDetailDrawer';
+import OrderPrepTab from '@/components/manufacturing/OrderPrepTab';
 import OrderMaterialsTab from '@/components/manufacturing/OrderMaterialsTab';
 import OrderQualityTab from '@/components/manufacturing/OrderQualityTab';
 import OrderPackingTab from '@/components/manufacturing/OrderPackingTab';
@@ -43,6 +44,7 @@ const CANCELLABLE = ['DRAFT', 'WAITING_DOCUMENTS', 'WAITING_APPROVAL', 'WAITING_
 const SUB_TABS = [
     { key: 'overview', label: 'Tổng quan' },
     { key: 'items', label: 'Sản phẩm' },
+    { key: 'prep', label: 'Chuẩn bị SX' },
     { key: 'materials', label: 'Vật tư' },
     { key: 'quality', label: 'QC & Lỗi' },
     { key: 'packing', label: 'Đóng gói' },
@@ -219,6 +221,7 @@ export default function MfgOrderDetailPage() {
                 </div>
             )}
 
+            {subTab === 'prep' && <OrderPrepTab order={order} perms={perms} onChanged={load} />}
             {subTab === 'materials' && <OrderMaterialsTab order={order} perms={perms} onChanged={load} />}
             {subTab === 'quality' && <OrderQualityTab order={order} perms={perms} onChanged={load} />}
             {subTab === 'packing' && <OrderPackingTab order={order} perms={perms} onChanged={load} />}
