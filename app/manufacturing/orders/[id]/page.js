@@ -117,6 +117,20 @@ export default function MfgOrderDetailPage() {
         }
     }
 
+    async function handleSaveItemNote(item, value) {
+        if (value === (item.note || '')) return;
+        try {
+            const res = await fetch(`/api/manufacturing/items/${item.id}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ note: value }),
+            });
+            const d = await res.json();
+            if (!res.ok) throw new Error(d.error || 'Lỗi lưu ghi chú');
+            toast.success('Đã lưu ghi chú');
+            load();
+        } catch (e) { toast.error(e.message); }
+    }
+
     if (loading) return <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-muted)' }}><Loader2 size={22} style={{ animation: 'spin 1s linear infinite' }} /></div>;
     if (!order) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--status-danger)' }}>Không tìm thấy lệnh sản xuất.</div>;
 
@@ -200,7 +214,7 @@ export default function MfgOrderDetailPage() {
                     ) : (
                         <div className="table-container">
                             <table className="data-table">
-                                <thead><tr><th>Mã</th><th>Tên</th><th>Vị trí</th><th>SL</th><th>Trạng thái</th><th>Tiến độ</th><th>Phụ trách</th><th>Lỗi</th></tr></thead>
+                                <thead><tr><th>Mã</th><th>Tên</th><th>Vị trí</th><th>SL</th><th>Trạng thái</th><th>Tiến độ</th><th>Phụ trách</th><th>Ghi chú</th></tr></thead>
                                 <tbody>
                                     {order.items.map(it => (
                                         <tr key={it.id} style={{ cursor: 'pointer' }} onClick={() => setActiveItemId(it.id)}>
@@ -211,7 +225,19 @@ export default function MfgOrderDetailPage() {
                                             <td><span className="badge">{ITEM_STATUS_LABELS[it.status] || it.status}</span></td>
                                             <td>{it.progressPercent}%</td>
                                             <td>{it.assignedWorker?.name || it.assignedTeamName || '—'}</td>
-                                            <td>{it._count?.qualityIssues > 0 ? <span className="badge danger">{it._count.qualityIssues}</span> : '—'}</td>
+                                            <td onClick={e => e.stopPropagation()} style={{ minWidth: 160 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    {it._count?.qualityIssues > 0 && <span className="badge danger" title="Số lỗi đang mở">{it._count.qualityIssues}</span>}
+                                                    <input
+                                                        className="form-input"
+                                                        style={{ padding: '4px 8px', fontSize: 12.5, flex: 1 }}
+                                                        placeholder="Ghi chú..."
+                                                        defaultValue={it.note || ''}
+                                                        onBlur={e => handleSaveItemNote(it, e.target.value)}
+                                                        onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
+                                                    />
+                                                </div>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
