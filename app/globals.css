@@ -1442,6 +1442,9 @@ a { color: var(--color-primary-700); }
 
 .modal-body {
   padding: var(--space-6);
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .modal-footer {
@@ -1451,6 +1454,7 @@ a { color: var(--color-primary-700); }
   padding: var(--space-3) var(--space-6);
   border-top: 1px solid var(--color-border);
   background: var(--color-surface-2);
+  flex-shrink: 0;
 }
 
 /* ========================================
