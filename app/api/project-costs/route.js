@@ -16,7 +16,7 @@ export const GET = withAuth(async (request) => {
     const status = searchParams.get('status');
     const overBudget = searchParams.get('overBudget') === '1';
 
-    const [projects, txs] = await Promise.all([
+    const [projects, txs, designNoProjectTxs] = await Promise.all([
         prisma.project.findMany({
             where: { deletedAt: null },
             select: {
@@ -29,6 +29,15 @@ export const GET = withAuth(async (request) => {
         prisma.financeTransaction.findMany({
             where: { deletedAt: null, projectId: { not: null } },
             select: { projectId: true, type: true, amount: true },
+        }),
+        // Chi phí Phòng Thiết kế nội thất phát sinh trước khi có Dự án (chỉ có tên khách hàng ở
+        // objectName, chưa gắn projectId) — gom riêng theo khách hàng để không lẫn vào bảng theo dự án.
+        // Chỉ lấy objectType = 'Khách hàng': loại trừ lương/BHXH nhân viên (Nhân viên), mua sắm/NCC,
+        // và chi phí nội bộ không gắn đối tượng (lễ tết, chi chung) — các khoản này không phải chi
+        // phí liên quan khách hàng nên không thuộc phạm vi bảng này.
+        prisma.financeTransaction.findMany({
+            where: { deletedAt: null, projectId: null, department: 'Thiết kế nội thất', objectType: 'Khách hàng' },
+            select: { objectName: true, type: true, amount: true },
         }),
     ]);
 
@@ -77,7 +86,26 @@ export const GET = withAuth(async (request) => {
         overBudgetCount: rows.filter(r => r.isOverBudget).length,
     };
 
+    const byCustomer = new Map();
+    for (const t of designNoProjectTxs) {
+        const key = t.objectName?.trim() || 'Chưa rõ khách hàng';
+        if (!byCustomer.has(key)) byCustomer.set(key, { chi: 0, thu: 0, count: 0 });
+        const bucket = byCustomer.get(key);
+        if (t.type === 'Chi') bucket.chi += t.amount;
+        else if (t.type === 'Thu') bucket.thu += t.amount;
+        bucket.count += 1;
+    }
+    let designNoProject = [...byCustomer.entries()].map(([customerName, v]) => ({
+        customerName, totalChi: v.chi, totalThu: v.thu, count: v.count,
+    }));
+    if (search) {
+        const q = search.toLowerCase();
+        designNoProject = designNoProject.filter(r => r.customerName.toLowerCase().includes(q));
+    }
+    designNoProject.sort((a, b) => b.totalChi - a.totalChi);
+
     const result = paginatedResponse(paged, total, { page, limit });
     result.dashboard = dashboard;
+    result.designNoProject = designNoProject;
     return NextResponse.json(result);
 }, { roles: VIEW_ROLES });

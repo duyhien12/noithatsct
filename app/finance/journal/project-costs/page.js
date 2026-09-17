@@ -9,6 +9,7 @@ export default function ProjectCostsPage() {
     const [rows, setRows] = useState([]);
     const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
     const [dashboard, setDashboard] = useState({ totalBudget: 0, totalChi: 0, totalThu: 0, overBudgetCount: 0 });
+    const [designNoProject, setDesignNoProject] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const [filters, setFilters] = useState({ search: '', status: '', overBudget: '' });
@@ -32,6 +33,7 @@ export default function ProjectCostsPage() {
             setRows(res.data || []);
             setPagination(res.pagination || { page: 1, limit: 20, total: 0, totalPages: 1 });
             setDashboard(res.dashboard || {});
+            setDesignNoProject(res.designNoProject || []);
         }
         setLoading(false);
     }, [filters, pagination.limit]);
@@ -59,6 +61,16 @@ export default function ProjectCostsPage() {
         const ws = XLSX.utils.json_to_sheet(sheetRows);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Tong chi phi cong trinh');
+
+        if ((res.designNoProject || []).length > 0) {
+            const designSheetRows = res.designNoProject.map((r, i) => ({
+                'STT': i + 1, 'Khách hàng': r.customerName,
+                'Tổng đã chi': r.totalChi, 'Tổng đã thu': r.totalThu, 'Số phiếu': r.count,
+            }));
+            const ws2 = XLSX.utils.json_to_sheet(designSheetRows);
+            XLSX.utils.book_append_sheet(wb, ws2, 'TKNT chua gan du an');
+        }
+
         XLSX.writeFile(wb, `tong-chi-phi-cong-trinh-${today()}.xlsx`);
     };
 
@@ -97,6 +109,8 @@ export default function ProjectCostsPage() {
                         onClear={clearFilters} count={pagination.total} />
 
                     <ProjectTable rows={rows} loading={loading} onOpen={(id) => setOpenProjectId(id)} />
+
+                    <DesignNoProjectTable rows={designNoProject} />
 
                     {pagination.totalPages > 1 && (
                         <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
@@ -201,6 +215,46 @@ function ProjectTable({ rows, loading, onOpen }) {
                                 <td style={{ textAlign: 'right', color: 'var(--status-success)' }}>{fmt(r.totalThu)}</td>
                                 <td><UsageBar percent={r.usagePercent} /></td>
                                 <td style={{ textAlign: 'right', color: r.estimatedProfit < 0 ? 'var(--status-danger)' : 'var(--status-success)', fontWeight: 600 }}>{fmt(r.estimatedProfit)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+// Chi phí Phòng Thiết kế nội thất phát sinh trước khi có Dự án — chỉ có tên khách hàng
+// (objectName), chưa gắn projectId nên không nằm trong ProjectTable ở trên. Gom riêng theo
+// khách hàng, không có Dự toán/Giá trị HĐ để đối chiếu nên không tính % dự toán hay LN dự kiến.
+function DesignNoProjectTable({ rows }) {
+    if (!rows || rows.length === 0) return null;
+    return (
+        <div className="card" style={{ marginTop: 16 }}>
+            <div style={{ padding: '10px 12px', fontSize: 13, fontWeight: 700, borderBottom: '1px solid var(--border-light)' }}>
+                🎨 Chi phí Thiết kế nội thất (chưa gắn dự án)
+            </div>
+            <div style={{ padding: '6px 12px', fontSize: 12, color: 'var(--text-muted)' }}>
+                Giao dịch Thu – Chi của Phòng Thiết kế nội thất chưa chọn Dự án/Công trình khi nhập phiếu — chỉ có tên khách hàng, gom theo khách hàng.
+            </div>
+            <div className="table-container" style={{ overflowX: 'auto' }}>
+                <table className="data-table" style={{ margin: 0, fontSize: 12 }}>
+                    <thead>
+                        <tr>
+                            <th>#</th><th>Khách hàng</th>
+                            <th style={{ textAlign: 'right' }}>Tổng đã chi</th>
+                            <th style={{ textAlign: 'right' }}>Tổng đã thu</th>
+                            <th style={{ textAlign: 'right' }}>Số phiếu</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map((r, i) => (
+                            <tr key={r.customerName}>
+                                <td>{i + 1}</td>
+                                <td>{r.customerName}</td>
+                                <td style={{ textAlign: 'right', color: 'var(--status-danger)', fontWeight: 600 }}>{fmt(r.totalChi)}</td>
+                                <td style={{ textAlign: 'right', color: 'var(--status-success)' }}>{fmt(r.totalThu)}</td>
+                                <td style={{ textAlign: 'right' }}>{r.count}</td>
                             </tr>
                         ))}
                     </tbody>
