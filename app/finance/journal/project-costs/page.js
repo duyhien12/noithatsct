@@ -111,7 +111,7 @@ export default function ProjectCostsPage() {
             )}
 
             {openProjectId && (
-                <ProjectCostDetailModal projectId={openProjectId} onClose={() => setOpenProjectId(null)} />
+                <ProjectCostDetailModal projectId={openProjectId} onClose={() => setOpenProjectId(null)} onSaved={() => fetchRows(pagination.page)} />
             )}
         </div>
     );
@@ -311,15 +311,27 @@ function DetailTransactionsView({ projectOptions }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-function ProjectCostDetailModal({ projectId, onClose }) {
+function ProjectCostDetailModal({ projectId, onClose, onSaved }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState('overview');
 
+    const reload = useCallback(() => fetch(`/api/project-costs/${projectId}`).then(r => r.json()).then(setData), [projectId]);
+
     useEffect(() => {
         setLoading(true);
-        fetch(`/api/project-costs/${projectId}`).then(r => r.json()).then(setData).finally(() => setLoading(false));
-    }, [projectId]);
+        reload().finally(() => setLoading(false));
+    }, [reload]);
+
+    const saveField = async (field, value) => {
+        const res = await fetch(`/api/projects/${data.project.id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [field]: value }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(json.error || 'Lưu thất bại'); return; }
+        await reload();
+        onSaved?.();
+    };
 
     if (loading || !data) {
         return (
@@ -354,8 +366,14 @@ function ProjectCostDetailModal({ projectId, onClose }) {
                 </div>
 
                 <div className="stats-grid" style={{ margin: '16px 0', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-                    <MiniStat label="Dự toán" value={summary.budgetTotal} />
-                    <MiniStat label="Giá trị HĐ" value={summary.contractValue} />
+                    <EditableMiniStat label="Dự toán" value={summary.budgetTotal}
+                        editable={project.budgetStatus !== 'locked'}
+                        hint={project.budgetStatus === 'locked' ? 'Dự toán đã khóa — mở khóa ở trang Dự toán vật tư để sửa' : ''}
+                        onSave={(v) => saveField('budgetTotal', v)} />
+                    <EditableMiniStat label="Giá trị HĐ" value={summary.contractValue}
+                        editable={!project.hasContracts}
+                        hint={project.hasContracts ? 'Giá trị HĐ đang tính từ Hợp đồng đã ký, không sửa trực tiếp ở đây' : ''}
+                        onSave={(v) => saveField('contractValue', v)} />
                     <MiniStat label="Tổng đã chi" value={summary.totalChi} color="var(--status-danger)" bold />
                     <MiniStat label="Tổng đã thu" value={summary.totalThu} color="var(--status-success)" />
                     <MiniStat label="LN dự kiến" value={summary.estimatedProfit} color={summary.estimatedProfit < 0 ? 'var(--status-danger)' : 'var(--status-success)'} bold />
@@ -437,6 +455,43 @@ function ProjectCostDetailModal({ projectId, onClose }) {
                                 {transactions.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: 20, color: 'var(--text-muted)' }}>Chưa có giao dịch nào gắn dự án này</td></tr>}
                             </tbody>
                         </table>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// Bấm vào số để sửa trực tiếp (Dự toán/Giá trị HĐ) — không cần vào tận trang Dự án. `editable=false`
+// khi số liệu đã có nguồn chính thức khác (Dự toán đã khóa qua MaterialPlan, hoặc Giá trị HĐ đã
+// tính từ Hợp đồng) để tránh sửa vào chỗ không có tác dụng.
+function EditableMiniStat({ label, value, color, bold, editable, hint, onSave }) {
+    const [editing, setEditing] = useState(false);
+    const [input, setInput] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    const commit = async () => {
+        setSaving(true);
+        await onSave(Number(input) || 0);
+        setSaving(false);
+        setEditing(false);
+    };
+
+    return (
+        <div className="stat-card" title={!editable ? hint : ''}>
+            <div style={{ width: '100%' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{label}</div>
+                {editable && editing ? (
+                    <input className="form-input" type="number" autoFocus disabled={saving}
+                        style={{ fontSize: 15, fontWeight: 700, padding: '2px 6px', height: 28 }}
+                        value={input} onChange={e => setInput(e.target.value)}
+                        onBlur={commit}
+                        onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setEditing(false); }} />
+                ) : (
+                    <div
+                        style={{ fontSize: 16, fontWeight: bold ? 800 : 700, color: color || 'var(--text-primary)', cursor: editable ? 'pointer' : 'default' }}
+                        onClick={editable ? () => { setInput(String(value || 0)); setEditing(true); } : undefined}>
+                        {fmt(value)} đ{editable ? ' ✏️' : ''}
                     </div>
                 )}
             </div>

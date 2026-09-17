@@ -12,6 +12,7 @@ export const GET = withAuth(async (request, { params }) => {
         where: { id },
         select: {
             id: true, code: true, name: true, status: true, budget: true, budgetTotal: true, contractValue: true,
+            budgetStatus: true,
             customer: { select: { name: true } },
             contracts: { where: { deletedAt: null }, select: { contractValue: true } },
         },
@@ -49,7 +50,11 @@ export const GET = withAuth(async (request, { params }) => {
     }
 
     return NextResponse.json({
-        project: { id: project.id, code: project.code, name: project.name, status: project.status, customerName: project.customer?.name || '' },
+        project: {
+            id: project.id, code: project.code, name: project.name, status: project.status,
+            customerName: project.customer?.name || '', budgetStatus: project.budgetStatus,
+            hasContracts: project.contracts.length > 0,
+        },
         summary: { budgetTotal, contractValue, totalChi, totalThu, estimatedProfit },
         byDepartment: Object.values(byDepartment).sort((a, b) => b.total - a.total),
         byObjectType: Object.values(byObjectType).sort((a, b) => b.total - a.total),

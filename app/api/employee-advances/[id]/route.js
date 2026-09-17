@@ -2,7 +2,7 @@ import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { VIEW_ROLES, CREATE_ROLES } from '@/lib/financeJournal';
-import { findOrphanAdvanceTransactions } from '@/lib/employeeAdvanceOrphans';
+import { findOrphanAdvanceTransactions, findOrphanSettlementTransactions } from '@/lib/employeeAdvanceOrphans';
 import { openingBalanceUpdateSchema } from '@/lib/validations/employeeAdvance';
 
 // Sổ chi tiết tạm ứng của 1 nhân viên — lịch sử gộp Tạm ứng + Hoàn ứng theo dòng thời gian,
@@ -19,7 +19,7 @@ export const GET = withAuth(async (request, { params }) => {
 
     // Sổ chi tiết này CHỈ hiển thị tạm ứng LƯƠNG (khớp trang /finance/journal/advances) và loại trừ
     // phiếu/quyết toán đã bị xóa khỏi Nhật ký (đã xóa thì không còn tính vào số dư).
-    const [advances, orphanAdvances] = await Promise.all([
+    const [advances, orphanAdvances, orphanSettlements] = await Promise.all([
         prisma.employeeAdvance.findMany({
             where: { employeeId, advanceType: 'Lương', financeTransaction: { deletedAt: null } },
             include: {
@@ -36,6 +36,9 @@ export const GET = withAuth(async (request, { params }) => {
         // Phiếu Chi nhập trực tiếp trong Nhật ký (chưa qua modal "Tạo tạm ứng") — hiện trong sổ chi
         // tiết như 1 dòng tạm ứng bình thường, chỉ khác là chưa có khoản mục để chọn hoàn ứng.
         findOrphanAdvanceTransactions({ employeeId, advanceTypes: ['Lương'] }),
+        // Phiếu Thu nhập trực tiếp trong Nhật ký (danh mục "Thu hồi ứng lương") chưa qua nút "Hoàn
+        // ứng" — hiện trong sổ chi tiết như 1 dòng hoàn ứng bình thường.
+        findOrphanSettlementTransactions({ employeeId, advanceTypes: ['Lương'] }),
     ]);
 
     const events = [];
@@ -72,6 +75,15 @@ export const GET = withAuth(async (request, { params }) => {
             attachments: o.attachments, isDirectEntry: true,
         });
     }
+    for (const o of orphanSettlements) {
+        events.push({
+            date: o.date, code: o.code, kind: 'settlement', advanceId: null,
+            settleType: o.settleType, content: o.content,
+            project: null, advanceAmount: 0, returnedAmount: o.amount, deductedAmount: 0,
+            financeTransactionId: o.financeTransactionId, financeTransactionCode: o.financeTransactionCode,
+            attachments: o.attachments, isDirectEntry: true,
+        });
+    }
     events.sort((a, b) => new Date(a.date) - new Date(b.date));
 
     let running = employee.openingAdvanceBalance || 0;
@@ -82,7 +94,8 @@ export const GET = withAuth(async (request, { params }) => {
 
     const totalAdvance = advances.reduce((s, a) => s + a.amount, 0) + orphanAdvances.reduce((s, o) => s + o.amount, 0);
     const allSettlements = advances.flatMap(a => a.settlements);
-    const totalReturned = allSettlements.filter(s => s.settleType !== 'salary_deduction').reduce((s, x) => s + x.amount, 0);
+    const totalReturned = allSettlements.filter(s => s.settleType !== 'salary_deduction').reduce((s, x) => s + x.amount, 0)
+        + orphanSettlements.reduce((s, o) => s + o.amount, 0);
     const totalDeducted = allSettlements.filter(s => s.settleType === 'salary_deduction').reduce((s, x) => s + x.amount, 0);
 
     return NextResponse.json({

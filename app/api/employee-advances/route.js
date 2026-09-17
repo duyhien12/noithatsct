@@ -5,7 +5,7 @@ import { withCodeRetry } from '@/lib/generateCode';
 import { NextResponse } from 'next/server';
 import { employeeAdvanceCreateSchema } from '@/lib/validations/employeeAdvance';
 import { computeBalance, ADVANCE_CATEGORY_BY_TYPE, DEFAULT_ADVANCE_CATEGORY } from '@/lib/employeeAdvance';
-import { findOrphanAdvanceTransactions } from '@/lib/employeeAdvanceOrphans';
+import { findOrphanAdvanceTransactions, findOrphanSettlementTransactions } from '@/lib/employeeAdvanceOrphans';
 import { VIEW_ROLES, CREATE_ROLES } from '@/lib/financeJournal';
 import { deriveCashFields } from '@/lib/financeJournal';
 
@@ -31,7 +31,7 @@ export const GET = withAuth(async (request) => {
     const advanceWhere = { advanceType: 'Lương', financeTransaction: { deletedAt: null } };
     if (projectId) advanceWhere.projectId = projectId;
 
-    const [employees, advances, orphanAdvances] = await Promise.all([
+    const [employees, advances, orphanAdvances, orphanSettlements] = await Promise.all([
         prisma.employee.findMany({
             where: employeeWhere,
             include: { department: { select: { id: true, name: true } } },
@@ -45,6 +45,9 @@ export const GET = withAuth(async (request) => {
         // Phiếu Chi nhập trực tiếp trong Nhật ký (đúng danh mục "T/ứng lương", gắn đối tượng Nhân
         // viên) nhưng chưa qua modal "Tạo tạm ứng" — vẫn tính vào số dư tạm ứng của nhân viên đó.
         findOrphanAdvanceTransactions({ advanceTypes: ['Lương'] }),
+        // Phiếu Thu nhập trực tiếp trong Nhật ký (danh mục "Thu hồi ứng lương", gắn đối tượng Nhân
+        // viên) nhưng chưa qua nút "Hoàn ứng" — vẫn tính vào "Đã hoàn ứng" của nhân viên đó.
+        findOrphanSettlementTransactions({ advanceTypes: ['Lương'] }),
     ]);
 
     const advancesByEmployee = new Map();
@@ -58,9 +61,16 @@ export const GET = withAuth(async (request) => {
         advancesByEmployee.get(a.employeeId).push(a);
     }
 
+    const orphanSettlementsByEmployee = new Map();
+    for (const s of orphanSettlements) {
+        if (!orphanSettlementsByEmployee.has(s.employeeId)) orphanSettlementsByEmployee.set(s.employeeId, []);
+        orphanSettlementsByEmployee.get(s.employeeId).push(s);
+    }
+
     let rows = employees.map(emp => {
         const empAdvances = advancesByEmployee.get(emp.id) || [];
-        const allSettlements = empAdvances.flatMap(a => a.settlements);
+        const empOrphanSettlements = orphanSettlementsByEmployee.get(emp.id) || [];
+        const allSettlements = empAdvances.flatMap(a => a.settlements).concat(empOrphanSettlements);
 
         const beforeAdvances = from ? empAdvances.filter(a => a.date < from) : [];
         const beforeSettlements = from ? allSettlements.filter(s => s.date < from) : [];

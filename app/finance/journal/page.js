@@ -15,6 +15,15 @@ const fmtDateTime = (d) => d ? `${new Date(d).toLocaleTimeString('vi-VN', { hour
 const toInputDate = (d) => d ? new Date(d).toISOString().slice(0, 10) : '';
 const today = () => new Date().toISOString().slice(0, 10);
 
+// Cột "Khách hợp đồng" trong phiếu Thu-Chi lấy dự án/khách ở 2 cột cuối bảng Khách hàng: đang thi
+// công (pipelineStage = 'Thi công') VÀ đã hoàn thành (pipelineStage = 'Khách huỷ' — tên field cũ,
+// nhãn hiển thị thực tế là "Khách hoàn thành", khớp app/customers/page.js) — vẫn cần ghi Thu-Chi
+// cho công trình đã hoàn thành (quyết toán cuối, bảo hành...).
+const CONTRACT_CUSTOMER_STAGES = ['Thi công', 'Khách huỷ'];
+// Khách bên Phòng Thiết kế cũng đã ký hợp đồng (nội thất hoặc kiến trúc) — pipelineStage riêng,
+// khớp PIPELINE_TK trong app/customers/page.js ('Hợp đồng' = nội thất, 'Hợp đồng kiến trúc' = kiến trúc).
+const DESIGN_CUSTOMER_STAGES = ['Hợp đồng', 'Hợp đồng kiến trúc'];
+
 // Báo cáo Quỹ/Ngân hàng chốt "ngày làm việc" lúc 17h00 (giờ máy khách) thay vì nửa đêm — số dư
 // đầu kỳ luôn là số dư tại đúng mốc 17h00 gần nhất trước hiện tại (tức lúc chốt sổ ngày hôm trước
 // nếu chưa tới 17h hôm nay, hoặc lúc 17h hôm nay nếu đã qua mốc này).
@@ -92,35 +101,44 @@ export default function FinanceJournalPage() {
     const [transferOpen, setTransferOpen] = useState(false);
 
     const fetchLookups = useCallback(async () => {
-        // Dự án/Công trình cho phiếu Thu-Chi: chỉ lấy dự án của khách hàng đang ở cột
-        // "Khách hợp đồng" (pipelineStage = "Thi công") trên bảng Khách hàng, thuộc
-        // Phòng Kinh doanh hoặc Phòng Xây dựng (bỏ khách còn ở Lead/tiềm năng/chăm sóc,
-        // và bỏ khách bên Phòng Thiết kế).
-        const stageParam = `customerStage=${encodeURIComponent('Thi công')}`;
-        const [cats, banks, funds, accs, projsKD, projsXD, custKD, custXD, cash] = await Promise.all([
+        // Dự án/Công trình cho phiếu Thu-Chi: lấy dự án của khách hàng đang ở cột "Khách hợp đồng"
+        // hoặc "Khách hoàn thành" trên bảng Khách hàng — thuộc Phòng Kinh doanh, Phòng Xây dựng,
+        // hoặc Phòng Thiết kế đã ký hợp đồng (nội thất/kiến trúc) — bỏ khách còn ở Lead/tiềm
+        // năng/chăm sóc.
+        const stageParam = `customerStage=${encodeURIComponent(CONTRACT_CUSTOMER_STAGES.join(','))}`;
+        const stageParamTK = `customerStage=${encodeURIComponent(DESIGN_CUSTOMER_STAGES.join(','))}`;
+        const [cats, banks, funds, accs, projsKD, projsXD, projsTK, custKD, custXD, custTK, cash] = await Promise.all([
             fetch('/api/finance-categories').then(r => r.json()).catch(() => []),
             fetch('/api/bank-accounts').then(r => r.json()).catch(() => []),
             fetch('/api/cash-funds').then(r => r.json()).catch(() => []),
             fetch('/api/accounting-accounts').then(r => r.json()).catch(() => []),
             fetch(`/api/projects?limit=500&customerDept=kinh_doanh&${stageParam}`).then(r => r.json()).then(d => d.data || d || []).catch(() => []),
             fetch(`/api/projects?limit=500&customerDept=xay_dung&${stageParam}`).then(r => r.json()).then(d => d.data || d || []).catch(() => []),
+            fetch(`/api/projects?limit=500&customerDept=thiet_ke&${stageParamTK}`).then(r => r.json()).then(d => d.data || d || []).catch(() => []),
             fetch('/api/customers?dept=kinh_doanh&limit=1000').then(r => r.json()).then(d => d.data || d || []).catch(() => []),
             fetch('/api/customers?dept=xay_dung&limit=1000').then(r => r.json()).then(d => d.data || d || []).catch(() => []),
+            fetch('/api/customers?dept=thiet_ke&limit=1000').then(r => r.json()).then(d => d.data || d || []).catch(() => []),
             fetch('/api/finance-cash-balance').then(r => r.json()).catch(() => null),
         ]);
         setCategories(Array.isArray(cats) ? cats : []);
         setBankAccounts(Array.isArray(banks) ? banks : []);
         setCashFunds(Array.isArray(funds) ? funds : []);
         setAccounts(Array.isArray(accs) ? accs : []);
-        const projs = [...(Array.isArray(projsKD) ? projsKD : []), ...(Array.isArray(projsXD) ? projsXD : [])]
+        const projs = [...(Array.isArray(projsKD) ? projsKD : []), ...(Array.isArray(projsXD) ? projsXD : []), ...(Array.isArray(projsTK) ? projsTK : [])]
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setProjects(projs);
-        // Khách "Khách hợp đồng" (pipelineStage = Thi công, chưa xóa, và CHƯA có Dự án chính
-        // thức — khách đã có Dự án thì chọn thẳng Dự án ở trên, tránh trùng lặp lựa chọn).
+        // Khách "Khách hợp đồng"/"Khách hoàn thành" (KD/XD) hoặc "Khách hợp đồng nội thất/kiến
+        // trúc" (TK) chưa xóa và CHƯA có Dự án chính thức — khách đã có Dự án thì chọn thẳng Dự
+        // án ở trên, tránh trùng lặp lựa chọn.
         const projectCustomerIds = new Set(projs.map(p => p.customerId));
-        const stubs = [...(Array.isArray(custKD) ? custKD : []), ...(Array.isArray(custXD) ? custXD : [])]
-            .filter(c => c.pipelineStage === 'Thi công' && !c.deletedAt && !projectCustomerIds.has(c.id))
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const allowedStages = [...CONTRACT_CUSTOMER_STAGES, ...DESIGN_CUSTOMER_STAGES];
+        // dept=kinh_doanh lọc lỏng (NOT xay_dung) nên có thể kéo theo cả khách Phòng Thiết kế —
+        // gộp Map theo id để loại trùng với danh sách custTK lấy riêng ở trên.
+        const stubsById = new Map();
+        for (const c of [...(Array.isArray(custKD) ? custKD : []), ...(Array.isArray(custXD) ? custXD : []), ...(Array.isArray(custTK) ? custTK : [])]) {
+            if (allowedStages.includes(c.pipelineStage) && !c.deletedAt && !projectCustomerIds.has(c.id)) stubsById.set(c.id, c);
+        }
+        const stubs = [...stubsById.values()].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setCustomerStubs(stubs);
         if (cash) setCashBalance(cash);
     }, []);
@@ -919,6 +937,62 @@ function CategoryTreePicker({ categories, value, onChange, disabled, rootEmptyLa
 }
 
 // ════════════════════════════════════════════════════════════════════════
+// Combobox gõ để lọc "Khách hợp đồng" theo mã/tên công trình hoặc tên khách hàng — danh sách có
+// thể lên tới hàng trăm dòng nên gõ vài chữ cái đầu để lọc thay vì cuộn dropdown thường.
+function ContractSelect({ projects, customerStubs, value, onChange, disabled }) {
+    const [open, setOpen] = useState(false);
+    const [q, setQ] = useState('');
+    const wrapRef = useRef(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const onDocMouseDown = (e) => { if (!wrapRef.current?.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', onDocMouseDown);
+        return () => document.removeEventListener('mousedown', onDocMouseDown);
+    }, [open]);
+
+    const options = [
+        ...(projects || []).map(p => ({ key: 'p_' + p.id, label: `${p.code} — ${p.name}`, search: `${p.code} ${p.name}` })),
+        ...(customerStubs || []).map(c => ({ key: 'c_' + c.id, label: `${c.name} (chưa có dự án)`, search: c.name })),
+    ];
+    const selected = options.find(o => o.key === value);
+    const filtered = q
+        ? options.filter(o => o.search.toLowerCase().includes(q.toLowerCase()))
+        : options;
+
+    return (
+        <div ref={wrapRef} style={{ position: 'relative' }}>
+            <input className="form-input" disabled={disabled} placeholder="Gõ mã/tên công trình hoặc tên khách..."
+                value={open ? q : (selected ? selected.label : '')}
+                onFocus={() => { setOpen(true); setQ(''); }}
+                onChange={e => setQ(e.target.value)} />
+            {open && (
+                <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, zIndex: 100,
+                    background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 6,
+                    boxShadow: 'var(--shadow-md)', maxHeight: 220, overflowY: 'auto',
+                }}>
+                    <div style={{ padding: '6px 10px', fontSize: 13, cursor: 'pointer', color: 'var(--text-muted)' }}
+                        onClick={() => { onChange(''); setQ(''); setOpen(false); }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                        onMouseLeave={e => e.currentTarget.style.background = ''}>
+                        -- không có --
+                    </div>
+                    {filtered.length === 0 && <div style={{ padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)' }}>Không tìm thấy</div>}
+                    {filtered.map(o => (
+                        <div key={o.key} style={{ padding: '6px 10px', fontSize: 13, cursor: 'pointer' }}
+                            onClick={() => { onChange(o.key); setQ(''); setOpen(false); }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                            onMouseLeave={e => e.currentTarget.style.background = ''}>
+                            {o.label}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // Combobox gõ để lọc tài khoản kế toán theo mã/tên — dùng cho TK Nợ/TK Có (39 tài khoản, dropdown
 // thường quá dài để dò bằng mắt). Danh sách accounts đã có sẵn ở client nên lọc ngay, không gọi API.
 function AccountSelect({ accounts, value, onChange, disabled, placeholder = 'Tìm mã hoặc tên TK...' }) {
@@ -1126,11 +1200,10 @@ function TransactionModal({ mode, tx, user, categories, bankAccounts, cashFunds,
                                 {splitMode ? (
                                     <input className="form-input" disabled value="— xem bên dưới —" />
                                 ) : (
-                                    <select className="form-select" disabled={isView} value={projectPickValue} onChange={e => handleProjectPick(e.target.value)}>
-                                        <option value="">-- không có --</option>
-                                        {projects?.map(p => <option key={'p_' + p.id} value={'p_' + p.id}>{p.code} — {p.name}</option>)}
-                                        {form.type === 'Thu' && customerStubs?.map(c => <option key={'c_' + c.id} value={'c_' + c.id}>{c.name} (chưa có dự án)</option>)}
-                                    </select>
+                                    <ContractSelect
+                                        projects={projects} customerStubs={form.type === 'Thu' ? customerStubs : []}
+                                        value={projectPickValue} onChange={handleProjectPick} disabled={isView}
+                                    />
                                 )}
                             </Field>
                         </Row>

@@ -118,9 +118,13 @@ export const GET = withAuth(async (request) => {
     // danh sách lẫn cả khách đã xóa rồi lại không khớp với cột Khách hợp đồng thật.
     if (customerDept || customerStage) {
         where.customer = { deletedAt: null };
-        if (customerStage) where.customer.pipelineStage = customerStage;
+        if (customerStage) {
+            const stages = customerStage.split(',').filter(Boolean);
+            where.customer.pipelineStage = stages.length > 1 ? { in: stages } : stages[0];
+        }
         if (customerDept === 'xay_dung') where.customer.createdByRole = 'xay_dung';
         else if (customerDept === 'kinh_doanh') where.customer.NOT = { createdByRole: 'xay_dung' };
+        else if (customerDept === 'thiet_ke') where.customer.createdByRole = 'thiet_ke';
         where.deletedAt = null; // bỏ dự án đã xóa khỏi ô chọn phiếu Thu-Chi
     }
 

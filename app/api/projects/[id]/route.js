@@ -101,6 +101,16 @@ export const PUT = withAuth(async (request, { params }) => {
     const body = await request.json();
     const data = projectUpdateSchema.parse(body);
 
+    // Dự toán đã "khóa" (qua /api/budget/lock, tính từ Dự toán vật tư) là số liệu chính thức dùng
+    // cho các báo cáo Dự toán-Thực tế/S-curve — không cho sửa tay budgetTotal khi đang khóa, tránh
+    // lệch với dữ liệu MaterialPlan đã chốt. Phải mở khóa ở trang Dự toán vật tư trước.
+    if (data.budgetTotal !== undefined) {
+        const current = await prisma.project.findUnique({ where: { id }, select: { budgetStatus: true } });
+        if (current?.budgetStatus === 'locked') {
+            return NextResponse.json({ error: 'Dự toán đã khóa — mở khóa ở trang Dự toán vật tư trước khi sửa' }, { status: 400 });
+        }
+    }
+
     const project = await prisma.project.update({ where: { id }, data });
     return NextResponse.json(project);
 });
