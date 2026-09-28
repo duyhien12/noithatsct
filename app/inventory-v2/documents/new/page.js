@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 /** Ô chọn vật tư gõ-để-lọc (theo mã SKU/tên/mã màu/quy cách), thay cho <select> liệt kê hết. */
-function MaterialCombobox({ materials, value, onSelect }) {
+function MaterialCombobox({ materials, value, onSelect, stockQty }) {
     const [text, setText] = useState('');
     const [open, setOpen] = useState(false);
     const selected = materials.find(m => m.id === value);
@@ -36,6 +36,7 @@ function MaterialCombobox({ materials, value, onSelect }) {
                             <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{m.sku}</span> — {m.name}
                             {m.colorCode && <span style={{ color: 'var(--text-muted)' }}> · mã màu {m.colorCode}</span>}
                             {Number(m.thickness) > 0 && <span style={{ color: 'var(--text-muted)' }}> · Dày {m.thickness}mm</span>}
+                            {stockQty?.has(m.id) && <span style={{ color: '#16a34a' }}> · tồn {stockQty.get(m.id)}</span>}
                         </div>
                     ))}
                 </div>
@@ -74,6 +75,7 @@ const DOC_TYPES = [
 ];
 
 const NEEDS_TARGET_WAREHOUSE = ['TRANSFER_WAREHOUSE'];
+const IMPORT_DOC_TYPES = DOC_TYPES.find(g => g.group === 'Nhập kho').options.map(([v]) => v);
 const NEEDS_PROJECT_CONTEXT = ['HOLD', 'RELEASE_HOLD', 'EXPORT_PROJECT', 'IMPORT_RETURN_PROJECT'];
 
 export default function NewDocumentPage() {
@@ -87,6 +89,8 @@ export default function NewDocumentPage() {
     const [warehouses, setWarehouses] = useState([]);
     const [projects, setProjects] = useState([]);
     const [materials, setMaterials] = useState([]);
+    const [balances, setBalances] = useState([]);
+    const [showAllMaterials, setShowAllMaterials] = useState(false);
     const [lines, setLines] = useState([{ materialId: '', enteredQuantity: '', enteredUnitId: '', unitPrice: '' }]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -97,8 +101,20 @@ export default function NewDocumentPage() {
     useEffect(() => {
         fetch('/api/inventory-v2/warehouses').then(r => r.json()).then(d => { setWarehouses(d.data || []); if (d.data?.[0]) setWarehouseId(d.data[0].id); });
         fetch('/api/inventory-v2/materials?limit=1000').then(r => r.json()).then(d => setMaterials(d.data || []));
+        fetch('/api/inventory-v2/stock').then(r => r.json()).then(d => setBalances(d.data || [])).catch(() => {});
         fetch('/api/projects?limit=500').then(r => r.json()).then(d => setProjects(d.data || [])).catch(() => {});
     }, []);
+
+    /**
+     * Chỉ hiện vật tư của kho đang chọn (đã có tồn/số dư ở kho đó hoặc khai báo kho mặc định là kho đó).
+     * Phiếu nhập hiện thêm vật tư chưa thuộc kho nào (để nhập lần đầu), và có tuỳ chọn hiện tất cả.
+     */
+    const isImport = IMPORT_DOC_TYPES.includes(docType);
+    const stockQty = new Map(balances.filter(b => b.warehouseId === warehouseId).map(b => [b.materialId, b.onHandQty]));
+    const materialsInAnyWarehouse = new Set(balances.map(b => b.materialId));
+    const visibleMaterials = (isImport && showAllMaterials) ? materials : materials.filter(m =>
+        stockQty.has(m.id) || m.defaultWarehouseId === warehouseId
+        || (isImport && !m.defaultWarehouseId && !materialsInAnyWarehouse.has(m.id)));
 
     const materialOptions = (materialId) => {
         const m = materials.find(x => x.id === materialId);
@@ -118,7 +134,7 @@ export default function NewDocumentPage() {
     /** Xuất mẫu Excel toàn bộ danh mục vật tư để điền nhanh Số lượng/Đơn giá, dùng cho nhập tồn hàng loạt. */
     const handleExportTemplate = async () => {
         const XLSX = await import('xlsx');
-        const rows = materials.map(m => ({
+        const rows = visibleMaterials.map(m => ({
             'Mã SKU': m.sku, 'Tên vật tư': m.name, 'Mã màu': m.colorCode || '', 'ĐVT': m.stockUnit?.code || '',
             'Số lượng': '', 'Đơn giá': '', 'Ghi chú': '',
         }));
@@ -228,7 +244,14 @@ export default function NewDocumentPage() {
 
                 <div className="form-group">
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                        <label className="form-label" style={{ marginBottom: 0 }}>Dòng vật tư *</label>
+                        <label className="form-label" style={{ marginBottom: 0 }}>
+                            Dòng vật tư * <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}>({visibleMaterials.length} vật tư {isImport && showAllMaterials ? 'toàn bộ danh mục' : `của ${warehouses.find(w => w.id === warehouseId)?.name || 'kho đã chọn'}`})</span>
+                        </label>
+                        {isImport && (
+                            <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                                <input type="checkbox" checked={showAllMaterials} onChange={e => setShowAllMaterials(e.target.checked)} /> Hiện cả vật tư kho khác
+                            </label>
+                        )}
                         <div style={{ display: 'flex', gap: 8 }}>
                             <button type="button" className="btn btn-ghost" onClick={handleExportTemplate}>📥 Tải mẫu Excel</button>
                             <button type="button" className="btn btn-ghost" onClick={() => importRef.current?.click()} disabled={importing}>{importing ? 'Đang import...' : '📤 Import Excel'}</button>
@@ -247,7 +270,7 @@ export default function NewDocumentPage() {
                     )}
                     {lines.map((l, i) => (
                         <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-start' }}>
-                            <MaterialCombobox materials={materials} value={l.materialId} onSelect={(id) => handleMaterialSelect(i, id)} />
+                            <MaterialCombobox materials={visibleMaterials} stockQty={stockQty} value={l.materialId} onSelect={(id) => handleMaterialSelect(i, id)} />
                             <input className="form-input" style={{ flex: 1 }} type="number" placeholder="SL" value={l.enteredQuantity} onChange={e => updateLine(i, { enteredQuantity: e.target.value })} />
                             <select className="form-select" style={{ flex: 1 }} value={l.enteredUnitId} onChange={e => updateLine(i, { enteredUnitId: e.target.value })}>
                                 <option value="">ĐVT</option>
