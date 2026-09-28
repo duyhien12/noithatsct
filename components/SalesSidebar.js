@@ -12,6 +12,7 @@ import SidebarRoleFooter from '@/components/sidebar/SidebarRoleFooter';
 import { useRole } from '@/contexts/RoleContext';
 import { useSession } from 'next-auth/react';
 import { useState } from 'react';
+import { isWorkLogViewer } from '@/lib/workLogAccess';
 
 const DEPT_VIEWS = [
     { key: 'ban_gd',         label: 'Ban GĐ',     icon: '👑' },
@@ -46,6 +47,7 @@ const menuItems = [
             { href: '/sales/production-gantt', icon: GanttChart, label: 'Tiến độ sản xuất (Gantt)' },
             { href: '/schedule-templates', icon: CalendarDays, label: 'Mẫu tiến độ' },
             { href: '/work-orders', icon: Wrench, label: 'Phiếu công việc' },
+            { href: '/workshop/work-log', icon: BookMarked, label: 'Nhật ký thi công xưởng', emailGate: isWorkLogViewer },
             { href: '/products', icon: Package, label: 'Sản phẩm & Vật tư' },
             { href: '/tasks', icon: CheckSquare, label: 'Tác vụ' },
             { href: '/lessons-learned', icon: GraduationCap, label: '📚 Bài học dự án' },
@@ -103,6 +105,7 @@ export default function SalesSidebar({ isOpen, onClose, collapsed, onToggleColla
                     <div className="nav-section" key={section.section}>
                         <div className="nav-section-title">{section.section}</div>
                         {section.items.filter(item => {
+                            if (item.emailGate && !item.emailGate(session?.user?.email)) return false;
                             if (isDuyHien && [
                                 '/work-orders', '/products',
                                 '/finance/kinh-doanh',

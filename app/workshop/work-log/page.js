@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRole } from '@/contexts/RoleContext';
+import { useSession } from 'next-auth/react';
+import { isWorkLogViewer } from '@/lib/workLogAccess';
 
 const CATEGORIES = [
     { key: 'Gia công nguội',         label: 'Gia công nguội',         color: '#dbeafe', hd: '#93c5fd' },
@@ -479,7 +481,9 @@ function WorkSummaryTable({ entries, workers, weekNum, weekStart, weekEnd }) {
 export default function WorkLogPage() {
     const router = useRouter();
     const { role, isXuongNhanVien } = useRole();
-    const isReadOnly = isXuongNhanVien || role === 'marketing';
+    const { data: session, status: sessionStatus } = useSession();
+    const isEmailViewer = isWorkLogViewer(session?.user?.email);
+    const isReadOnly = isXuongNhanVien || role === 'marketing' || (isEmailViewer && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd'].includes(role));
     const [entries, setEntries] = useState([]);
     const [workers, setWorkers] = useState([]);
     const [projects, setProjects] = useState([]);
@@ -491,13 +495,14 @@ export default function WorkLogPage() {
     const [syncing, setSyncing] = useState(false);
 
     useEffect(() => {
-        if (role && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd', 'marketing'].includes(role)) {
+        if (sessionStatus === 'loading') return;
+        if (role && !isEmailViewer && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd', 'marketing'].includes(role)) {
             router.replace('/'); return;
         }
         fetch('/api/workshop/workers').then(r => r.json()).then(d => setWorkers(Array.isArray(d) ? d : []));
         fetch('/api/projects?limit=200&type=Thi công nội thất').then(r => r.json()).then(d => setProjects(Array.isArray(d?.data) ? d.data : []));
         fetch('/api/workshop/tasks?status=Đang làm').then(r => r.json()).then(d => setActiveTasks(Array.isArray(d) ? d : []));
-    }, [role, router]);
+    }, [role, router, sessionStatus, isEmailViewer]);
 
     const fetchAll = useCallback(() => {
         setLoading(true);
