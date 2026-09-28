@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useRole } from '@/contexts/RoleContext';
+import { useSession } from 'next-auth/react';
+import { isWorkLogViewer } from '@/lib/workLogAccess';
 import { RefreshCw, Clock, BarChart2, Users, Calendar, TrendingUp } from 'lucide-react';
 
 const REFRESH_INTERVAL = 30;
@@ -204,6 +206,8 @@ function ProjectSummaryContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { role } = useRole();
+    const { data: session, status: sessionStatus } = useSession();
+    const isEmailViewer = isWorkLogViewer(session?.user?.email);
 
     const [projects, setProjects] = useState([]);
     const [workers, setWorkers] = useState([]);
@@ -222,7 +226,8 @@ function ProjectSummaryContent() {
     const selectedProject = projects.find(p => p.id === selectedProjectId);
 
     useEffect(() => {
-        if (role && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd'].includes(role)) {
+        if (sessionStatus === 'loading') return;
+        if (role && !isEmailViewer && !['xuong', 'ban_gd', 'giam_doc', 'pho_gd'].includes(role)) {
             router.replace('/'); return;
         }
         fetch('/api/workshop/workers').then(r => r.json()).then(d => setWorkers(Array.isArray(d) ? d : []));
@@ -234,7 +239,7 @@ function ProjectSummaryContent() {
                 if (p) setProjectSearch(p.name);
             }
         });
-    }, [role, router, searchParams]);
+    }, [role, router, searchParams, sessionStatus, isEmailViewer]);
 
     const fetchEntries = useCallback(async () => {
         if (!selectedProjectId) return;
