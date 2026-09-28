@@ -2,9 +2,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { materialFullName } from '@/lib/inventoryV2/materialLabel';
 
 const STATUS_BADGE = { DRAFT: 'badge-info', PENDING_APPROVAL: 'badge-warning', APPROVED: 'badge-success', CANCELLED: 'badge-danger' };
 const fmtDate = (d) => d ? new Date(d).toLocaleString('vi-VN') : '—';
+const fmtDay = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const fmtNum = (n) => new Intl.NumberFormat('vi-VN').format(n || 0);
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 
@@ -62,7 +64,7 @@ export default function DocumentDetailPage() {
             <div className="card-header">
                 <div>
                     <h3 style={{ margin: 0 }}>{doc.code} <span className={`badge ${STATUS_BADGE[doc.status]}`} style={{ marginLeft: 8 }}>{doc.statusLabel}</span></h3>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{doc.docType} · {fmtDate(doc.docDate)}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{doc.docType} · Ngày {fmtDay(doc.docDate)}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                     <Link href={`/inventory-v2/documents/${id}/print`} target="_blank" className="btn btn-ghost">🖨 In phiếu</Link>
@@ -82,7 +84,7 @@ export default function DocumentDetailPage() {
                 <div><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>Kho</div>{doc.warehouse?.name}{doc.targetWarehouse ? ` → ${doc.targetWarehouse.name}` : ''}</div>
                 <div><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>Công trình</div>{doc.project?.name || '—'}</div>
                 <div><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>Nhà cung cấp</div>{doc.supplier?.name || '—'}</div>
-                <div><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>Người tạo</div>{doc.createdById || '—'}</div>
+                <div><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>Người tạo</div>{doc.createdByName || doc.createdById || '—'}</div>
                 {doc.sourceDocument && <div><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>Phiếu gốc</div><Link href={`/inventory-v2/documents/${doc.sourceDocument.id}`}>{doc.sourceDocument.code}</Link></div>}
             </div>
 
@@ -92,7 +94,7 @@ export default function DocumentDetailPage() {
                     <tbody>
                         {doc.lines.map(l => (
                             <tr key={l.id}>
-                                <td className="primary">{l.material?.sku} — {l.material?.name}</td>
+                                <td className="primary">{l.material?.sku} — {materialFullName(l.material)}</td>
                                 <td style={{ textAlign: 'right' }}>{fmtNum(l.enteredQuantity)}</td>
                                 <td style={{ fontSize: 12 }}>{l.enteredUnit?.code}</td>
                                 <td style={{ textAlign: 'right' }}>{fmtNum(l.quantity)}</td>

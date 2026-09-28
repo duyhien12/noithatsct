@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { materialFullName } from '@/lib/inventoryV2/materialLabel';
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const fmtNum = (n) => new Intl.NumberFormat('vi-VN').format(n || 0);
@@ -45,7 +46,7 @@ export default function PrintDocumentPage() {
                 <tbody>
                     {doc.lines.map(l => (
                         <tr key={l.id} style={{ borderBottom: '1px solid #ddd' }}>
-                            <td style={{ padding: 6 }}>{l.material?.sku} — {l.material?.name}</td>
+                            <td style={{ padding: 6 }}>{l.material?.sku} — {materialFullName(l.material)}</td>
                             <td style={{ textAlign: 'right', padding: 6 }}>{fmtNum(l.enteredQuantity)}</td>
                             <td style={{ padding: 6 }}>{l.enteredUnit?.code}</td>
                             {canViewCost && <><td style={{ textAlign: 'right', padding: 6 }}>{fmt(l.unitPrice)}</td><td style={{ textAlign: 'right', padding: 6 }}>{fmt(l.amount)}</td></>}

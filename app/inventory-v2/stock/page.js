@@ -1,11 +1,10 @@
 'use client';
 import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { materialNameSuffix } from '@/lib/inventoryV2/materialLabel';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const fmtNum = (n) => n == null ? '—' : new Intl.NumberFormat('vi-VN').format(n);
-/** Phần đuôi tên vật tư: "-mã màu-độ dày", VD AC-333-17. */
-const nameSuffix = (r) => [r.colorCode, r.thickness > 0 ? r.thickness : ''].filter(Boolean).map(x => `-${x}`).join('');
 
 /** Hộp thoại Xuất nhanh 1 vật tư: chọn mục đích, số lượng, công trình → ghi sổ ngay (nếu có quyền duyệt). */
 function QuickExportModal({ row, projects, onClose, onDone }) {
@@ -43,7 +42,7 @@ function QuickExportModal({ row, projects, onClose, onDone }) {
                 <div className="modal-header"><h3>Xuất kho nhanh</h3><button className="modal-close" onClick={onClose}>×</button></div>
                 <div className="modal-body">
                     <div style={{ padding: '10px 12px', background: 'var(--bg-secondary, #f9fafb)', borderRadius: 8, marginBottom: 14, fontSize: 13 }}>
-                        <div><b style={{ color: 'var(--accent-primary)' }}>{row.sku}</b> — {row.name}{nameSuffix(row)}</div>
+                        <div><b style={{ color: 'var(--accent-primary)' }}>{row.sku}</b> — {row.name}{materialNameSuffix(row)}</div>
                         <div style={{ color: 'var(--text-muted)', marginTop: 2 }}>{row.warehouse?.name} · Còn trong kho: <b>{fmtNum(row.onHandQty)}</b> {row.unit?.code}</div>
                     </div>
                     <div className="form-group">
@@ -174,7 +173,7 @@ function StockPageInner() {
                             {rows.map((r, i) => (
                                 <tr key={`${r.materialId}_${r.warehouseId}`} style={{ background: r.status === 'HET_HANG' ? 'rgba(239,68,68,0.05)' : r.needsReorder ? 'rgba(245,158,11,0.05)' : undefined }}>
                                     <td className="accent">{r.sku}</td>
-                                    <td className="primary">{r.name}<span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{nameSuffix(r)}</span></td>
+                                    <td className="primary">{r.name}<span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{materialNameSuffix(r)}</span></td>
                                     <td style={{ fontSize: 12 }}>{r.category?.name}</td>
                                     <td style={{ fontSize: 12 }}>{r.warehouse?.name}</td>
                                     <td style={{ fontSize: 12 }}>{r.unit?.code}</td>

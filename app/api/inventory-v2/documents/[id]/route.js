@@ -17,7 +17,7 @@ export const GET = withAuth(async (request, { params }, session) => {
             lines: {
                 orderBy: { lineNo: 'asc' },
                 include: {
-                    material: { select: { id: true, sku: true, name: true, image: true } },
+                    material: { select: { id: true, sku: true, name: true, colorCode: true, thickness: true, image: true } },
                     enteredUnit: { select: { id: true, code: true } },
                 },
             },
@@ -25,12 +25,16 @@ export const GET = withAuth(async (request, { params }, session) => {
     });
     if (!document) return NextResponse.json({ error: 'Không tìm thấy phiếu' }, { status: 404 });
 
-    const auditLog = await prisma.invAuditLog.findMany({
-        where: { entityType: 'InvDocument', entityId: id }, orderBy: { createdAt: 'desc' },
-    });
+    const userIds = [document.createdById, document.approvedById].filter(Boolean);
+    const [auditLog, users] = await Promise.all([
+        prisma.invAuditLog.findMany({ where: { entityType: 'InvDocument', entityId: id }, orderBy: { createdAt: 'desc' } }),
+        userIds.length ? prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } }) : [],
+    ]);
+    const userName = (uid) => users.find(u => u.id === uid)?.name || '';
 
     const canViewCost = hasInvPermission(session.user, 'view_cost');
-    const result = { ...document, statusLabel: STATUS_LABELS[document.status], auditLog };
+    const result = { ...document, statusLabel: STATUS_LABELS[document.status], auditLog,
+        createdByName: userName(document.createdById), approvedByName: userName(document.approvedById) };
     if (!canViewCost) {
         delete result.totalAmount;
         result.lines = result.lines.map(({ unitPrice, amount, avgCostAtPosting, ...l }) => l);
