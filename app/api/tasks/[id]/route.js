@@ -1,6 +1,7 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { parseAssignees, joinAssignees, MAX_TASK_ASSIGNEES } from '@/lib/taskAssignees';
 
 function calcNextDueDate(dueDate, recurringType, recurringDays, recurringInterval) {
     const interval = recurringInterval || 1;
@@ -59,7 +60,7 @@ export const PATCH = withAuth(async (request, { params }) => {
     if (title !== undefined) data.title = title;
     if (description !== undefined) data.description = description;
     if (priority !== undefined) data.priority = priority;
-    if (assignee !== undefined) data.assignee = assignee;
+    if (assignee !== undefined) data.assignee = joinAssignees(parseAssignees(assignee).slice(0, MAX_TASK_ASSIGNEES));
     if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
     if (order !== undefined) data.order = order;
     if (recurringType !== undefined) data.recurringType = recurringType || null;

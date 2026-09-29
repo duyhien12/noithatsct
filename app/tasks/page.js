@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import MentionTextarea from '@/components/MentionTextarea';
 import MentionText from '@/components/MentionText';
+import { parseAssignees, joinAssignees, MAX_TASK_ASSIGNEES } from '@/lib/taskAssignees';
 
 const BAN_GD = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
 const PEER_GROUP_EMAILS = ['buihoa@kientrucsct.com', 'quocvuong@kientrucsct.com'];
@@ -16,6 +17,33 @@ const fmtDateInput = (d) => {
     if (isNaN(dt)) return '';
     return dt.toISOString().split('T')[0];
 };
+
+// Chọn tối đa MAX_TASK_ASSIGNEES người nhận; value/onChange là chuỗi "A, B, C"
+function AssigneePicker({ value, onChange, users, fontSize }) {
+    const selected = parseAssignees(value);
+    const full = selected.length >= MAX_TASK_ASSIGNEES;
+    const remove = (name) => onChange(joinAssignees(selected.filter(n => n !== name)));
+    const add = (name) => { if (name && !full) onChange(joinAssignees([...selected, name])); };
+    return (
+        <div>
+            {selected.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                    {selected.map(n => (
+                        <span key={n} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', borderRadius: 999, padding: '2px 4px 2px 10px', fontSize: 12, fontWeight: 600 }}>
+                            {n}
+                            <button type="button" onClick={() => remove(n)} title="Bỏ người này"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1d4ed8', fontSize: 14, lineHeight: 1, padding: '0 4px' }}>×</button>
+                        </span>
+                    ))}
+                </div>
+            )}
+            <select className="form-select" value="" disabled={full} onChange={e => add(e.target.value)} style={{ width: '100%', fontSize }}>
+                <option value="">{full ? `Đã đủ ${MAX_TASK_ASSIGNEES} người` : selected.length ? '+ Thêm người nhận' : '-- Chọn người --'}</option>
+                {users.filter(u => !selected.includes(u.name)).map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+            </select>
+        </div>
+    );
+}
 
 const COLUMNS = [
     { key: 'Việc định kỳ',   label: 'ĐỊNH KỲ',  fullLabel: 'VIỆC ĐỊNH KỲ',  color: '#7c3aed', bg: '#f5f3ff' },
@@ -148,7 +176,7 @@ export default function TasksPage() {
 
     const filtered = tasks.filter(t => {
         if (isPeerGroup && !isAdmin && !filterUser && peerGroupNames.length > 0) {
-            if (!peerGroupNames.includes(t.assignee) && !peerGroupNames.includes(t.createdBy)) return false;
+            if (!parseAssignees(t.assignee).some(n => peerGroupNames.includes(n)) && !peerGroupNames.includes(t.createdBy)) return false;
         }
         if (!search) return true;
         const q = search.toLowerCase();
@@ -743,10 +771,7 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
                 </div>
                 <div>
                     <label style={labelStyle}>Người nhận</label>
-                    <select className="form-select" value={form.assignee} onChange={e => setForm(f => ({ ...f, assignee: e.target.value }))} style={{ width: '100%', fontSize: 13 }}>
-                        <option value="">-- Chọn người --</option>
-                        {users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-                    </select>
+                    <AssigneePicker value={form.assignee} onChange={v => setForm(f => ({ ...f, assignee: v }))} users={users} fontSize={13} />
                 </div>
                 <div>
                     <label style={labelStyle}>Hạn</label>
@@ -1088,10 +1113,7 @@ function CreateTaskModal({ users, currentUserName, onClose, onCreate, isMobile }
                     </div>
                     <div>
                         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Người nhận</label>
-                        <select className="form-select" value={form.assignee} onChange={e => setForm(f => ({ ...f, assignee: e.target.value }))} style={{ width: '100%' }}>
-                            <option value="">-- Chọn người --</option>
-                            {users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-                        </select>
+                        <AssigneePicker value={form.assignee} onChange={v => setForm(f => ({ ...f, assignee: v }))} users={users} />
                     </div>
                     <div>
                         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Hạn</label>
