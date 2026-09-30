@@ -36,7 +36,15 @@ export const GET = withAuth(async (request, ctx, session) => {
                 project: { select: { id: true, code: true, name: true } },
                 supplier: { select: { id: true, name: true } },
                 mfgOrder: { select: { id: true, code: true, title: true } },
-                lines: { select: { id: true } },
+                // Nội dung phiếu để hiển thị ngay trên danh sách
+                lines: {
+                    orderBy: { lineNo: 'asc' },
+                    select: {
+                        id: true, enteredQuantity: true,
+                        enteredUnit: { select: { code: true } },
+                        material: { select: { sku: true, name: true, colorCode: true, thickness: true } },
+                    },
+                },
             },
         }),
         prisma.invDocument.count({ where }),
