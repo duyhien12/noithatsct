@@ -27,7 +27,7 @@ export const GET = withAuth(async (request) => {
     if (projectType) where.projectType = projectType;
     if (customerId) where.customerId = customerId;
     if (createdBy) where.createdBy = createdBy;
-    if (designerAssignee) where.designerAssignee = designerAssignee;
+    if (designerAssignee) where.designers = { some: { userName: designerAssignee } };
     if (fromDate || toDate) {
         where.createdAt = {};
         if (fromDate) where.createdAt.gte = new Date(fromDate);

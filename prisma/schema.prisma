@@ -316,45 +316,88 @@ model QuotationItem {
 }
 
 model DesignOrder {
-  id                 String            @id @default(cuid())
-  code               String            @unique
+  id                 String                @id @default(cuid())
+  code               String                @unique
   customerId         String
   projectId          String?
-  customerName       String            @default("")
-  customerPhone      String            @default("")
-  siteAddress        String            @default("")
-  projectType        String            @default("Nhà phố")
-  designArea         Float             @default(0)
-  designStyle        String            @default("")
-  requirementLevel   String            @default("Tiêu chuẩn")
+  customerName       String                @default("")
+  customerPhone      String                @default("")
+  siteAddress        String                @default("")
+  projectType        String                @default("Nhà phố")
+  designArea         Float                 @default(0)
+  designStyle        String                @default("")
+  requirementLevel   String                @default("Tiêu chuẩn")
   startDate          DateTime?
   deadline           DateTime
   confirmedDeadline  DateTime?
-  notes              String            @default("")
-  attachments        Json?             @default("[]")
-  status             String            @default("Nháp")
-  designerAssignee   String            @default("")
-  discount           Float             @default(0)
-  discountType       String            @default("amount")
-  vatRate            Float             @default(0)
-  subtotal           Float             @default(0)
-  totalAfterDiscount Float             @default(0)
-  grandTotal         Float             @default(0)
-  createdBy          String            @default("")
-  createdByRole      String            @default("")
-  salesApprovedBy    String            @default("")
+  notes              String                @default("")
+  attachments        Json?                 @default("[]")
+  status             String                @default("Nháp")
+  designerAssignee   String                @default("")
+  discount           Float                 @default(0)
+  discountType       String                @default("amount")
+  vatRate            Float                 @default(0)
+  subtotal           Float                 @default(0)
+  totalAfterDiscount Float                 @default(0)
+  grandTotal         Float                 @default(0)
+  createdBy          String                @default("")
+  createdByRole      String                @default("")
+  salesApprovedBy    String                @default("")
   salesApprovedAt    DateTime?
-  designConfirmedBy  String            @default("")
+  designConfirmedBy  String                @default("")
   designConfirmedAt  DateTime?
+  // Bàn giao thiết kế (TK) → Chờ nghiệm thu
+  handedOverBy       String                @default("")
+  handedOverAt       DateTime?
+  handoverNote       String                @default("")
+  handoverFiles      Json?                 @default("[]")
+  // Nghiệm thu (KD) → Hoàn thành: chốt doanh số trước VAT, ghi nhận theo tháng nghiệm thu
+  acceptedBy         String                @default("")
+  acceptedAt         DateTime?
+  revenueAmount      Float                 @default(0)
+  revenueMonth       String                @default("")
   deletedAt          DateTime?
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  customer           Customer          @relation(fields: [customerId], references: [id])
-  project            Project?          @relation(fields: [projectId], references: [id])
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  customer           Customer              @relation(fields: [customerId], references: [id])
+  project            Project?              @relation(fields: [projectId], references: [id])
   items              DesignOrderItem[]
+  designers          DesignOrderDesigner[]
+  logs               DesignOrderLog[]
 
   @@index([customerId])
   @@index([projectId])
+  @@index([revenueMonth])
+}
+
+// Nhân sự thiết kế của phiếu + tỷ lệ chia doanh số (tổng sharePercent = 100).
+// amount được chốt khi KD nghiệm thu, về 0 khi BGĐ mở lại phiếu.
+model DesignOrderDesigner {
+  id            String      @id @default(cuid())
+  designOrderId String
+  userId        String
+  userName      String      @default("")
+  sharePercent  Float       @default(0)
+  amount        Float       @default(0)
+  designOrder   DesignOrder @relation(fields: [designOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([designOrderId, userId])
+  @@index([userId])
+}
+
+// Lịch sử chuyển trạng thái / phân công của phiếu đặt hàng thiết kế
+model DesignOrderLog {
+  id            String      @id @default(cuid())
+  designOrderId String
+  fromStatus    String      @default("")
+  toStatus      String      @default("")
+  action        String      @default("")
+  note          String      @default("")
+  userName      String      @default("")
+  createdAt     DateTime    @default(now())
+  designOrder   DesignOrder @relation(fields: [designOrderId], references: [id], onDelete: Cascade)
+
+  @@index([designOrderId])
 }
 
 model DesignOrderItem {

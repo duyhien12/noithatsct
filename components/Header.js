@@ -36,6 +36,7 @@ const pageTitles = {
     '/workshop/materials': 'Vật tư kho',
     '/workshop/timeline': 'Tiến độ Gantt',
     '/design-orders/gantt': 'Gantt Thiết Kế',
+    '/design-orders/revenue': 'Doanh số thiết kế',
     '/hr': 'Nhân sự',
     '/hr/accounts': 'Tài khoản hệ thống',
     '/reports': 'Báo cáo',

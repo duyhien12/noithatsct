@@ -5,8 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, GitBranch, Users, FileText,
     ClipboardList, ChevronRight, Building2,
-    Wrench, CalendarDays, ShoppingCart, Warehouse, Package, BarChart3, Banknote, BookMarked, GanttChart, Calendar, CheckSquare, PencilRuler, GraduationCap, NotebookText,
-} from 'lucide-react';
+    Wrench, CalendarDays, ShoppingCart, Warehouse, Package, BarChart3, Banknote, BookMarked, GanttChart, Calendar, CheckSquare, PencilRuler, GraduationCap, NotebookText, TrendingUp } from 'lucide-react';
 import SidebarBrand from '@/components/sidebar/SidebarBrand';
 import SidebarRoleFooter from '@/components/sidebar/SidebarRoleFooter';
 import { useRole } from '@/contexts/RoleContext';
@@ -37,6 +36,7 @@ const menuItems = [
             { href: '/customers', icon: Users, label: 'Khách hàng' },
             { href: '/quotations', icon: ClipboardList, label: 'Báo giá' },
             { href: '/design-orders', icon: PencilRuler, label: 'Phiếu đặt hàng TK' },
+            { href: '/design-orders/revenue', icon: TrendingUp, label: 'Doanh số thiết kế' },
             { href: '/contracts', icon: FileText, label: 'Hợp đồng' },
         ],
     },

@@ -17,6 +17,8 @@ export const GET = withAuth(async (request, { params }) => {
             customer: { select: { name: true, phone: true, code: true } },
             project: { select: { name: true, address: true, code: true } },
             items: { orderBy: { order: 'asc' } },
+            designers: { orderBy: { userName: 'asc' } },
+            logs: { orderBy: { createdAt: 'desc' } },
         },
     });
     if (!designOrder) return NextResponse.json({ error: 'Không tìm thấy phiếu' }, { status: 404 });

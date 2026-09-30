@@ -40,6 +40,8 @@ const menuItems = [
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER, 'xay_dung', 'thiet_ke'] },
             { href: '/design-orders', icon: PencilRuler, label: 'Phiếu đặt hàng TK',
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER, 'thiet_ke'] },
+            { href: '/design-orders/revenue', icon: TrendingUp, label: 'Doanh số thiết kế',
+              roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER, 'thiet_ke'] },
             { href: '/contracts', icon: FileText, label: 'Hợp đồng',
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...VIEWER, 'xay_dung', 'thiet_ke'] },
             { href: '/contract-management', icon: ListChecks, label: 'Quy trình KH HĐ',

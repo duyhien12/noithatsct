@@ -5,7 +5,8 @@ import { useRole } from '@/contexts/RoleContext';
 import { apiFetch } from '@/lib/fetchClient';
 import { useToast } from '@/components/ui/Toast';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { STATUSES, STATUS_COLORS, ALLOWED_TRANSITIONS, canTransition, canAssignDesigner, canEditDraft } from '@/lib/designOrderStatus';
+import { STATUS_COLORS, canEditDraft } from '@/lib/designOrderStatus';
+import WorkflowPanel from '@/components/design-orders/WorkflowPanel';
 
 const BRAND = { blue: '#1e3a5f', gold: '#E05B0A' };
 
@@ -43,17 +44,12 @@ export default function DesignOrderDetailPage() {
 
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [busy, setBusy] = useState(false);
-    const [assignForm, setAssignForm] = useState({ designerAssignee: '', confirmedDeadline: '' });
 
     const load = useCallback(() => {
-        apiFetch(`/api/design-orders/${id}`).then(o => {
-            setOrder(o);
-            setAssignForm({
-                designerAssignee: o.designerAssignee || '',
-                confirmedDeadline: o.confirmedDeadline ? new Date(o.confirmedDeadline).toISOString().slice(0, 10) : '',
-            });
-        }).catch(e => toast.error(e.message)).finally(() => setLoading(false));
+        apiFetch(`/api/design-orders/${id}`)
+            .then(setOrder)
+            .catch(e => toast.error(e.message))
+            .finally(() => setLoading(false));
     }, [id, toast]);
 
     useEffect(() => { load(); }, [load]);
@@ -64,38 +60,8 @@ export default function DesignOrderDetailPage() {
         }
     }, [order, searchParams]);
 
-    const changeStatus = async (status) => {
-        setBusy(true);
-        try {
-            await apiFetch(`/api/design-orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
-            toast.success(`Đã chuyển sang "${status}"`);
-            load();
-        } catch (e) {
-            toast.error(e.message);
-        }
-        setBusy(false);
-    };
-
-    const saveAssignment = async () => {
-        setBusy(true);
-        try {
-            await apiFetch(`/api/design-orders/${id}/assign`, {
-                method: 'PATCH',
-                body: JSON.stringify(assignForm),
-            });
-            toast.success('Đã cập nhật phân công');
-            load();
-        } catch (e) {
-            toast.error(e.message);
-        }
-        setBusy(false);
-    };
-
     if (loading) return <div style={{ padding: 60, textAlign: 'center' }}>Đang tải...</div>;
     if (!order) return <div style={{ padding: 60, textAlign: 'center', color: 'var(--status-danger)' }}>Không tìm thấy phiếu</div>;
-
-    const nextStatuses = ALLOWED_TRANSITIONS[order.status] || [];
-    const allowedNextStatuses = nextStatuses.filter(s => canTransition(role, order.status, s));
 
     return (
         <>
@@ -142,40 +108,7 @@ export default function DesignOrderDetailPage() {
                 </div>
             </div>
 
-            {/* Action bar — đổi trạng thái & phân công */}
-            <div className="no-print card" style={{ maxWidth: 820, margin: '16px auto' }}>
-                <div className="card-body" style={{ display: 'grid', gap: 16 }}>
-                    {allowedNextStatuses.length > 0 && (
-                        <div>
-                            <div className="form-label">Chuyển trạng thái</div>
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                {allowedNextStatuses.map(s => (
-                                    <button key={s} className="btn btn-secondary" disabled={busy} onClick={() => changeStatus(s)}>{s}</button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                    {canAssignDesigner(role) && (
-                        <div>
-                            <div className="form-label">Phân công nhân sự thiết kế & xác nhận deadline</div>
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                                <div>
-                                    <label className="form-label" style={{ fontSize: 11 }}>NV thiết kế phụ trách</label>
-                                    <input className="form-input" value={assignForm.designerAssignee}
-                                        onChange={e => setAssignForm(f => ({ ...f, designerAssignee: e.target.value }))}
-                                        placeholder="Tên nhân viên thiết kế" style={{ minWidth: 200 }} />
-                                </div>
-                                <div>
-                                    <label className="form-label" style={{ fontSize: 11 }}>Deadline xác nhận</label>
-                                    <input className="form-input" type="date" value={assignForm.confirmedDeadline}
-                                        onChange={e => setAssignForm(f => ({ ...f, confirmedDeadline: e.target.value }))} />
-                                </div>
-                                <button className="btn btn-primary" disabled={busy} onClick={saveAssignment}>Lưu phân công</button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
+            <WorkflowPanel order={order} role={role} onChanged={load} />
 
             {/* Phiếu in A4 */}
             <div className="do-page">
