@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @import './styles/tokens.css';
 @import './styles/components.css';
+@import './styles/mobile.css';
 
 /* ============================================================
    BASE
@@ -5000,8 +5001,13 @@ select.form-input-compact {
   }
 
   /* Sidebar overlay mờ hơn, slide mượt hơn */
+  /* Chỉ đổ bóng khi drawer đang mở — lúc đóng, bóng lấn vào mép trái màn hình */
   .sidebar {
     transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: none !important;
+  }
+
+  .sidebar.open {
     box-shadow: 8px 0 24px rgba(0,0,0,0.25) !important;
   }
 

@@ -110,7 +110,7 @@ function Sparkline({ values, color = '#3b82f6' }) {
         return `${x},${y}`;
     }).join(' ');
     return (
-        <svg width={W} height={H} style={{ display: 'block' }}>
+        <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', maxWidth: W }}>
             <polyline points={pts} fill="none" stroke={color} strokeWidth={1.8} />
             {values.map((v, i) => (
                 <circle key={i} cx={(i / (values.length - 1)) * W} cy={H - ((v / max) * (H - 4) + 2)}
@@ -261,7 +261,7 @@ export default function TongHopPage() {
                     </div>
 
                     {/* ── SO SÁNH 2 PHÒNG ── */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 20 }}>
                         {[
                             { label: 'Doanh thu', wKey: 'total_rev',    kdKey: 'total_rev',    color: '#3b82f6' },
                             { label: 'Lợi nhuận dòng', wKey: 'net_profit', kdKey: 'net_profit', color: '#10b981' },

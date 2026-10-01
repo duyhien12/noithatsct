@@ -1,0 +1,151 @@
+/* ============================================================
+   LƯỚI AN TOÀN CHO ĐIỆN THOẠI (≤768px)
+
+   Nhiều trang cũ dựng bố cục bằng style inline cố định (lưới 4 cột,
+   hàng nút không xuống dòng, bảng không có vùng cuộn, modal rộng cố
+   định). Khung trang cắt tràn ngang bằng `overflow-x: clip`, nên trên
+   màn hẹp phần tràn bị MẤT chứ không cuộn tới được.
+
+   Các quy tắc dưới đây bẻ những mẫu inline đó về dạng dùng được trên
+   điện thoại mà không phải sửa từng trang. Chỉ áp dụng ≤768px — giao
+   diện máy tính không đổi. Trang mới nên dùng `components/ui` thay vì
+   dựa vào file này.
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+  /* --- 1. Phần tử con của grid/flex được phép co lại ---------------
+     Mặc định `min-width: auto` khiến ô lưới / vùng cuộn tự giãn theo
+     nội dung (bảng, thanh tab) và đẩy trang tràn ra ngoài màn hình. */
+  #main-content [style*="grid-template-columns"] > *,
+  #main-content .card,
+  #main-content .tab-bar,
+  #main-content .tab-bar-scroll,
+  #main-content .tabs,
+  #main-content .filter-bar,
+  #main-content .table-container {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* --- 2. Lưới nhiều cột cố định → 2 cột --------------------------- */
+  #main-content [style*="grid-template-columns: repeat(3,"],
+  #main-content [style*="grid-template-columns: repeat(4,"],
+  #main-content [style*="grid-template-columns: repeat(5,"],
+  #main-content [style*="grid-template-columns: repeat(6,"],
+  #main-content [style*="grid-template-columns: repeat(8,"],
+  #main-content [style*="grid-template-columns: 1fr 1fr 1fr"],
+  #main-content [style*="grid-template-columns: 2fr 1fr"],
+  #main-content [style*="grid-template-columns: 1fr 2fr"],
+  #main-content [style*="grid-template-columns: 3fr 2fr"],
+  #main-content [style*="grid-template-columns: 2fr 3fr"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* Bố cục chính + cột phụ (2fr 1fr…) nên xếp chồng, không chia đôi */
+  #main-content [style*="grid-template-columns: 2fr 1fr"],
+  #main-content [style*="grid-template-columns: 1fr 2fr"],
+  #main-content [style*="grid-template-columns: 3fr 2fr"],
+  #main-content [style*="grid-template-columns: 2fr 3fr"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  /* Ô lưới auto-fit có bề rộng tối thiểu lớn hơn màn hình → 1 cột */
+  #main-content [style*="minmax(250px"],
+  #main-content [style*="minmax(260px"],
+  #main-content [style*="minmax(280px"],
+  #main-content [style*="minmax(300px"],
+  #main-content [style*="minmax(320px"],
+  #main-content [style*="minmax(340px"],
+  #main-content [style*="minmax(360px"],
+  #main-content [style*="minmax(400px"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  /* --- 3. Bảng không nằm trong vùng cuộn ---------------------------
+     Cho phần tử cha trực tiếp của bảng cuộn ngang, để bảng giữ nguyên
+     độ rộng cột mà người dùng vẫn vuốt xem được hết. */
+  #main-content :has(> table) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  /* Khung bo góc chứa bảng hay đặt overflow:hidden inline — trên màn hẹp
+     điều đó cắt mất các cột bên phải. `auto` vẫn giữ bo góc nhưng cho cuộn. */
+  #main-content [style*="overflow: hidden"]:has(table) {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Bảng nhập liệu (có ô input/select) giữ đủ rộng để gõ được; vùng
+     chứa phía trên đã cho cuộn ngang. */
+  table:has(input, select, textarea) {
+    min-width: 600px;
+  }
+
+  /* Bảng trong modal cần vùng cuộn riêng */
+  :is(.modal, .modal-content, .ui-modal, [style*="position: fixed"]) :has(> table) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  /* --- 4. Hàng tiêu đề / nhóm nút xuống dòng thay vì tràn ---------- */
+  #main-content [style*="justify-content: space-between"],
+  #main-content [style*="display: flex"]:has(> button + button),
+  #main-content [style*="display: flex"]:has(> a + a),
+  #main-content [style*="display: flex"]:has(> .btn + .btn) {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  /* Nút có chữ dài được phép xuống dòng */
+  #main-content [style*="display: flex"] > button,
+  #main-content [style*="display: flex"] > .btn {
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  /* --- 5. Modal tự dựng (div fixed phủ toàn màn hình) -------------- */
+  #main-content [style*="position: fixed"][style*="inset: 0"] > div,
+  #main-content [style*="position: fixed"][style*="inset: 0px"] > div {
+    max-width: calc(100vw - 24px) !important;
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+  }
+
+  /* Form 2 cột trong modal → 1 cột trên điện thoại nhỏ */
+  @media (max-width: 480px) {
+    #main-content [style*="position: fixed"] [style*="grid-template-columns: 1fr 1fr"],
+    .modal [style*="grid-template-columns: 1fr 1fr"],
+    .ui-modal [style*="grid-template-columns: 1fr 1fr"] {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+  }
+
+  /* --- 6. Nội dung dài không đẩy trang ----------------------------- */
+  #main-content img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  #main-content video,
+  #main-content iframe {
+    max-width: 100%;
+  }
+
+  #main-content .stat-card {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  #main-content .stat-card > * {
+    min-width: 0;
+  }
+
+  /* Nhãn thẻ thống kê xuống dòng thay vì bị cắt */
+  #main-content .stat-card * {
+    white-space: normal;
+  }
+}

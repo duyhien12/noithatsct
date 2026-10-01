@@ -19,9 +19,9 @@ const TYPE_LABELS = {
 
 function StatCard({ label, value, sub, color }) {
     return (
-        <div style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', borderLeft: `4px solid ${color}`, minWidth: 140 }}>
+        <div style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', borderLeft: `4px solid ${color}`, minWidth: 0 }}>
             <div style={{ fontSize: 11, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>{label}</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: '#111827' }}>{value}</div>
+            <div style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 700, color: '#111827', overflowWrap: 'anywhere' }}>{value}</div>
             {sub && <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>{sub}</div>}
         </div>
     );
@@ -130,7 +130,7 @@ export default function ContractManagementPage() {
             </div>
 
             {/* Stats */}
-            <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
                 <StatCard label="Tổng quy trình" value={stats.total || 0} color="#F47920" />
                 <StatCard label="Đang thực hiện" value={stats.byStatus?.['Đang thực hiện'] || 0} color="#3B82F6" />
                 <StatCard label="Đang sản xuất" value={stats.byStatus?.['Đang sản xuất'] || 0} color="#F59E0B" />

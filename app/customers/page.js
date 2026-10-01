@@ -172,7 +172,7 @@ export default function CustomersPage() {
                 <div className="toolbar-mobile">
                     {/* Row 1: Search + filters */}
                     <div style={{ display: 'flex', gap: 8, flex: 1, flexWrap: 'wrap' }}>
-                        <input type="text" className="form-input" placeholder="🔍 Tìm tên, mã, SĐT..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+                        <input type="text" className="form-input" placeholder="🔍 Tìm tên, mã, SĐT..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: '1 1 220px', minWidth: 0 }} />
                         <select className="form-select" value={filterStage} onChange={e => setFilterStage(e.target.value)} style={{ minWidth: 0, flex: '0 0 auto', width: 'auto' }}>
                             <option value="">Tất cả giai đoạn</option>
                             {PIPELINE.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
@@ -235,7 +235,7 @@ export default function CustomersPage() {
                                             onClick={() => { if (!isDragging.current) router.push(`/customers/${c.id}`); }}
                                             style={{ background: dragId === c.id ? stage.bg : (c.isPriority ? '#fffbea' : 'var(--bg-card)'), borderRadius: 8, padding: '8px 10px', cursor: isTKReadOnly ? 'pointer' : 'grab', border: c.isPriority ? '1px solid #f5c518' : '1px solid var(--border-light)', boxShadow: c.isPriority ? '0 1px 3px rgba(245,197,24,.35)' : '0 1px 2px rgba(0,0,0,.05)', transition: 'all .15s', opacity: dragId === c.id ? 0.5 : 1, WebkitTapHighlightColor: 'transparent', position: 'relative' }}>
                                             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 4, marginBottom: 3 }}>
-                                                <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                                <div style={{ flex: '1 1 0', minWidth: 0, fontWeight: 600, fontSize: 12, lineHeight: 1.35, overflowWrap: 'anywhere' }}>{c.name}</div>
                                                 <span onClick={isTKReadOnly ? undefined : e => togglePriority(e, c)} title={c.isPriority ? 'Bỏ ưu tiên' : 'Đánh dấu ưu tiên'} style={{ cursor: isTKReadOnly ? 'default' : 'pointer', fontSize: 13, lineHeight: 1, flexShrink: 0, filter: c.isPriority ? 'none' : 'grayscale(1) opacity(.4)' }}>⭐</span>
                                             </div>
                                             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
@@ -294,7 +294,7 @@ export default function CustomersPage() {
                                                 onClick={() => { if (!isDragging.current) router.push(`/customers/${c.id}`); }}
                                                 style={{ background: dragId === c.id ? stage.bg : (c.isPriority ? '#fffbea' : 'var(--bg-card)'), borderRadius: 8, padding: '8px 10px', cursor: 'grab', border: c.isPriority ? '1px solid #f5c518' : '1px solid var(--border-light)', boxShadow: c.isPriority ? '0 1px 3px rgba(245,197,24,.35)' : '0 1px 2px rgba(0,0,0,.05)', transition: 'all .15s', opacity: dragId === c.id ? 0.5 : 1, WebkitTapHighlightColor: 'transparent', position: 'relative' }}>
                                                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 4, marginBottom: 3 }}>
-                                                    <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                                    <div style={{ flex: '1 1 0', minWidth: 0, fontWeight: 600, fontSize: 12, lineHeight: 1.35, overflowWrap: 'anywhere' }}>{c.name}</div>
                                                     <span onClick={e => togglePriority(e, c)} title={c.isPriority ? 'Bỏ ưu tiên' : 'Đánh dấu ưu tiên'} style={{ cursor: 'pointer', fontSize: 13, lineHeight: 1, flexShrink: 0, filter: c.isPriority ? 'none' : 'grayscale(1) opacity(.4)' }}>⭐</span>
                                                 </div>
                                                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
@@ -353,7 +353,7 @@ export default function CustomersPage() {
                                             onClick={() => { if (!isDragging.current) router.push(`/customers/${c.id}`); }}
                                             style={{ background: dragId === c.id ? stage.bg : (c.isPriority ? '#fffbea' : 'var(--bg-card)'), borderRadius: 8, padding: '8px 10px', cursor: 'grab', border: c.isPriority ? '1px solid #f5c518' : '1px solid var(--border-light)', boxShadow: c.isPriority ? '0 1px 3px rgba(245,197,24,.35)' : '0 1px 2px rgba(0,0,0,.05)', transition: 'all .15s', opacity: dragId === c.id ? 0.5 : 1, WebkitTapHighlightColor: 'transparent', position: 'relative' }}>
                                             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 4, marginBottom: 3 }}>
-                                                <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                                <div style={{ flex: '1 1 0', minWidth: 0, fontWeight: 600, fontSize: 12, lineHeight: 1.35, overflowWrap: 'anywhere' }}>{c.name}</div>
                                                 <span onClick={e => togglePriority(e, c)} title={c.isPriority ? 'Bỏ ưu tiên' : 'Đánh dấu ưu tiên'} style={{ cursor: 'pointer', fontSize: 13, lineHeight: 1, flexShrink: 0, filter: c.isPriority ? 'none' : 'grayscale(1) opacity(.4)' }}>⭐</span>
                                             </div>
                                             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
@@ -413,7 +413,7 @@ export default function CustomersPage() {
                                         <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
                                             <span onClick={e => togglePriority(e, c)} title={c.isPriority ? 'Bỏ ưu tiên' : 'Đánh dấu ưu tiên'} style={{ cursor: 'pointer', flexShrink: 0, filter: c.isPriority ? 'none' : 'grayscale(1) opacity(.4)' }}>⭐</span>
                                             <div style={{ minWidth: 0 }}>
-                                                <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                                <div className="card-title" style={{ overflowWrap: 'anywhere' }}>{c.name}</div>
                                                 <div className="card-subtitle">{c.code} · {c.phone}</div>
                                             </div>
                                         </div>
@@ -449,7 +449,7 @@ export default function CustomersPage() {
                                 <div key={c.id} className="mobile-card-item" onClick={() => router.push(`/customers/${c.id}`)}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                            <div className="card-title" style={{ overflowWrap: 'anywhere' }}>{c.name}</div>
                                             <div className="card-subtitle">{c.code} · {c.phone}</div>
                                         </div>
                                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: stage.bg, color: stage.color, flexShrink: 0 }}>

@@ -972,9 +972,9 @@ function TabDuAn() {
 
                             return (
                                 <div key={project.id} style={{ borderBottom: '1px solid var(--border)', margin: '0 16px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 0' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 0', flexWrap: 'wrap' }}>
                                         <span style={{ fontSize: 16, cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleExpand(project)}>{isExpanded ? '▾' : '▸'}</span>
-                                        <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => toggleExpand(project)}>
+                                        <div style={{ flex: '1 1 220px', minWidth: 0, cursor: 'pointer' }} onClick={() => toggleExpand(project)}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                                 <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--accent-primary)' }}>{project.code}</span>
                                                 {project.status && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: `${statusInfo.color}22`, color: statusInfo.color, border: `1px solid ${statusInfo.color}44` }}>{project.status}</span>}
@@ -1272,9 +1272,9 @@ function TabThuCong() {
 
                             return (
                                 <div key={entry.id} style={{ borderBottom: '1px solid var(--border)', margin: '0 16px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 0' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 0', flexWrap: 'wrap' }}>
                                         <span style={{ fontSize: 16, cursor: 'pointer' }} onClick={() => toggleExpand(entry)}>{isExpanded ? '▾' : '▸'}</span>
-                                        <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => toggleExpand(entry)}>
+                                        <div style={{ flex: '1 1 220px', minWidth: 0, cursor: 'pointer' }} onClick={() => toggleExpand(entry)}>
                                             <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--accent-primary)' }}>{entry.code}</div>
                                             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden' }}>
                                                 <span style={{ fontSize: 12, color: 'var(--text-secondary)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>{entry.name}</span>
@@ -1566,9 +1566,9 @@ function TabNoiThat() {
 
                             return (
                                 <div key={entry.id} style={{ borderBottom: '1px solid var(--border)', margin: '0 16px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 0' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 0', flexWrap: 'wrap' }}>
                                         <span style={{ fontSize: 16, cursor: 'pointer' }} onClick={() => toggleExpand(entry)}>{isExpanded ? '▾' : '▸'}</span>
-                                        <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => toggleExpand(entry)}>
+                                        <div style={{ flex: '1 1 220px', minWidth: 0, cursor: 'pointer' }} onClick={() => toggleExpand(entry)}>
                                             <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--accent-primary)' }}>{entry.code}</div>
                                             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden' }}>
                                                 <span style={{ fontSize: 12, color: 'var(--text-secondary)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>{entry.name}</span>

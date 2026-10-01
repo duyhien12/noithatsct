@@ -32,11 +32,33 @@ export default function LcShell({ children, title }) {
     const pathname = usePathname();
     const router = useRouter();
     const { data: session, status } = useSession();
-    const [collapsed, setCollapsed] = useState(false);
+    const [collapsedPref, setCollapsed] = useState(false);
+    // Điện thoại (≤768px): sidebar thành drawer, ẩn mặc định
+    const [isMobile, setIsMobile] = useState(false);
+    const [drawerOpen, setDrawerOpen] = useState(false);
 
     useEffect(() => {
         if (status === 'unauthenticated') router.replace('/login');
     }, [status, router]);
+
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 768px)');
+        const sync = () => setIsMobile(mq.matches);
+        sync();
+        mq.addEventListener('change', sync);
+        return () => mq.removeEventListener('change', sync);
+    }, []);
+
+    // Đóng drawer khi chuyển trang
+    useEffect(() => { setDrawerOpen(false); }, [pathname]);
+
+    // Đóng drawer bằng phím Escape
+    useEffect(() => {
+        if (!drawerOpen) return undefined;
+        const onKey = (e) => { if (e.key === 'Escape') setDrawerOpen(false); };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [drawerOpen]);
 
     if (status === 'loading' || status === 'unauthenticated') {
         return (
@@ -50,7 +72,10 @@ export default function LcShell({ children, title }) {
     }
 
     const user = session?.user;
+    // Trên điện thoại luôn hiện đủ nhãn trong drawer, không thu gọn
+    const collapsed = collapsedPref && !isMobile;
     const sidebarWidth = collapsed ? 64 : 240;
+    const toggleMenu = () => (isMobile ? setDrawerOpen(o => !o) : setCollapsed(c => !c));
 
     return (
         <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
@@ -59,8 +84,10 @@ export default function LcShell({ children, title }) {
                 width: sidebarWidth, minHeight: '100vh',
                 background: `linear-gradient(180deg, ${C.sidebarBg} 0%, #0a4a44 100%)`,
                 display: 'flex', flexDirection: 'column',
-                transition: 'width 0.25s', overflow: 'hidden',
+                transition: 'width 0.25s, transform 0.25s', overflow: 'hidden',
                 position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 100, flexShrink: 0,
+                transform: isMobile && !drawerOpen ? 'translateX(-100%)' : 'none',
+                boxShadow: isMobile && drawerOpen ? '0 0 40px rgba(0,0,0,0.3)' : 'none',
             }}>
                 {/* Logo */}
                 <div style={{ padding: collapsed ? '18px 0' : '18px 16px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid rgba(255,255,255,0.1)', justifyContent: collapsed ? 'center' : 'flex-start' }}>
@@ -128,28 +155,38 @@ export default function LcShell({ children, title }) {
                 )}
             </aside>
 
+            {isMobile && drawerOpen && (
+                <div
+                    onClick={() => setDrawerOpen(false)}
+                    aria-hidden="true"
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 90 }}
+                />
+            )}
+
             {/* Main */}
-            <div style={{ flex: 1, marginLeft: sidebarWidth, transition: 'margin-left 0.25s', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+            <div style={{ flex: 1, minWidth: 0, marginLeft: isMobile ? 0 : sidebarWidth, transition: 'margin-left 0.25s', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
                 {/* Header */}
-                <header style={{ height: 58, background: C.white, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', padding: '0 22px', gap: 14, position: 'sticky', top: 0, zIndex: 50, flexShrink: 0 }}>
-                    <button onClick={() => setCollapsed(c => !c)} style={{ width: 34, height: 34, borderRadius: 9, border: `1px solid ${C.border}`, background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, color: C.gray, flexShrink: 0 }}>☰</button>
-                    <h1 style={{ fontSize: 16, fontWeight: 700, color: C.text, margin: 0, flex: 1 }}>
+                <header style={{ height: 58, background: C.white, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', padding: isMobile ? '0 12px' : '0 22px', gap: isMobile ? 10 : 14, position: 'sticky', top: 0, zIndex: 50, flexShrink: 0 }}>
+                    <button onClick={toggleMenu} aria-label="Mở menu" style={{ width: 34, height: 34, borderRadius: 9, border: `1px solid ${C.border}`, background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, color: C.gray, flexShrink: 0 }}>☰</button>
+                    <h1 style={{ fontSize: isMobile ? 15 : 16, fontWeight: 700, color: C.text, margin: 0, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {title}
                         <span style={{ marginLeft: 10, fontSize: 10, fontWeight: 600, color: C.white, background: C.primary, padding: '2px 8px', borderRadius: 20 }}>Lào Cai</span>
                     </h1>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 11px', borderRadius: 9, border: `1px solid ${C.border}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: isMobile ? 4 : '5px 11px', borderRadius: 9, border: `1px solid ${C.border}`, flexShrink: 0 }}>
                         <div style={{ width: 26, height: 26, borderRadius: 7, background: C.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 11 }}>
                             {user?.name?.[0] || 'A'}
                         </div>
-                        <div>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{user?.name || 'Admin'}</div>
-                            <div style={{ fontSize: 10, color: C.gray }}>Chi nhánh Lào Cai</div>
-                        </div>
+                        {!isMobile && (
+                            <div>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{user?.name || 'Admin'}</div>
+                                <div style={{ fontSize: 10, color: C.gray }}>Chi nhánh Lào Cai</div>
+                            </div>
+                        )}
                     </div>
                 </header>
 
                 {/* Page content */}
-                <main style={{ flex: 1, padding: 22, maxWidth: 1280, width: '100%' }}>
+                <main style={{ flex: 1, padding: isMobile ? 12 : 22, maxWidth: 1280, width: '100%', minWidth: 0 }}>
                     {children}
                 </main>
             </div>

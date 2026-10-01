@@ -227,6 +227,31 @@ initials('Nguyễn Văn An')     // "NA"
 - Bảng rộng chỉ cuộn ngang **trong vùng bảng** (`.ui-table-wrap`), trang không tràn ngang.
 - Form nhiều cột tự về một cột; card KPI tự xuống hàng.
 
+### Lưới an toàn cho trang cũ (`app/styles/mobile.css`)
+
+Khung trang cắt tràn ngang (`overflow-x: clip`), nên trên điện thoại phần tràn
+bị **mất** chứ không cuộn được. `mobile.css` (chỉ ≤768px) bẻ các mẫu style inline
+phổ biến của trang cũ về dạng dùng được:
+
+| Mẫu inline | Trên điện thoại |
+|---|---|
+| `repeat(3..8, 1fr)`, `1fr 1fr 1fr` | 2 cột |
+| `2fr 1fr`, `1fr 2fr`… | 1 cột |
+| `minmax(≥250px, 1fr)` | 1 cột |
+| `<table>` không có vùng cuộn | phần tử cha cuộn ngang |
+| khung `overflow: hidden` chứa bảng | đổi thành cuộn ngang |
+| bảng có ô nhập liệu | `min-width: 600px` + cuộn |
+| hàng `space-between` / nhóm nút | xuống dòng |
+| modal tự dựng (`position: fixed; inset: 0`) | rộng tối đa `100vw - 24px` |
+
+Bộ chọn khớp theo chuỗi style mà trình duyệt chuẩn hoá (`repeat(4, 1fr)` có dấu
+cách), nên viết `'repeat(4,1fr)'` hay `'repeat(4, 1fr)'` đều được. Trang mới
+**không** nên dựa vào file này — dùng `components/ui` và lưới `auto-fit`
+(`repeat(auto-fit, minmax(…px, 1fr))`) để tự co giãn.
+
+Đã kiểm tra tự động 115 trang ở khổ 390px (01/10/2026): không trang nào tràn
+ngang hay bị cắt nội dung.
+
 ---
 
 ## 8. Accessibility

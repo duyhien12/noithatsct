@@ -153,7 +153,7 @@ export default function ProductionPlanPanel({ projectId }) {
                             return (
                                 <div key={step.id} style={{
                                     display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0',
-                                    borderBottom: '1px solid #f3f4f6',
+                                    borderBottom: '1px solid #f3f4f6', flexWrap: 'wrap',
                                 }}>
                                     <button onClick={() => toggleStep(step)} style={{
                                         width: 26, height: 26, borderRadius: 6, border: 'none', cursor: 'pointer', flexShrink: 0,
@@ -162,7 +162,7 @@ export default function ProductionPlanPanel({ projectId }) {
                                     }}>
                                         {step.completed ? <Check size={14} strokeWidth={2.5} /> : <Circle size={12} />}
                                     </button>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ flex: '1 1 160px', minWidth: 0 }}>
                                         <div style={{ fontSize: 13, color: step.completed ? '#9ca3af' : '#111827', textDecoration: step.completed ? 'line-through' : 'none' }}>
                                             {step.name}
                                         </div>
@@ -172,14 +172,14 @@ export default function ProductionPlanPanel({ projectId }) {
                                             </div>
                                         )}
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, flex: '1 1 240px', maxWidth: 320, minWidth: 0, marginLeft: 'auto' }}>
                                         <input
                                             type="date"
                                             value={fmtDateInput(step.startDate)}
                                             onChange={e => setStartDate(step, e.target.value)}
                                             title="Ngày bắt đầu"
                                             style={{
-                                                padding: '5px 8px', borderRadius: 6, fontSize: 12,
+                                                padding: '5px 8px', borderRadius: 6, fontSize: 12, flex: 1, minWidth: 0,
                                                 border: '1px solid #e5e7eb', color: '#374151', background: 'white',
                                             }}
                                         />
@@ -190,7 +190,7 @@ export default function ProductionPlanPanel({ projectId }) {
                                             onChange={e => setDeadline(step, e.target.value)}
                                             title="Ngày kết thúc"
                                             style={{
-                                                padding: '5px 8px', borderRadius: 6, fontSize: 12,
+                                                padding: '5px 8px', borderRadius: 6, fontSize: 12, flex: 1, minWidth: 0,
                                                 border: `1px solid ${overdue ? '#dc2626' : '#e5e7eb'}`,
                                                 color: overdue ? '#dc2626' : '#374151',
                                                 background: overdue ? '#fef2f2' : 'white',

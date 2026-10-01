@@ -9,14 +9,14 @@ const STATUS_COLOR = { 'Báo giá': '#6b7280', 'Đang sản xuất': '#d97706', 
 
 function KpiCard({ label, value, sub, color, icon: Icon }) {
     return (
-        <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 12, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 12, padding: 'clamp(12px, 3vw, 18px) clamp(12px, 3.5vw, 20px)', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 8, background: color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Icon size={16} color={color} />
                 </div>
                 <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>{label}</span>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#111827', letterSpacing: -0.5 }}>{value}</div>
+            <div style={{ fontSize: 'clamp(16px, 4.5vw, 22px)', fontWeight: 800, color: '#111827', letterSpacing: -0.5, overflowWrap: 'anywhere' }}>{value}</div>
             {sub && <div style={{ fontSize: 11, color: '#9ca3af' }}>{sub}</div>}
         </div>
     );
