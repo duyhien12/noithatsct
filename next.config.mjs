@@ -2,6 +2,8 @@
 const nextConfig = {
     output: 'standalone',
     serverExternalPackages: ['bcryptjs', 'sharp', 'busboy'],
+    // Không để `next dev` tự sinh AGENTS.md / CLAUDE.md ở thư mục gốc
+    agentRules: false,
     experimental: {
         serverActions: {
             bodySizeLimit: '4gb',
