@@ -43,7 +43,7 @@ export default function ProductionPlanPage() {
                     </div>
                     <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 11, color: '#6b7280' }}>{order.project.code}</div>
-                        <h1 style={{ fontSize: 17, fontWeight: 700, color: '#111827', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{order.project.name}</h1>
+                        <h1 style={{ fontSize: 17, fontWeight: 700, color: '#111827', margin: 0, overflowWrap: 'break-word' }}>{order.project.name}</h1>
                     </div>
                 </div>
             </div>

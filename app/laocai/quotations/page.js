@@ -281,7 +281,7 @@ export default function LcQuotations() {
                                                         onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.background=C.white; e.currentTarget.style.boxShadow='none'; }}>
                                                         <div style={{ width:38, height:38, borderRadius:10, background:`${C.primary}12`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:19, flexShrink:0 }}>📐</div>
                                                         <div style={{ flex:1, minWidth:0 }}>
-                                                            <div style={{ fontSize:13, fontWeight:700, color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.name}</div>
+                                                            <div style={{ fontSize:13, fontWeight:700, color:C.text, overflowWrap:'break-word' }}>{t.name}</div>
                                                             <div style={{ fontSize:11, color:C.muted, marginTop:1 }}>{t.categories?.length||0} phòng • {itemCount} hạng mục con</div>
                                                         </div>
                                                         <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, background:`${C.primary}12`, color:C.primary, whiteSpace:'nowrap', flexShrink:0 }}>{t.type||'—'}</span>

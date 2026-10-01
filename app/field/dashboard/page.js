@@ -25,7 +25,7 @@ function TaskCard({ task, onClick }) {
         <div onClick={() => onClick(task)} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: '14px 16px', marginBottom: 10, border: `1px solid ${overdue ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.07)'}`, cursor: 'pointer', transition: 'all 0.15s', WebkitTapHighlightColor: 'transparent', active: { transform: 'scale(0.98)' } }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.name}</div>
+                    <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 3, overflowWrap: 'break-word' }}>{task.name}</div>
                     <div style={{ fontSize: 12, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         📁 {task.project?.name}
                     </div>
@@ -57,7 +57,7 @@ function WorkOrderCard({ order, onClick }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 10, color: '#475569', marginBottom: 2 }}>{order.code}</div>
-                    <div style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{order.title}</div>
+                    <div style={{ fontWeight: 600, fontSize: 14, overflowWrap: 'break-word' }}>{order.title}</div>
                     <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>📁 {order.project?.name}</div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0, marginLeft: 8 }}>

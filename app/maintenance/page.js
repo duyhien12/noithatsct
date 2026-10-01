@@ -744,7 +744,7 @@ export default function MaintenancePage() {
                                                         {r.isRepeatIssue && <div style={{ fontSize:9, color:'#7c3aed', fontWeight:700 }}>🔁 Tái phát</div>}
                                                     </td>
                                                     <td style={{ maxWidth:200 }}>
-                                                        <div style={{ fontWeight:600, fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.title}</div>
+                                                        <div style={{ fontWeight:600, fontSize:13, overflowWrap:'break-word' }}>{r.title}</div>
                                                         <div style={{ fontSize:11, color:'var(--text-muted)' }}>{fmtDate(r.receivedAt)}</div>
                                                     </td>
                                                     <td style={{ fontSize:12 }}><div style={{ fontWeight:600 }}>{r.project?.name}</div><div style={{ fontSize:10, color:'var(--text-muted)' }}>{r.project?.code}</div></td>
@@ -833,7 +833,7 @@ function ScheduleCard({ r, onClick, overdue }) {
                 <div style={{ fontSize:9, color:'var(--text-muted)', textTransform:'uppercase' }}>{r.scheduledDate ? new Date(r.scheduledDate).toLocaleString('vi-VN',{month:'short'}) : ''}</div>
             </div>
             <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontWeight:600, fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.title}</div>
+                <div style={{ fontWeight:600, fontSize:13, overflowWrap:'break-word' }}>{r.title}</div>
                 <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>{CATEGORY_ICON[r.category]} {r.category} · {r.project?.name} · {r.assignee ? `👤 ${r.assignee}` : 'Chưa phân công'}</div>
             </div>
             <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>

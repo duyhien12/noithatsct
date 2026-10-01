@@ -980,8 +980,8 @@ function TabDuAn() {
                                                 {project.status && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: `${statusInfo.color}22`, color: statusInfo.color, border: `1px solid ${statusInfo.color}44` }}>{project.status}</span>}
                                                 {hasOverride && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#f59e0b22', color: '#d97706', border: '1px solid #f59e0b44' }}>GT tùy chỉnh</span>}
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden' }}>
-                                                <span style={{ fontSize: 12, color: 'var(--text-secondary)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>{project.name}</span>
+                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', minWidth: 0 }}>
+                                                <span style={{ fontSize: 12, color: 'var(--text-secondary)', overflowWrap: 'break-word' }}>{project.name}</span>
                                                 {project.salaryProgress?.notes && <span style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {project.salaryProgress.notes}</span>}
                                             </div>
                                         </div>
@@ -1276,8 +1276,8 @@ function TabThuCong() {
                                         <span style={{ fontSize: 16, cursor: 'pointer' }} onClick={() => toggleExpand(entry)}>{isExpanded ? '▾' : '▸'}</span>
                                         <div style={{ flex: '1 1 220px', minWidth: 0, cursor: 'pointer' }} onClick={() => toggleExpand(entry)}>
                                             <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--accent-primary)' }}>{entry.code}</div>
-                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden' }}>
-                                                <span style={{ fontSize: 12, color: 'var(--text-secondary)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>{entry.name}</span>
+                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', minWidth: 0 }}>
+                                                <span style={{ fontSize: 12, color: 'var(--text-secondary)', overflowWrap: 'break-word' }}>{entry.name}</span>
                                                 {entry.notes && <span style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {entry.notes}</span>}
                                             </div>
                                         </div>
@@ -1570,8 +1570,8 @@ function TabNoiThat() {
                                         <span style={{ fontSize: 16, cursor: 'pointer' }} onClick={() => toggleExpand(entry)}>{isExpanded ? '▾' : '▸'}</span>
                                         <div style={{ flex: '1 1 220px', minWidth: 0, cursor: 'pointer' }} onClick={() => toggleExpand(entry)}>
                                             <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--accent-primary)' }}>{entry.code}</div>
-                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden' }}>
-                                                <span style={{ fontSize: 12, color: 'var(--text-secondary)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>{entry.name}</span>
+                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', minWidth: 0 }}>
+                                                <span style={{ fontSize: 12, color: 'var(--text-secondary)', overflowWrap: 'break-word' }}>{entry.name}</span>
                                                 {entry.notes && <span style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {entry.notes}</span>}
                                             </div>
                                         </div>

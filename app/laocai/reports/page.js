@@ -106,7 +106,7 @@ export default function LcReports() {
                         <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10, padding:'9px 12px', borderRadius:10, background:i===0?'#f0fdfa':'#fafafa', border:`1px solid ${i===0?C.primary+'33':C.border}` }}>
                             <div style={{ width:26, height:26, borderRadius:8, background:i===0?C.primary:'#e2e8f0', display:'flex', alignItems:'center', justifyContent:'center', color:i===0?'#fff':C.gray, fontWeight:700, fontSize:12, flexShrink:0 }}>{i+1}</div>
                             <div style={{ flex:1, minWidth:0 }}>
-                                <div style={{ fontSize:13, fontWeight:600, color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.name}</div>
+                                <div style={{ fontSize:13, fontWeight:600, color:C.text, overflowWrap:'break-word' }}>{c.name}</div>
                                 <div style={{ fontSize:11, color:C.textMuted }}>{c.pipelineStage||'—'} • {c.salesPerson||'—'}</div>
                             </div>
                             <div style={{ fontSize:13, fontWeight:700, color:C.primary, flexShrink:0 }}>{fmt(c.estimatedValue)}</div>

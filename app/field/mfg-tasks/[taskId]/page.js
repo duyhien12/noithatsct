@@ -123,7 +123,7 @@ export default function FieldMfgTaskDetail() {
                     <button onClick={() => router.back()} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px', color: '#94a3b8', fontSize: 16 }}>←</button>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 11, color: '#475569' }}>{task.mfgOrder?.code} {task.item ? `· ${task.item.code}` : ''}</div>
-                        <div style={{ fontWeight: 600, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</div>
+                        <div style={{ fontWeight: 600, fontSize: 15, overflowWrap: 'break-word' }}>{task.title}</div>
                     </div>
                 </div>
             </div>

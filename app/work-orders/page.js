@@ -751,7 +751,7 @@ function PhieuTab() {
                             <div key={wo.id} className="mobile-card-item" onClick={() => openDetail(wo)} style={{ cursor: 'pointer' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wo.title}</div>
+                                        <div className="card-title" style={{ overflowWrap: 'break-word' }}>{wo.title}</div>
                                         <div className="card-subtitle">{wo.code} · {wo.project?.name || '—'}</div>
                                     </div>
                                     <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>

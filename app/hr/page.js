@@ -198,7 +198,7 @@ export default function HRPage() {
                                                 {String(day).padStart(2, '0')}
                                             </div>
                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</div>
+                                                <div style={{ fontWeight: 600, fontSize: 13, overflowWrap: 'break-word' }}>{e.name}</div>
                                                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{e.department?.name} · {e.position}</div>
                                             </div>
                                             {isToday && <span style={{ fontSize: 18 }}>🎉</span>}
@@ -230,7 +230,7 @@ export default function HRPage() {
                                                 {String(day).padStart(2, '0')}
                                             </div>
                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</div>
+                                                <div style={{ fontWeight: 600, fontSize: 13, overflowWrap: 'break-word' }}>{e.name}</div>
                                                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{e.department?.name} · {years} năm</div>
                                             </div>
                                             {isToday && <span style={{ fontSize: 18 }}>✨</span>}
@@ -336,7 +336,7 @@ export default function HRPage() {
                                 <div key={e.id} className="mobile-card-item" onClick={() => openEdit(e)}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                                         <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
-                                            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</div>
+                                            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', overflowWrap: 'break-word' }}>{e.name}</div>
                                             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{e.code} · {e.position || '—'}</div>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>

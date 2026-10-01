@@ -562,7 +562,7 @@ export default function InventoryPage() {
                                                         {p.code}
                                                     </td>
                                                     <td className="primary" style={{ maxWidth: 220 }}>
-                                                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                                                        <div style={{ overflowWrap: 'break-word' }}>{p.name}</div>
                                                         {p.description && <div style={{ fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</div>}
                                                     </td>
                                                     <td style={{ fontSize: 12 }}>{p.unit}</td>

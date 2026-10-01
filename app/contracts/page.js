@@ -138,7 +138,7 @@ export default function ContractsPage() {
                                 <div key={c.id} className="mobile-card-item" onClick={() => router.push(`/contracts/${c.id}`)}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                                         <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
-                                            <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                            <div className="card-title" style={{ overflowWrap: 'break-word' }}>{c.name}</div>
                                             <div className="card-subtitle" style={{ marginTop: 2 }}>{c.code} · {c.customer?.name}</div>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>

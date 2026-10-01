@@ -307,13 +307,13 @@ export default function ProductionDetailPage() {
                 <button onClick={() => router.push('/production')} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 11px', borderRadius: 8, border: '1px solid #e5e7eb', background: 'white', color: '#374151', fontSize: 13, cursor: 'pointer', flexShrink: 0 }}>
                     <ArrowLeft size={14} /> {isMobile ? '' : 'Danh sách'}
                 </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, flex: '1 1 200px', minWidth: 0 }}>
                     <div style={{ width: 34, height: 34, borderRadius: 9, background: 'linear-gradient(135deg,#3b82f6,#1d4ed8)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <Factory size={17} color="white" />
                     </div>
                     <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 11, color: '#6b7280' }}>{order.project.code}</div>
-                        <h1 style={{ fontSize: isMobile ? 14 : 17, fontWeight: 700, color: '#111827', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{order.project.name}</h1>
+                        <h1 style={{ fontSize: isMobile ? 14 : 17, fontWeight: 700, color: '#111827', margin: 0, overflowWrap: 'break-word' }}>{order.project.name}</h1>
                     </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>

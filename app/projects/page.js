@@ -302,7 +302,7 @@ export default function ProjectsPage() {
         <div key={p.id} className="mobile-card-item" onClick={() => router.push(`/projects/${p.id}`)}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                    <div className="card-title" style={{ overflowWrap: 'break-word' }}>{p.name}</div>
                     <div className="card-subtitle">{p.code} · {p.customer?.name}</div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, marginLeft: 8, flexShrink: 0 }}>

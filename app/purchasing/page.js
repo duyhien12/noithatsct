@@ -262,7 +262,7 @@ function PurchasingContent() {
                                     <td className="primary">{o.supplier}</td>
                                     <td>
                                         {o.project
-                                            ? <div><span className="badge badge-info" style={{ marginBottom: 2 }}>{o.project.code}</span><div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.project.name}</div></div>
+                                            ? <div><span className="badge badge-info" style={{ marginBottom: 2 }}>{o.project.code}</span><div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, maxWidth: 160, overflowWrap: 'break-word' }}>{o.project.name}</div></div>
                                             : <span style={{ opacity: 0.3, fontSize: 12 }}>—</span>}
                                     </td>
                                     <td className="amount">{fmt(o.totalAmount)}</td>

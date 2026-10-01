@@ -776,7 +776,7 @@ export default function WorkshopDashboard() {
                                         return (
                                             <div key={eq.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-light)' }}>
                                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{eq.name}</div>
+                                                    <div style={{ fontSize: 12, fontWeight: 600, overflowWrap: 'break-word' }}>{eq.name}</div>
                                                     <div style={{ fontSize: 10, color: statusColor, fontWeight: 600 }}>{eq.status}</div>
                                                 </div>
                                                 {eq.wearRate > 0 && (
@@ -819,7 +819,7 @@ export default function WorkshopDashboard() {
                                 background: m.sufficient ? '#f0fdf4' : '#fef2f2',
                                 border: `1px solid ${m.sufficient ? '#bbf7d0' : '#fca5a5'}`,
                             }}>
-                                <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
+                                <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 4, overflowWrap: 'break-word' }}>{m.name}</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
                                     <span style={{ color: 'var(--text-muted)' }}>Cần: <b style={{ color: '#374151' }}>{m.needed} {m.unit}</b></span>
                                     <span style={{ color: 'var(--text-muted)' }}>Tồn: <b style={{ color: m.sufficient ? '#16a34a' : '#dc2626' }}>{m.stock} {m.unit}</b></span>

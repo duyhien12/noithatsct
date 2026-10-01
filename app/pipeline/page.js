@@ -225,7 +225,7 @@ export default function PipelinePage() {
                             <div key={p.id} className="mobile-card-item" onClick={() => router.push(`/projects/${p.id}`)}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                                        <div className="card-title" style={{ overflowWrap: 'break-word' }}>{p.name}</div>
                                         <div className="card-subtitle">{p.code} · {p.customer?.name}</div>
                                     </div>
                                     <span className={`badge ${p.status === 'Hoàn thành' ? 'success' : p.status === 'Đang thi công' ? 'warning' : p.status === 'Thiết kế' ? 'info' : 'muted'}`}>

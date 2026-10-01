@@ -91,7 +91,7 @@ export default function WorkOrderDetail() {
                         <button onClick={() => router.back()} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '8px 12px', color: '#94a3b8', fontSize: 16, cursor: 'pointer' }}>←</button>
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 10, color: '#475569' }}>{order.code}</div>
-                            <div style={{ fontWeight: 600, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{order.title}</div>
+                            <div style={{ fontWeight: 600, fontSize: 15, overflowWrap: 'break-word' }}>{order.title}</div>
                         </div>
                         <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, background: `${STATUS_COLOR[order.status] || '#475569'}22`, color: STATUS_COLOR[order.status] || '#94a3b8', fontWeight: 600 }}>
                             {order.status}

@@ -269,7 +269,7 @@ ${[1, 2].map(copy => `
                                         <div key={c.id} className="mobile-card-item" onClick={() => router.push(`/contracts/${c.id}`)}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                                    <div className="card-title" style={{ overflowWrap: 'break-word' }}>{c.name}</div>
                                                     <div className="card-subtitle">{c.code} · {c.customer?.name}</div>
                                                 </div>
                                                 <span className="badge badge-default" style={{ fontSize: 10 }}>{c.type}</span>
