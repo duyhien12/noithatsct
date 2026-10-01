@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config';
-import { transformWithEsbuild } from 'vite';
+import { transformWithOxc } from 'vite';
 import path from 'path';
 
 /**
@@ -14,14 +14,14 @@ const jsxInJs = {
         const file = id.split('?')[0];
         if (!file.endsWith('.js') || file.includes('node_modules')) return null;
         if (!/<[A-Za-z/]/.test(code)) return null;
-        return transformWithEsbuild(code, file, { loader: 'jsx', jsx: 'automatic' });
+        return transformWithOxc(code, file, { lang: 'jsx', jsx: { runtime: 'automatic' } });
     },
 };
 
 export default defineConfig({
     plugins: [jsxInJs],
     // React 19 dùng JSX runtime tự động — không cần import React trong mỗi file.
-    esbuild: { jsx: 'automatic' },
+    oxc: { jsx: { runtime: 'automatic' } },
     test: {
         environment: 'jsdom',
         globals: true,
