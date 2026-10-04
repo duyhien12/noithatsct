@@ -22,7 +22,8 @@ const today = () => new Date().toISOString().slice(0, 10);
 const CONTRACT_CUSTOMER_STAGES = ['Thi công', 'Khách huỷ'];
 // Khách bên Phòng Thiết kế cũng đã ký hợp đồng (nội thất hoặc kiến trúc) — pipelineStage riêng,
 // khớp PIPELINE_TK trong app/customers/page.js ('Hợp đồng' = nội thất, 'Hợp đồng kiến trúc' = kiến trúc).
-const DESIGN_CUSTOMER_STAGES = ['Hợp đồng', 'Hợp đồng kiến trúc'];
+// Bảng "Khách hàng TKKT" dùng cùng các cột với tiền tố "TKKT ".
+const DESIGN_CUSTOMER_STAGES = ['Hợp đồng', 'Hợp đồng kiến trúc', 'TKKT Hợp đồng kiến trúc'];
 
 // Báo cáo Quỹ/Ngân hàng chốt "ngày làm việc" lúc 17h00 (giờ máy khách) thay vì nửa đêm — số dư
 // đầu kỳ luôn là số dư tại đúng mốc 17h00 gần nhất trước hiện tại (tức lúc chốt sổ ngày hôm trước

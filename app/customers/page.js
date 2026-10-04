@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { Fragment, useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRole } from '@/contexts/RoleContext';
 
@@ -27,6 +27,14 @@ const PIPELINE_TK = [
     { key: 'Hoàn thành', label: 'Khách hoàn thành', color: '#10b981', bg: '#d1fae5' },
     { key: 'Huỷ', label: 'Khách huỷ', color: '#ef4444', bg: '#fee2e2' },
 ];
+
+// Bảng "Khách hàng TKKT" (thiết kế kiến trúc) — cùng phòng Thiết kế, cùng các cột như PIPELINE_TK,
+// phân biệt bằng tiền tố "TKKT " trong pipelineStage. Kéo thẻ giữa 2 bảng để chuyển khách.
+const TKKT_PREFIX = 'TKKT ';
+// Mỗi bảng bỏ cột "hợp đồng" của bảng kia: bảng TK không có cột kiến trúc, bảng TKKT không có cột nội thất.
+const PIPELINE_TK_BOARD = PIPELINE_TK.filter(p => p.key !== 'Hợp đồng kiến trúc');
+const PIPELINE_TKKT = PIPELINE_TK.filter(p => p.key !== 'Hợp đồng').map(p => ({ ...p, key: TKKT_PREFIX + p.key }));
+const isTKKTStage = (s) => (s || '').startsWith(TKKT_PREFIX);
 
 // Map stage cũ (kinh doanh) → stage TK khi hiển thị kanban TK
 const TK_STAGE_MAP = {
@@ -98,7 +106,9 @@ export default function CustomersPage() {
 
     const filtered = applyFilter(customers);
     const filteredXD = applyFilter(customersXD);
-    const filteredTK = applyFilter(customersTK);
+    const filteredTKAll = applyFilter(customersTK);
+    const filteredTK = filteredTKAll.filter(c => !isTKKTStage(c.pipelineStage));
+    const filteredTKKT = filteredTKAll.filter(c => isTKKTStage(c.pipelineStage));
 
     const handleSubmit = async () => {
         if (!form.name.trim()) return alert('Vui lòng nhập tên khách hàng');
@@ -197,24 +207,25 @@ export default function CustomersPage() {
                 {/* ========= KANBAN VIEW - desktop only ========= */}
                 {view === 'kanban' && (<>
                 {/* --- Bảng Phòng Thiết Kế --- */}
-                {canSeeTK && (<>
+                {/* --- Bảng Khách hàng TKKT: cùng cấu trúc, nằm ngay dưới --- */}
+                {canSeeTK && [
+                    { id: 'tk', title: '✏️ Khách hàng Phòng Thiết Kế', pipeline: PIPELINE_TK_BOARD, list: filteredTK, stageOf: c => { const s = c.pipelineStage || 'Ưu tiên'; return TK_STAGE_MAP[s] || s; } },
+                    { id: 'tkkt', title: '🏛️ Khách hàng TKKT', pipeline: PIPELINE_TKKT, list: filteredTKKT, stageOf: c => c.pipelineStage },
+                ].map(board => (<Fragment key={board.id}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#16a085' }}>✏️ Khách hàng Phòng Thiết Kế</span>
-                    <span style={{ background: '#d1fae5', color: '#065f46', fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 8 }}>{filteredTK.length}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#16a085' }}>{board.title}</span>
+                    <span style={{ background: '#d1fae5', color: '#065f46', fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 8 }}>{board.list.length}</span>
                     {isTKReadOnly && <span style={{ background: '#f3f4f6', color: '#6b7280', fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 8 }}>👁️ Chỉ xem</span>}
                 </div>
                 <div className="desktop-table-view kanban-board" style={{ gap: 6, paddingBottom: 20, minHeight: 400, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                    {PIPELINE_TK.map(stage => {
-                        const cards = sortByPriority(filteredTK.filter(c => {
-                            const s = c.pipelineStage || 'Ưu tiên';
-                            return (TK_STAGE_MAP[s] || s) === stage.key;
-                        }));
+                    {board.pipeline.map(stage => {
+                        const cards = sortByPriority(board.list.filter(c => board.stageOf(c) === stage.key));
                         const stageValue = cards.reduce((s, c) => s + (c.estimatedValue || 0), 0);
-                        const isOver = dragOver === ('tk_' + stage.key);
+                        const isOver = dragOver === (board.id + '_' + stage.key);
                         return (
                             <div key={stage.key}
                                 className="kanban-column"
-                                onDragOver={isTKReadOnly ? undefined : e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver('tk_' + stage.key); }}
+                                onDragOver={isTKReadOnly ? undefined : e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver(board.id + '_' + stage.key); }}
                                 onDragLeave={isTKReadOnly ? undefined : onDragLeave}
                                 onDrop={isTKReadOnly ? undefined : e => { e.preventDefault(); setDragOver(null); const id = e.dataTransfer.getData('text/plain') || dragId; if (id) { moveTo(id, stage.key); setDragId(null); } }}
                                 style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', background: isOver ? stage.bg : 'var(--bg-secondary)', borderRadius: 10, border: isOver ? `2px dashed ${stage.color}` : '1px solid var(--border-light)', transition: 'all .2s' }}>
@@ -254,7 +265,7 @@ export default function CustomersPage() {
                         );
                     })}
                 </div>
-                </>)}
+                </Fragment>))}
 
                 {/* --- Bảng Phòng Xây Dựng (ẩn với role xuong) --- */}
                 {canSeeXD && <div className="desktop-table-view" style={{ marginBottom: 8 }}>
@@ -435,7 +446,7 @@ export default function CustomersPage() {
                         })}
                     </div>
 
-                    {filtered.length === 0 && filteredXD.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Không có dữ liệu</div>}
+                    {!isThietKe && filtered.length === 0 && filteredXD.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Không có dữ liệu</div>}
 
                     {/* XD customers - mobile only, shown when canSeeXD */}
                     {canSeeXD && filteredXD.length > 0 && (

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-    Building2, Wrench, CalendarDays, FileText, ChevronRight, MessageSquareWarning, Users, DollarSign, PencilRuler, GanttChartSquare, ClipboardList, TrendingUp,
+    Building2, Wrench, CalendarDays, FileText, ChevronRight, MessageSquareWarning, Users, DollarSign, PencilRuler, GanttChartSquare, ClipboardList, TrendingUp, NotebookPen,
 } from 'lucide-react';
 import SidebarBrand from '@/components/sidebar/SidebarBrand';
 import SidebarRoleFooter from '@/components/sidebar/SidebarRoleFooter';
@@ -26,6 +26,7 @@ const menuItems = [
             { href: '/design-orders',       icon: PencilRuler,          label: 'Phiếu đặt hàng TK' },
             { href: '/design-orders/gantt', icon: GanttChartSquare,     label: 'Tiến độ (Gantt)' },
             { href: '/design-orders/cv',    icon: ClipboardList,        label: 'CV Thiết kế' },
+            { href: '/design-orders/nhat-ky', icon: NotebookPen,        label: 'Nhật ký TKKT' },
             { href: '/design-orders/revenue', icon: TrendingUp,         label: 'Doanh số thiết kế' },
             { href: '/projects',            icon: Building2,            label: 'Dự án & Tiến độ' },
             { href: '/schedule-templates',  icon: CalendarDays,         label: 'Mẫu tiến độ' },

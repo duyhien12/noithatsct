@@ -438,6 +438,26 @@ model DesignTask {
   @@index([executorName])
 }
 
+// Nhật ký thiết kế kiến trúc (TKKT) — sổ ghi chép công việc hằng ngày của Phòng Thiết kế:
+// ai làm gì, cho công trình nào, mất bao lâu, từ ngày nào tới ngày nào. Chỉ là bản ghi tự do,
+// không gắn khóa ngoại để tên công trình gõ tự do được.
+model DesignJournal {
+  id           String    @id @default(cuid())
+  content      String    @default("")
+  projectName  String    @default("")
+  executorName String    @default("")
+  duration     String    @default("")
+  startDate    DateTime?
+  endDate      DateTime?
+  status       String    @default("Đang làm") // Đánh giá: Đang làm / Hoàn thành / Huỷ
+  createdBy    String    @default("")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([executorName])
+  @@index([startDate])
+}
+
 // Bài học dự án (Lessons Learned) — lưu lỗi/sự cố/kinh nghiệm trong quá trình thực hiện dự án
 // để nhân viên tra cứu, học hỏi, tránh lặp lại sai sót. Thuộc Phòng Kinh doanh.
 model LessonLearned {
