@@ -58,6 +58,12 @@ export default function CustomersPage() {
     const [view, setView] = useState('kanban');
     const [showModal, setShowModal] = useState(false);
     const [showXDBoard, setShowXDBoard] = useState(false);
+    const [openTKBoards, setOpenTKBoards] = useState(() => new Set());
+    const toggleTKBoard = (id) => setOpenTKBoards(prev => {
+        const next = new Set(prev);
+        next.has(id) ? next.delete(id) : next.add(id);
+        return next;
+    });
     const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: 'Tư vấn', taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0, branch: 'HQ' });
     const [dragId, setDragId] = useState(null);
     const [dragOver, setDragOver] = useState(null);
@@ -212,12 +218,16 @@ export default function CustomersPage() {
                     { id: 'tk', title: '✏️ Khách hàng Phòng Thiết Kế', pipeline: PIPELINE_TK_BOARD, list: filteredTK, stageOf: c => { const s = c.pipelineStage || 'Ưu tiên'; return TK_STAGE_MAP[s] || s; } },
                     { id: 'tkkt', title: '🏛️ Khách hàng TKKT', pipeline: PIPELINE_TKKT, list: filteredTKKT, stageOf: c => c.pipelineStage },
                 ].map(board => (<Fragment key={board.id}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                {/* Mặc định rút gọn — bấm tiêu đề để mở/đóng bảng */}
+                <button
+                    onClick={() => toggleTKBoard(board.id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-light)', borderRadius: 8, padding: '7px 14px', marginBottom: 8, cursor: 'pointer', width: '100%' }}>
+                    <span style={{ transition: 'transform .2s', display: 'inline-block', fontSize: 11, color: 'var(--text-secondary)', transform: openTKBoards.has(board.id) ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: '#16a085' }}>{board.title}</span>
                     <span style={{ background: '#d1fae5', color: '#065f46', fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 8 }}>{board.list.length}</span>
                     {isTKReadOnly && <span style={{ background: '#f3f4f6', color: '#6b7280', fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 8 }}>👁️ Chỉ xem</span>}
-                </div>
-                <div className="desktop-table-view kanban-board" style={{ gap: 6, paddingBottom: 20, minHeight: 400, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                </button>
+                {openTKBoards.has(board.id) && <div className="desktop-table-view kanban-board" style={{ gap: 6, paddingBottom: 20, minHeight: 400, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                     {board.pipeline.map(stage => {
                         const cards = sortByPriority(board.list.filter(c => board.stageOf(c) === stage.key));
                         const stageValue = cards.reduce((s, c) => s + (c.estimatedValue || 0), 0);
@@ -264,7 +274,7 @@ export default function CustomersPage() {
                             </div>
                         );
                     })}
-                </div>
+                </div>}
                 </Fragment>))}
 
                 {/* --- Bảng Phòng Xây Dựng (ẩn với role xuong) --- */}
