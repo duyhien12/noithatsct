@@ -458,6 +458,24 @@ model DesignJournal {
   @@index([startDate])
 }
 
+// Nhật ký tuần TKKT — bảng theo ngày × ca × hạng mục, mẫu giống nhật ký nhân sự xưởng (WorkLogEntry)
+// nhưng lưu riêng; tên công trình lấy từ khách thuộc bảng Khách hàng TKKT nên không nối Project.
+model DesignWorkLog {
+  id          String   @id @default(cuid())
+  date        DateTime
+  shift       String   @default("Sáng")
+  category    String
+  projectName String   @default("")
+  requestDept String   @default("") // Phòng ban yêu cầu
+  workers     String   @default("[]") // JSON [{name, hours}]
+  note        String   @default("")
+  createdBy   String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([date])
+}
+
 // Bài học dự án (Lessons Learned) — lưu lỗi/sự cố/kinh nghiệm trong quá trình thực hiện dự án
 // để nhân viên tra cứu, học hỏi, tránh lặp lại sai sót. Thuộc Phòng Kinh doanh.
 model LessonLearned {

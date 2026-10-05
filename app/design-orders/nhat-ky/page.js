@@ -1,14 +1,13 @@
 'use client';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Trash2 } from 'lucide-react';
-// Nhân sự thiết kế kiến trúc — danh sách riêng, khác với DESIGNERS (nội thất) của CV Thiết kế.
-const ARCHITECTS = ['Đặng Bình Ngọc', 'Bùi Hải Đăng'];
 import { useToast } from '@/components/ui/Toast';
 import Modal from '@/components/ui/Modal';
 import FormGroup from '@/components/ui/FormGroup';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import JournalGantt from './JournalGantt';
 import { JOURNAL_STATUSES, JOURNAL_STATUS_COLORS, DEFAULT_JOURNAL_STATUS } from '@/lib/designJournalStatus';
+import { ARCHITECTS } from '@/lib/designWorkLog';
 
 const VIEW_KEY = 'design-journal-view';
 

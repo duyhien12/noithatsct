@@ -37,6 +37,7 @@ const pageTitles = {
     '/workshop/timeline': 'Tiến độ Gantt',
     '/design-orders/cv': 'Nhật ký TKNT',
     '/design-orders/nhat-ky': 'Nhật ký TKKT',
+    '/design-orders/lich-tkkt': 'Nhật ký tuần TKKT',
     '/design-orders/revenue': 'Doanh số thiết kế',
     '/hr': 'Nhân sự',
     '/hr/accounts': 'Tài khoản hệ thống',
