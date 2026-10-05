@@ -6,10 +6,9 @@ import Modal from '@/components/ui/Modal';
 import { isDesignStaff } from '@/lib/designStaff';
 import {
     ALLOWED_TRANSITIONS, NOTE_REQUIRED, ASSIGNABLE_STATUSES,
-    canTransition, canAssignDesigner, transitionLabel, splitRevenue,
+    canTransition, canAssignDesigner, transitionLabel,
 } from '@/lib/designOrderStatus';
 
-const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Math.round(n || 0));
 const fmtDateTime = (d) => d ? new Date(d).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
 
 const STEPS = [
@@ -119,9 +118,6 @@ function AssignForm({ order, onSaved }) {
                         <input className="form-input" type="number" min="0" max="100" step="0.01" value={r.sharePercent}
                             onChange={e => setRow(i, { sharePercent: e.target.value })} style={{ width: 90 }} />
                         <span>%</span>
-                        <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 110 }}>
-                            ≈ {fmt(order.totalAfterDiscount * (Number(r.sharePercent) || 0) / 100)}
-                        </span>
                         <button className="btn btn-ghost" onClick={() => setRows(rs => rs.filter((_, j) => j !== i))} title="Bỏ">✕</button>
                     </div>
                 ))}
@@ -154,7 +150,6 @@ function TransitionModal({ order, target, onClose, onDone }) {
     const isHandover = key === 'Đang thiết kế>Chờ nghiệm thu';
     const isComplete = target === 'Hoàn thành';
     const isReopen = order.status === 'Hoàn thành';
-    const splits = isComplete ? splitRevenue(order.totalAfterDiscount, order.designers) : [];
 
     const upload = async (e) => {
         const list = Array.from(e.target.files || []);
@@ -201,18 +196,16 @@ function TransitionModal({ order, target, onClose, onDone }) {
                 <div style={{ fontSize: 13 }}>Chuyển phiếu <strong>{order.code}</strong> từ “{order.status}” sang “{target}”.</div>
                 {isComplete && (
                     <div style={{ background: 'var(--surface-alt)', borderRadius: 6, padding: 10, fontSize: 13 }}>
-                        <div>Doanh số ghi nhận (trước VAT): <strong>{fmt(order.totalAfterDiscount)}</strong></div>
-                        {splits.map(d => (
-                            <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>• {d.userName} ({d.sharePercent}%)</span><span>{fmt(d.amount)}</span>
-                            </div>
+                        <div>Doanh số ghi nhận theo tỷ lệ:</div>
+                        {order.designers.map(d => (
+                            <div key={d.id}>• {d.userName} ({d.sharePercent}%)</div>
                         ))}
                         <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Ghi nhận vào tháng nghiệm thu (tháng hiện tại).</div>
                     </div>
                 )}
                 {isReopen && (
                     <div style={{ fontSize: 13, color: 'var(--status-danger)' }}>
-                        Mở lại sẽ hủy doanh số đã chốt ({fmt(order.revenueAmount)} – tháng {order.revenueMonth}). Doanh số được tính lại khi KD nghiệm thu lần nữa.
+                        Mở lại sẽ hủy doanh số đã chốt (tháng {order.revenueMonth}). Doanh số được tính lại khi KD nghiệm thu lần nữa.
                     </div>
                 )}
                 {isHandover && (
@@ -268,18 +261,14 @@ export default function WorkflowPanel({ order, role, onChanged }) {
                     </div>
                 )}
 
-                {/* Nhân sự & doanh số */}
+                {/* Nhân sự thiết kế */}
                 <div style={{ fontSize: 13 }}>
-                    <div className="form-label">{completed ? 'Doanh số đã chốt (trước VAT)' : 'Doanh số dự kiến (trước VAT)'}</div>
-                    <div style={{ fontSize: 18, fontWeight: 700 }}>{fmt(completed ? order.revenueAmount : order.totalAfterDiscount)}</div>
+                    <div className="form-label">Nhân sự thiết kế</div>
                     {completed && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Tháng {order.revenueMonth} · Nghiệm thu bởi {order.acceptedBy} lúc {fmtDateTime(order.acceptedAt)}</div>}
                     {order.designers.length > 0 ? (
                         <div style={{ marginTop: 6 }}>
                             {order.designers.map(d => (
-                                <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', maxWidth: 420 }}>
-                                    <span>• {d.userName} ({d.sharePercent}%)</span>
-                                    <span>{fmt(completed ? d.amount : order.totalAfterDiscount * d.sharePercent / 100)}</span>
-                                </div>
+                                <div key={d.id}>• {d.userName} ({d.sharePercent}%)</div>
                             ))}
                         </div>
                     ) : (

@@ -10,30 +10,7 @@ import WorkflowPanel from '@/components/design-orders/WorkflowPanel';
 
 const BRAND = { blue: '#1e3a5f', gold: '#E05B0A' };
 
-const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Math.round(n || 0));
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
-
-function numberToWords(n) {
-    if (!n || n === 0) return 'Không đồng';
-    const u = ['', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
-    function readGroup(num, leadZero) {
-        const h = Math.floor(num / 100), t = Math.floor((num % 100) / 10), o = num % 10;
-        let s = '';
-        if (h) s += u[h] + ' trăm ';
-        if (t === 0) { if (o) s += (h || leadZero ? 'lẻ ' : '') + u[o] + ' '; }
-        else if (t === 1) { s += 'mười ' + (o === 5 ? 'lăm ' : o ? u[o] + ' ' : ''); }
-        else { s += u[t] + ' mươi ' + (o === 1 ? 'mốt ' : o === 5 ? 'lăm ' : o ? u[o] + ' ' : ''); }
-        return s;
-    }
-    const ty = Math.floor(n / 1e9), tr = Math.floor((n % 1e9) / 1e6), ng = Math.floor((n % 1e6) / 1e3), rem = n % 1e3;
-    let r = '';
-    if (ty) r += readGroup(ty, false) + 'tỷ ';
-    if (tr) r += readGroup(tr, !!ty) + 'triệu ';
-    if (ng) r += readGroup(ng, !!(ty || tr)) + 'nghìn ';
-    if (rem) r += readGroup(rem, !!(ty || tr || ng));
-    r = r.trim();
-    return r.charAt(0).toUpperCase() + r.slice(1) + ' đồng';
-}
 
 export default function DesignOrderDetailPage() {
     const { id } = useParams();
@@ -91,7 +68,6 @@ export default function DesignOrderDetailPage() {
                 .do-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
                 .do-table th, .do-table td { border: 1px solid #d1d5db; padding: 6px 8px; }
                 .do-table th { background: #f1f5f9; font-weight: 700; text-align: center; }
-                .do-total-row { display: flex; justify-content: space-between; padding: 4px 0; }
                 .do-sign-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 40px; text-align: center; }
                 .do-sign-grid .role { font-weight: 700; margin-bottom: 60px; }
                 .do-sign-grid .name { font-style: italic; color: #64748b; font-size: 11px; }
@@ -144,10 +120,10 @@ export default function DesignOrderDetailPage() {
                     <div>{order.notes}</div>
                 </>)}
 
-                <div className="do-section-title">Bảng hạng mục tính tiền</div>
+                <div className="do-section-title">Bảng hạng mục khối lượng</div>
                 <table className="do-table">
                     <thead>
-                        <tr><th style={{ width: 30 }}>STT</th><th>Hạng mục công việc</th><th style={{ width: 60 }}>ĐVT</th><th style={{ width: 70 }}>KL</th><th style={{ width: 100 }}>Đơn giá</th><th style={{ width: 110 }}>Thành tiền</th><th>Ghi chú</th></tr>
+                        <tr><th style={{ width: 30 }}>STT</th><th>Hạng mục công việc</th><th style={{ width: 70 }}>ĐVT</th><th style={{ width: 90 }}>KL</th><th>Ghi chú</th></tr>
                     </thead>
                     <tbody>
                         {order.items.map((it, i) => (
@@ -156,22 +132,11 @@ export default function DesignOrderDetailPage() {
                                 <td>{it.name}</td>
                                 <td style={{ textAlign: 'center' }}>{it.unit}</td>
                                 <td style={{ textAlign: 'right' }}>{it.quantity}</td>
-                                <td style={{ textAlign: 'right' }}>{fmt(it.unitPrice)}</td>
-                                <td style={{ textAlign: 'right' }}>{fmt(it.amount)}</td>
                                 <td>{it.note}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
-
-                <div style={{ maxWidth: 320, marginLeft: 'auto', marginTop: 16 }}>
-                    <div className="do-total-row"><span>Tổng trước giảm giá</span><strong>{fmt(order.subtotal)}</strong></div>
-                    <div className="do-total-row"><span>Giảm giá</span><span>{order.discountType === 'percent' ? `${order.discount}%` : fmt(order.discount)}</span></div>
-                    <div className="do-total-row"><span>Tổng sau giảm giá</span><strong>{fmt(order.totalAfterDiscount)}</strong></div>
-                    <div className="do-total-row"><span>VAT</span><span>{order.vatRate}%</span></div>
-                    <div className="do-total-row" style={{ fontSize: 15, borderTop: '1px solid #d1d5db', paddingTop: 6, marginTop: 4 }}><span>Tổng thanh toán</span><strong style={{ color: BRAND.blue }}>{fmt(order.grandTotal)}</strong></div>
-                    <div style={{ fontStyle: 'italic', fontSize: 11.5, color: '#64748b', marginTop: 4 }}>({numberToWords(Math.round(order.grandTotal))})</div>
-                </div>
 
                 <div className="do-sign-grid">
                     <div>

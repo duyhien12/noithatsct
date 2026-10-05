@@ -51,5 +51,17 @@ export const GET = withAuth(async (request) => {
     const orderIds = new Set(shares.map(s => s.designOrder.id));
     const total = shares.reduce((sum, s) => sum + s.amount, 0);
 
-    return NextResponse.json({ fromMonth, toMonth, rows, orderCount: orderIds.size, total });
+    // Hạng mục từng phiếu để nhập đơn giá tính doanh số
+    const orders = await prisma.designOrder.findMany({
+        where: { status: 'Hoàn thành', revenueMonth: { gte: fromMonth, lte: toMonth } },
+        select: {
+            id: true, code: true, customerName: true, revenueMonth: true, acceptedAt: true,
+            discount: true, discountType: true, totalAfterDiscount: true,
+            items: { orderBy: { order: 'asc' }, select: { id: true, name: true, unit: true, quantity: true, unitPrice: true, note: true } },
+            designers: { orderBy: { userName: 'asc' }, select: { id: true, userName: true, sharePercent: true, amount: true } },
+        },
+        orderBy: { acceptedAt: 'desc' },
+    });
+
+    return NextResponse.json({ fromMonth, toMonth, rows, orderCount: orderIds.size, total, orders });
 }, { roles: VIEW_ROLES });

@@ -1,17 +1,14 @@
 'use client';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { apiFetch } from '@/lib/fetchClient';
 import { useToast } from '@/components/ui/Toast';
 import ItemsTable from '@/components/design-orders/ItemsTable';
-import { calcAll } from '@/lib/designOrderCalc';
 
-const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Math.round(n || 0));
 
 const PROJECT_TYPES = ['Nhà phố', 'Biệt thự', 'Chung cư', 'Văn phòng', 'Showroom', 'Homestay', 'Khác'];
 const REQUIREMENT_LEVELS = ['Cơ bản', 'Tiêu chuẩn', 'Cao cấp'];
-const VAT_OPTIONS = [0, 8, 10];
 
 export default function NewDesignOrderPage() {
     const router = useRouter();
@@ -87,7 +84,6 @@ export default function NewDesignOrderPage() {
 
     const removeAttachment = (idx) => setAttachments(prev => prev.filter((_, i) => i !== idx));
 
-    const totals = useMemo(() => calcAll(items, form.discount, form.discountType, form.vatRate), [items, form.discount, form.discountType, form.vatRate]);
 
     const handleSave = async () => {
         if (!form.customerId) return toast.error('Chọn khách hàng!');
@@ -191,37 +187,8 @@ export default function NewDesignOrderPage() {
             </div>
 
             <div className="card" style={{ marginBottom: 20 }}>
-                <div className="card-header"><h3>Bảng hạng mục tính tiền</h3></div>
+                <div className="card-header"><h3>Bảng hạng mục khối lượng</h3></div>
                 <ItemsTable items={items} onChange={setItems} priceList={priceList} />
-            </div>
-
-            <div className="card">
-                <div className="card-header"><h3>Giảm giá & VAT</h3></div>
-                <div className="card-body">
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 16 }}>
-                        <div>
-                            <label className="form-label">Giảm giá</label>
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                <input className="form-input" type="number" min="0" value={form.discount || ''} onChange={e => setForm({ ...form, discount: parseFloat(e.target.value) || 0 })} style={{ flex: 1 }} />
-                                <select className="form-select" value={form.discountType} onChange={e => setForm({ ...form, discountType: e.target.value })} style={{ maxWidth: 100 }}>
-                                    <option value="amount">VNĐ</option>
-                                    <option value="percent">%</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div>
-                            <label className="form-label">VAT</label>
-                            <select className="form-select" value={form.vatRate} onChange={e => setForm({ ...form, vatRate: parseFloat(e.target.value) })}>
-                                {VAT_OPTIONS.map(v => <option key={v} value={v}>{v}%</option>)}
-                            </select>
-                        </div>
-                    </div>
-                    <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: 16, display: 'grid', gap: 8, maxWidth: 360, marginLeft: 'auto' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Tổng trước giảm giá</span><strong>{fmt(totals.subtotal)}</strong></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Tổng sau giảm giá</span><strong>{fmt(totals.totalAfterDiscount)}</strong></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 18, color: 'var(--primary)' }}><span>Tổng thanh toán</span><strong>{fmt(totals.grandTotal)}</strong></div>
-                    </div>
-                </div>
             </div>
         </div>
     );

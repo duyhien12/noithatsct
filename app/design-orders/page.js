@@ -9,7 +9,6 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import { useRole } from '@/contexts/RoleContext';
 import { STATUSES, STATUS_COLORS, canEditDraft } from '@/lib/designOrderStatus';
 
-const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 
 const PROJECT_TYPES = ['Nhà phố', 'Biệt thự', 'Chung cư', 'Văn phòng', 'Showroom', 'Homestay', 'Khác'];
@@ -108,7 +107,7 @@ export default function DesignOrdersPage() {
                                     <thead>
                                         <tr>
                                             <th>Mã phiếu</th><th>Ngày tạo</th><th>Khách hàng</th><th>Công trình</th>
-                                            <th>Người tạo</th><th>NV thiết kế</th><th>Tổng tiền</th><th>Deadline</th>
+                                            <th>Người tạo</th><th>NV thiết kế</th><th>Deadline</th>
                                             <th>Trạng thái</th><th></th>
                                         </tr>
                                     </thead>
@@ -121,7 +120,6 @@ export default function DesignOrdersPage() {
                                                 <td>{o.project?.name || o.siteAddress}</td>
                                                 <td>{o.createdBy}</td>
                                                 <td>{o.designerAssignee || <span style={{ color: 'var(--text-muted)' }}>Chưa phân công</span>}</td>
-                                                <td className="amount">{fmt(o.grandTotal)}</td>
                                                 <td>{fmtDate(o.deadline)}</td>
                                                 <td><StatusBadge status={o.status} colorMap={STATUS_COLORS} /></td>
                                                 <td onClick={e => e.stopPropagation()}>
@@ -154,8 +152,8 @@ export default function DesignOrdersPage() {
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                         <div>
-                                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Tổng tiền</div>
-                                            <div style={{ fontSize: 13, fontWeight: 700 }}>{fmt(o.grandTotal)}</div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>NV thiết kế</div>
+                                            <div style={{ fontSize: 13, fontWeight: 700 }}>{o.designerAssignee || 'Chưa phân công'}</div>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
                                             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Deadline</div>
