@@ -278,7 +278,19 @@ export default function WorkshopPlanPage() {
                     body: JSON.stringify({ ...body, customerId: form.customerId }),
                 });
             if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || 'Lưu không thành công');
-            toast.success(form.id ? 'Đã cập nhật kế hoạch' : 'Đã thêm kế hoạch lắp đặt');
+            // Kế hoạch nằm ngoài khoảng đang xem (VD thêm cho tháng sau) → chuyển sang tháng bắt đầu
+            // và bỏ bộ lọc có thể che nó, để người dùng thấy ngay dòng vừa lưu.
+            const [sy, sm, sd] = form.startDate.split('-').map(Number);
+            const [ey, em, ed] = form.endDate.split('-').map(Number);
+            const inView = new Date(sy, sm - 1, sd) < scale.end && new Date(ey, em - 1, ed + 1) > scale.start;
+            if (!inView) setAnchor(new Date(sy, sm - 1, 1));
+            if (filterCustomer && filterCustomer !== form.customerId) setFilterCustomer('');
+            setFilterState('');
+            setCollapsed(prev => { const next = new Set(prev); next.delete(form.customerId); return next; });
+            toast.success(
+                inView ? '' : `Đã chuyển sang Tháng ${pad(sm)}/${sy} để hiện kế hoạch`,
+                form.id ? 'Đã cập nhật kế hoạch' : 'Đã thêm kế hoạch lắp đặt',
+            );
             setForm(null);
             fetchData(true);
         } catch (e) {
