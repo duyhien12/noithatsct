@@ -19,7 +19,7 @@ const DEFAULT_NAME = 'Lắp đặt tại công trình';
 const STATUSES = ['Chưa bắt đầu', 'Đang thực hiện', 'Hoàn thành'];
 const DAY_MS = 86400000;
 const ROW_H = 44;
-const GROUP_H = 36;
+const GROUP_H = 56; // đủ chỗ cho tên công trình dài xuống 2 dòng
 const BAR_H = 24;
 const SOON_DAYS = 3; // "Sắp đến hạn" = hạn trong 3 ngày tới
 
@@ -435,8 +435,9 @@ export default function WorkshopPlanPage() {
                                                 <div className={s.left} style={{ height: GROUP_H }}>
                                                     <div className={s.groupTitle}>
                                                         {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                                                        <span className={s.groupName} title={g.name}>{g.name}</span>
-                                                        <em>({g.items.length} công việc)</em>
+                                                        <span className={s.groupName} title={g.name}>
+                                                            {g.name} <em>({g.items.length} công việc)</em>
+                                                        </span>
                                                     </div>
                                                 </div>
                                                 <div className={s.right} style={{ width: scale.width }} />

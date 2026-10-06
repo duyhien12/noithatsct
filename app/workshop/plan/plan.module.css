@@ -45,7 +45,7 @@
 .scroll { overflow: auto; max-height: calc(100vh - 330px); min-height: 240px; }
 .inner {
     position: relative;
-    --col-task: 280px; --col-people: 96px; --left-w: 376px;
+    --col-task: 380px; --col-people: 90px; --left-w: 470px;
 }
 
 .head {
@@ -91,9 +91,13 @@
 
 .groupRowLine { background: var(--color-info-bg); cursor: pointer; }
 .groupRowLine .left { background: var(--color-info-bg); grid-template-columns: 1fr; }
-.groupTitle { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-body); font-weight: 600; color: var(--color-text); overflow: hidden; }
+.groupTitle { display: flex; align-items: flex-start; gap: var(--space-2); font-size: var(--fs-body); font-weight: 600; line-height: 1.35; color: var(--color-text); overflow: hidden; }
+.groupTitle svg { flex-shrink: 0; margin-top: 2px; }
 .groupTitle em { font-style: normal; font-weight: 400; font-size: var(--fs-caption); color: var(--color-text-secondary); white-space: nowrap; }
-.groupName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.groupName {
+    min-width: 0; overflow: hidden; overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
 
 .taskName {
     font-size: var(--fs-table); color: var(--color-text); padding-left: 28px !important;
@@ -148,7 +152,7 @@
 @media (max-width: 768px) {
     .toolbar .toolSelect { min-width: 0; flex: 1 1 140px; }
     .formGrid { grid-template-columns: 1fr; }
-    .inner { --col-task: 150px; --col-people: 56px; --left-w: 206px; }
+    .inner { --col-task: 170px; --col-people: 56px; --left-w: 226px; }
     .taskName { padding-left: var(--space-3) !important; }
 }
 
