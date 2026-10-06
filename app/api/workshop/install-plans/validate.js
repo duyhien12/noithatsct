@@ -1,11 +1,11 @@
 export const INSTALL_STATUSES = ['Chưa bắt đầu', 'Đang thực hiện', 'Hoàn thành'];
 
 // Trả { data } hoặc { error }. Ngày nhận dạng 'YYYY-MM-DD'.
-export function parseInstallPlan(body, { requireProject = false } = {}) {
+export function parseInstallPlan(body, { requireCustomer = false } = {}) {
     const data = {};
-    if (requireProject) {
-        if (!body.projectId) return { error: 'Chọn công trình' };
-        data.projectId = String(body.projectId);
+    if (requireCustomer) {
+        if (!body.customerId) return { error: 'Chọn công trình' };
+        data.customerId = String(body.customerId);
     }
     if (body.name !== undefined) data.name = String(body.name).trim() || 'Lắp đặt tại công trình';
     if (body.workerCount !== undefined) {
@@ -24,7 +24,7 @@ export function parseInstallPlan(body, { requireProject = false } = {}) {
         if (Number.isNaN(d.getTime())) return { error: 'Ngày không hợp lệ' };
         data[k] = d;
     }
-    if (requireProject && (!data.startDate || !data.endDate)) return { error: 'Chọn ngày bắt đầu và kết thúc' };
+    if (requireCustomer && (!data.startDate || !data.endDate)) return { error: 'Chọn ngày bắt đầu và kết thúc' };
     if (data.startDate && data.endDate && data.endDate < data.startDate) return { error: 'Ngày kết thúc phải sau ngày bắt đầu' };
     return { data };
 }

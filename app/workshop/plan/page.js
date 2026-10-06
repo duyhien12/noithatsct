@@ -8,7 +8,13 @@ import s from './plan.module.css';
 // lắp đặt kèm số người. Dữ liệu riêng ở bảng InstallPlan (/api/workshop/install-plans),
 // không liên quan hạng mục tiến độ (ScheduleTask).
 
-const PROJECT_TYPE = 'Thi công nội thất';
+// Công trình = khách hàng Phòng Kinh doanh ở cột "Khách hợp đồng" và "Khách ưu tiên"
+// (pipelineStage, khớp PIPELINE trong app/customers/page.js)
+const CUSTOMER_STAGES = [
+    { key: 'Thi công', label: 'Hợp đồng' },
+    { key: 'Báo giá', label: 'Ưu tiên' },
+];
+const STAGE_LABEL = Object.fromEntries(CUSTOMER_STAGES.map(x => [x.key, x.label]));
 const DEFAULT_NAME = 'Lắp đặt tại công trình';
 const STATUSES = ['Chưa bắt đầu', 'Đang thực hiện', 'Hoàn thành'];
 const DAY_MS = 86400000;
@@ -99,15 +105,15 @@ function buildScale(view, anchor) {
     return { start, end, pxPerDay, totalDays, width: totalDays * pxPerDay, groups, units };
 }
 
-const EMPTY_FORM = { id: null, name: DEFAULT_NAME, projectId: '', workerCount: 2, status: 'Chưa bắt đầu', startDate: '', endDate: '', notes: '' };
+const EMPTY_FORM = { id: null, name: DEFAULT_NAME, customerId: '', workerCount: 2, status: 'Chưa bắt đầu', startDate: '', endDate: '', notes: '' };
 
 export default function WorkshopPlanPage() {
     const toast = useToast();
     const today = useMemo(() => startOfDay(new Date()), []);
     const [plans, setPlans] = useState([]);
-    const [projects, setProjects] = useState([]);
+    const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filterProject, setFilterProject] = useState('');
+    const [filterCustomer, setFilterCustomer] = useState('');
     const [filterState, setFilterState] = useState('');
     const [anchor, setAnchor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
     const [view, setView] = useState('day');
@@ -123,12 +129,13 @@ export default function WorkshopPlanPage() {
     const fetchData = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
-            const [pl, pr] = await Promise.all([
+            const [pl, ...byStage] = await Promise.all([
                 fetch('/api/workshop/install-plans').then(r => r.json()),
-                fetch(`/api/projects?limit=500&type=${encodeURIComponent(PROJECT_TYPE)}`).then(r => r.json()),
+                ...CUSTOMER_STAGES.map(st => fetch(`/api/customers?dept=kinh_doanh&pipelineStage=${encodeURIComponent(st.key)}&limit=500`).then(r => r.json())),
             ]);
             setPlans(Array.isArray(pl) ? pl : []);
-            setProjects((pr?.data || []).filter(x => !x.deletedAt));
+            // Khách hợp đồng trước, khách ưu tiên sau
+            setCustomers(byStage.flatMap(r => r?.data || []).filter(x => !x.deletedAt));
         } catch {
             toastRef.current.error('Không tải được kế hoạch lắp đặt');
         }
@@ -145,9 +152,9 @@ export default function WorkshopPlanPage() {
 
     // Kế hoạch giao với khoảng thời gian đang xem
     const visible = useMemo(() => plans.filter(p => {
-        if (filterProject && p.projectId !== filterProject) return false;
+        if (filterCustomer && p.customerId !== filterCustomer) return false;
         return new Date(p.startDate) < scale.end && addDays(p.endDate, 1) > scale.start;
-    }).map(p => ({ ...p, state: visualState(p, today) })), [plans, filterProject, scale, today]);
+    }).map(p => ({ ...p, state: visualState(p, today) })), [plans, filterCustomer, scale, today]);
 
     const isSoon = useCallback((p) => p.state !== 'done' && p.state !== 'late'
         && startOfDay(p.endDate) <= addDays(today, SOON_DAYS), [today]);
@@ -168,8 +175,8 @@ export default function WorkshopPlanPage() {
     const groups = useMemo(() => {
         const map = new Map();
         shown.forEach(p => {
-            if (!map.has(p.projectId)) map.set(p.projectId, { id: p.projectId, name: p.project?.name || 'Không rõ công trình', items: [] });
-            map.get(p.projectId).items.push(p);
+            if (!map.has(p.customerId)) map.set(p.customerId, { id: p.customerId, name: p.customer?.name || 'Không rõ công trình', items: [] });
+            map.get(p.customerId).items.push(p);
         });
         const list = [...map.values()];
         list.forEach(g => g.items.sort((a, b) => new Date(a.startDate) - new Date(b.startDate) || a.order - b.order));
@@ -230,12 +237,12 @@ export default function WorkshopPlanPage() {
     // ---------- Thêm / sửa ----------
     const openAdd = () => {
         setConfirmDelete(false);
-        setForm({ ...EMPTY_FORM, projectId: filterProject || '', startDate: toInput(today), endDate: toInput(addDays(today, 2)) });
+        setForm({ ...EMPTY_FORM, customerId: filterCustomer || '', startDate: toInput(today), endDate: toInput(addDays(today, 2)) });
     };
     const openEdit = (p) => {
         setConfirmDelete(false);
         setForm({
-            id: p.id, name: p.name, projectId: p.projectId, workerCount: p.workerCount, status: p.status,
+            id: p.id, name: p.name, customerId: p.customerId, customerName: p.customer?.name || '', workerCount: p.workerCount, status: p.status,
             startDate: toInput(p.startDate), endDate: toInput(p.endDate), notes: p.notes || '',
         });
     };
@@ -243,7 +250,7 @@ export default function WorkshopPlanPage() {
 
     const workerNum = form ? Number(form.workerCount) : 0;
     const formError = form && (
-        !form.projectId ? 'Chọn công trình'
+        !form.customerId ? 'Chọn công trình'
             : !Number.isInteger(workerNum) || workerNum < 1 ? 'Số người phải từ 1 trở lên'
             : !form.startDate || !form.endDate ? 'Chọn ngày bắt đầu và kết thúc'
             : form.endDate < form.startDate ? 'Ngày kết thúc phải sau ngày bắt đầu'
@@ -268,7 +275,7 @@ export default function WorkshopPlanPage() {
                 })
                 : await fetch('/api/workshop/install-plans', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...body, projectId: form.projectId }),
+                    body: JSON.stringify({ ...body, customerId: form.customerId }),
                 });
             if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || 'Lưu không thành công');
             toast.success(form.id ? 'Đã cập nhật kế hoạch' : 'Đã thêm kế hoạch lắp đặt');
@@ -333,9 +340,9 @@ export default function WorkshopPlanPage() {
             </div>
 
             <div className={s.toolbar}>
-                <Select className={s.toolSelect} value={filterProject} onChange={e => setFilterProject(e.target.value)} aria-label="Lọc công trình">
+                <Select className={s.toolSelect} value={filterCustomer} onChange={e => setFilterCustomer(e.target.value)} aria-label="Lọc công trình">
                     <option value="">Tất cả công trình</option>
-                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </Select>
                 <Select
                     className={s.toolSelect}
@@ -523,10 +530,9 @@ export default function WorkshopPlanPage() {
                     <div className={s.formGrid}>
                         <Field label="Công trình" required className={s.full}>
                             {(a) => (
-                                <Select {...a} value={form.projectId} disabled={!!form.id} onChange={setF('projectId')}>
-                                    <option value="">— Chọn công trình —</option>
-                                    {projects.map(pr => <option key={pr.id} value={pr.id}>{pr.code ? `${pr.code} · ` : ''}{pr.name}</option>)}
-                                </Select>
+                                <CustomerCombobox {...a} customers={customers} value={form.customerId}
+                                    fallbackLabel={form.customerName} disabled={!!form.id}
+                                    onChange={id => setForm(f => ({ ...f, customerId: id }))} />
                             )}
                         </Field>
                         <Field label="Công việc" className={s.full}>
@@ -554,6 +560,83 @@ export default function WorkshopPlanPage() {
                     </div>
                 )}
             </Modal>
+        </div>
+    );
+}
+
+// Bỏ dấu tiếng Việt để gõ "ngoc hieu" vẫn tìm ra "Ngọc Hiếu"
+const fold = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+
+// Ô gõ để tìm công trình (khách hợp đồng / ưu tiên) theo tên hoặc mã khách hàng.
+function CustomerCombobox({ customers, value, onChange, disabled, fallbackLabel, id, ...aria }) {
+    const [open, setOpen] = useState(false);
+    const [q, setQ] = useState('');
+    const [active, setActive] = useState(0);
+    const wrapRef = useRef(null);
+    const listRef = useRef(null);
+
+    useEffect(() => {
+        if (!open) return undefined;
+        const onDown = (e) => { if (!wrapRef.current?.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', onDown);
+        return () => document.removeEventListener('mousedown', onDown);
+    }, [open]);
+
+    const selected = customers.find(c => c.id === value);
+    const selectedLabel = selected ? selected.name : (value ? fallbackLabel || '' : '');
+    const results = useMemo(() => {
+        const words = fold(q).split(/\s+/).filter(Boolean);
+        if (!words.length) return customers;
+        return customers.filter(c => {
+            const hay = fold(`${c.code} ${c.name}`);
+            return words.every(w => hay.includes(w));
+        });
+    }, [customers, q]);
+
+    useEffect(() => {
+        listRef.current?.children[active]?.scrollIntoView({ block: 'nearest' });
+    }, [active]);
+
+    const pick = (c) => { onChange(c.id); setQ(''); setOpen(false); };
+    const onKeyDown = (e) => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActive(i => Math.min(i + 1, results.length - 1)); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(i => Math.max(i - 1, 0)); }
+        else if (e.key === 'Enter') { if (open && results[active]) { e.preventDefault(); pick(results[active]); } }
+        else if (e.key === 'Escape' && open) { e.stopPropagation(); setOpen(false); }
+    };
+    const listId = `${id}-list`;
+
+    return (
+        <div ref={wrapRef} className={s.combo}>
+            <Input
+                id={id}
+                {...aria}
+                role="combobox"
+                aria-expanded={open}
+                aria-controls={listId}
+                aria-autocomplete="list"
+                autoComplete="off"
+                disabled={disabled}
+                placeholder="Gõ tên hoặc mã khách hàng để tìm…"
+                value={open ? q : selectedLabel}
+                onFocus={() => { setOpen(true); setQ(''); setActive(0); }}
+                onChange={e => { setQ(e.target.value); setActive(0); setOpen(true); }}
+                onKeyDown={onKeyDown}
+            />
+            {open && !disabled && (
+                <ul className={s.comboList} id={listId} role="listbox" ref={listRef}>
+                    {results.length === 0 && <li className={s.comboEmpty}>Không tìm thấy công trình nào</li>}
+                    {results.map((c, i) => (
+                        <li key={c.id} role="option" aria-selected={c.id === value}
+                            className={`${s.comboItem} ${i === active ? s.comboActive : ''}`}
+                            onMouseEnter={() => setActive(i)}
+                            onMouseDown={e => { e.preventDefault(); pick(c); }}>
+                            <span>{c.name}</span>
+                            <small>{STAGE_LABEL[c.pipelineStage] ? `${STAGE_LABEL[c.pipelineStage]} · ` : ''}{c.code}</small>
+                        </li>
+                    ))}
+                </ul>
+            )}
         </div>
     );
 }
