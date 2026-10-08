@@ -46,7 +46,8 @@ function visualState(p, today) {
 }
 
 // Dựng trục thời gian theo chế độ xem. `anchor` = ngày đầu tháng đang chọn.
-function buildScale(view, anchor) {
+// `fitW` = bề rộng còn trống của vùng timeline — giãn cột cho vừa khung, không để trống bên phải.
+function buildScale(view, anchor, fitW = 0) {
     const y = anchor.getFullYear();
     const m = anchor.getMonth();
     let start, end, pxPerDay;
@@ -55,6 +56,7 @@ function buildScale(view, anchor) {
     if (view === 'month')   { start = new Date(y, m - 2, 1); end = new Date(y, m + 4, 1); pxPerDay = 6; }
     if (view === 'quarter') { start = new Date(y, 0, 1);     end = new Date(y + 1, 0, 1); pxPerDay = 3; }
     const totalDays = diffDays(start, end);
+    pxPerDay = Math.max(pxPerDay, Math.floor((fitW / totalDays) * 100) / 100);
     const groups = [];
     const units = [];
     const seg = (from, to) => ({ startDay: diffDays(start, from), days: diffDays(from, to) });
@@ -122,6 +124,7 @@ export default function WorkshopPlanPage() {
     const [saving, setSaving] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const scrollRef = useRef(null);
+    const [fitW, setFitW] = useState(0);
     // useToast() không có provider sẽ trả object mới mỗi lần render — giữ qua ref
     const toastRef = useRef(toast);
     useEffect(() => { toastRef.current = toast; });
@@ -148,7 +151,7 @@ export default function WorkshopPlanPage() {
         return () => clearInterval(id);
     }, [fetchData]);
 
-    const scale = useMemo(() => buildScale(view, anchor), [view, anchor]);
+    const scale = useMemo(() => buildScale(view, anchor, fitW), [view, anchor, fitW]);
 
     // Kế hoạch giao với khoảng thời gian đang xem
     const visible = useMemo(() => plans.filter(p => {
@@ -212,6 +215,21 @@ export default function WorkshopPlanPage() {
     const todayX = today >= scale.start && today < scale.end
         ? (diffDays(scale.start, today) + 0.5) * scale.pxPerDay
         : null;
+
+    // Đo bề rộng vùng timeline để giãn cột cho kín khung
+    const hasRows = rows.length > 0;
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const measure = () => {
+            const leftW = el.querySelector('[data-left]')?.offsetWidth || 0;
+            setFitW(Math.max(0, el.clientWidth - leftW));
+        };
+        measure();
+        const ro = new ResizeObserver(measure);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [loading, hasRows]);
 
     // Cuộn tới "Hôm nay" khi đổi chế độ xem/tháng
     useEffect(() => {
