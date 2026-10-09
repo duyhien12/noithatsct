@@ -457,14 +457,14 @@ ${txs.map(voucher).join('')}
 
     return (
         <div>
-            <div style={{
+            <div className="jr-head" style={{
                 position: 'sticky', top: 'var(--header-height)', zIndex: 50,
                 background: 'var(--bg-primary)', padding: '12px 0', margin: '-12px 0 4px',
                 borderBottom: '1px solid var(--border-light)',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8,
             }}>
                 <h1 style={{ fontSize: 20, fontWeight: 700 }}>📒 Nhật ký Thu – Chi</h1>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div className="jr-head-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {perms.canImportExport && <button className="btn btn-ghost btn-sm" onClick={downloadTemplate}>📄 File mẫu</button>}
                     {perms.canImportExport && <button className="btn btn-ghost btn-sm" onClick={() => setImportOpen(true)}>⬆️ Nhập Excel</button>}
                     {perms.canImportExport && <button className="btn btn-ghost btn-sm" onClick={exportExcel}>⬇️ Xuất Excel</button>}
@@ -588,7 +588,7 @@ function SummaryCards({ summary, cashFunds, bankAccounts, cashBalance, dailyFund
 
     return (
         <div>
-            <div className="stats-grid" style={{ marginBottom: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+            <div className="stats-grid jr-stats" style={{ marginBottom: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
                 {cards.map(c => {
                     const valueText = fmt(c.value);
                     return (
@@ -673,11 +673,17 @@ function statValueFontSize(text) {
 
 function FilterBar({ filters, setFilters, searchInput, setSearchInput, categories, projects, accounts, bankAccounts, cashFunds, onClear, count, onPrint }) {
     const set = (k, v) => setFilters(f => ({ ...f, [k]: v }));
+    // Điện thoại: bộ lọc gập lại sau nút "Bộ lọc", chỉ để ô tìm kiếm luôn hiện
+    const [mobileOpen, setMobileOpen] = useState(false);
+    const activeCount = ['from', 'to', 'department', 'type', 'method', 'categoryId', 'projectId', 'status', 'columnKey'].filter(k => filters[k]).length;
     return (
         <div className="card" style={{ marginBottom: 16 }}>
-            <div className="filter-bar" style={{ flexWrap: 'wrap' }}>
+            <div className={`filter-bar jr-filter-bar${mobileOpen ? ' open' : ''}`} style={{ flexWrap: 'wrap' }}>
                 <input className="form-input search-input" placeholder="🔍 Tìm nội dung, số phiếu, chứng từ, đối tượng..."
                     value={searchInput} onChange={e => setSearchInput(e.target.value)} style={{ flex: 1, minWidth: 220 }} />
+                <button type="button" className={`btn btn-sm jr-m-toggle ${activeCount ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setMobileOpen(v => !v)}>
+                    ⚙️ Bộ lọc{activeCount ? ` (${activeCount})` : ''} {mobileOpen ? '▲' : '▼'}
+                </button>
                 <input className="form-input" type="date" value={filters.from} onChange={e => set('from', e.target.value)} title="Từ ngày" />
                 <input className="form-input" type="date" value={filters.to} onChange={e => set('to', e.target.value)} title="Đến ngày" />
                 <select className="form-select" value={filters.department} onChange={e => set('department', e.target.value)}>
@@ -694,7 +700,7 @@ function FilterBar({ filters, setFilters, searchInput, setSearchInput, categorie
                     {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
                 <CategoryTreePicker categories={categories} value={filters.categoryId} onChange={id => set('categoryId', id)} rootEmptyLabel="Mọi phân loại" group={filters.type || undefined} />
-                <select className="form-select" value={filters.projectId} onChange={e => set('projectId', e.target.value)}>
+                <select className="form-select jr-full" value={filters.projectId} onChange={e => set('projectId', e.target.value)}>
                     <option value="">Mọi dự án</option>
                     {projects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
                 </select>
@@ -703,9 +709,9 @@ function FilterBar({ filters, setFilters, searchInput, setSearchInput, categorie
                     {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
                 <ColumnValueFilter filters={filters} setFilters={setFilters} accounts={accounts} bankAccounts={bankAccounts} cashFunds={cashFunds} />
-                <button className="btn btn-ghost btn-sm" onClick={onClear}>✕ Xóa lọc</button>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', alignSelf: 'center' }}>{count} giao dịch</div>
-                <button className="btn btn-ghost btn-sm" onClick={onPrint}>🖨️ In phiếu</button>
+                <button className="btn btn-ghost btn-sm jr-clear" onClick={onClear}>✕ Xóa lọc</button>
+                <div className="jr-count" style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', alignSelf: 'center' }}>{count} giao dịch</div>
+                <button className="btn btn-ghost btn-sm jr-print" onClick={onPrint}>🖨️ In phiếu</button>
             </div>
         </div>
     );
@@ -868,20 +874,35 @@ function TransactionTable({ rows, loading, user, showDeleted, openMenuId, setOpe
                 </div>
             </div>
 
-            <div className="mobile-card-list">
-                {rows.map(t => (
-                    <div key={t.id} className="mobile-card-item" style={{ opacity: t.status === 'Hủy' ? 0.5 : 1 }} onClick={() => onView(t)}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <div><div className="card-title">{t.content}</div><div className="card-subtitle">{t.displayCode || t.code} · {fmtDate(t.date)} · {t.department}</div></div>
-                            <StatusBadge status={t.status} />
+            <div className="mobile-card-list jr-cards">
+                {rows.map(t => {
+                    const totalIn = (t.cashIn || 0) + (t.bankIn || 0);
+                    const totalOut = (t.cashOut || 0) + (t.bankOut || 0);
+                    const isIn = totalIn > 0 && totalOut === 0;
+                    const source = t.cashFund?.name || (t.bankAccount ? `${t.bankAccount.bankName || ''} ${t.bankAccount.accountNumber || ''}`.trim() : '') || t.method;
+                    return (
+                        <div key={t.id} className={`jr-card ${isIn ? 'in' : 'out'}`} style={{ opacity: t.status === 'Hủy' ? 0.5 : 1 }} onClick={() => onView(t)}>
+                            <div className="jr-card-top">
+                                <div className="jr-card-title">
+                                    {t.content}
+                                    {t.transferGroupId && <span title="Chuyển quỹ" style={{ marginLeft: 4 }}>↔️</span>}
+                                </div>
+                                <StatusBadge status={t.status} />
+                            </div>
+                            <div className="jr-card-meta">
+                                {[t.displayCode || t.code, fmtDate(t.date), t.department, t.project?.code].filter(Boolean).join(' · ')}
+                            </div>
+                            <div className="jr-card-bottom">
+                                <span className="jr-card-src">{source || '—'}</span>
+                                <span className="jr-card-amt">
+                                    {totalIn > 0 && <span style={{ color: 'var(--status-success)' }}>+{fmt(totalIn)}</span>}
+                                    {totalOut > 0 && <span style={{ color: 'var(--status-danger)' }}>−{fmt(totalOut)}</span>}
+                                    {!totalIn && !totalOut && <span>0</span>}
+                                </span>
+                            </div>
                         </div>
-                        <div className="card-row">
-                            <div><span className="card-label">Thu</span><div className="card-value" style={{ color: 'var(--status-success)' }}>{fmt((t.cashIn || 0) + (t.bankIn || 0))}</div></div>
-                            <div><span className="card-label">Chi</span><div className="card-value" style={{ color: 'var(--status-danger)' }}>{fmt((t.cashOut || 0) + (t.bankOut || 0))}</div></div>
-                            <div><span className="card-label">PT</span><div className="card-value">{t.method}</div></div>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );

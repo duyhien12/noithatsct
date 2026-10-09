@@ -861,7 +861,7 @@ export default function ProjectDetailPage() {
 
     return (
         <div>
-            <button className="btn btn-secondary" onClick={() => router.push('/projects')} style={{ marginBottom: 16 }}>← Quay lại</button>
+            <button className="btn btn-secondary pd-back" onClick={() => router.push('/projects')} style={{ marginBottom: 16 }}>← Quay lại</button>
 
             {/* Project Header */}
             <div className="card project-detail-header" style={{ marginBottom: 24 }}>
@@ -958,7 +958,7 @@ export default function ProjectDetailPage() {
                                     {pnl?.profit != null && (pnl.profit >= 0 ? <span className="badge success">📈 Lãi {fmt(pnl.profit)}</span> : <span className="badge danger">📉 Lỗ {fmt(Math.abs(pnl.profit))}</span>)}
                                 </div>
                                 <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{p.name}</h2>
-                                <div style={{ color: 'var(--text-muted)', marginTop: 4, fontSize: 13 }}>{p.customer?.name} • {p.address}</div>
+                                <div style={{ color: 'var(--text-muted)', marginTop: 4, fontSize: 13 }}>{[p.customer?.name, p.address].filter(Boolean).join(' • ')}</div>
                                 <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: 12, color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
                                     {p.manager && <span title="Quản lý dự án">👤 PM: <strong>{p.manager}</strong></span>}
                                     {p.designer && <span title="Thiết kế">🎨 TK: {p.designer}</span>}
@@ -978,7 +978,7 @@ export default function ProjectDetailPage() {
                                 })()}
                             </div>
                             <div className="project-header-progress" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
-                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                <div className="pd-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                                     <button className="btn btn-secondary btn-sm" onClick={openEdit}>✏️ Chỉnh sửa</button>
                                     {(p.latitude && p.longitude) ? (
                                         <a href={`https://www.google.com/maps/dir/?api=1&destination=${p.latitude},${p.longitude}`} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm" title={`GPS: ${p.latitude}, ${p.longitude}`}>🧭 Điều hướng</a>
@@ -986,7 +986,8 @@ export default function ProjectDetailPage() {
                                         <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address)}`} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" title="Tìm địa chỉ trên Google Maps">🗺 Bản đồ</a>
                                     ) : null}
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div className="pd-progress" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <span className="pd-m-only pd-progress-lbl">Tiến độ</span>
                                     <div style={{ fontSize: 28, fontWeight: 700 }}>{p.progress}%</div>
                                     <div className="progress-bar" style={{ width: 80 }}><div className="progress-fill" style={{ width: `${p.progress}%` }}></div></div>
                                 </div>
@@ -994,8 +995,34 @@ export default function ProjectDetailPage() {
                             {/* end project-header-progress */}
                         </div>
 
-                        {/* Pipeline */}
-                        <div className="pipeline">
+                        {/* Pipeline — điện thoại: thanh bước gọn, đủ nhãn */}
+                        {(() => {
+                            const mfgState = mfgSummary?.step?.state || 'none';
+                            const mfgStyle = MFG_STEP_STYLE[mfgState];
+                            const mfgProgress = mfgSummary?.step?.progress;
+                            const steps = [];
+                            PIPELINE.forEach((stage, i) => {
+                                steps.push({
+                                    key: stage.key, label: stage.label, icon: i < pipelineIdx ? '✓' : stage.icon,
+                                    state: i < pipelineIdx ? 'done' : i === pipelineIdx ? 'active' : '', lineOn: i > 0 && i <= pipelineIdx,
+                                });
+                                if (i === 2) steps.push({
+                                    key: 'mfg', label: mfgProgress != null ? `SX ${mfgProgress}%` : 'Sản xuất', icon: mfgState === 'completed' ? '✓' : '🏭',
+                                    state: 'mfg', lineOn: pipelineIdx > 2, style: mfgStyle, onClick: () => setTab('manufacturing'),
+                                });
+                            });
+                            return (
+                                <div className="pd-m-only pd-m-steps">
+                                    {steps.map(st => (
+                                        <div key={st.key} className={`pd-m-step ${st.state}${st.lineOn ? ' line-on' : ''}`} onClick={st.onClick}>
+                                            <div className="dot" style={st.style ? { background: st.style.dot, borderColor: st.style.dot, color: '#fff' } : undefined}>{st.icon}</div>
+                                            <div className="lbl" style={st.style ? { color: st.style.label } : undefined}>{st.label}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        })()}
+                        <div className="pipeline pd-pipeline">
                             {PIPELINE.map((stage, i) => (
                                 <div className="pipeline-step" key={stage.key}>
                                     <div className={`pipeline-node ${i === pipelineIdx ? 'active' : i < pipelineIdx ? 'completed' : ''}`}>
@@ -1030,7 +1057,7 @@ export default function ProjectDetailPage() {
                         </div>
 
                         {/* Quick Stats */}
-                        <div className="project-quick-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, marginTop: 8 }}>
+                        <div className="project-quick-stats pd-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, marginTop: 8 }}>
                             {[
                                 { v: p.area ? `${p.area}m²` : '—', l: 'Diện tích' }, { v: p.floors ? `${p.floors} tầng` : '—', l: 'Số tầng' },
                                 { v: fmt(p.contractValue || 0), l: 'Giá trị HĐ' }, { v: fmt(p.paidAmount || 0), l: 'Đã thu' },
@@ -1047,7 +1074,7 @@ export default function ProjectDetailPage() {
             </div>
 
             {/* Tabs */}
-            <div className="project-tabs">
+            <div className="project-tabs pd-tabs">
                 {tabs.map(t => (
                     <button key={t.key} className={`project-tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>
                         <span>{t.icon}</span><span className="tab-label">{t.label}</span>

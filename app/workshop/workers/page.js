@@ -83,6 +83,8 @@ export default function WorkersPage() {
     const [monthlyOvertimes, setMonthlyOvertimes] = useState([]);
     const [loadingOT, setLoadingOT] = useState(false);
     const [monthlyAtt, setMonthlyAtt] = useState([]);
+    const [mobileFilter, setMobileFilter] = useState('all'); // mobile: all | todo | done
+    const [quickSavingId, setQuickSavingId] = useState(null);
     const [filterIdle, setFilterIdle] = useState(() => typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('idle') === '1' : false);
     const intervalRef = useRef(null);
 
@@ -297,6 +299,24 @@ export default function WorkersPage() {
         fetchAttendance(selectedDate);
     };
 
+    // Mobile: chạm 1 lần chấm 8h cho 1 thợ
+    const quickAttend = async (w) => {
+        setQuickSavingId(w.id);
+        try {
+            await fetch('/api/workshop/attendance', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ workerId: w.id, date: selectedDate, hoursWorked: 8, notes: '' }),
+            });
+            await fetchAttendance(selectedDate);
+        } finally { setQuickSavingId(null); }
+    };
+
+    const shiftDate = (delta) => {
+        const d = new Date(selectedDate);
+        d.setDate(d.getDate() + delta);
+        setSelectedDate(d.toISOString().split('T')[0]);
+    };
+
     // Chấm công nhanh toàn bộ nhân công đang hoạt động với 8h
     const handleBulkAttend = async () => {
         const active = workers.filter(w => w.status === 'Hoạt động');
@@ -426,6 +446,11 @@ export default function WorkersPage() {
         return !search || w.name.toLowerCase().includes(search.toLowerCase()) || w.skill?.toLowerCase().includes(search.toLowerCase());
     });
 
+    const mobileFiltered = mobileFilter === 'all' ? filtered : filtered.filter(w => {
+        const done = attendance.some(a => a.workerId === w.id);
+        return mobileFilter === 'done' ? done : (!done && w.status === 'Hoạt động');
+    });
+
     const activeCount = workers.filter(w => w.status === 'Hoạt động').length;
     const attendedCount = attendance.length;
     const totalHours = attendance.reduce((s, a) => s + a.hoursWorked, 0);
@@ -476,8 +501,8 @@ export default function WorkersPage() {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* KPI */}
-            {!isXuongNhanVien && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 }}>
-                <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #2563eb' }}>
+            {!isXuongNhanVien && <div className="wk-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 }}>
+                <div className="card wk-kpi" style={{ padding: '16px 20px', borderLeft: '4px solid #2563eb' }}>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>👷 Nhân công hoạt động</div>
                     <div style={{ fontSize: 28, fontWeight: 800, color: '#2563eb' }}>{activeCount}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>/ {workers.length} tổng cộng</div>
@@ -485,26 +510,32 @@ export default function WorkersPage() {
                         <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: '#b45309' }}>⚠ {idleWorkers.length} đang rảnh</div>
                     )}
                 </div>
-                <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #16a34a' }}>
+                <div className="card wk-kpi" style={{ padding: '16px 20px', borderLeft: '4px solid #16a34a' }}>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>✅ Chấm công{isToday ? ' hôm nay' : ''}</div>
                     <div style={{ fontSize: 28, fontWeight: 800, color: '#16a34a' }}>{attendedCount}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{totalHours} giờ làm việc</div>
                 </div>
-                <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #f59e0b' }}>
+                <div className="card wk-kpi" style={{ padding: '16px 20px', borderLeft: '4px solid #f59e0b' }}>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>💵 Chi phí{isToday ? ' hôm nay' : ''}</div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: '#f59e0b' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(totalCost / 1000))}k</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Theo ngày × đơn giá</div>
                 </div>
-                <div className="card" style={{ padding: '16px 20px', borderLeft: '4px solid #8b5cf6' }}>
+                <div className="card wk-kpi" style={{ padding: '16px 20px', borderLeft: '4px solid #8b5cf6' }}>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>📅 Quỹ lương/tháng</div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: '#8b5cf6' }}>{new Intl.NumberFormat('vi-VN').format(Math.round(monthlyPayroll / 1e6))}tr</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>× 26 ngày/tháng</div>
                 </div>
             </div>}
 
-            {/* Idle alert */}
+            {/* Idle alert — điện thoại: 1 dòng gọn, chạm để lọc thợ rảnh */}
             {!isXuongNhanVien && idleWorkers.length > 0 && (
-                <div style={{ padding: '10px 16px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <button className="wk-mobile-only wk-m-idle" onClick={() => setFilterIdle(f => !f)}>
+                    <span>⚠ <b>{idleWorkers.length}</b> thợ đang rảnh việc</span>
+                    <span className="act">{filterIdle ? 'Bỏ lọc' : 'Xem ›'}</span>
+                </button>
+            )}
+            {!isXuongNhanVien && idleWorkers.length > 0 && (
+                <div className="wk-desktop-only" style={{ padding: '10px 16px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 700, color: '#b45309', fontSize: 13, flexShrink: 0 }}>
                         ⚠ {idleWorkers.length} thợ đang rảnh việc
                     </span>
@@ -520,12 +551,12 @@ export default function WorkersPage() {
                 </div>
             )}
 
-            {!isXuongNhanVien && <div className="card">
-                <div className="card-header">
+            {!isXuongNhanVien && <div className="card wk-list-card">
+                <div className="card-header wk-list-head">
                     <h3>Danh sách nhân công</h3>
                     {canEditWorkers && <button className="btn btn-primary" onClick={openAdd}>+ Thêm thợ</button>}
                 </div>
-                <div className="filter-bar" style={{ borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 8 }}>
+                <div className="filter-bar wk-desktop-only" style={{ borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 8 }}>
                     <input className="form-input" placeholder="🔍 Tìm theo tên, tay nghề..."
                         value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
                     <button onClick={() => setFilterIdle(f => !f)}
@@ -563,11 +594,54 @@ export default function WorkersPage() {
                 </div>
 
                 {/* Tiêu đề ngày đang xem */}
-                <div style={{ padding: '8px 16px', background: isToday ? '#eff6ff' : '#fef9c3', borderBottom: '1px solid var(--border-light)', fontSize: 12, color: isToday ? '#1d4ed8' : '#92400e', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div className="wk-desktop-only" style={{ padding: '8px 16px', background: isToday ? '#eff6ff' : '#fef9c3', borderBottom: '1px solid var(--border-light)', fontSize: 12, color: isToday ? '#1d4ed8' : '#92400e', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                     📅 {isToday ? 'Hôm nay — ' : ''}{fmtDateVN(selectedDate)}
                     <span style={{ marginLeft: 'auto', fontWeight: 400, color: 'var(--text-muted)' }}>
                         {attendedCount}/{activeCount} đã chấm · {totalHours}h · {new Intl.NumberFormat('vi-VN').format(Math.round(totalCost / 1000))}k
                     </span>
+                </div>
+
+                {/* Thanh công cụ riêng cho điện thoại */}
+                <div className="wk-mobile-only wk-m-toolbar">
+                    <div className="wk-m-datenav">
+                        <button className="wk-m-navbtn" onClick={() => shiftDate(-1)} aria-label="Ngày trước">‹</button>
+                        <div className={`wk-m-date${isToday ? '' : ' past'}`}>
+                            <span className="lbl">{isToday ? 'Hôm nay' : 'Ngày khác'}</span>
+                            <span className="val">{fmtDateVN(selectedDate)}</span>
+                            <input type="date" value={selectedDate} onChange={e => e.target.value && setSelectedDate(e.target.value)} aria-label="Chọn ngày chấm công" />
+                        </div>
+                        <button className="wk-m-navbtn" onClick={() => shiftDate(1)} aria-label="Ngày sau">›</button>
+                    </div>
+                    {!isToday && (
+                        <button className="btn btn-ghost btn-sm" style={{ color: '#2563eb', fontWeight: 700 }} onClick={() => setSelectedDate(todayStr())}>
+                            ↩ Về hôm nay
+                        </button>
+                    )}
+                    <div className="wk-m-progress">
+                        <div className="row">
+                            <span>Đã chấm <b>{attendedCount}/{activeCount}</b> người</span>
+                            <span>{totalHours}h · {new Intl.NumberFormat('vi-VN').format(Math.round(totalCost / 1000))}k</span>
+                        </div>
+                        <div className="wk-m-bar"><div style={{ width: `${activeCount ? Math.min(100, (attendedCount / activeCount) * 100) : 0}%` }} /></div>
+                    </div>
+                    <div className="wk-m-search">
+                        <input className="form-input" placeholder="🔍 Tìm tên, tay nghề..." value={search} onChange={e => setSearch(e.target.value)} />
+                    </div>
+                    <div className="wk-m-seg">
+                        {[
+                            { k: 'all', label: `Tất cả` },
+                            { k: 'todo', label: `Chưa chấm (${Math.max(0, activeCount - attendedCount)})` },
+                            { k: 'done', label: `Đã chấm (${attendedCount})` },
+                        ].map(o => (
+                            <button key={o.k} className={mobileFilter === o.k ? 'on' : ''} onClick={() => setMobileFilter(o.k)}>{o.label}</button>
+                        ))}
+                        <button className={filterIdle ? 'on idle' : ''} onClick={() => setFilterIdle(f => !f)}>⚡ Rảnh ({idleWorkers.length})</button>
+                    </div>
+                    {canManageAttendance && (
+                        <button className="wk-m-bulk" onClick={handleBulkAttend} disabled={!activeCount}>
+                            ✅ Chấm tất cả 8h ({activeCount} người)
+                        </button>
+                    )}
                 </div>
 
                 {loading ? (
@@ -717,47 +791,75 @@ export default function WorkersPage() {
                     </div>
 
                     {/* Mobile */}
-                    <div className="mobile-card-list">
-                        {filtered.map(w => {
+                    <div className="wk-mobile-only wk-m-list">
+                        {mobileFiltered.map(w => {
                             const rec = attendance.find(a => a.workerId === w.id);
                             const currentTasks = workerTasks[w.id] || [];
+                            const isActive = w.status === 'Hoạt động';
+                            const wOTs = overtimes.filter(o => o.workerId === w.id);
+                            const otHours = wOTs.reduce((s, o) => s + o.hours, 0);
+                            const initials = w.name.trim().split(/\s+/).slice(-2).map(p => p[0]).join('').toUpperCase();
                             return (
-                                <div key={w.id} className="mobile-card-item">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                                        <div>
-                                            <div className="card-title">{w.name}</div>
-                                            <div className="card-subtitle">{w.skill || 'Chưa ghi tay nghề'} · {w.phone || '—'}</div>
+                                <div key={w.id} className={`wk-m-card${!isActive ? ' inactive' : rec ? ' done' : ''}`}>
+                                    <div className="wk-m-head">
+                                        <div className="wk-m-avatar" style={{ background: WORKER_TYPE_BG[w.workerType] || '#dbeafe', color: WORKER_TYPE_COLOR[w.workerType] || '#1d4ed8' }}>{initials}</div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div className="wk-m-name">{w.name}</div>
+                                            <div className="wk-m-sub">
+                                                {w.workerType || 'Thợ chính'}{w.skill ? ` · ${w.skill}` : ''}
+                                                {w.hourlyRate > 0 ? ` · ${new Intl.NumberFormat('vi-VN').format(w.hourlyRate)}đ/ngày` : ''}
+                                            </div>
                                         </div>
-                                        <span style={{ padding: '3px 9px', borderRadius: 20, background: STATUS_BG[w.status], color: STATUS_COLOR[w.status], fontSize: 11, fontWeight: 600, height: 'fit-content' }}>
-                                            {w.status}
-                                        </span>
+                                        {w.phone && <a className="wk-m-icon" href={`tel:${w.phone}`} aria-label={`Gọi ${w.name}`}>📞</a>}
+                                        {canEditWorkers && <button className="wk-m-icon" onClick={() => openEdit(w)} aria-label="Sửa thông tin thợ">✏️</button>}
+                                        {canEditWorkers && <button className="wk-m-icon" onClick={() => setDeleteTarget(w)} aria-label="Xóa thợ">🗑️</button>}
                                     </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 8 }}>
-                                        <span style={{ color: 'var(--text-muted)' }}>{w.hourlyRate > 0 ? `${new Intl.NumberFormat('vi-VN').format(w.hourlyRate)}đ/ngày` : 'Chưa có đơn giá'}</span>
-                                        {rec
-                                            ? <span style={{ color: '#15803d', fontWeight: 600 }}>✓ {rec.hoursWorked}h · {new Intl.NumberFormat('vi-VN').format((rec.hoursWorked / 8) * (rec.worker?.hourlyRate || w.hourlyRate))}đ</span>
-                                            : <span style={{ color: '#dc2626' }}>Chưa chấm công</span>}
+                                    <div className="wk-m-chips">
+                                        {!isActive ? (
+                                            <span className="wk-m-chip" style={{ background: STATUS_BG[w.status], color: STATUS_COLOR[w.status] }}>{w.status}</span>
+                                        ) : rec ? (
+                                            <span className="wk-m-chip" style={{ background: '#dcfce7', color: '#15803d' }}>
+                                                ✓ {rec.hoursWorked}h · {new Intl.NumberFormat('vi-VN').format((rec.hoursWorked / 8) * (rec.worker?.hourlyRate || w.hourlyRate))}đ
+                                            </span>
+                                        ) : (
+                                            <span className="wk-m-chip" style={{ background: '#fee2e2', color: '#dc2626' }}>Chưa chấm công</span>
+                                        )}
+                                        {rec?.mealsCount > 0 && <span className="wk-m-chip" style={{ background: '#fef3c7', color: '#92400e' }}>🍚 {rec.mealsCount}</span>}
+                                        {otHours > 0 && <span className="wk-m-chip" style={{ background: '#fef3c7', color: '#d97706' }}>⏰ +{otHours}h OT</span>}
                                     </div>
-                                    {currentTasks.length > 0 && (
-                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
-                                            Đang làm: {currentTasks.map(t => t.title).join(', ')}
+                                    {isActive && (
+                                        <div className="wk-m-tasks" onClick={() => openCurrentWork(w)}>
+                                            {currentTasks.length > 0
+                                                ? <>🔨 {currentTasks.map(t => t.title).join(', ')}</>
+                                                : <span style={{ color: '#b45309', fontWeight: 600 }}>⚡ Đang rảnh — chạm để giao việc</span>}
                                         </div>
                                     )}
-                                    <div style={{ display: 'flex', gap: 6 }}>
-                                        {canManageAttendance && w.status === 'Hoạt động' && <button className="btn btn-sm" onClick={() => openAttend(w)}>{rec ? '✓ Sửa' : '+ Chấm công'}</button>}
-                                        {canEditWorkers && <button className="btn btn-ghost btn-sm" onClick={() => openEdit(w)}>✏️</button>}
-                                        {canEditWorkers && <button className="btn btn-ghost btn-sm" onClick={() => setDeleteTarget(w)} style={{ color: 'var(--status-danger)' }}>🗑️</button>}
-                                    </div>
+                                    {canManageAttendance && isActive && (
+                                        <div className="wk-m-actions">
+                                            {rec ? (
+                                                <button className="edit" onClick={() => openAttend(w)}>✓ Sửa chấm công</button>
+                                            ) : (
+                                                <>
+                                                    <button className="main" onClick={() => quickAttend(w)} disabled={quickSavingId === w.id}>
+                                                        {quickSavingId === w.id ? 'Đang lưu...' : '✓ Chấm 8h'}
+                                                    </button>
+                                                    <button className="more" onClick={() => openAttend(w)}>Giờ khác</button>
+                                                </>
+                                            )}
+                                            <button className="ot" onClick={() => openOvertime(w)}>⏰ OT</button>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
+                        {mobileFiltered.length === 0 && <div className="wk-m-empty">{mobileFilter === 'todo' ? '🎉 Đã chấm công hết' : 'Không có nhân công nào'}</div>}
                     </div>
                     </>
                 )}
             </div>}
 
             {/* Nút toggle */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div className="wk-toggle-row" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
                     className={`btn btn-sm ${showSummary ? 'btn-primary' : 'btn-ghost'}`}
                     style={{ fontWeight: 600 }}

@@ -56,6 +56,7 @@ export default function CustomersPage() {
     const [filterSource, setFilterSource] = useState('');
     const [filterStage, setFilterStage] = useState('');
     const [view, setView] = useState('kanban');
+    const [mobileDept, setMobileDept] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [showXDBoard, setShowXDBoard] = useState(false);
     const [openTKBoards, setOpenTKBoards] = useState(() => new Set());
@@ -115,6 +116,19 @@ export default function CustomersPage() {
     const filteredTKAll = applyFilter(customersTK);
     const filteredTK = filteredTKAll.filter(c => !isTKKTStage(c.pipelineStage));
     const filteredTKKT = filteredTKAll.filter(c => isTKKTStage(c.pipelineStage));
+
+    // Mobile: tab lọc khách theo phòng (Kinh doanh / Xây dựng / Thiết kế)
+    const pipelineStageOf = (c) => PIPELINE.find(p => p.key === (c.pipelineStage || 'Tư vấn')) || PIPELINE[0];
+    const tkStageOf = (c) => {
+        const raw = (c.pipelineStage || 'Ưu tiên').replace(TKKT_PREFIX, '');
+        const key = TK_STAGE_MAP[raw] || raw;
+        return PIPELINE_TK.find(p => p.key === key) || PIPELINE_TK[0];
+    };
+    const mobileDeptTabs = [
+        !isThietKe && { key: 'kd', label: '💼 Kinh doanh', list: filtered, stageOf: pipelineStageOf },
+        !isThietKe && canSeeXD && { key: 'xd', label: '🏗️ Xây dựng', list: filteredXD, stageOf: pipelineStageOf },
+        canSeeTK && { key: 'tk', label: '✏️ Thiết kế', list: filteredTKAll, stageOf: tkStageOf },
+    ].filter(Boolean);
 
     const handleSubmit = async () => {
         if (!form.name.trim()) return alert('Vui lòng nhập tên khách hàng');
@@ -198,6 +212,16 @@ export default function CustomersPage() {
                             {SOURCES.map(s => <option key={s}>{s}</option>)}
                         </select>
                     </div>
+                    {/* Mobile: tab chọn phòng */}
+                    {mobileDeptTabs.length > 1 && (
+                        <div className="cus-dept-tabs">
+                            {mobileDeptTabs.map(t => (
+                                <button key={t.key} className={(mobileDept || mobileDeptTabs[0].key) === t.key ? 'on' : ''} onClick={() => setMobileDept(t.key)}>
+                                    {t.label} <span className="n">{t.list.length}</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                     {/* Row 2: View toggle (desktop only) + Add button */}
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         <div className="desktop-table-view" style={{ background: 'var(--bg-secondary)', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-light)' }}>
@@ -424,73 +448,47 @@ export default function CustomersPage() {
                     </div>
                     )}
 
-                    {/* Mobile card list - always rendered, CSS shows only on mobile */}
+                    {/* Mobile card list — lọc theo phòng bằng tab ở thanh công cụ */}
                     <div className="mobile-card-list">
-                        {sortByPriority(filtered).map(c => {
-                            const stage = PIPELINE.find(p => p.key === (c.pipelineStage || 'Khách nội thất')) || PIPELINE[0];
-                            return (
-                                <div key={c.id} className="mobile-card-item" onClick={() => router.push(`/customers/${c.id}`)} style={c.isPriority ? { background: '#fffbea', borderLeft: '3px solid #f5c518' } : undefined}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <span onClick={e => togglePriority(e, c)} title={c.isPriority ? 'Bỏ ưu tiên' : 'Đánh dấu ưu tiên'} style={{ cursor: 'pointer', flexShrink: 0, filter: c.isPriority ? 'none' : 'grayscale(1) opacity(.4)' }}>⭐</span>
-                                            <div style={{ minWidth: 0 }}>
-                                                <div className="card-title" style={{ overflowWrap: 'break-word' }}>{c.name}</div>
-                                                <div className="card-subtitle">{c.code} · {c.phone}</div>
+                        {(() => {
+                            const tab = mobileDeptTabs.find(t => t.key === mobileDept) || mobileDeptTabs[0];
+                            if (!tab) return null;
+                            const list = sortByPriority(tab.list);
+                            if (list.length === 0) return <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Không có khách hàng</div>;
+                            return list.map(c => {
+                                const stage = tab.stageOf(c);
+                                const canStar = !(tab.key === 'tk' && isTKReadOnly);
+                                const meta = [c.salesPerson && '👤 ' + c.salesPerson, c.source].filter(Boolean).join(' · ');
+                                return (
+                                    <div key={c.id} className="mobile-card-item" onClick={() => router.push(`/customers/${c.id}`)} style={c.isPriority ? { background: '#fffbea', borderLeft: '3px solid #f5c518' } : undefined}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                                            <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                <span onClick={canStar ? e => togglePriority(e, c) : e => e.stopPropagation()} title={c.isPriority ? 'Bỏ ưu tiên' : 'Đánh dấu ưu tiên'} style={{ cursor: canStar ? 'pointer' : 'default', flexShrink: 0, filter: c.isPriority ? 'none' : 'grayscale(1) opacity(.4)' }}>⭐</span>
+                                                <div style={{ minWidth: 0 }}>
+                                                    <div className="card-title" style={{ overflowWrap: 'break-word' }}>{c.name}</div>
+                                                    <div className="card-subtitle">{c.code} · {c.phone}</div>
+                                                </div>
                                             </div>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: stage.bg, color: stage.color, flexShrink: 0 }}>
+                                                <span style={{ width: 5, height: 5, borderRadius: '50%', background: stage.color }} />{stage.label}
+                                            </span>
                                         </div>
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: stage.bg, color: stage.color, flexShrink: 0 }}>
-                                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: stage.color }} />{stage.label}
-                                        </span>
+                                        {(c.estimatedValue > 0 || c.totalRevenue > 0 || meta) && (
+                                            <div className="card-row" style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-light)', fontSize: 12 }}>
+                                                <span style={{ color: 'var(--text-muted)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta}</span>
+                                                <div style={{ display: 'flex', gap: 12, marginLeft: 'auto', flexShrink: 0 }}>
+                                                    {c.estimatedValue > 0 && <span style={{ fontWeight: 600, color: 'var(--text-accent)' }}>{fmtShort(c.estimatedValue)}</span>}
+                                                    {c.totalRevenue > 0 && <span style={{ fontWeight: 600, color: 'var(--status-success)' }}>{fmtShort(c.totalRevenue)}</span>}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                    {(c.estimatedValue > 0 || c.totalRevenue > 0 || c.source) && (
-                                        <div className="card-row" style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-light)', fontSize: 12 }}>
-                                            {c.source && <span style={{ color: 'var(--text-muted)' }}>{c.source}</span>}
-                                            <div style={{ display: 'flex', gap: 12, marginLeft: 'auto' }}>
-                                                {c.estimatedValue > 0 && <span style={{ fontWeight: 600, color: 'var(--text-accent)' }}>{fmtShort(c.estimatedValue)}</span>}
-                                                {c.totalRevenue > 0 && <span style={{ fontWeight: 600, color: 'var(--status-success)' }}>{fmtShort(c.totalRevenue)}</span>}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
+                                );
+                            });
+                        })()}
                     </div>
 
-                    {!isThietKe && filtered.length === 0 && filteredXD.length === 0 && <div style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Không có dữ liệu</div>}
-
-                    {/* XD customers - mobile only, shown when canSeeXD */}
-                    {canSeeXD && filteredXD.length > 0 && (
-                    <div className="mobile-card-list">
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#2980b9', padding: '8px 4px 4px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                            🏗️ Khách Phòng Xây Dựng ({filteredXD.length})
-                        </div>
-                        {filteredXD.map(c => {
-                            const stage = PIPELINE.find(p => p.key === (c.pipelineStage || 'Tư vấn')) || PIPELINE[0];
-                            return (
-                                <div key={c.id} className="mobile-card-item" onClick={() => router.push(`/customers/${c.id}`)}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div className="card-title" style={{ overflowWrap: 'break-word' }}>{c.name}</div>
-                                            <div className="card-subtitle">{c.code} · {c.phone}</div>
-                                        </div>
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: stage.bg, color: stage.color, flexShrink: 0 }}>
-                                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: stage.color }} />{stage.label}
-                                        </span>
-                                    </div>
-                                    {(c.estimatedValue > 0 || c.totalRevenue > 0 || c.source) && (
-                                        <div className="card-row" style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-light)', fontSize: 12 }}>
-                                            {c.source && <span style={{ color: 'var(--text-muted)' }}>{c.source}</span>}
-                                            <div style={{ display: 'flex', gap: 12, marginLeft: 'auto' }}>
-                                                {c.estimatedValue > 0 && <span style={{ fontWeight: 600, color: 'var(--text-accent)' }}>{fmtShort(c.estimatedValue)}</span>}
-                                                {c.totalRevenue > 0 && <span style={{ fontWeight: 600, color: 'var(--status-success)' }}>{fmtShort(c.totalRevenue)}</span>}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                    )}
+                    {!isThietKe && filtered.length === 0 && filteredXD.length === 0 && <div className="desktop-table-view" style={{ color: 'var(--text-muted)', padding: 24, textAlign: 'center' }}>Không có dữ liệu</div>}
                 </div>
             </>)}
 
