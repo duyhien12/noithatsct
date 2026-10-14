@@ -122,6 +122,15 @@
     box-shadow: var(--shadow-xs); border: 1px solid transparent;
 }
 .bar:hover { box-shadow: var(--shadow-m); }
+.bar { cursor: grab; touch-action: none; user-select: none; }
+.barDragging { cursor: grabbing; z-index: 3; box-shadow: var(--shadow-m); opacity: 0.85; }
+.handle { position: absolute; top: 0; bottom: 0; width: 8px; cursor: ew-resize; z-index: 1; }
+.handleStart { left: 0; }
+.handleEnd { right: 0; }
+.bar:hover .handle::after {
+    content: ''; position: absolute; top: 5px; bottom: 5px; left: 3px; width: 2px;
+    border-radius: 1px; background: currentColor; opacity: 0.5;
+}
 .barLabel { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; }
 
 .barTodo  { background: var(--color-neutral-br); color: var(--color-text-secondary); }

@@ -22,6 +22,8 @@ const ROW_H = 44;
 const GROUP_H = 56; // đủ chỗ cho tên công trình dài xuống 2 dòng
 const BAR_H = 24;
 const SOON_DAYS = 3; // "Sắp đến hạn" = hạn trong 3 ngày tới
+const DRAG_PX = 4; // kéo dưới ngưỡng này coi như bấm (mở form sửa)
+const HANDLE_MIN_W = 28; // thanh hẹp hơn thì chỉ kéo di chuyển, không co giãn
 
 const VIEWS = [
     { key: 'day', label: 'Ngày' },
@@ -36,6 +38,16 @@ const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); r
 const diffDays = (a, b) => Math.round((startOfDay(b) - startOfDay(a)) / DAY_MS);
 const fmtDM = (d) => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
 const toInput = (d) => { const x = new Date(d); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; };
+
+// Ngày mới khi kéo: move = dời cả thanh, start/end = kéo mép trái/phải để co giãn
+function draggedRange(p, mode, delta) {
+    let st = startOfDay(p.startDate);
+    let en = startOfDay(p.endDate);
+    if (mode === 'move') { st = addDays(st, delta); en = addDays(en, delta); }
+    if (mode === 'start') st = addDays(st, Math.min(delta, diffDays(st, en)));
+    if (mode === 'end') en = addDays(en, Math.max(delta, -diffDays(st, en)));
+    return { startDate: st, endDate: en };
+}
 
 // Trạng thái hiển thị: done | late | doing | todo
 function visualState(p, today) {
@@ -123,6 +135,8 @@ export default function WorkshopPlanPage() {
     const [form, setForm] = useState(null);
     const [saving, setSaving] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
+    const [drag, setDrag] = useState(null); // { id, mode, x0, delta, moved }
+    const dragRef = useRef(null);
     const scrollRef = useRef(null);
     const [fitW, setFitW] = useState(0);
     // useToast() không có provider sẽ trả object mới mỗi lần render — giữ qua ref
@@ -196,10 +210,10 @@ export default function WorkshopPlanPage() {
         const out = [];
         groups.forEach(g => {
             out.push({ type: 'group', group: g });
-            if (!collapsed.has(g.id)) g.items.forEach(p => out.push({ type: 'item', plan: p, bar: barOf(p) }));
+            if (!collapsed.has(g.id)) g.items.forEach(p => out.push({ type: 'item', plan: p }));
         });
         return out;
-    }, [groups, collapsed, barOf]);
+    }, [groups, collapsed]);
 
     const bodyH = rows.reduce((h, r) => h + (r.type === 'group' ? GROUP_H : ROW_H), 0);
 
@@ -317,6 +331,51 @@ export default function WorkshopPlanPage() {
             setSaving(false);
         }
     };
+
+    // ---------- Kéo thả thanh Gantt ----------
+    const onBarPointerDown = (e, p) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.currentTarget.setPointerCapture(e.pointerId);
+        const d = { id: p.id, mode: e.target.dataset.handle || 'move', x0: e.clientX, delta: 0, moved: false };
+        dragRef.current = d;
+        setDrag(d);
+    };
+    const onBarPointerMove = (e) => {
+        const d = dragRef.current;
+        if (!d) return;
+        const dx = e.clientX - d.x0;
+        if (!d.moved && Math.abs(dx) < DRAG_PX) return;
+        const delta = Math.round(dx / scale.pxPerDay);
+        if (d.moved && delta === d.delta) return;
+        dragRef.current = { ...d, moved: true, delta };
+        setDrag(dragRef.current);
+    };
+    const onBarPointerUp = async (p) => {
+        const d = dragRef.current;
+        dragRef.current = null;
+        setDrag(null);
+        if (!d) return;
+        if (!d.moved) { openEdit(p); return; }
+        if (!d.delta) return;
+        const { startDate, endDate } = draggedRange(p, d.mode, d.delta);
+        const body = { startDate: toInput(startDate), endDate: toInput(endDate) };
+        // Cập nhật ngay trên giao diện (ngày lưu dạng UTC 0h như server trả về), lỗi thì tải lại
+        setPlans(prev => prev.map(x => (x.id === p.id
+            ? { ...x, startDate: `${body.startDate}T00:00:00.000Z`, endDate: `${body.endDate}T00:00:00.000Z` }
+            : x)));
+        try {
+            const res = await fetch(`/api/workshop/install-plans/${p.id}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+            });
+            if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || 'Dời lịch không thành công');
+            toast.success(`${fmtDM(startDate)} - ${fmtDM(endDate)}`, d.mode === 'move' ? 'Đã dời kế hoạch' : 'Đã đổi thời gian');
+        } catch (err) {
+            toast.error(err.message);
+        }
+        fetchData(true);
+    };
+    const onBarPointerCancel = () => { dragRef.current = null; setDrag(null); };
 
     const remove = async () => {
         if (!confirmDelete) { setConfirmDelete(true); return; }
@@ -475,8 +534,11 @@ export default function WorkshopPlanPage() {
                                         );
                                     }
                                     const p = r.plan;
-                                    const st = new Date(p.startDate);
-                                    const en = new Date(p.endDate);
+                                    const dragging = drag?.id === p.id && drag.moved;
+                                    const pv = dragging ? { ...p, ...draggedRange(p, drag.mode, drag.delta) } : p;
+                                    const bar = barOf(pv);
+                                    const st = new Date(pv.startDate);
+                                    const en = new Date(pv.endDate);
                                     const range = `${fmtDM(st)} - ${fmtDM(en)}`;
                                     const lateDays = p.state === 'late' ? diffDays(en, today) : 0;
                                     const tip = `${p.name}\n${range}\nSố người: ${p.workerCount}\n${p.status}${lateDays ? ` · trễ ${lateDays} ngày` : ''}${p.notes ? `\n${p.notes}` : ''}`;
@@ -493,12 +555,20 @@ export default function WorkshopPlanPage() {
                                             </div>
                                             <div className={s.right} style={{ width: scale.width }}>
                                                 <div
-                                                    className={`${s.bar} ${BAR_CLASS[p.state]}`}
-                                                    style={{ left: r.bar.x + 1, width: Math.max(r.bar.w - 2, 4), top: (ROW_H - BAR_H) / 2, height: BAR_H }}
-                                                    title={tip}
-                                                    onClick={() => openEdit(p)}
+                                                    className={`${s.bar} ${BAR_CLASS[p.state]} ${dragging ? s.barDragging : ''}`}
+                                                    style={{ left: bar.x + 1, width: Math.max(bar.w - 2, 4), top: (ROW_H - BAR_H) / 2, height: BAR_H }}
+                                                    title={drag ? undefined : `${tip}
+(Kéo để dời lịch, kéo mép để đổi ngày)`}
+                                                    onPointerDown={e => onBarPointerDown(e, p)}
+                                                    onPointerMove={onBarPointerMove}
+                                                    onPointerUp={() => onBarPointerUp(p)}
+                                                    onPointerCancel={onBarPointerCancel}
                                                 >
-                                                    {r.bar.w >= 84 && (
+                                                    {bar.w >= HANDLE_MIN_W && <>
+                                                        <span className={`${s.handle} ${s.handleStart}`} data-handle="start" aria-hidden="true" />
+                                                        <span className={`${s.handle} ${s.handleEnd}`} data-handle="end" aria-hidden="true" />
+                                                    </>}
+                                                    {bar.w >= 84 && (
                                                         <span className={s.barLabel}>
                                                             {range}
                                                             {p.state === 'done' && <Check size={14} strokeWidth={3} aria-hidden="true" />}
@@ -532,7 +602,7 @@ export default function WorkshopPlanPage() {
                     <span><i style={{ background: 'var(--color-info)' }} />Đang thực hiện</span>
                     <span><i style={{ background: 'var(--color-success)' }} />Hoàn thành</span>
                     <span><i style={{ background: 'var(--color-danger)', opacity: 0.6 }} />Quá hạn</span>
-                    <span className={s.legendNote}>Bấm vào công việc để sửa</span>
+                    <span className={s.legendNote}>Bấm vào công việc để sửa · kéo thanh để dời lịch, kéo mép để đổi ngày</span>
                 </div>
             </div>
 
