@@ -52,7 +52,12 @@ const COLUMNS = [
     { key: 'Đang thực hiện', label: 'ĐANG LÀM', fullLabel: 'VIỆC ĐANG LÀM', color: '#2563eb', bg: '#eff6ff' },
     { key: 'Hoàn thành',     label: 'HOÀN THÀNH', fullLabel: 'HOÀN THÀNH',   color: '#16a34a', bg: '#f0fdf4' },
     { key: 'Đã hủy',         label: 'ĐÃ HỦY',   fullLabel: 'VIỆC HỦY',      color: '#dc2626', bg: '#fef2f2' },
+    { key: 'Tác vụ mẫu',     label: 'MẪU',      fullLabel: 'TÁC VỤ MẪU',    color: '#0d9488', bg: '#f0fdfa' },
 ];
+
+// Cột mẫu: kéo mẫu ra cột khác → tạo bản sao, mẫu giữ nguyên; kéo việc vào cột mẫu → lưu bản sao thành mẫu
+const TEMPLATE_STATUS = 'Tác vụ mẫu';
+const isCloneMove = (fromStatus, toStatus) => (fromStatus === TEMPLATE_STATUS) !== (toStatus === TEMPLATE_STATUS);
 
 const PRIORITIES = ['Cao', 'Trung bình', 'Thấp'];
 
@@ -138,7 +143,9 @@ export default function TasksPage() {
     }, [tasks]);
 
     const updateStatus = async (taskId, newStatus) => {
-        const prev = tasks.find(t => t.id === taskId)?.status;
+        const current = tasks.find(t => t.id === taskId);
+        if (current && isCloneMove(current.status, newStatus)) { reorderTask(current, newStatus, null, false); return; }
+        const prev = current?.status;
         setTasks(t => t.map(x => x.id === taskId ? { ...x, status: newStatus } : x));
         const res = await fetch(`/api/tasks/${taskId}`, {
             method: 'PATCH',
@@ -187,12 +194,26 @@ export default function TasksPage() {
         .filter(t => t.status === colKey)
         .sort((a, b) => (a.order - b.order) || (new Date(b.createdAt) - new Date(a.createdAt)));
 
-    const onDragStart = (e, task) => { dragTask.current = task; setDragging(task.id); e.dataTransfer.effectAllowed = 'move'; };
+    const onDragStart = (e, task) => { dragTask.current = task; setDragging(task.id); e.dataTransfer.effectAllowed = 'copyMove'; };
     const onDragEnd = () => { setDragging(null); setDragOver(null); setDragOverInfo(null); dragTask.current = null; };
-    const onDragOver = (e, colKey) => { e.preventDefault(); setDragOver(colKey); };
+    const onDragOver = (e, colKey) => {
+        e.preventDefault();
+        if (dragTask.current) e.dataTransfer.dropEffect = isCloneMove(dragTask.current.status, colKey) ? 'copy' : 'move';
+        setDragOver(colKey);
+    };
 
     // Kéo thả để đổi thứ tự (và/hoặc đổi cột). targetTaskId=null nghĩa là thả vào cuối cột.
-    const reorderTask = (dragged, targetColKey, targetTaskId, insertBefore) => {
+    const reorderTask = async (dragged, targetColKey, targetTaskId, insertBefore) => {
+        if (isCloneMove(dragged.status, targetColKey)) {
+            const res = await fetch(`/api/tasks/${dragged.id}/clone`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: targetColKey }),
+            });
+            if (!res.ok) { alert('Lỗi tạo bản sao từ mẫu, vui lòng thử lại.'); return; }
+            const clone = await res.json();
+            setTasks(prev => [clone, ...prev]);
+            dragged = clone;
+        }
         const colTasks = tasks
             .filter(t => t.status === targetColKey && t.id !== dragged.id)
             .sort((a, b) => (a.order - b.order) || (new Date(b.createdAt) - new Date(a.createdAt)));
@@ -445,7 +466,11 @@ export default function TasksPage() {
                     columns={COLUMNS}
                     priorities={PRIORITIES}
                     currentUserName={currentUserName}
-                    onClose={() => setEditingTask(null)}
+                    onClose={(subTasks) => {
+                        // Tác vụ con đã lưu ngay khi thêm → cập nhật lại thẻ trên bảng
+                        if (subTasks) setTasks(prev => prev.map(t => t.id === editingTask.id ? { ...t, subTasks } : t));
+                        setEditingTask(null);
+                    }}
                     onSave={handleTaskSaved}
                     onDelete={(taskId) => { deleteTask(taskId); setEditingTask(null); }}
                     isMobile={isMobile}
@@ -457,15 +482,42 @@ export default function TasksPage() {
 
 function TaskCard({ task, col, dragging, dropIndicator, columns, onDragStart, onDragEnd, onCardDragOver, onCardDrop, onStatusChange, onDelete, onEdit, isMobile }) {
     const [showMenu, setShowMenu] = useState(false);
+    const [menuPos, setMenuPos] = useState(null);
     const menuRef = useRef(null);
     const isDraggingRef = useRef(false);
 
     useEffect(() => {
         if (!showMenu) return;
         const h = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false); };
+        // Menu desktop dùng position: fixed → cuộn trang/cột thì đóng lại cho khỏi lệch
+        const close = (e) => { if (!menuRef.current?.contains(e.target)) setShowMenu(false); };
         document.addEventListener('mousedown', h);
-        return () => document.removeEventListener('mousedown', h);
+        window.addEventListener('scroll', close, true);
+        window.addEventListener('resize', close);
+        return () => {
+            document.removeEventListener('mousedown', h);
+            window.removeEventListener('scroll', close, true);
+            window.removeEventListener('resize', close);
+        };
     }, [showMenu]);
+
+    // Mẫu thì không cần chọn lại cột Mẫu
+    const menuColumns = task.status === TEMPLATE_STATUS ? columns.filter(c => c.key !== TEMPLATE_STATUS) : columns;
+
+    // Menu desktop nằm trong cột có overflow → bị cắt; tính vị trí fixed theo nút, mở lên trên nếu đủ chỗ, không thì mở xuống
+    const toggleDesktopMenu = (e) => {
+        e.stopPropagation();
+        if (showMenu) { setShowMenu(false); return; }
+        const rect = e.currentTarget.getBoundingClientRect();
+        const menuHeight = menuColumns.length * 34 + 4;
+        const openUp = rect.top >= menuHeight + 8 || rect.top > window.innerHeight - rect.bottom;
+        setMenuPos({
+            left: rect.left, width: rect.width,
+            ...(openUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+            maxHeight: (openUp ? rect.top : window.innerHeight - rect.bottom) - 12,
+        });
+        setShowMenu(true);
+    };
 
     const priorityColor = task.priority === 'Cao' ? '#dc2626' : task.priority === 'Thấp' ? '#6b7280' : '#d97706';
     const subTasks = task.subTasks || [];
@@ -558,11 +610,11 @@ function TaskCard({ task, col, dragging, dropIndicator, columns, onDragStart, on
                             onClick={e => { e.stopPropagation(); setShowMenu(v => !v); }}
                             style={{ background: col.bg, border: `1px solid ${col.color}44`, borderRadius: 6, padding: '5px 10px', fontSize: 11, color: col.color, cursor: 'pointer', fontWeight: 600 }}
                         >
-                            Chuyển ▾
+                            {task.status === TEMPLATE_STATUS ? 'Dùng mẫu ▾' : 'Chuyển ▾'}
                         </button>
                         {showMenu && (
                             <div style={{ position: 'absolute', right: 0, bottom: '110%', background: '#fff', border: '1px solid var(--border-color)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.15)', zIndex: 200, minWidth: 160, overflow: 'hidden' }}>
-                                {columns.map(c => (
+                                {menuColumns.map(c => (
                                     <button key={c.key} onClick={e => { e.stopPropagation(); onStatusChange(task.id, c.key); setShowMenu(false); }}
                                         style={{ display: 'block', width: '100%', padding: '10px 14px', textAlign: 'left', background: c.key === task.status ? c.bg : 'transparent', border: 'none', borderBottom: '1px solid var(--border-color)', cursor: 'pointer', fontSize: 13, fontWeight: c.key === task.status ? 700 : 400, color: c.color }}>
                                         {c.fullLabel}
@@ -578,14 +630,14 @@ function TaskCard({ task, col, dragging, dropIndicator, columns, onDragStart, on
                 <div data-no-open style={{ marginTop: 8, position: 'relative' }} ref={menuRef}>
                     <button
                         data-no-open
-                        onClick={e => { e.stopPropagation(); setShowMenu(v => !v); }}
+                        onClick={toggleDesktopMenu}
                         style={{ background: col.bg || '#f3f4f6', border: `1px solid ${col.color}44`, borderRadius: 5, padding: '3px 10px', fontSize: 11, color: col.color, cursor: 'pointer', fontWeight: 600, width: '100%' }}
                     >
-                        Chuyển cột ▾
+                        {task.status === TEMPLATE_STATUS ? 'Dùng mẫu ▾' : 'Chuyển cột ▾'}
                     </button>
-                    {showMenu && (
-                        <div style={{ position: 'absolute', bottom: '110%', left: 0, right: 0, background: '#fff', border: '1px solid var(--border-color)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.13)', zIndex: 100, overflow: 'hidden' }}>
-                            {columns.map(c => (
+                    {showMenu && menuPos && (
+                        <div style={{ position: 'fixed', ...menuPos, background: '#fff', border: '1px solid var(--border-color)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.13)', zIndex: 1100, overflowY: 'auto' }}>
+                            {menuColumns.map(c => (
                                 <button key={c.key} onClick={e => { e.stopPropagation(); onStatusChange(task.id, c.key); setShowMenu(false); }}
                                     style={{ display: 'block', width: '100%', padding: '8px 12px', textAlign: 'left', background: c.key === task.status ? c.bg : 'transparent', border: 'none', borderBottom: '1px solid var(--border-color)', cursor: 'pointer', fontSize: 12, fontWeight: c.key === task.status ? 700 : 400, color: c.color }}>
                                     {c.fullLabel}
@@ -626,6 +678,89 @@ function fmtCommentTime(d) {
     return dt.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+const mapSubTaskTree = (list, id, fn) => list.map(s => s.id === id ? fn(s)
+    : (s.subTasks?.length ? { ...s, subTasks: mapSubTaskTree(s.subTasks, id, fn) } : s));
+const removeFromSubTaskTree = (list, id) => list.filter(s => s.id !== id)
+    .map(s => (s.subTasks?.length ? { ...s, subTasks: removeFromSubTaskTree(s.subTasks, id) } : s));
+
+const SUBTASK_MAX_DEPTH = 2; // tác vụ con → tác vụ con của tác vụ con (khớp SUBTASK_INCLUDE ở API)
+
+function SubTaskItem({ sub, depth, onToggle, onDelete, onTitle, onDueDate, onAddChild }) {
+    const [addingChild, setAddingChild] = useState(false);
+    const [childTitle, setChildTitle] = useState('');
+    const cancelChildRef = useRef(false);
+    const children = sub.subTasks || [];
+    const childDone = children.filter(c => c.status === 'Hoàn thành').length;
+    const canNest = depth < SUBTASK_MAX_DEPTH;
+    const done = sub.status === 'Hoàn thành';
+
+    const submitChild = (keepOpen) => {
+        if (cancelChildRef.current) { cancelChildRef.current = false; return; }
+        const title = childTitle.trim();
+        if (title) { onAddChild(sub.id, title); setChildTitle(''); }
+        if (!keepOpen) setAddingChild(false);
+    };
+
+    return (
+        <div style={{ padding: '6px 10px', borderRadius: 8, background: depth > 1 ? '#fff' : '#f9fafb', border: '1px solid #e5e7eb' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <input type="checkbox" checked={done} onChange={() => onToggle(sub)}
+                    style={{ cursor: 'pointer', width: 16, height: 16, flexShrink: 0, accentColor: '#16a34a', marginTop: 5 }} />
+                <textarea
+                    defaultValue={sub.title}
+                    key={sub.id + ':' + sub.title}
+                    rows={1}
+                    ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
+                    onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
+                    onBlur={e => { if (!e.target.value.trim()) e.target.value = sub.title; onTitle(sub, e.target.value); }}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
+                    style={{
+                        flex: 1, minWidth: 0, fontSize: 13, border: 'none', background: 'transparent', padding: '2px 4px', borderRadius: 4,
+                        color: done ? '#9ca3af' : 'var(--text-primary)',
+                        textDecoration: done ? 'line-through' : 'none',
+                        resize: 'none', overflow: 'hidden', fontFamily: 'inherit', lineHeight: 1.4, wordBreak: 'break-word',
+                    }}
+                />
+                <button onClick={() => onDelete(sub)} title="Xóa" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 18, lineHeight: 1, padding: '0 4px', flexShrink: 0, marginTop: 3 }}>×</button>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                {children.length > 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>✓ {childDone}/{children.length}</span>}
+                {canNest && !addingChild && (
+                    <button type="button" onClick={() => { cancelChildRef.current = false; setAddingChild(true); }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: 11, padding: '2px 4px' }}>
+                        + Tác vụ con
+                    </button>
+                )}
+                <input
+                    type="date"
+                    value={fmtDateInput(sub.dueDate)}
+                    onChange={e => onDueDate(sub, e.target.value)}
+                    title="Hạn hoàn thành"
+                    style={{ fontSize: 11, border: '1px solid #e5e7eb', borderRadius: 4, padding: '2px 4px', color: sub.dueDate ? (new Date(sub.dueDate) < new Date() && !done ? '#dc2626' : '#6b7280') : '#9ca3af', background: 'transparent', cursor: 'pointer', width: 120 }}
+                />
+            </div>
+            {(children.length > 0 || addingChild) && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, marginLeft: 12, paddingLeft: 10, borderLeft: '2px solid #e5e7eb' }}>
+                    {children.map(child => (
+                        <SubTaskItem key={child.id} sub={child} depth={depth + 1}
+                            onToggle={onToggle} onDelete={onDelete} onTitle={onTitle} onDueDate={onDueDate} onAddChild={onAddChild} />
+                    ))}
+                    {addingChild && (
+                        <input className="form-input" autoFocus value={childTitle} onChange={e => setChildTitle(e.target.value)}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter') { e.preventDefault(); submitChild(true); }
+                                if (e.key === 'Escape') { e.stopPropagation(); cancelChildRef.current = true; setChildTitle(''); setAddingChild(false); }
+                            }}
+                            onBlur={() => submitChild(false)}
+                            placeholder="Tác vụ con của tác vụ con... (Enter để thêm)"
+                            style={{ fontSize: 12 }} />
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function TaskDetailModal({ task, users, columns, priorities, currentUserName, onClose, onSave, onDelete, isMobile }) {
     const [form, setForm] = useState({
         title: task.title || '',
@@ -642,9 +777,12 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
     const [subTasks, setSubTasks] = useState(task.subTasks || []);
     const [newSubTask, setNewSubTask] = useState('');
     const [saving, setSaving] = useState(false);
-    const [addingSubTask, setAddingSubTask] = useState(false);
     const [error, setError] = useState('');
     const newSubRef = useRef(null);
+    // Bản đồng bộ của cây tác vụ con + các request tạo đang chạy, để lúc đóng modal lấy được dữ liệu mới nhất
+    const subTasksRef = useRef(subTasks);
+    const pendingRef = useRef(new Set());
+    const commitSubTasks = (fn) => { subTasksRef.current = fn(subTasksRef.current); setSubTasks(subTasksRef.current); };
 
     // Comments
     const [comments, setComments] = useState([]);
@@ -688,6 +826,7 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
     const save = async () => {
         if (!form.title.trim()) { setError('Vui lòng nhập tiêu đề'); return; }
         setSaving(true); setError('');
+        const latestSubTasks = await flushSubTasks();
         const res = await fetch(`/api/tasks/${task.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -707,45 +846,72 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
         const data = await res.json();
         setSaving(false);
         if (!res.ok) { setError(data.error || 'Lỗi lưu tác vụ'); return; }
-        onSave({ ...data.task, subTasks }, data.newRecurringTask);
+        onSave({ ...data.task, subTasks: latestSubTasks }, data.newRecurringTask);
+    };
+
+    // Tạo tác vụ con (parentId = task.id → cấp 1, hoặc id của tác vụ con → cấp 2)
+    const createSubTask = (parentId, title) => {
+        const p = (async () => {
+            const res = await fetch('/api/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, parentId, status: 'Việc sẽ làm', priority: 'Trung bình', assignee: '' }),
+            });
+            if (!res.ok) return null;
+            const node = { ...(await res.json()), subTasks: [] };
+            commitSubTasks(list => parentId === task.id
+                ? [...list, node]
+                : mapSubTaskTree(list, parentId, s => ({ ...s, subTasks: [...(s.subTasks || []), node] })));
+            return node;
+        })().catch(() => null);
+        pendingRef.current.add(p);
+        p.finally(() => pendingRef.current.delete(p));
+        return p;
     };
 
     const addSubTask = async () => {
-        if (!newSubTask.trim()) return;
-        setAddingSubTask(true);
-        const res = await fetch('/api/tasks', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: newSubTask.trim(), parentId: task.id, status: 'Việc sẽ làm', priority: 'Trung bình', assignee: '' }),
-        });
-        const data = await res.json();
-        setAddingSubTask(false);
-        if (res.ok) { setSubTasks(prev => [...prev, data]); setNewSubTask(''); newSubRef.current?.focus(); }
+        const title = newSubTask.trim();
+        if (!title) return;
+        setNewSubTask('');
+        const created = await createSubTask(task.id, title);
+        if (!created) setNewSubTask(title);
     };
 
-    const toggleSubTask = async (sub) => {
+    // Lưu nốt tác vụ con đang gõ dở + chờ các request tạo xong, trả về cây mới nhất
+    const flushSubTasks = async () => {
+        const title = newSubTask.trim();
+        if (title) { setNewSubTask(''); createSubTask(task.id, title); }
+        await Promise.all([...pendingRef.current]);
+        return subTasksRef.current;
+    };
+
+    const handleClose = async () => {
+        onClose(await flushSubTasks());
+    };
+
+    const patchSubTask = async (sub, changes, revert) => {
+        commitSubTasks(list => mapSubTaskTree(list, sub.id, s => ({ ...s, ...changes })));
+        const res = await fetch(`/api/tasks/${sub.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(changes) });
+        if (!res.ok && revert) commitSubTasks(list => mapSubTaskTree(list, sub.id, s => ({ ...s, ...revert })));
+    };
+
+    const toggleSubTask = (sub) => {
         const newStatus = sub.status === 'Hoàn thành' ? 'Việc sẽ làm' : 'Hoàn thành';
-        setSubTasks(prev => prev.map(s => s.id === sub.id ? { ...s, status: newStatus } : s));
-        const res = await fetch(`/api/tasks/${sub.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) });
-        if (!res.ok) setSubTasks(prev => prev.map(s => s.id === sub.id ? { ...s, status: sub.status } : s));
+        patchSubTask(sub, { status: newStatus }, { status: sub.status });
     };
 
-    const deleteSubTask = async (subId) => {
-        setSubTasks(prev => prev.filter(s => s.id !== subId));
-        await fetch(`/api/tasks/${subId}`, { method: 'DELETE' });
+    const deleteSubTask = async (sub) => {
+        if (sub.subTasks?.length && !confirm('Xóa tác vụ con này và các tác vụ con bên trong?')) return;
+        commitSubTasks(list => removeFromSubTaskTree(list, sub.id));
+        await fetch(`/api/tasks/${sub.id}`, { method: 'DELETE' });
     };
 
-    const updateSubTaskDueDate = async (sub, dueDate) => {
-        setSubTasks(prev => prev.map(s => s.id === sub.id ? { ...s, dueDate: dueDate || null } : s));
-        await fetch(`/api/tasks/${sub.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dueDate: dueDate || null }) });
-    };
+    const updateSubTaskDueDate = (sub, dueDate) => patchSubTask(sub, { dueDate: dueDate || null });
 
-    const updateSubTaskTitle = async (sub, title) => {
+    const updateSubTaskTitle = (sub, title) => {
         const trimmed = title.trim();
-        if (!trimmed || trimmed === sub.title) { setSubTasks(prev => prev.map(s => s.id === sub.id ? { ...s, title: sub.title } : s)); return; }
-        setSubTasks(prev => prev.map(s => s.id === sub.id ? { ...s, title: trimmed } : s));
-        const res = await fetch(`/api/tasks/${sub.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: trimmed }) });
-        if (!res.ok) setSubTasks(prev => prev.map(s => s.id === sub.id ? { ...s, title: sub.title } : s));
+        if (!trimmed || trimmed === sub.title) return;
+        patchSubTask(sub, { title: trimmed }, { title: sub.title });
     };
 
     const doneCount = subTasks.filter(s => s.status === 'Hoàn thành').length;
@@ -860,46 +1026,19 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
                     {subTasks.map(sub => (
-                        <div key={sub.id} style={{ padding: '6px 10px', borderRadius: 8, background: '#f9fafb', border: '1px solid #e5e7eb' }}>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                                <input type="checkbox" checked={sub.status === 'Hoàn thành'} onChange={() => toggleSubTask(sub)}
-                                    style={{ cursor: 'pointer', width: 16, height: 16, flexShrink: 0, accentColor: '#16a34a', marginTop: 5 }} />
-                                <textarea
-                                    defaultValue={sub.title}
-                                    key={sub.id + ':' + sub.title}
-                                    rows={1}
-                                    ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
-                                    onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
-                                    onBlur={e => updateSubTaskTitle(sub, e.target.value)}
-                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
-                                    style={{
-                                        flex: 1, minWidth: 0, fontSize: 13, border: 'none', background: 'transparent', padding: '2px 4px', borderRadius: 4,
-                                        color: sub.status === 'Hoàn thành' ? '#9ca3af' : 'var(--text-primary)',
-                                        textDecoration: sub.status === 'Hoàn thành' ? 'line-through' : 'none',
-                                        resize: 'none', overflow: 'hidden', fontFamily: 'inherit', lineHeight: 1.4, wordBreak: 'break-word',
-                                    }}
-                                />
-                                <button onClick={() => deleteSubTask(sub.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 18, lineHeight: 1, padding: '0 4px', flexShrink: 0, marginTop: 3 }}>×</button>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
-                                <input
-                                    type="date"
-                                    value={fmtDateInput(sub.dueDate)}
-                                    onChange={e => updateSubTaskDueDate(sub, e.target.value)}
-                                    title="Hạn hoàn thành"
-                                    style={{ fontSize: 11, border: '1px solid #e5e7eb', borderRadius: 4, padding: '2px 4px', color: sub.dueDate ? (new Date(sub.dueDate) < new Date() && sub.status !== 'Hoàn thành' ? '#dc2626' : '#6b7280') : '#9ca3af', background: 'transparent', cursor: 'pointer', width: 120 }}
-                                />
-                            </div>
-                        </div>
+                        <SubTaskItem key={sub.id} sub={sub} depth={1}
+                            onToggle={toggleSubTask} onDelete={deleteSubTask} onTitle={updateSubTaskTitle}
+                            onDueDate={updateSubTaskDueDate} onAddChild={createSubTask} />
                     ))}
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                     <input ref={newSubRef} className="form-input" value={newSubTask} onChange={e => setNewSubTask(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSubTask(); } }}
-                        placeholder="Thêm tác vụ con... (Enter để thêm)"
-                        style={{ flex: 1, fontSize: 12 }} disabled={addingSubTask} />
-                    <button className="btn btn-secondary" onClick={addSubTask} disabled={addingSubTask || !newSubTask.trim()} style={{ fontSize: 12, padding: '5px 12px', flexShrink: 0 }}>
-                        {addingSubTask ? '...' : '+ Thêm'}
+                        onBlur={addSubTask}
+                        placeholder="Thêm tác vụ con... (Enter hoặc bấm ra ngoài để lưu)"
+                        style={{ flex: 1, fontSize: 12 }} />
+                    <button className="btn btn-secondary" onClick={addSubTask} disabled={!newSubTask.trim()} style={{ fontSize: 12, padding: '5px 12px', flexShrink: 0 }}>
+                        + Thêm
                     </button>
                 </div>
             </div>
@@ -976,7 +1115,7 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
             <div style={{ position: 'fixed', inset: 0, background: '#fff', zIndex: 1000, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
                 <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid var(--border-color)', position: 'sticky', top: 0, background: '#fff', zIndex: 10 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 14, cursor: 'pointer', color: 'var(--text-muted)', padding: 0 }}>← Quay lại</button>
+                        <button onClick={handleClose} style={{ background: 'none', border: 'none', fontSize: 14, cursor: 'pointer', color: 'var(--text-muted)', padding: 0 }}>← Quay lại</button>
                         <button className="btn btn-primary" onClick={save} disabled={saving} style={{ fontSize: 13, padding: '6px 16px' }}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
                     </div>
                     <input className="form-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
@@ -1000,13 +1139,13 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
     /* ---- DESKTOP: 2-column ---- */
     return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 16px', overflowY: 'auto' }}
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+            onClick={e => { if (e.target === e.currentTarget) handleClose(); }}>
             <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 860, boxShadow: '0 12px 40px rgba(0,0,0,0.22)', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 64px)', overflow: 'hidden' }}>
                 {/* Header */}
                 <div style={{ padding: '14px 20px 12px', borderBottom: '1px solid var(--border-color)', flexShrink: 0, display: 'flex', gap: 8, alignItems: 'center' }}>
                     <input className="form-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                         style={{ flex: 1, fontSize: 16, fontWeight: 700, padding: '7px 10px' }} placeholder="Tiêu đề tác vụ..." />
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--text-muted)', lineHeight: 1, padding: '4px 6px', flexShrink: 0 }}>×</button>
+                    <button onClick={handleClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--text-muted)', lineHeight: 1, padding: '4px 6px', flexShrink: 0 }}>×</button>
                 </div>
 
                 {/* 2-column body */}
@@ -1027,7 +1166,7 @@ function TaskDetailModal({ task, users, columns, priorities, currentUserName, on
                         Xóa tác vụ
                     </button>
                     <div style={{ display: 'flex', gap: 8 }}>
-                        <button className="btn btn-secondary" onClick={onClose} style={{ fontSize: 12 }}>Hủy</button>
+                        <button className="btn btn-secondary" onClick={handleClose} style={{ fontSize: 12 }}>Hủy</button>
                         <button className="btn btn-primary" onClick={save} disabled={saving} style={{ fontSize: 12 }}>
                             {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
                         </button>

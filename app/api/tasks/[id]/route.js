@@ -3,6 +3,9 @@ import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { parseAssignees, joinAssignees, MAX_TASK_ASSIGNEES } from '@/lib/taskAssignees';
 
+// Tác vụ con 2 cấp: con + con của con
+const SUBTASK_INCLUDE = { subTasks: { orderBy: { createdAt: 'asc' }, include: { subTasks: { orderBy: { createdAt: 'asc' } } } } };
+
 function calcNextDueDate(dueDate, recurringType, recurringDays, recurringInterval) {
     const interval = recurringInterval || 1;
     const base = dueDate ? new Date(dueDate) : new Date();
@@ -43,7 +46,7 @@ export const GET = withAuth(async (request, { params }) => {
     const { id } = await params;
     const task = await prisma.task.findUnique({
         where: { id },
-        include: { subTasks: { orderBy: { createdAt: 'asc' } } },
+        include: SUBTASK_INCLUDE,
     });
     if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json(task);
@@ -69,7 +72,7 @@ export const PATCH = withAuth(async (request, { params }) => {
     if (recurringEndDate !== undefined) data.recurringEndDate = recurringEndDate ? new Date(recurringEndDate) : null;
     data.updatedAt = new Date();
 
-    const task = await prisma.task.update({ where: { id }, data, include: { subTasks: { orderBy: { createdAt: 'asc' } } } });
+    const task = await prisma.task.update({ where: { id }, data, include: SUBTASK_INCLUDE });
 
     // Tự tạo lần lặp tiếp theo khi hoàn thành task định kỳ
     let newRecurringTask = null;

@@ -3,6 +3,9 @@ import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { parseAssignees, joinAssignees, MAX_TASK_ASSIGNEES } from '@/lib/taskAssignees';
 
+// Tác vụ con 2 cấp: con + con của con
+const SUBTASK_INCLUDE = { subTasks: { orderBy: { createdAt: 'asc' }, include: { subTasks: { orderBy: { createdAt: 'asc' } } } } };
+
 export const GET = withAuth(async (request) => {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
@@ -37,7 +40,7 @@ export const GET = withAuth(async (request) => {
 
     let tasks = await prisma.task.findMany({
         where,
-        include: { subTasks: { orderBy: { createdAt: 'asc' } } },
+        include: SUBTASK_INCLUDE,
         orderBy: [{ order: 'asc' }, { createdAt: 'desc' }],
     });
 
