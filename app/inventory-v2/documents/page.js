@@ -24,6 +24,7 @@ function DocumentsPageInner() {
     const [group, setGroup] = useState(searchParams.get('group') || '');
     const [status, setStatus] = useState('');
     const [search, setSearch] = useState('');
+    const [showReversed, setShowReversed] = useState(false);
     const [docs, setDocs] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -41,10 +42,14 @@ function DocumentsPageInner() {
     useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
     // Lọc tại chỗ theo số phiếu, công trình/LSX hoặc mã/tên vật tư trong phiếu
+    // Phiếu gốc đã có phiếu đảo được duyệt, và chính phiếu đảo đã duyệt, triệt tiêu nhau → mặc định ẩn cả cặp
+    const approvedReversal = (d) => d.reversals?.find(r => r.status === 'APPROVED');
+    const isReversedPair = (d) => !!approvedReversal(d) || (d.status === 'APPROVED' && d.sourceDocument?.status === 'APPROVED');
     const q = search.trim().toLowerCase();
-    const shown = !q ? docs : docs.filter(d => [
+    const shown = docs.filter(d => showReversed || !isReversedPair(d)).filter(d => !q || [
         d.code, d.project?.name, d.mfgOrder?.title, ...(d.lines || []).map(lineLabel),
     ].some(v => (v || '').toLowerCase().includes(q)));
+    const hiddenCount = showReversed ? 0 : docs.filter(isReversedPair).length;
 
     return (
         <div className="card">
@@ -66,6 +71,10 @@ function DocumentsPageInner() {
                 </select>
                 <input className="form-input" placeholder="🔍 Tìm số phiếu, công trình, mã/tên vật tư..." value={search}
                     onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+                <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    <input type="checkbox" checked={showReversed} onChange={e => setShowReversed(e.target.checked)} />
+                    Hiện phiếu đã đảo{hiddenCount > 0 ? ` (${hiddenCount})` : ''}
+                </label>
             </div>
             {loading ? (
                 <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>
@@ -75,8 +84,21 @@ function DocumentsPageInner() {
                         <thead><tr><th>Số phiếu</th><th>Loại</th><th>Ngày</th><th>Kho</th><th>Công trình/LSX</th><th>Nội dung phiếu</th><th>Trạng thái</th></tr></thead>
                         <tbody>
                             {shown.map(d => (
-                                <tr key={d.id}>
-                                    <td className="accent"><Link href={`/inventory-v2/documents/${d.id}`}>{d.code}</Link></td>
+                                <tr key={d.id} style={approvedReversal(d) ? { opacity: 0.55 } : undefined}>
+                                    <td className="accent">
+                                        <Link href={`/inventory-v2/documents/${d.id}`} style={approvedReversal(d) ? { textDecoration: 'line-through' } : undefined}>{d.code}</Link>
+                                        {d.reversals?.[0] && (
+                                            <div style={{ fontSize: 11, color: '#dc2626' }}>
+                                                {approvedReversal(d) ? 'Đã đảo' : `Đang đảo (${STATUS_LABEL[d.reversals[0].status]})`} bởi{' '}
+                                                <Link href={`/inventory-v2/documents/${d.reversals[0].id}`}>{d.reversals[0].code}</Link>
+                                            </div>
+                                        )}
+                                        {d.sourceDocument && (
+                                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                                Đảo của <Link href={`/inventory-v2/documents/${d.sourceDocument.id}`}>{d.sourceDocument.code}</Link>
+                                            </div>
+                                        )}
+                                    </td>
                                     <td style={{ fontSize: 13 }}>{d.docType}</td>
                                     <td style={{ fontSize: 13 }}>{fmtDate(d.docDate)}</td>
                                     <td style={{ fontSize: 13 }}>{d.warehouse?.name}{d.targetWarehouse ? ` → ${d.targetWarehouse.name}` : ''}</td>

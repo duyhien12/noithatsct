@@ -36,6 +36,8 @@ export const GET = withAuth(async (request, ctx, session) => {
                 project: { select: { id: true, code: true, name: true } },
                 supplier: { select: { id: true, name: true } },
                 mfgOrder: { select: { id: true, code: true, title: true } },
+                sourceDocument: { select: { id: true, code: true, status: true } },
+                reversals: { where: { status: { not: 'CANCELLED' } }, select: { id: true, code: true, status: true } },
                 // Nội dung phiếu để hiển thị ngay trên danh sách
                 lines: {
                     orderBy: { lineNo: 'asc' },
