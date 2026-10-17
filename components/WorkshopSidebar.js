@@ -7,11 +7,13 @@ import {
     ChevronRight, CalendarDays, Users, FileText,
     BarChart2, Clock, BookOpen, Landmark, Settings,
     ClipboardCheck, NotebookText, Boxes, Factory,
+    ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight, Undo2,
+    ClipboardList, Lock, AlertTriangle, Layers, Scissors,
 } from 'lucide-react';
 import SidebarBrand from '@/components/sidebar/SidebarBrand';
 import SidebarRoleFooter from '@/components/sidebar/SidebarRoleFooter';
 import { useRole } from '@/contexts/RoleContext';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const DEPT_VIEWS = [
     { key: 'ban_gd',         label: 'Ban GĐ',     icon: '👑' },
@@ -43,6 +45,7 @@ const FULL_MENU = [
         section: 'Quản lý Xưởng',
         items: [
             { href: '/manufacturing/orders', icon: Factory, label: 'Lệnh sản xuất' },
+            { href: '/manufacturing/cutlists', icon: Scissors, label: 'Bóc tách & cutlist' },
             { href: '/workshop/tasks', icon: Wrench, label: 'Công việc xưởng' },
             { href: '/workshop/workers', icon: Users, label: 'Nhân công' },
             { href: '/workshop/work-log', icon: BookOpen, label: 'Nhật ký công việc' },
@@ -112,6 +115,92 @@ const NHAN_VIEN_MENU = [
     },
 ];
 
+// Thủ kho (department 'Kho' / 'Mua hàng'): sắp theo luồng nghiệp vụ kho — danh mục → nhập/xuất/tồn
+// → bóc tách & cấp phát → kế hoạch mua → xưởng → kiểm kê → báo cáo
+const THU_KHO_MENU = [
+    {
+        section: 'Tổng quan',
+        items: [
+            { href: '/workshop', icon: LayoutDashboard, label: 'Dashboard xưởng', exact: true },
+            { href: '/inventory-v2', icon: Boxes, label: 'Tổng quan kho', exact: true },
+        ],
+    },
+    {
+        section: 'Danh mục vật tư',
+        items: [
+            { href: '/inventory-v2/materials', icon: Package, label: 'Mã hàng · màu · quy cách' },
+            { href: '/inventory-v2/settings', icon: Settings, label: 'Kho, vị trí & đơn vị' },
+        ],
+    },
+    {
+        section: 'Xuất – nhập – tồn',
+        items: [
+            { href: '/inventory-v2/documents?group=IMPORT', icon: ArrowDownToLine, label: 'Nhập hàng' },
+            { href: '/inventory-v2/documents?group=EXPORT', icon: ArrowUpFromLine, label: 'Cấp vật tư (xuất kho)' },
+            { href: '/inventory-v2/documents?group=TRANSFER', icon: ArrowLeftRight, label: 'Điều chuyển' },
+            { href: '/inventory-v2/documents?group=RETURN_TO_WAREHOUSE', icon: Undo2, label: 'Trả hàng / hoàn trả' },
+            { href: '/inventory-v2/documents', icon: FileText, label: 'Tất cả phiếu kho' },
+            { href: '/inventory-v2/stock', icon: Boxes, label: 'Tồn kho hiện tại' },
+        ],
+    },
+    {
+        section: 'Bóc tách & cấp phát',
+        items: [
+            { href: '/manufacturing/cutlists', icon: Scissors, label: 'Bóc tách & cutlist' },
+            { href: '/manufacturing/orders', icon: Factory, label: 'Vật tư theo lệnh SX' },
+            { href: '/inventory-v2/allocations', icon: ClipboardList, label: 'Phân bổ công trình' },
+            { href: '/inventory-v2/documents?group=HOLD', icon: Lock, label: 'Giữ vật tư' },
+        ],
+    },
+    {
+        section: 'Kế hoạch mua',
+        items: [
+            { href: '/inventory-v2/stock?filter=reorder', icon: AlertTriangle, label: 'Thiếu cho sản xuất' },
+            { href: '/purchasing?view=xuong', icon: ShoppingCart, label: 'Đơn mua & hàng đang về' },
+        ],
+    },
+    {
+        section: 'Quản lý xưởng',
+        items: [
+            { href: '/manufacturing/kanban', icon: Wrench, label: 'Công đoạn sản xuất' },
+            { href: '/workshop/plan', icon: CalendarDays, label: 'Kế hoạch lắp đặt' },
+        ],
+    },
+    {
+        section: 'Kiểm kê',
+        items: [
+            { href: '/inventory-v2/stocktakes', icon: ClipboardCheck, label: 'Kiểm kê & chênh lệch' },
+            { href: '/inventory-v2/remnants', icon: Layers, label: 'Phôi dư / vật tư thu hồi' },
+        ],
+    },
+    {
+        section: 'Báo cáo',
+        items: [
+            { href: '/inventory-v2/reports', icon: BarChart2, label: 'Sổ nhập – xuất – tồn' },
+            { href: '/inventory-v2/stock?filter=low', icon: AlertTriangle, label: 'Vật tư dưới tối thiểu' },
+            { href: '/manufacturing/reports', icon: BarChart2, label: 'Báo cáo sản xuất' },
+        ],
+    },
+    {
+        section: 'Nội bộ',
+        items: [
+            { href: '/tasks', icon: Wrench, label: 'Tác vụ' },
+            { href: '/proposals', icon: FileText, label: 'Đề xuất - Kiến nghị' },
+        ],
+    },
+];
+const THU_KHO_DEPARTMENTS = ['Kho', 'Mua hàng'];
+
+// href có query (?group=...) chỉ active khi khớp cả query; href không query active theo tiền tố đường dẫn
+// nhưng nhường cho mục có query khớp chính xác hơn
+function isItemActive(item, pathname, search, allItems) {
+    const [path, query] = item.href.split('?');
+    if (query) return pathname === path && search === `?${query}`;
+    if (item.exact) return pathname === path;
+    if (!pathname.startsWith(path)) return false;
+    return !allItems.some(o => o !== item && o.href.includes('?') && o.href.split('?')[0] === pathname && search === `?${o.href.split('?')[1]}`);
+}
+
 // Giám sát nội thất: theo dõi dự án/tiến độ/công việc, không cần tài chính, mua sắm, sản xuất
 const SUPERVISOR_MENU = [
     {
@@ -165,15 +254,23 @@ export default function WorkshopSidebar({ isOpen, onClose, collapsed, onToggleCo
     const pathname = usePathname();
     const { roleInfo, isXuongNhanVien, department, canSwitchRole, viewAsRole, setViewAsRole, actualRole, role, email } = useRole();
     const [openParents, setOpenParents] = useState({});
+    // Đọc query từ window thay vì useSearchParams để sidebar (nằm trong AppShell) không cần Suspense
+    const [search, setSearch] = useState('');
+    useEffect(() => { setSearch(window.location.search); }, [pathname]);
 
     const isSupervisor = SUPERVISOR_EMAILS.includes(email);
+    const isThuKho = role === 'xuong' && THU_KHO_DEPARTMENTS.includes(department);
     const menuItems = isSupervisor
         ? SUPERVISOR_MENU
+        : isThuKho
+        ? THU_KHO_MENU
         : isXuongNhanVien
         ? NHAN_VIEN_MENU
         : FULL_MENU;
+    const allItems = menuItems.flatMap(s => s.items).filter(i => i.href);
 
-    const handleNavClick = () => {
+    const handleNavClick = (href) => {
+        setSearch(href?.includes('?') ? `?${href.split('?')[1]}` : '');
         if (window.innerWidth <= 768) onClose();
     };
 
@@ -219,7 +316,7 @@ export default function WorkshopSidebar({ isOpen, onClose, collapsed, onToggleCo
                                                     className={`nav-item ${childActive ? 'active' : ''}`}
                                                     aria-current={childActive ? 'page' : undefined}
                                                     style={{ paddingLeft: 40 }}
-                                                    onClick={handleNavClick}
+                                                    onClick={() => handleNavClick(c.href)}
                                                 >
                                                     <span>{c.label}</span>
                                                     {childActive && <ChevronRight size={14} className="nav-arrow" />}
@@ -229,16 +326,14 @@ export default function WorkshopSidebar({ isOpen, onClose, collapsed, onToggleCo
                                     </div>
                                 );
                             }
-                            const isActive = item.exact
-                                ? pathname === item.href
-                                : pathname.startsWith(item.href);
+                            const isActive = isItemActive(item, pathname, search, allItems);
                             return (
                                 <Link
                                     key={item.href}
                                     href={item.href}
                                     className={`nav-item ${isActive ? 'active' : ''}`}
                                     aria-current={isActive ? 'page' : undefined}
-                                    onClick={handleNavClick}
+                                    onClick={() => handleNavClick(item.href)}
                                 >
                                     <span className="nav-icon">
                                         <Icon size={18} strokeWidth={isActive ? 2 : 1.5} />

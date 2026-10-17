@@ -152,6 +152,7 @@ model Project {
   supervisionChecklists SupervisionChecklist[]
   mfgOrders             MfgOrder[]
   mfgItems              MfgItem[]
+  mfgCutlists           MfgCutlist[]
   deliveryRecords       DeliveryRecord[]
   lessonsLearned        LessonLearned[]
   employeeAdvances      EmployeeAdvance[]
@@ -2276,6 +2277,7 @@ model MfgOrder {
   deliveryRecords     DeliveryRecord[]
   invDocuments        InvDocument[]
   invReservations     InvStockReservation[]
+  cutlists            MfgCutlist[]
 
   @@index([projectId])
   @@index([status])
@@ -2328,6 +2330,7 @@ model MfgItem {
   qualityIssues       QualityIssue[]
   packingItems        PackingItem[]
   deliveryItems       DeliveryItem[]
+  cutlistLines        MfgCutlistLine[]
 
   @@index([mfgOrderId])
   @@index([projectId])
@@ -2648,6 +2651,75 @@ model MfgAttachment {
 }
 
 // Audit log dùng chung cho các thao tác quan trọng: duyệt lệnh, đổi trạng thái, QC, hủy lệnh, xuất xưởng...
+// Bảng bóc tách vật tư nội thất / cutlist theo lệnh sản xuất. Mỗi lần sửa sau khi duyệt tạo
+// bản mới (revision + 1), bản cũ chuyển SUPERSEDED — không sửa đè bản đã duyệt.
+model MfgCutlist {
+  id              String           @id @default(cuid())
+  code            String           @unique
+  mfgOrderId      String
+  projectId       String
+  title           String           @default("")
+  revision        Int              @default(0)
+  drawingRef      String           @default("")
+  drawingRevision String           @default("")
+  status          String           @default("DRAFT")
+  wastePercent    Float            @default(0)
+  purGramPerMeter Float?
+  note            String           @default("")
+  previousId      String?
+  checkedById     String           @default("")
+  checkedByName   String           @default("")
+  checkedAt       DateTime?
+  approvedById    String           @default("")
+  approvedByName  String           @default("")
+  approvedAt      DateTime?
+  createdById     String           @default("")
+  updatedById     String           @default("")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  mfgOrder        MfgOrder         @relation(fields: [mfgOrderId], references: [id])
+  project         Project          @relation(fields: [projectId], references: [id])
+  lines           MfgCutlistLine[]
+
+  @@index([mfgOrderId])
+  @@index([projectId])
+  @@index([status])
+}
+
+// lineType: PANEL = chi tiết tấm cắt (dài x rộng, chỉ cạnh 4 phía); ITEM = phụ kiện, kính,
+// kim loại, keo... tính theo số lượng + đơn vị ghi trên dòng.
+model MfgCutlistLine {
+  id             String       @id @default(cuid())
+  cutlistId      String
+  sortOrder      Int          @default(0)
+  lineType       String       @default("PANEL")
+  mfgItemId      String?
+  productName    String       @default("")
+  partName       String       @default("")
+  materialId     String?
+  materialText   String       @default("")
+  length         Float        @default(0)
+  width          Float        @default(0)
+  thickness      Float        @default(0)
+  quantity       Float        @default(0)
+  unit           String       @default("")
+  grainLocked    Boolean      @default(false)
+  edgeMaterialId String?
+  edgeL1         Boolean      @default(false)
+  edgeL2         Boolean      @default(false)
+  edgeW1         Boolean      @default(false)
+  edgeW2         Boolean      @default(false)
+  drawingPage    String       @default("")
+  note           String       @default("")
+  cutlist        MfgCutlist   @relation(fields: [cutlistId], references: [id], onDelete: Cascade)
+  mfgItem        MfgItem?     @relation(fields: [mfgItemId], references: [id])
+  material       InvMaterial? @relation("MfgCutlistLineMaterial", fields: [materialId], references: [id])
+  edgeMaterial   InvMaterial? @relation("MfgCutlistLineEdgeMaterial", fields: [edgeMaterialId], references: [id])
+
+  @@index([cutlistId])
+  @@index([materialId])
+}
+
 model MfgAuditLog {
   id         String   @id @default(cuid())
   entityType String
@@ -3073,6 +3145,8 @@ model InvMaterial {
   stocktakeLines       InvStocktakeLine[]
   migrationTargets     InvMigrationMapping[] @relation("InvMigrationTargetMaterial")
   migrationDuplicates  InvMigrationMapping[] @relation("InvMigrationDuplicateMaterial")
+  cutlistLines         MfgCutlistLine[]      @relation("MfgCutlistLineMaterial")
+  cutlistEdgeLines     MfgCutlistLine[]      @relation("MfgCutlistLineEdgeMaterial")
 
   @@index([categoryId])
   @@index([status])

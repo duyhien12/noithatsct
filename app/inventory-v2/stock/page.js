@@ -90,7 +90,10 @@ function StockPageInner() {
     const [data, setData] = useState({ data: [] });
     const [loading, setLoading] = useState(true);
     const [q, setQ] = useState('');
-    const [filter, setFilter] = useState(searchParams.get('filter') || '');
+    const filterParam = searchParams.get('filter') || '';
+    const [filter, setFilter] = useState(filterParam);
+    // Menu sidebar điều hướng ?filter=... trên cùng trang → đồng bộ lại bộ lọc
+    useEffect(() => { setFilter(filterParam); }, [filterParam]);
     const [categories, setCategories] = useState([]);
     const [categoryId, setCategoryId] = useState('');
     const [exportRow, setExportRow] = useState(null);

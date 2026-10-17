@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
-import { Plus, Trash2, Save } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, Trash2, Save, Scissors } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { PREP_CHECKLIST_ITEMS, PREP_CHECKLIST_STATUS_LABELS } from '@/lib/manufacturing/constants';
 
@@ -108,7 +109,10 @@ export default function OrderPrepTab({ order, perms, onChanged }) {
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                 <div className="card-header" style={{ padding: '14px 18px' }}>
                     <span className="card-title">Bảng kê khai nguyên vật liệu cần cắt ({cuttingList.length})</span>
-                    {canEdit && <button className="btn btn-secondary btn-sm" onClick={addCuttingRow}><Plus size={14} /> Thêm dòng</button>}
+                    <div style={{ display: 'flex', gap: 6 }}>
+                        <Link href={`/manufacturing/cutlists?mfgOrderId=${order.id}`} className="btn btn-ghost btn-sm"><Scissors size={14} /> Bóc tách & cutlist chi tiết</Link>
+                        {canEdit && <button className="btn btn-secondary btn-sm" onClick={addCuttingRow}><Plus size={14} /> Thêm dòng</button>}
+                    </div>
                 </div>
                 <div className="table-container">
                     <table className="data-table">

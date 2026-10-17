@@ -36,6 +36,7 @@ const pageTitles = {
     '/workshop/materials': 'Vật tư kho',
     '/workshop/timeline': 'Tiến độ Gantt',
     '/workshop/plan': 'Kế hoạch & tiến độ',
+    '/manufacturing/cutlists': 'Bóc tách & cutlist',
     '/design-orders/cv': 'Nhật ký TKNT',
     '/design-orders/nhat-ky': 'Nhật ký TKKT',
     '/design-orders/lich-tkkt': 'Nhật ký tuần TKKT',

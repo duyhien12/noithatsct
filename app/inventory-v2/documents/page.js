@@ -21,7 +21,10 @@ const GROUPS = [
 
 function DocumentsPageInner() {
     const searchParams = useSearchParams();
-    const [group, setGroup] = useState(searchParams.get('group') || '');
+    const groupParam = searchParams.get('group') || '';
+    const [group, setGroup] = useState(groupParam);
+    // Menu sidebar điều hướng ?group=... trên cùng trang → đồng bộ lại tab
+    useEffect(() => { setGroup(groupParam); }, [groupParam]);
     const [status, setStatus] = useState('');
     const [search, setSearch] = useState('');
     const [showReversed, setShowReversed] = useState(false);
