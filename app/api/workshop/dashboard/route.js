@@ -1,12 +1,13 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
+import { hasInvPermission } from '@/lib/inventoryV2/permissions';
 
 const REVENUE_TYPES  = ['REVENUE_INTERNAL', 'REVENUE_EXTERNAL'];
 const DIRECT_TYPES   = ['DIRECT_MATERIAL', 'DIRECT_LABOR_SALARY', 'DIRECT_LABOR_INSURANCE', 'DIRECT_LABOR_BONUS', 'DIRECT_LABOR_MEAL', 'DIRECT_OUTSOURCE'];
 const INDIRECT_TYPES = ['INDIRECT_MGMT_SALARY', 'INDIRECT_MGMT_INSURANCE', 'INDIRECT_MGMT_BONUS', 'INDIRECT_MGMT_MEAL', 'INDIRECT_OFFICE_MACHINE', 'INDIRECT_OFFICE_TOOLS', 'INDIRECT_ELECTRIC', 'INDIRECT_EQUIPMENT', 'INDIRECT_MAINTENANCE', 'INDIRECT_DEPRECIATION', 'INDIRECT_OTHER'];
 const STAGES = ['Cut', 'CNC', 'Edge', 'Paint', 'Assembly', 'QC'];
 
-export const GET = withAuth(async () => {
+export const GET = withAuth(async (request, ctx, session) => {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const todayEnd   = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
@@ -19,7 +20,6 @@ export const GET = withAuth(async () => {
     });
 
     const deadline14d = new Date(now.getTime() + 14 * 86400000);
-    const deadline7d  = new Date(now.getTime() + 7 * 86400000);
 
     const [
         activeWorkersCount,
@@ -40,7 +40,7 @@ export const GET = withAuth(async () => {
         machineStatusRaw,
         stageAvgAge,
         overdueWorkOrdersRaw,
-        planDeadlineStepsRaw,
+        installPlans,
     ] = await Promise.all([
         prisma.workshopWorker.count({ where: { status: 'Hoạt động' } }),
 
@@ -161,51 +161,70 @@ export const GET = withAuth(async () => {
             select: { id: true, code: true, title: true, dueDate: true, assignee: true, priority: true, status: true, project: { select: { name: true, code: true } } },
         }),
 
-        // Production plan steps with upcoming/overdue deadlines
-        prisma.productionPlanStep.findMany({
-            where: { completed: false, deadline: { not: null, lte: deadline7d } },
-            orderBy: { deadline: 'asc' },
-            take: 8,
+        // Kế hoạch & tiến độ lắp đặt (cùng dữ liệu trang /workshop/plan) — các đợt chưa hoàn thành
+        prisma.installPlan.findMany({
+            where: { status: { not: 'Hoàn thành' }, customer: { deletedAt: null } },
+            orderBy: [{ endDate: 'asc' }, { startDate: 'asc' }],
+            take: 10,
             select: {
-                id: true, name: true, deadline: true,
-                stage: {
-                    select: {
-                        name: true,
-                        plan: {
-                            select: {
-                                project: {
-                                    select: {
-                                        id: true, code: true, name: true,
-                                        productionOrders: { select: { id: true } },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
+                id: true, name: true, startDate: true, endDate: true, status: true, workerCount: true,
+                customer: { select: { id: true, code: true, name: true } },
             },
         }),
     ]);
 
-    // Idle workers: active workers with no 'Đang làm' task assigned
-    const busyWorkerRows = await prisma.workshopTaskWorker.findMany({
-        where: { task: { status: 'Đang làm' } },
-        select: { workerId: true },
-        distinct: ['workerId'],
+    // Idle workers: thợ đang hoạt động nhưng không có tên trong Nhật ký công việc hôm nay.
+    // Nhật ký lưu ngày dạng 'YYYY-MM-DD' (00:00 UTC) theo ngày Việt Nam → lấy ngày VN, không phụ thuộc TZ server.
+    const logDay = new Date(now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    const todayLogs = await prisma.workLogEntry.findMany({
+        where: { date: { gte: logDay, lt: new Date(logDay.getTime() + 86400000) } },
+        select: { mainWorkers: true, subWorkers: true },
     });
-    const busyIds = busyWorkerRows.map(r => r.workerId);
-    const idleWorkers = await prisma.workshopWorker.findMany({
-        where: { status: 'Hoạt động', id: { notIn: busyIds.length > 0 ? busyIds : ['__none__'] } },
+    const loggedNames = new Set();
+    todayLogs.forEach(e => [e.mainWorkers, e.subWorkers].forEach(json => {
+        try {
+            const list = JSON.parse(json || '[]');
+            if (Array.isArray(list)) list.forEach(i => {
+                const n = typeof i === 'string' ? i : i?.name;
+                if (n) loggedNames.add(n.trim().toLowerCase());
+            });
+        } catch { /* bỏ qua dòng hỏng */ }
+    }));
+    const activeWorkers = await prisma.workshopWorker.findMany({
+        where: { status: 'Hoạt động' },
         select: { id: true, name: true, skill: true },
     });
+    const idleWorkers = activeWorkers.filter(w => !loggedNames.has(w.name.trim().toLowerCase()));
 
     // --- Derived values ---
-    const totalInventoryValue = allProducts.reduce((sum, p) => sum + p.stock * p.importPrice, 0);
-    const lowStockProducts = allProducts
-        .filter(p => p.minStock > 0 && p.stock <= p.minStock)
-        .sort((a, b) => (a.stock / Math.max(a.minStock, 1)) - (b.stock / Math.max(b.minStock, 1)))
-        .slice(0, 5);
-    const lowStockCount = allProducts.filter(p => p.minStock > 0 && p.stock <= p.minStock).length;
+
+    // Vật tư sắp hết: lấy từ Kho vật tư 2.0 — cộng tồn mọi kho theo vật tư,
+    // sắp hết khi khả dụng (tồn − giữ chỗ) ≤ tồn tối thiểu (cùng quy tắc lọc 'low' của /inventory-v2/stock)
+    const invBalances = await prisma.invStockBalance.findMany({
+        select: {
+            materialId: true, onHandQty: true, reservedQty: true, avgCost: true,
+            material: { select: { name: true, sku: true, status: true, minStock: true, stockUnit: { select: { code: true } } } },
+        },
+    });
+    // Giá trị kho = Σ tồn × giá vốn bình quân (như dashboard Kho 2.0); ẩn nếu không có quyền xem giá vốn
+    const totalInventoryValue = hasInvPermission(session.user, 'view_cost')
+        ? invBalances.reduce((sum, b) => sum + Number(b.onHandQty) * Number(b.avgCost), 0)
+        : null;
+    const invByMaterial = new Map();
+    for (const b of invBalances) {
+        if (b.material.status !== 'Đang sử dụng' || !(Number(b.material.minStock) > 0)) continue;
+        const cur = invByMaterial.get(b.materialId) || {
+            id: b.materialId, name: b.material.name, sku: b.material.sku,
+            minStock: Number(b.material.minStock), unit: b.material.stockUnit?.code || '', stock: 0,
+        };
+        cur.stock += Number(b.onHandQty) - Number(b.reservedQty);
+        invByMaterial.set(b.materialId, cur);
+    }
+    const lowStockAll = [...invByMaterial.values()]
+        .filter(m => m.stock <= m.minStock)
+        .sort((a, b) => (a.stock / a.minStock) - (b.stock / b.minStock));
+    const lowStockProducts = lowStockAll.slice(0, 5);
+    const lowStockCount = lowStockAll.length;
 
     const todayCost = todayAttendance.reduce((sum, a) => sum + a.hoursWorked * (a.worker?.hourlyRate || 0), 0);
 
@@ -265,21 +284,6 @@ export const GET = withAuth(async () => {
         .sort((a, b) => b.shortage - a.shortage)
         .slice(0, 8);
 
-    const planDeadlines = planDeadlineStepsRaw.map(s => {
-        const project = s.stage.plan.project;
-        return {
-            stepId: s.id,
-            stepName: s.name,
-            stageName: s.stage.name,
-            deadline: s.deadline,
-            overdue: s.deadline < now,
-            projectId: project.id,
-            projectCode: project.code,
-            projectName: project.name,
-            orderId: project.productionOrders?.id || null,
-        };
-    });
-
     return Response.json({
         kpi: {
             activeWorkers: activeWorkersCount,
@@ -315,6 +319,6 @@ export const GET = withAuth(async () => {
         deliveryRisks: deliveryRisksRaw,
         machineStatus,
         overdueWorkOrders: overdueWorkOrdersRaw,
-        planDeadlines,
+        installPlans,
     });
 });

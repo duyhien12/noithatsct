@@ -13,6 +13,27 @@ const fmtShort = (n) => {
 };
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 
+// Trạng thái + % thời gian đã trôi qua của một đợt lắp đặt (giống quy tắc trang /workshop/plan)
+const DAY_MS = 86400000;
+const dayStart = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+function planState(p) {
+    const today = dayStart(new Date());
+    const start = dayStart(p.startDate);
+    const end = dayStart(p.endDate);
+    const totalDays = Math.max(1, Math.round((end - start) / DAY_MS) + 1);
+    const elapsed = Math.round((today - start) / DAY_MS) + 1;
+    const pct = Math.max(0, Math.min(100, Math.round((elapsed / totalDays) * 100)));
+    const remain = Math.round((end - today) / DAY_MS);
+    if (remain < 0) return { pct, label: 'Quá hạn', remainText: `Trễ ${-remain} ngày`, color: '#dc2626', bg: '#fee2e2' };
+    if (today < start) {
+        const wait = Math.round((start - today) / DAY_MS);
+        return { pct: 0, label: 'Sắp bắt đầu', remainText: `Bắt đầu sau ${wait} ngày`, color: '#64748b', bg: '#f1f5f9' };
+    }
+    const remainText = remain === 0 ? 'Hạn hôm nay' : `${remain} ngày`;
+    if (remain <= 3) return { pct, label: 'Sắp đến hạn', remainText, color: '#d97706', bg: '#fef3c7' };
+    return { pct, label: p.status || 'Đang thực hiện', remainText, color: '#2563eb', bg: '#dbeafe' };
+}
+
 const STATUS_STYLE = {
     'Chờ làm':    { color: '#d97706', bg: '#fef3c7' },
     'Đang làm':   { color: '#2563eb', bg: '#dbeafe' },
@@ -182,7 +203,7 @@ export default function WorkshopDashboard() {
 
     const { kpi = {}, chartData, recentTasks, projectsInProgress, lowStockProducts, plSummary,
             stagePipeline = [], idleWorkers = [], inventoryForecast = [], equipmentAlerts = [],
-            deliveryRisks = [], machineStatus = [], overdueWorkOrders = [], planDeadlines = [] } = data;
+            deliveryRisks = [], machineStatus = [], overdueWorkOrders = [], installPlans = [] } = data;
 
     if (!kpi || data.error) return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400, color: 'var(--text-muted)' }}>
@@ -197,7 +218,7 @@ export default function WorkshopDashboard() {
         kpi.overdueTasks > 0       && { type: 'danger',  icon: '🚨', msg: `${kpi.overdueTasks} việc trễ hạn`,         href: '/workshop/tasks' },
         kpi.blockedTasksCount > 0  && { type: 'danger',  icon: '🔴', msg: `${kpi.blockedTasksCount} việc tắc nghẽn`,   href: '/workshop/tasks' },
         kpi.idleWorkersCount > 0   && { type: 'warning', icon: '⚠️', msg: `${kpi.idleWorkersCount} thợ không có việc`, href: '/workshop/workers' },
-        kpi.lowStockCount > 0      && { type: 'warning', icon: '📦', msg: `${kpi.lowStockCount} vật tư sắp hết`,       href: '/workshop/materials' },
+        kpi.lowStockCount > 0      && { type: 'warning', icon: '📦', msg: `${kpi.lowStockCount} vật tư sắp hết`,       href: '/inventory-v2/stock?filter=low' },
         equipmentAlerts.filter(e => e.status !== 'Đang dùng').length > 0 && {
             type: 'warning', icon: '🔧',
             msg: `${equipmentAlerts.filter(e => e.status !== 'Đang dùng').length} thiết bị cần kiểm tra`,
@@ -307,11 +328,11 @@ export default function WorkshopDashboard() {
                     sub={kpi.blockedTasksCount > 0 ? 'Việc tạm dừng' : 'Không tắc nghẽn'}
                     subColor={kpi.blockedTasksCount > 0 ? '#dc2626' : '#16a34a'}
                     onClick={() => router.push('/workshop/tasks')} />
-                <KpiCard icon="📦" label="Giá trị kho" value={fmtShort(kpi.totalInventoryValue)}
+                <KpiCard icon="📦" label="Giá trị kho" value={kpi.totalInventoryValue == null ? '—' : fmtShort(kpi.totalInventoryValue)}
                     borderColor="#8b5cf6"
                     sub={kpi.lowStockCount > 0 ? `⚠️ ${kpi.lowStockCount} loại sắp hết` : 'Tồn kho ổn định'}
                     subColor={kpi.lowStockCount > 0 ? '#ef4444' : undefined}
-                    onClick={() => router.push('/workshop/materials')} />
+                    onClick={() => router.push(kpi.lowStockCount > 0 ? '/inventory-v2/stock?filter=low' : '/workshop/materials')} />
                 <KpiCard icon="💵" label="Chi phí nhân công/hôm nay" value={fmtShort(kpi.todayCost)}
                     borderColor="#10b981" sub="Tính theo giờ × đơn giá" />
             </div>
@@ -351,36 +372,57 @@ export default function WorkshopDashboard() {
                 </div>
             )}
 
-            {/* Production Plan Deadlines Panel */}
-            {planDeadlines.length > 0 && (
-                <div className="card" style={{ padding: '14px 20px', borderLeft: '4px solid #d97706' }}>
+            {/* Kế hoạch & tiến độ lắp đặt */}
+            {installPlans.length > 0 && (
+                <div className="card" style={{ padding: '14px 20px', borderLeft: '4px solid #2563eb' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#b45309' }}>📅 Deadline kế hoạch sản xuất ({planDeadlines.length})</h3>
-                        <Link href="/production?tab=plan" style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>Xem tất cả →</Link>
+                        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1d4ed8' }}>📅 Kế hoạch & tiến độ lắp đặt ({installPlans.length})</h3>
+                        <Link href="/workshop/plan" style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>Xem tất cả →</Link>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {planDeadlines.map(d => (
-                            <div key={d.stepId}
-                                onClick={() => d.orderId && router.push(`/production/${d.orderId}`)}
-                                style={{
-                                    display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8,
-                                    background: d.overdue ? '#fef2f2' : '#fffbeb',
-                                    border: `1px solid ${d.overdue ? '#fca5a5' : '#fde68a'}`,
-                                    cursor: d.orderId ? 'pointer' : 'default',
-                                }}>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {d.stepName}
-                                    </div>
-                                    <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>
-                                        {d.projectName} · {d.stageName}
-                                    </div>
-                                </div>
-                                <div style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: d.overdue ? '#dc2626' : '#b45309' }}>
-                                    {d.overdue ? 'Quá hạn' : fmtDate(d.deadline)}
-                                </div>
-                            </div>
-                        ))}
+                    <div style={{ overflowX: 'auto' }}>
+                        <table className="data-table" style={{ width: '100%', fontSize: 12 }}>
+                            <thead>
+                                <tr>
+                                    <th style={{ textAlign: 'left' }}>Công trình</th>
+                                    <th>Bắt đầu</th>
+                                    <th>Kết thúc</th>
+                                    <th>Số người</th>
+                                    <th style={{ minWidth: 140 }}>Tiến độ thời gian</th>
+                                    <th>Còn lại</th>
+                                    <th>Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {installPlans.map(p => {
+                                    const st = planState(p);
+                                    return (
+                                        <tr key={p.id} onClick={() => router.push('/workshop/plan')} style={{ cursor: 'pointer' }}>
+                                            <td style={{ maxWidth: 320 }}>
+                                                <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.customer?.name}>
+                                                    {p.customer?.name || '—'}
+                                                </div>
+                                                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{p.customer?.code} · {p.name}</div>
+                                            </td>
+                                            <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>{fmtDate(p.startDate)}</td>
+                                            <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>{fmtDate(p.endDate)}</td>
+                                            <td style={{ textAlign: 'center' }}>{p.workerCount}</td>
+                                            <td>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'var(--border-light)', overflow: 'hidden' }}>
+                                                        <div style={{ height: '100%', width: `${st.pct}%`, background: st.color, borderRadius: 3 }} />
+                                                    </div>
+                                                    <span style={{ fontSize: 11, fontWeight: 700, color: st.color, minWidth: 32, textAlign: 'right' }}>{st.pct}%</span>
+                                                </div>
+                                            </td>
+                                            <td style={{ textAlign: 'center', whiteSpace: 'nowrap', fontWeight: 600, color: st.color }}>{st.remainText}</td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700, background: st.bg, color: st.color, whiteSpace: 'nowrap' }}>{st.label}</span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             )}
@@ -713,7 +755,7 @@ export default function WorkshopDashboard() {
                             <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 {lowStockProducts.length > 0 ? <><span style={{ color: '#ef4444' }}>⚠️</span> Vật tư sắp hết</> : <>📦 Vật tư kho</>}
                             </h3>
-                            <a href="/workshop/materials" style={{ fontSize: 12, color: 'var(--primary)', textDecoration: 'none' }}>Kho →</a>
+                            <a href="/inventory-v2/stock?filter=low" style={{ fontSize: 12, color: 'var(--primary)', textDecoration: 'none' }}>Kho 2.0 →</a>
                         </div>
                         {lowStockProducts.length === 0 ? (
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 80, color: '#16a34a', fontSize: 13, gap: 6 }}>
