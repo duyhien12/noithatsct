@@ -84,6 +84,7 @@ export default function NewDocumentPage() {
     const [warehouseId, setWarehouseId] = useState('');
     const [targetWarehouseId, setTargetWarehouseId] = useState('');
     const [projectId, setProjectId] = useState('');
+    const [docDate, setDocDate] = useState(() => new Date().toLocaleDateString('en-CA'));
     const [reason, setReason] = useState('');
     const [notes, setNotes] = useState('');
     const [warehouses, setWarehouses] = useState([]);
@@ -184,6 +185,7 @@ export default function NewDocumentPage() {
         const validLines = lines.filter(l => l.materialId && Number(l.enteredQuantity) > 0);
         if (validLines.length === 0) { setError('Cần ít nhất 1 dòng vật tư hợp lệ'); return; }
         if (!warehouseId) { setError('Vui lòng chọn kho'); return; }
+        if (!docDate) { setError('Vui lòng chọn ngày phiếu'); return; }
         if (NEEDS_TARGET_WAREHOUSE.includes(docType) && !targetWarehouseId) { setError('Vui lòng chọn kho đích'); return; }
         if (NEEDS_PROJECT_CONTEXT.includes(docType) && !projectId) { setError('Loại phiếu này cần gắn công trình'); return; }
 
@@ -191,7 +193,7 @@ export default function NewDocumentPage() {
         try {
             const res = await fetch('/api/inventory-v2/documents', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ docType, warehouseId, targetWarehouseId: targetWarehouseId || undefined, projectId: projectId || undefined, reason, notes, lines: validLines }),
+                body: JSON.stringify({ docType, docDate, warehouseId, targetWarehouseId: targetWarehouseId || undefined, projectId: projectId || undefined, reason, notes, lines: validLines }),
             });
             const d = await res.json();
             if (!res.ok) throw new Error(d.error || 'Lỗi tạo phiếu');
@@ -234,12 +236,18 @@ export default function NewDocumentPage() {
                     </div>
                 )}
 
-                <div className="form-group">
-                    <label className="form-label">Công trình {NEEDS_PROJECT_CONTEXT.includes(docType) ? '*' : '(tuỳ chọn)'}</label>
-                    <select className="form-select" value={projectId} onChange={e => setProjectId(e.target.value)}>
-                        <option value="">— Không gắn công trình —</option>
-                        {projects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
-                    </select>
+                <div className="form-row">
+                    <div className="form-group">
+                        <label className="form-label">{isImport ? 'Ngày nhập' : docType.startsWith('EXPORT') ? 'Ngày xuất' : 'Ngày phiếu'} *</label>
+                        <input className="form-input" type="date" value={docDate} onChange={e => setDocDate(e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                        <label className="form-label">Công trình {NEEDS_PROJECT_CONTEXT.includes(docType) ? '*' : '(tuỳ chọn)'}</label>
+                        <select className="form-select" value={projectId} onChange={e => setProjectId(e.target.value)}>
+                            <option value="">— Không gắn công trình —</option>
+                            {projects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+                        </select>
+                    </div>
                 </div>
 
                 <div className="form-group">
