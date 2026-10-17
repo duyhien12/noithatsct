@@ -22,6 +22,8 @@ const PIPELINE = [
 
 const PIPELINE_TK = [
     { key: 'Ưu tiên', label: 'Khách chờ', color: '#8b5cf6', bg: '#ede9fe' },
+    { key: 'Chăm sóc', label: 'Khách chăm sóc', color: '#3b82f6', bg: '#dbeafe' },
+    { key: 'Khách ưu tiên', label: 'Khách ưu tiên', color: '#d946ef', bg: '#fae8ff' },
     { key: 'Hợp đồng', label: 'Khách hợp đồng nội thất', color: '#f97316', bg: '#ffedd5' },
     { key: 'Hợp đồng kiến trúc', label: 'Khách hợp đồng kiến trúc', color: '#0ea5e9', bg: '#e0f2fe' },
     { key: 'Hoàn thành', label: 'Khách hoàn thành', color: '#10b981', bg: '#d1fae5' },
