@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, GitBranch, Users, FileText,
     ClipboardList, ChevronRight, Building2,
-    Wrench, CalendarDays, ShoppingCart, Warehouse, Package, BarChart3, Banknote, BookMarked, GanttChart, Calendar, CheckSquare, PencilRuler, GraduationCap, NotebookText, TrendingUp } from 'lucide-react';
+    Wrench, CalendarDays, ShoppingCart, Package, BarChart3, Banknote, BookMarked, GanttChart, Calendar, CheckSquare, PencilRuler, GraduationCap, NotebookText, TrendingUp } from 'lucide-react';
 import SidebarBrand from '@/components/sidebar/SidebarBrand';
 import SidebarRoleFooter from '@/components/sidebar/SidebarRoleFooter';
 import { useRole } from '@/contexts/RoleContext';
@@ -75,7 +75,6 @@ const menuItems = [
             { href: '/finance/luong-chi-phi', icon: Banknote, label: 'Lương & Chi phí cố định' },
             { href: '/finance/tong-hop', icon: BookMarked, label: 'Báo cáo tổng hợp 2 phòng' },
             { href: '/purchasing', icon: ShoppingCart, label: 'Mua sắm vật tư' },
-            { href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho' },
         ],
     },
 ];

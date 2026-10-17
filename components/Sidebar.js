@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, GitBranch, Users, Building2, FileText,
     Package, ClipboardList, Wrench,
-    ShoppingCart, Truck, Warehouse, Wallet, UserCog,
+    ShoppingCart, Truck, Wallet, UserCog,
     BarChart3, ChevronRight, Shield, CalendarDays, HardHat, Banknote, TrendingUp, BookMarked, Factory, ListChecks, PencilRuler, GraduationCap, Sparkles, NotebookText
 } from 'lucide-react';
 import SidebarBrand from '@/components/sidebar/SidebarBrand';
@@ -92,8 +92,6 @@ const menuItems = [
               roles: [...BAN_GD, ...KE_TOAN, ...KY_THUAT, ...KINH_DOANH, ...VIEWER] },
             { href: '/partners', icon: Truck, label: 'Đối tác (NCC / Thầu phụ)',
               roles: [...BAN_GD, ...KE_TOAN, ...VIEWER] },
-            { href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho',
-              roles: [...BAN_GD, ...KE_TOAN, ...VIEWER, ...KY_THUAT] },
         ],
     },
     {

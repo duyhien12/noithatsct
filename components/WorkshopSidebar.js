@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, Wrench, Building2, ShoppingCart, Package,
-    ChevronRight, CalendarDays, Users, FileText, Warehouse,
+    ChevronRight, CalendarDays, Users, FileText,
     BarChart2, Clock, BookOpen, Landmark, Settings,
     ClipboardCheck, NotebookText, Boxes, Factory,
 } from 'lucide-react';
@@ -147,7 +147,6 @@ const SUPERVISOR_MENU = [
     {
         section: 'Kho & Mua sắm',
         items: [
-            { href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho' },
             { href: '/workshop/materials', icon: Package, label: 'Vật tư kho' },
         ],
     },
@@ -167,16 +166,11 @@ export default function WorkshopSidebar({ isOpen, onClose, collapsed, onToggleCo
     const { roleInfo, isXuongNhanVien, department, canSwitchRole, viewAsRole, setViewAsRole, actualRole, role, email } = useRole();
     const [openParents, setOpenParents] = useState({});
 
-    const isVanToan = email === 'vantoan@kientrucsct.com';
     const isSupervisor = SUPERVISOR_EMAILS.includes(email);
     const menuItems = isSupervisor
         ? SUPERVISOR_MENU
         : isXuongNhanVien
-        ? (isVanToan
-            ? NHAN_VIEN_MENU.map(s => s.section === 'Kho & Mua sắm'
-                ? { ...s, items: [{ href: '/inventory', icon: Warehouse, label: 'Kho & Tồn kho' }, ...s.items] }
-                : s)
-            : NHAN_VIEN_MENU)
+        ? NHAN_VIEN_MENU
         : FULL_MENU;
 
     const handleNavClick = () => {
