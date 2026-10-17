@@ -4,12 +4,27 @@ import { useRouter } from 'next/navigation';
 import { useRole } from '@/contexts/RoleContext';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
-const todayStr = () => new Date().toISOString().split('T')[0];
+// Ngày/tháng theo giờ máy người dùng (VN) — không dùng toISOString() vì nó đổi sang UTC, lệch ngày trước 7h sáng
+const pad2 = (n) => String(n).padStart(2, '0');
+const toDateStr = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const toMonthStr = (d) => toDateStr(d).slice(0, 7);
+const todayStr = () => toDateStr(new Date());
 const fmtDateVN = (str) => {
     if (!str) return '';
     const d = new Date(str);
     return d.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
 };
+
+const normName = (s) => (s || '').trim().toLowerCase();
+// Nhật ký công việc lưu thợ dạng string[] (cũ) hoặc {name, hours}[] (mới)
+const parseLogWorkers = (json) => {
+    try {
+        const v = JSON.parse(json);
+        return Array.isArray(v) ? v.map(i => (typeof i === 'string' ? i : i?.name)).filter(Boolean) : [];
+    } catch { return []; }
+};
+const OFF_CATEGORY = 'Nhân công nghỉ';
+const logLabel = (l) => `${l.shift}: ${l.category === OFF_CATEGORY ? 'Nghỉ' : (l.project || l.category)}`;
 
 const STATUS_OPTS = ['Hoạt động', 'Tạm nghỉ', 'Nghỉ việc'];
 const STATUS_COLOR = { 'Hoạt động': '#16a34a', 'Tạm nghỉ': '#d97706', 'Nghỉ việc': '#6b7280' };
@@ -31,7 +46,7 @@ export default function WorkersPage() {
     const canEditWorkers = WORKER_EDIT_ROLES.includes(role);
     const canManageAttendance = canEditWorkers || (role === 'xuong' && XUONG_MANAGER_DEPARTMENTS.includes(department));
     const [workers, setWorkers] = useState([]);
-    const [workerTasks, setWorkerTasks] = useState({});
+    const [workLog, setWorkLog] = useState({}); // tên thợ (chuẩn hoá) → việc trong nhật ký ngày đang chọn
     const [attendance, setAttendance] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -47,17 +62,10 @@ export default function WorkersPage() {
     const [userList, setUserList] = useState([]);
     const [nameSuggest, setNameSuggest] = useState([]);
     const [showSuggest, setShowSuggest] = useState(false);
-    const [allTasks, setAllTasks] = useState([]);
-    const [currentWorkTarget, setCurrentWorkTarget] = useState(null);
-    const [currentWorkTaskIds, setCurrentWorkTaskIds] = useState([]);
-    const [savingCurrentWork, setSavingCurrentWork] = useState(false);
-    const [projects, setProjects] = useState([]);
-    const [showAddTask, setShowAddTask] = useState(false);
-    const [newTaskForm, setNewTaskForm] = useState({ title: '', projectId: '', deadline: '', category: 'Lắp ghép tại xưởng' });
 
     // ── Tổng hợp tháng ───────────────────────────────────────────────────────
     const [showSummary, setShowSummary] = useState(isXuongNhanVien);
-    const [summaryMonth, setSummaryMonth] = useState(() => new Date().toISOString().slice(0, 7));
+    const [summaryMonth, setSummaryMonth] = useState(() => toMonthStr(new Date()));
     const [summaryAttendance, setSummaryAttendance] = useState([]);
     const [summaryOvertimes, setSummaryOvertimes] = useState([]);
     const [salaryAdvances, setSalaryAdvances] = useState([]); // [{workerId, amount, notes}]
@@ -79,7 +87,7 @@ export default function WorkersPage() {
     const [overtimeForm, setOvertimeForm] = useState({ hours: 2, rateMultiplier: 1.5, reason: '', notes: '' });
     const [savingOT, setSavingOT] = useState(false);
     const [showOvertimeList, setShowOvertimeList] = useState(false);
-    const [overtimeMonth, setOvertimeMonth] = useState(() => new Date().toISOString().slice(0, 7));
+    const [overtimeMonth, setOvertimeMonth] = useState(() => toMonthStr(new Date()));
     const [monthlyOvertimes, setMonthlyOvertimes] = useState([]);
     const [loadingOT, setLoadingOT] = useState(false);
     const [monthlyAtt, setMonthlyAtt] = useState([]);
@@ -90,27 +98,27 @@ export default function WorkersPage() {
 
     useEffect(() => {
         fetch('/api/users').then(r => r.json()).then(d => setUserList(Array.isArray(d) ? d : []));
-        fetch('/api/projects?limit=200').then(r => r.json()).then(d => setProjects(Array.isArray(d?.data) ? d.data : []));
     }, []);
 
     const fetchWorkers = async () => {
-        const [wRes, tRes] = await Promise.all([
-            fetch('/api/workshop/workers'),
-            fetch('/api/workshop/tasks?status=Đang làm'),
-        ]);
-        const [w, t] = await Promise.all([wRes.json(), tRes.json()]);
+        const res = await fetch('/api/workshop/workers');
+        const w = await res.json();
         setWorkers(Array.isArray(w) ? w : []);
-        const taskMap = {};
-        if (Array.isArray(t)) {
-            setAllTasks(t);
-            t.forEach(task => {
-                task.workers?.forEach(tw => {
-                    if (!taskMap[tw.workerId]) taskMap[tw.workerId] = [];
-                    taskMap[tw.workerId].push(task);
-                });
+    };
+
+    // Việc hiện tại / thợ rảnh lấy theo Nhật ký công việc của ngày đang chọn (khớp theo tên thợ)
+    const fetchWorkLog = async (date) => {
+        const res = await fetch(`/api/workshop/work-log?start=${date}&end=${date}`);
+        const data = await res.json();
+        const map = {};
+        (Array.isArray(data) ? data : []).forEach(e => {
+            const item = { id: e.id, shift: e.shift || 'Sáng', category: e.category, project: e.project?.name || e.projectName || '' };
+            new Set([...parseLogWorkers(e.mainWorkers), ...parseLogWorkers(e.subWorkers)].map(normName)).forEach(k => {
+                (map[k] ||= []).push(item);
             });
-        }
-        setWorkerTasks(taskMap);
+        });
+        Object.values(map).forEach(list => list.sort((a, b) => (a.shift === 'Sáng' ? 0 : 1) - (b.shift === 'Sáng' ? 0 : 1)));
+        setWorkLog(map);
     };
 
     const fetchAttendance = async (date) => {
@@ -208,9 +216,10 @@ export default function WorkersPage() {
 
     const fetchAll = useCallback(async () => {
         setLoading(true);
-        const monthStr = new Date().toISOString().slice(0, 7);
-        const [, , , mAttRes] = await Promise.all([
+        const monthStr = toMonthStr(new Date());
+        const [, , , , mAttRes] = await Promise.all([
             fetchWorkers(),
+            fetchWorkLog(selectedDate),
             fetchAttendance(selectedDate),
             fetchOvertimes(selectedDate),
             fetch(`/api/workshop/attendance?month=${monthStr}`),
@@ -226,9 +235,9 @@ export default function WorkersPage() {
             return;
         }
         fetchAll();
-        intervalRef.current = setInterval(fetchWorkers, 30000);
+        intervalRef.current = setInterval(() => { fetchWorkers(); fetchWorkLog(selectedDate); }, 30000);
         return () => clearInterval(intervalRef.current);
-    }, [role, fetchAll, router]);
+    }, [role, fetchAll, router, selectedDate]);
 
     // Khi đổi ngày → refetch chấm công + tăng ca
     useEffect(() => {
@@ -312,9 +321,9 @@ export default function WorkersPage() {
     };
 
     const shiftDate = (delta) => {
-        const d = new Date(selectedDate);
+        const d = new Date(selectedDate + 'T00:00:00');
         d.setDate(d.getDate() + delta);
-        setSelectedDate(d.toISOString().split('T')[0]);
+        setSelectedDate(toDateStr(d));
     };
 
     // Chấm công nhanh toàn bộ nhân công đang hoạt động với 8h
@@ -331,69 +340,7 @@ export default function WorkersPage() {
         fetchAttendance(selectedDate);
     };
 
-    const openCurrentWork = (w) => {
-        const assigned = allTasks.filter(t => t.workers?.some(tw => tw.workerId === w.id)).map(t => t.id);
-        setCurrentWorkTarget(w);
-        setCurrentWorkTaskIds(assigned);
-        setShowAddTask(false);
-        setNewTaskForm({ title: '', projectId: '', deadline: '', category: 'Lắp ghép tại xưởng' });
-    };
-
-    const addNewTask = async () => {
-        if (!newTaskForm.title.trim()) return;
-        setSavingCurrentWork(true);
-        try {
-            const res = await fetch('/api/workshop/tasks', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: newTaskForm.title.trim(),
-                    projectId: newTaskForm.projectId || null,
-                    deadline: newTaskForm.deadline || null,
-                    category: newTaskForm.category || 'Lắp ghép tại xưởng',
-                    status: 'Đang làm',
-                    workerIds: [currentWorkTarget.id],
-                }),
-            });
-            const created = await res.json();
-            setAllTasks(prev => [...prev, created]);
-            setCurrentWorkTaskIds(prev => [...prev, created.id]);
-            setShowAddTask(false);
-            setNewTaskForm({ title: '', projectId: '', deadline: '', category: 'Lắp ghép tại xưởng' });
-        } finally { setSavingCurrentWork(false); }
-    };
-
-    const toggleCurrentWorkTask = (taskId) => {
-        setCurrentWorkTaskIds(prev =>
-            prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]
-        );
-    };
-
-    const saveCurrentWork = async () => {
-        setSavingCurrentWork(true);
-        try {
-            const workerId = currentWorkTarget.id;
-            const originalIds = allTasks.filter(t => t.workers?.some(tw => tw.workerId === workerId)).map(t => t.id);
-            const added = currentWorkTaskIds.filter(id => !originalIds.includes(id));
-            const removed = originalIds.filter(id => !currentWorkTaskIds.includes(id));
-            const changed = [...new Set([...added, ...removed])];
-            await Promise.all(changed.map(taskId => {
-                const task = allTasks.find(t => t.id === taskId);
-                const currentWorkerIds = task.workers?.map(tw => tw.workerId) || [];
-                let newWorkerIds;
-                if (currentWorkTaskIds.includes(taskId)) {
-                    newWorkerIds = [...new Set([...currentWorkerIds, workerId])];
-                } else {
-                    newWorkerIds = currentWorkerIds.filter(id => id !== workerId);
-                }
-                return fetch(`/api/workshop/tasks/${taskId}`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ workerIds: newWorkerIds }),
-                });
-            }));
-            setCurrentWorkTarget(null);
-            fetchWorkers();
-        } finally { setSavingCurrentWork(false); }
-    };
+    const openWorkLog = () => router.push(`/workshop/work-log?date=${selectedDate}`);
 
     // ── Tăng ca ──────────────────────────────────────────────────────────────
     const openOvertime = (w) => {
@@ -440,7 +387,7 @@ export default function WorkersPage() {
     };
 
     const isToday = selectedDate === todayStr();
-    const idleSet = new Set(workers.filter(w => w.status === 'Hoạt động' && (!workerTasks[w.id] || workerTasks[w.id].length === 0)).map(w => w.id));
+    const idleSet = new Set(workers.filter(w => w.status === 'Hoạt động' && !workLog[normName(w.name)]).map(w => w.id));
     const filtered = workers.filter(w => {
         if (filterIdle && !idleSet.has(w.id)) return false;
         return !search || w.name.toLowerCase().includes(search.toLowerCase()) || w.skill?.toLowerCase().includes(search.toLowerCase());
@@ -541,13 +488,13 @@ export default function WorkersPage() {
                     </span>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
                         {idleWorkers.map(w => (
-                            <span key={w.id} onClick={() => openCurrentWork(w)}
+                            <span key={w.id} onClick={openWorkLog}
                                 style={{ padding: '2px 10px', borderRadius: 20, background: '#fde68a', color: '#92400e', fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid #f59e0b' }}>
                                 {w.name}
                             </span>
                         ))}
                     </div>
-                    <span style={{ fontSize: 11, color: '#b45309', flexShrink: 0 }}>Click để giao việc</span>
+                    <span style={{ fontSize: 11, color: '#b45309', flexShrink: 0 }}>Click để mở nhật ký công việc</span>
                 </div>
             )}
 
@@ -567,18 +514,18 @@ export default function WorkersPage() {
                     {/* Bộ chọn ngày chấm công */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                         <button className="btn btn-ghost btn-sm" onClick={() => {
-                            const d = new Date(selectedDate);
+                            const d = new Date(selectedDate + 'T00:00:00');
                             d.setDate(d.getDate() - 1);
-                            setSelectedDate(d.toISOString().split('T')[0]);
+                            setSelectedDate(toDateStr(d));
                         }}>◀</button>
                         <div style={{ position: 'relative' }}>
                             <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
                                 style={{ padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text-primary)', background: 'var(--bg-card)', cursor: 'pointer' }} />
                         </div>
                         <button className="btn btn-ghost btn-sm" onClick={() => {
-                            const d = new Date(selectedDate);
+                            const d = new Date(selectedDate + 'T00:00:00');
                             d.setDate(d.getDate() + 1);
-                            setSelectedDate(d.toISOString().split('T')[0]);
+                            setSelectedDate(toDateStr(d));
                         }}>▶</button>
                         {!isToday && (
                             <button className="btn btn-ghost btn-sm" style={{ color: '#2563eb', fontWeight: 600 }} onClick={() => setSelectedDate(todayStr())}>
@@ -667,7 +614,7 @@ export default function WorkersPage() {
                                 <tbody>
                                     {filtered.map(w => {
                                         const rec = attendance.find(a => a.workerId === w.id);
-                                        const currentTasks = workerTasks[w.id] || [];
+                                        const logs = workLog[normName(w.name)] || [];
                                         return (
                                             <tr key={w.id}>
                                                 <td style={{ minWidth: 150 }}>
@@ -708,19 +655,23 @@ export default function WorkersPage() {
                                                     ) : '—'}
                                                 </td>
                                                 <td style={{ fontSize: 12 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4, cursor: 'pointer' }} onClick={() => openCurrentWork(w)} title="Nhấn để sửa việc hiện tại">
+                                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4, cursor: 'pointer' }} onClick={openWorkLog} title="Theo Nhật ký công việc — nhấn để mở">
                                                         <div style={{ flex: 1 }}>
-                                                            {currentTasks.length > 0
+                                                            {logs.length > 0
                                                                 ? <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                                    {currentTasks.slice(0, 2).map(t => (
-                                                                        <span key={t.id} style={{ padding: '1px 6px', borderRadius: 8, background: '#dbeafe', color: '#1d4ed8', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 130 }}>{t.title}</span>
-                                                                    ))}
-                                                                    {currentTasks.length > 2 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>+{currentTasks.length - 2} việc</span>}
+                                                                    {logs.slice(0, 2).map(l => {
+                                                                        const off = l.category === OFF_CATEGORY;
+                                                                        return (
+                                                                            <span key={l.id} title={`Ca ${l.shift} · ${l.category}${l.project ? ' · ' + l.project : ''}`}
+                                                                                style={{ padding: '1px 6px', borderRadius: 8, background: off ? '#fee2e2' : '#dbeafe', color: off ? '#b91c1c' : '#1d4ed8', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 130 }}>{logLabel(l)}</span>
+                                                                        );
+                                                                    })}
+                                                                    {logs.length > 2 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>+{logs.length - 2} việc</span>}
                                                                   </div>
                                                                 : <span style={{ color: 'var(--text-muted)' }}>Rảnh</span>
                                                             }
                                                         </div>
-                                                        <span style={{ fontSize: 10, color: '#94a3b8', flexShrink: 0, marginTop: 1 }}>✏️</span>
+                                                        <span style={{ fontSize: 10, color: '#94a3b8', flexShrink: 0, marginTop: 1 }}>📖</span>
                                                     </div>
                                                 </td>
                                                 <td>
@@ -794,7 +745,7 @@ export default function WorkersPage() {
                     <div className="wk-mobile-only wk-m-list">
                         {mobileFiltered.map(w => {
                             const rec = attendance.find(a => a.workerId === w.id);
-                            const currentTasks = workerTasks[w.id] || [];
+                            const logs = workLog[normName(w.name)] || [];
                             const isActive = w.status === 'Hoạt động';
                             const wOTs = overtimes.filter(o => o.workerId === w.id);
                             const otHours = wOTs.reduce((s, o) => s + o.hours, 0);
@@ -828,10 +779,10 @@ export default function WorkersPage() {
                                         {otHours > 0 && <span className="wk-m-chip" style={{ background: '#fef3c7', color: '#d97706' }}>⏰ +{otHours}h OT</span>}
                                     </div>
                                     {isActive && (
-                                        <div className="wk-m-tasks" onClick={() => openCurrentWork(w)}>
-                                            {currentTasks.length > 0
-                                                ? <>🔨 {currentTasks.map(t => t.title).join(', ')}</>
-                                                : <span style={{ color: '#b45309', fontWeight: 600 }}>⚡ Đang rảnh — chạm để giao việc</span>}
+                                        <div className="wk-m-tasks" onClick={openWorkLog}>
+                                            {logs.length > 0
+                                                ? <>🔨 {logs.map(logLabel).join(', ')}</>
+                                                : <span style={{ color: '#b45309', fontWeight: 600 }}>⚡ Chưa có trong nhật ký — chạm để mở nhật ký</span>}
                                         </div>
                                     )}
                                     {canManageAttendance && isActive && (
@@ -982,11 +933,11 @@ export default function WorkersPage() {
 
                 const prevMonth = () => {
                     const d = new Date(y, m - 2, 1);
-                    setSummaryMonth(d.toISOString().slice(0, 7));
+                    setSummaryMonth(toMonthStr(d));
                 };
                 const nextMonth = () => {
                     const d = new Date(y, m, 1);
-                    setSummaryMonth(d.toISOString().slice(0, 7));
+                    setSummaryMonth(toMonthStr(d));
                 };
 
                 // day of week label (for weekends)
@@ -1699,8 +1650,8 @@ tfoot .lbl{text-align:center;color:#ea580c;font-size:7.5pt}
 
                 const grandMealTotal = summaryWorkers.reduce((s, w) => s + workerMealTotal(w), 0);
 
-                const prevMonth = () => { const d = new Date(y, m - 2, 1); setSummaryMonth(d.toISOString().slice(0, 7)); };
-                const nextMonth = () => { const d = new Date(y, m, 1); setSummaryMonth(d.toISOString().slice(0, 7)); };
+                const prevMonth = () => { const d = new Date(y, m - 2, 1); setSummaryMonth(toMonthStr(d)); };
+                const nextMonth = () => { const d = new Date(y, m, 1); setSummaryMonth(toMonthStr(d)); };
 
                 const MEAL_LABEL = { 0: '', 1: '1', 2: '2' };
                 const MEAL_BG = { 0: 'transparent', 1: '#fef9c3', 2: '#fef3c7' };
@@ -1858,8 +1809,8 @@ tfoot td{font-weight:bold;background:#fef3c7}
             {/* Danh sách tăng ca */}
             {showOvertimeList && (() => {
                 const [oy, om] = overtimeMonth.split('-').map(Number);
-                const prevOTMonth = () => { const d = new Date(oy, om - 2, 1); setOvertimeMonth(d.toISOString().slice(0, 7)); };
-                const nextOTMonth = () => { const d = new Date(oy, om, 1); setOvertimeMonth(d.toISOString().slice(0, 7)); };
+                const prevOTMonth = () => { const d = new Date(oy, om - 2, 1); setOvertimeMonth(toMonthStr(d)); };
+                const nextOTMonth = () => { const d = new Date(oy, om, 1); setOvertimeMonth(toMonthStr(d)); };
                 const totalOTPay = monthlyOvertimes.reduce((s, o) => s + o.totalPay, 0);
                 return (
                     <div className="card">
@@ -2164,97 +2115,6 @@ tfoot td{font-weight:bold;background:#fef3c7}
                             <button className="btn btn-ghost" onClick={() => { setOvertimeTarget(null); setOvertimeEditId(null); }}>Hủy</button>
                             <button className="btn btn-primary" style={{ background: '#f59e0b', borderColor: '#f59e0b' }} onClick={handleSaveOvertime} disabled={savingOT || !overtimeForm.hours}>
                                 {savingOT ? 'Đang lưu...' : overtimeEditId ? '💾 Cập nhật' : '⏰ Ghi tăng ca'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Modal sửa việc hiện tại */}
-            {currentWorkTarget && (
-                <div className="modal-overlay" onClick={() => setCurrentWorkTarget(null)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
-                        <div className="modal-header">
-                            <h3>Việc hiện tại — {currentWorkTarget.name}</h3>
-                            <button className="modal-close" onClick={() => setCurrentWorkTarget(null)}>×</button>
-                        </div>
-                        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            {allTasks.length === 0 && (
-                                <p style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: '8px 0' }}>
-                                    Chưa có tác vụ nào đang thực hiện
-                                </p>
-                            )}
-                            {allTasks.length > 0 && (
-                                <>
-                                    <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 2 }}>
-                                        Chọn việc đang giao cho <strong>{currentWorkTarget.name}</strong>:
-                                    </p>
-                                    {allTasks.map(task => {
-                                        const checked = currentWorkTaskIds.includes(task.id);
-                                        return (
-                                            <label key={task.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 8, border: `2px solid ${checked ? '#2563eb' : 'var(--border)'}`, background: checked ? '#eff6ff' : 'var(--bg-card)', cursor: 'pointer' }}>
-                                                <input type="checkbox" checked={checked} onChange={() => toggleCurrentWorkTask(task.id)} style={{ marginTop: 2, accentColor: '#2563eb', width: 16, height: 16, flexShrink: 0 }} />
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>{task.title}</div>
-                                                    {task.project && (
-                                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                                                            {task.project.code} · {task.project.name}
-                                                        </div>
-                                                    )}
-                                                    {task.workers?.length > 0 && (
-                                                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
-                                                            Thợ: {task.workers.map(tw => tw.worker?.name).filter(Boolean).join(', ')}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </label>
-                                        );
-                                    })}
-                                </>
-                            )}
-
-                            {/* Thêm việc mới */}
-                            {showAddTask ? (
-                                <div style={{ padding: '12px', borderRadius: 8, border: '2px dashed #2563eb', background: '#eff6ff', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    <div style={{ fontWeight: 600, fontSize: 13, color: '#1d4ed8', marginBottom: 2 }}>Thêm việc mới</div>
-                                    <input
-                                        className="form-input"
-                                        placeholder="Tên công việc *"
-                                        value={newTaskForm.title}
-                                        onChange={e => setNewTaskForm(f => ({ ...f, title: e.target.value }))}
-                                        autoFocus
-                                        style={{ fontSize: 13 }}
-                                    />
-                                    <select className="form-select" value={newTaskForm.projectId} onChange={e => setNewTaskForm(f => ({ ...f, projectId: e.target.value }))} style={{ fontSize: 13 }}>
-                                        <option value="">-- Dự án (tùy chọn) --</option>
-                                        {projects.map(p => <option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}
-                                    </select>
-                                    <select className="form-select" value={newTaskForm.category} onChange={e => setNewTaskForm(f => ({ ...f, category: e.target.value }))} style={{ fontSize: 13 }}>
-                                        {['Gia công nguội','Lắp ghép tại xưởng','Lắp đặt tại công trình','Bảo dưỡng','Việc khác'].map(c => <option key={c}>{c}</option>)}
-                                    </select>
-                                    <div style={{ display: 'flex', gap: 6 }}>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Hạn chót</label>
-                                            <input type="date" className="form-input" value={newTaskForm.deadline} onChange={e => setNewTaskForm(f => ({ ...f, deadline: e.target.value }))} style={{ fontSize: 13 }} />
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                                        <button className="btn btn-ghost btn-sm" onClick={() => { setShowAddTask(false); setNewTaskForm({ title: '', projectId: '', deadline: '', category: 'Lắp ghép tại xưởng' }); }}>Hủy</button>
-                                        <button className="btn btn-primary btn-sm" onClick={addNewTask} disabled={savingCurrentWork || !newTaskForm.title.trim()}>
-                                            {savingCurrentWork ? 'Đang tạo...' : '+ Tạo & giao việc'}
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <button className="btn btn-ghost btn-sm" onClick={() => setShowAddTask(true)} style={{ alignSelf: 'flex-start', color: '#2563eb', fontWeight: 600, border: '1.5px dashed #93c5fd', borderRadius: 8, padding: '6px 14px' }}>
-                                    + Thêm việc mới
-                                </button>
-                            )}
-                        </div>
-                        <div className="modal-footer">
-                            <button className="btn btn-ghost" onClick={() => setCurrentWorkTarget(null)}>Hủy</button>
-                            <button className="btn btn-primary" onClick={saveCurrentWork} disabled={savingCurrentWork}>
-                                {savingCurrentWork ? 'Đang lưu...' : '✅ Lưu'}
                             </button>
                         </div>
                     </div>

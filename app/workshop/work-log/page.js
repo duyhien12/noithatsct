@@ -490,6 +490,12 @@ export default function WorkLogPage() {
     const [activeTasks, setActiveTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
+
+    // Mở từ trang Nhân công với ?date=YYYY-MM-DD → nhảy tới tuần chứa ngày đó
+    useEffect(() => {
+        const d = new URLSearchParams(window.location.search).get('date');
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d || '')) setWeekStart(getWeekStart(new Date(d + 'T00:00:00')));
+    }, []);
     const [editCell, setEditCell] = useState(null);
     const [showSync, setShowSync] = useState(false);
     const [syncing, setSyncing] = useState(false);
