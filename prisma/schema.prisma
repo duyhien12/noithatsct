@@ -1998,6 +1998,7 @@ model CostLabor {
   unitPrice     Float    @default(0)
   amount        Float    @default(0)
   sortOrder     Int      @default(0)
+  source        String   @default("")
   createdAt     DateTime @default(now())
 
   @@index([costProjectId], map: "idx_clab_cpid")
@@ -2027,6 +2028,7 @@ model CostMaterial {
   wastePct      Float    @default(0)
   amount        Float    @default(0)
   sortOrder     Int      @default(0)
+  source        String   @default("")
   createdAt     DateTime @default(now())
 
   @@index([costProjectId], map: "idx_cmat_cpid")

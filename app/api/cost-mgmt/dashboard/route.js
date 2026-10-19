@@ -1,10 +1,11 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
-import { ensureTables, toNum, calcTotals } from '@/lib/costMgmt';
+import { ensureTables, refreshAllocationPrices, toNum, calcTotals } from '@/lib/costMgmt';
 
 export const GET = withAuth(async () => {
     await ensureTables();
+    await refreshAllocationPrices();
 
     const [projects, settings] = await Promise.all([
         prisma.$queryRaw`SELECT * FROM "CostProject" ORDER BY "createdAt" DESC`,

@@ -1,10 +1,11 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
-import { ensureTables, toNum, calcTotals } from '@/lib/costMgmt';
+import { ensureTables, refreshAllocationPrices, toNum, calcTotals } from '@/lib/costMgmt';
 
 export const GET = withAuth(async (req, { params }) => {
     await ensureTables();
+    await refreshAllocationPrices();
     const { id } = await params;
     const [rows] = await prisma.$queryRaw`SELECT * FROM "CostProject" WHERE id = ${id}`;
     if (!rows) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -16,7 +17,8 @@ export const GET = withAuth(async (req, { params }) => {
         prisma.$queryRaw`SELECT * FROM "CostAllocation" WHERE "costProjectId" = ${id} ORDER BY "createdAt"`,
     ]);
 
-    const project = { ...rows, revenue: toNum(rows.revenue), vatPct: toNum(rows.vatPct), commissionPct: toNum(rows.commissionPct), mgmtPct: toNum(rows.mgmtPct) };
+    const linked = rows.projectId ? await prisma.project.findUnique({ where: { id: rows.projectId }, select: { code: true, name: true } }) : null;
+    const project = { ...rows, linkedProject: linked, revenue: toNum(rows.revenue), vatPct: toNum(rows.vatPct), commissionPct: toNum(rows.commissionPct), mgmtPct: toNum(rows.mgmtPct) };
     const totals = calcTotals(project, materials, labor, other, allocations);
 
     return NextResponse.json({ project, materials, labor, other, allocations, totals });
@@ -32,9 +34,18 @@ export const PUT = withAuth(async (req, { params }) => {
             "signDate"=${b.signDate||null}, "revenue"=${toNum(b.revenue)},
             "vatPct"=${toNum(b.vatPct)}, "commissionPct"=${toNum(b.commissionPct)},
             "mgmtPct"=${toNum(b.mgmtPct)}, "status"=${b.status||'Báo giá'},
-            "notes"=${b.notes||''}
+            "notes"=${b.notes||''}, "projectId"=${b.projectId||null}
         WHERE id = ${id}
     `;
+    return NextResponse.json({ ok: true });
+});
+
+// Chỉ đổi dự án liên kết (chọn nhanh trên thanh "Lấy từ kho / nhật ký")
+export const PATCH = withAuth(async (req, { params }) => {
+    await ensureTables();
+    const { id } = await params;
+    const b = await req.json();
+    await prisma.$executeRaw`UPDATE "CostProject" SET "projectId"=${b.projectId || null} WHERE id = ${id}`;
     return NextResponse.json({ ok: true });
 });
 

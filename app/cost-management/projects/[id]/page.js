@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Trash2, Edit3, Check, X, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Edit3, Check, X, TrendingUp, TrendingDown, Download } from 'lucide-react';
 
 const fmt = (n) => n ? new Intl.NumberFormat('vi-VN').format(Math.round(n)) : '—';
 const fmtPct = (n) => `${((n || 0) * 100).toFixed(1)}%`;
@@ -45,8 +45,83 @@ function EditCell({ value, onChange, type = 'text', style = {}, placeholder }) {
     );
 }
 
+// ─── Lấy dữ liệu sẵn có (Kho 2.0 / Nhật ký công việc) ─────────────
+// Điểm giống tên giữa công trình giá thành và dự án ERP — để đưa dự án khớp nhất lên đầu danh sách chọn
+const normWords = (t) => (t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').split(/[^a-z0-9]+/).filter(w => w.length > 1);
+const nameScore = (a, b) => { const wa = new Set(normWords(a)); return normWords(b).filter(w => wa.has(w)).length; };
+
+function ImportBar({ projectId, kind, linkedProject, costName, onReload }) {
+    const [busy, setBusy] = useState(false);
+    const [msg, setMsg] = useState(null);
+    const [picking, setPicking] = useState(false);
+    const [erpProjects, setErpProjects] = useState([]);
+    const isMat = kind === 'materials';
+    const showPicker = !linkedProject || picking;
+
+    useEffect(() => {
+        if (!showPicker || erpProjects.length) return;
+        fetch('/api/projects?limit=1000').then(r => r.json()).then(d => {
+            const list = (d.data || []).map(p => ({ ...p, _score: nameScore(costName, `${p.code} ${p.name}`) }));
+            setErpProjects(list.sort((a, b) => b._score - a._score || (a.code || '').localeCompare(b.code || '')));
+        });
+    }, [showPicker, erpProjects.length, costName]);
+
+    async function link(erpId) {
+        await fetch(`/api/cost-mgmt/projects/${projectId}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: erpId })
+        });
+        setPicking(false); setMsg(null);
+        onReload();
+    }
+
+    async function run() {
+        setBusy(true); setMsg(null);
+        const res = await fetch(`/api/cost-mgmt/projects/${projectId}/import`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind })
+        });
+        const d = await res.json().catch(() => ({}));
+        setBusy(false);
+        if (!res.ok) { setMsg({ error: true, text: d.error || 'Lỗi lấy dữ liệu' }); return; }
+        const warn = isMat
+            ? (d.missingPrice?.length ? ` · ${d.missingPrice.length} vật tư chưa có giá vốn, cần nhập đơn giá tay` : '')
+            : (d.missingRate?.length ? ` · Chưa có đơn giá công: ${d.missingRate.join(', ')}` : '');
+        setMsg({ error: false, text: `Đã lấy ${d.count} dòng${warn}` });
+        onReload();
+    }
+
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12, padding: '8px 12px', background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12 }}>
+            <span style={{ color: '#6b7280' }}>
+                {isMat ? 'Vật tư xuất cho công trình (Kho 2.0), đã trừ hoàn trả' : 'Số công từ Nhật ký công việc xưởng (1 ca = 0,5 công)'}
+                {' · '}Dự án:{' '}
+                {!showPicker && <>
+                    <strong style={{ color: '#111827' }}>{linkedProject.code ? `${linkedProject.code} — ` : ''}{linkedProject.name}</strong>
+                    <button onClick={() => setPicking(true)} style={{ marginLeft: 6, background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: 12, textDecoration: 'underline' }}>đổi</button>
+                </>}
+            </span>
+            {showPicker && (
+                <select value="" onChange={e => e.target.value && link(e.target.value)}
+                    style={{ minWidth: 280, maxWidth: '100%', padding: '5px 8px', borderRadius: 6, border: '1px solid #f97316', fontSize: 12, background: 'white' }}>
+                    <option value="">{erpProjects.length ? '— Chọn dự án để lấy dữ liệu —' : 'Đang tải danh sách dự án...'}</option>
+                    {erpProjects.map(p => <option key={p.id} value={p.id}>{p._score > 0 ? '★ ' : ''}{p.code} — {p.name}</option>)}
+                </select>
+            )}
+            <button onClick={run} disabled={busy || !linkedProject}
+                style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 6, border: 'none', background: linkedProject ? '#f97316' : '#d1d5db', color: 'white', cursor: linkedProject ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 600 }}>
+                <Download size={12} /> {busy ? 'Đang lấy...' : isMat ? 'Lấy từ kho' : 'Lấy từ nhật ký'}
+            </button>
+            {msg && <div style={{ width: '100%', color: msg.error ? '#dc2626' : '#16a34a', fontWeight: 600 }}>{msg.text}</div>}
+            <div style={{ width: '100%', color: '#9ca3af', fontSize: 11 }}>Bấm lại để cập nhật — chỉ thay các dòng có nhãn {isMat ? 'Kho' : 'NK'}, dòng nhập tay giữ nguyên.</div>
+        </div>
+    );
+}
+
+const SourceTag = ({ label }) => (
+    <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: '#ffedd5', color: '#c2410c', marginRight: 4 }}>{label}</span>
+);
+
 // ─── Vật tư tab ───────────────────────────────────────────────────
-function MaterialsTab({ projectId, rows, onReload }) {
+function MaterialsTab({ projectId, rows, onReload, linkedProject, costName }) {
     const blank = { grp: '', name: '', detail: '', unit: '', qty: '', unitPrice: '', wastePct: '' };
     const [draft, setDraft] = useState(blank);
     const [saving, setSaving] = useState(false);
@@ -77,6 +152,7 @@ function MaterialsTab({ projectId, rows, onReload }) {
 
     return (
         <div>
+            <ImportBar projectId={projectId} kind="materials" linkedProject={linkedProject} costName={costName} onReload={onReload} />
             <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
@@ -89,7 +165,7 @@ function MaterialsTab({ projectId, rows, onReload }) {
                     <tbody>
                         {rows.map(r => (
                             <tr key={r.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                <td style={C}><EditCell value={r.grp} onChange={v => update(r, 'grp', v)} /></td>
+                                <td style={C}><div style={{ display: 'flex', alignItems: 'center' }}>{r.source && <SourceTag label="Kho" />}<EditCell value={r.grp} onChange={v => update(r, 'grp', v)} /></div></td>
                                 <td style={C}><EditCell value={r.name} onChange={v => update(r, 'name', v)} /></td>
                                 <td style={C}><EditCell value={r.detail} onChange={v => update(r, 'detail', v)} /></td>
                                 <td style={C}><EditCell value={r.unit} onChange={v => update(r, 'unit', v)} style={{ width: 60 }} /></td>
@@ -129,7 +205,7 @@ function MaterialsTab({ projectId, rows, onReload }) {
 }
 
 // ─── Nhân công tab ────────────────────────────────────────────────
-function LaborTab({ projectId, rows, onReload }) {
+function LaborTab({ projectId, rows, onReload, linkedProject, costName }) {
     const blank = { category: '', type: '', unit: 'Công', qty: '', unitPrice: '' };
     const [draft, setDraft] = useState(blank);
     const [saving, setSaving] = useState(false);
@@ -158,6 +234,7 @@ function LaborTab({ projectId, rows, onReload }) {
 
     return (
         <div>
+            <ImportBar projectId={projectId} kind="labor" linkedProject={linkedProject} costName={costName} onReload={onReload} />
             <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
@@ -170,7 +247,7 @@ function LaborTab({ projectId, rows, onReload }) {
                     <tbody>
                         {rows.map(r => (
                             <tr key={r.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                <td style={C}><EditCell value={r.category} onChange={v => update(r, 'category', v)} placeholder="Gia công xưởng..." /></td>
+                                <td style={C}><div style={{ display: 'flex', alignItems: 'center' }}>{r.source && <SourceTag label="NK" />}<EditCell value={r.category} onChange={v => update(r, 'category', v)} placeholder="Gia công xưởng..." /></div></td>
                                 <td style={C}><EditCell value={r.type} onChange={v => update(r, 'type', v)} /></td>
                                 <td style={C}><EditCell value={r.unit} onChange={v => update(r, 'unit', v)} style={{ width: 70 }} /></td>
                                 <td style={C}><EditCell value={r.qty} type="number" onChange={v => update(r, 'qty', v)} style={{ width: 80, textAlign: 'right' }} /></td>
@@ -414,6 +491,12 @@ export default function ProjectDetailPage() {
     const [editProject, setEditProject] = useState(false);
     const [form, setForm] = useState({});
     const [saving, setSaving] = useState(false);
+    const [erpProjects, setErpProjects] = useState([]);
+
+    useEffect(() => {
+        if (!editProject || erpProjects.length) return;
+        fetch('/api/projects?limit=1000').then(r => r.json()).then(d => setErpProjects(d.data || []));
+    }, [editProject, erpProjects.length]);
 
     const load = useCallback(async () => {
         const res = await fetch(`/api/cost-mgmt/projects/${id}`);
@@ -476,6 +559,17 @@ export default function ProjectDetailPage() {
                                         style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box' }} />
                                 </div>
                             ))}
+                            <div style={{ gridColumn: '1 / -1' }}>
+                                <label style={{ display: 'block', fontSize: 11, color: '#6b7280', marginBottom: 3 }}>Liên kết dự án (để lấy vật tư từ kho & nhân công từ nhật ký)</label>
+                                <select value={form.projectId || ''} onChange={e => setForm(v => ({ ...v, projectId: e.target.value }))}
+                                    style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box', background: 'white' }}>
+                                    <option value="">— Chưa liên kết —</option>
+                                    {form.projectId && !erpProjects.some(p => p.id === form.projectId) && project.linkedProject && (
+                                        <option value={form.projectId}>{project.linkedProject.code} — {project.linkedProject.name}</option>
+                                    )}
+                                    {erpProjects.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+                                </select>
+                            </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, gridColumn: '1 / -1' }}>
                                 {[
                                     { key: 'vatPct', label: 'VAT %' }, { key: 'commissionPct', label: 'Hoa hồng %' }, { key: 'mgmtPct', label: 'QLDN %' },
@@ -534,8 +628,8 @@ export default function ProjectDetailPage() {
 
             {/* Tab content */}
             <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 12, padding: 20 }}>
-                {tab === 'materials' && <MaterialsTab projectId={id} rows={materials} onReload={load} />}
-                {tab === 'labor' && <LaborTab projectId={id} rows={labor} onReload={load} />}
+                {tab === 'materials' && <MaterialsTab projectId={id} rows={materials} onReload={load} linkedProject={project.linkedProject} costName={`${project.code} ${project.name} ${project.client}`} />}
+                {tab === 'labor' && <LaborTab projectId={id} rows={labor} onReload={load} linkedProject={project.linkedProject} costName={`${project.code} ${project.name} ${project.client}`} />}
                 {tab === 'other' && <OtherTab projectId={id} rows={other} onReload={load} />}
                 {tab === 'allocations' && <AllocationTab projectId={id} rows={allocations} onReload={load} />}
                 {tab === 'result' && <ResultTab project={project} totals={totals} />}
