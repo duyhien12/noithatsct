@@ -53,7 +53,7 @@ export default function MonthlyPage() {
     useEffect(() => { load(); }, [load]);
 
     const totalMachineDepr = machines.filter(m => m.status === 'Đang dùng')
-        .reduce((s, m) => s + Math.round(toNum(m.originalCost) * toNum(m.depreciationRate) / 12), 0);
+        .reduce((s, m) => s + Math.round(toNum(m.originalCost) * toNum(m.depreciationRate) / 100 / 12), 0);
 
     async function syncDepreciation(row) {
         await fetch(`/api/cost-mgmt/monthly/${row.id}`, {

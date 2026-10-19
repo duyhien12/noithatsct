@@ -8,7 +8,7 @@ async function calcMachineDeprFromAssets() {
         where: { assetType: 'Máy móc - Thiết bị', status: 'Đang dùng' },
         select: { originalCost: true, depreciationRate: true },
     }).catch(() => []);
-    return machines.reduce((s, m) => s + Math.round(toNum(m.originalCost) * toNum(m.depreciationRate) / 12), 0);
+    return machines.reduce((s, m) => s + Math.round(toNum(m.originalCost) * toNum(m.depreciationRate) / 100 / 12), 0);
 }
 
 export const PUT = withAuth(async (req, { params }) => {

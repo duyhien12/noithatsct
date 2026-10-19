@@ -6,9 +6,9 @@ import { ArrowLeft, ExternalLink } from 'lucide-react';
 const fmt = (n) => n ? new Intl.NumberFormat('vi-VN').format(Math.round(n)) : '—';
 const toNum = (v) => Number(v) || 0;
 
-// Tính khấu hao/tháng từ nguyên giá × tỷ lệ KH năm / 12
+// Tính khấu hao/tháng từ nguyên giá × tỷ lệ KH năm (%) / 12
 function calcMonthlyDepr(originalCost, depreciationRate) {
-    return Math.round(toNum(originalCost) * toNum(depreciationRate) / 12);
+    return Math.round(toNum(originalCost) * toNum(depreciationRate) / 100 / 12);
 }
 
 function fmtDate(d) {
@@ -98,7 +98,7 @@ export default function MachinesPage() {
                                         <td style={{ padding: '10px 14px', color: '#6b7280' }}>{fmtDate(m.startUseDate)}</td>
                                         <td style={{ padding: '10px 14px', textAlign: 'right', color: '#374151' }}>{fmt(m.originalCost)}đ</td>
                                         <td style={{ padding: '10px 14px', textAlign: 'right', color: '#d97706', fontWeight: 600 }}>
-                                            {m.depreciationRate ? `${(toNum(m.depreciationRate) * 100).toFixed(1)}%` : '—'}
+                                            {m.depreciationRate ? `${toNum(m.depreciationRate).toFixed(1)}%` : '—'}
                                         </td>
                                         <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: isActive ? '#7c3aed' : '#9ca3af' }}>
                                             {isActive ? fmt(monthly) + 'đ' : '—'}
