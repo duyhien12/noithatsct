@@ -60,11 +60,13 @@ function DocumentsPageInner() {
     // Phiếu gốc đã có phiếu đảo được duyệt, và chính phiếu đảo đã duyệt, triệt tiêu nhau → mặc định ẩn cả cặp
     const approvedReversal = (d) => d.reversals?.find(r => r.status === 'APPROVED');
     const isReversedPair = (d) => !!approvedReversal(d) || (d.status === 'APPROVED' && d.sourceDocument?.status === 'APPROVED');
+    // Phiếu đã hủy cũng ẩn mặc định, trừ khi đang lọc đúng trạng thái "Đã hủy"
+    const isHidden = (d) => isReversedPair(d) || (d.status === 'CANCELLED' && status !== 'CANCELLED');
     const q = search.trim().toLowerCase();
-    const shown = docs.filter(d => showReversed || !isReversedPair(d)).filter(d => !q || [
+    const shown = docs.filter(d => showReversed || !isHidden(d)).filter(d => !q || [
         d.code, d.project?.name, d.mfgOrder?.title, ...(d.lines || []).map(lineLabel),
     ].some(v => (v || '').toLowerCase().includes(q)));
-    const hiddenCount = showReversed ? 0 : docs.filter(isReversedPair).length;
+    const hiddenCount = showReversed ? 0 : docs.filter(isHidden).length;
 
     return (
         <div className="card">
@@ -88,7 +90,7 @@ function DocumentsPageInner() {
                     onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
                 <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                     <input type="checkbox" checked={showReversed} onChange={e => setShowReversed(e.target.checked)} />
-                    Hiện phiếu đã đảo{hiddenCount > 0 ? ` (${hiddenCount})` : ''}
+                    Hiện phiếu đã đảo/hủy{hiddenCount > 0 ? ` (${hiddenCount})` : ''}
                 </label>
             </div>
             {loading ? (
