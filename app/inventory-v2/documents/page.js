@@ -3,12 +3,24 @@ import { useEffect, useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { materialFullName } from '@/lib/inventoryV2/materialLabel';
+import { DOC_TYPE_META } from '@/lib/inventoryV2/workflow';
 
 const STATUS_BADGE = { DRAFT: 'badge-info', PENDING_APPROVAL: 'badge-warning', APPROVED: 'badge-success', CANCELLED: 'badge-danger' };
 const STATUS_LABEL = { DRAFT: 'Nháp', PENDING_APPROVAL: 'Chờ duyệt', APPROVED: 'Đã duyệt', CANCELLED: 'Đã hủy' };
 const fmtDate = (d) => new Date(d).toLocaleDateString('vi-VN');
 const lineLabel = (l) => `${l.material?.sku || ''} — ${materialFullName(l.material)}`;
 const MAX_LINES_SHOWN = 3;
+
+// Tên loại phiếu theo nhóm (khớp các tab bên trên), kèm mô tả chi tiết của docType
+const docKind = (docType) => {
+    if (docType === 'RETURN_TO_WAREHOUSE') return 'Phiếu hoàn trả';
+    if (docType === 'HOLD') return 'Phiếu giữ vật tư';
+    if (docType === 'RELEASE_HOLD') return 'Phiếu hủy giữ';
+    if (docType?.startsWith('IMPORT_')) return 'Phiếu nhập';
+    if (docType?.startsWith('EXPORT_')) return 'Phiếu xuất';
+    if (docType?.startsWith('TRANSFER_')) return 'Phiếu điều chuyển';
+    return docType;
+};
 
 const GROUPS = [
     { key: '', label: 'Tất cả' },
@@ -102,7 +114,10 @@ function DocumentsPageInner() {
                                             </div>
                                         )}
                                     </td>
-                                    <td style={{ fontSize: 13 }}>{d.docType}</td>
+                                    <td style={{ fontSize: 13 }}>
+                                        <div style={{ fontWeight: 600 }}>{docKind(d.docType)}</div>
+                                        {DOC_TYPE_META[d.docType]?.label && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{DOC_TYPE_META[d.docType].label}</div>}
+                                    </td>
                                     <td style={{ fontSize: 13 }}>{fmtDate(d.docDate)}</td>
                                     <td style={{ fontSize: 13 }}>{d.warehouse?.name}{d.targetWarehouse ? ` → ${d.targetWarehouse.name}` : ''}</td>
                                     <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{d.project?.name || d.mfgOrder?.title || '—'}</td>

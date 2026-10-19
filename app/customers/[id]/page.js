@@ -241,6 +241,8 @@ export default function CustomerDetailPage() {
     const [scheduleView, setScheduleView] = useState('both');
     const dragRowIdx = useRef(null);
     const [dragOverRowIdx, setDragOverRowIdx] = useState(null);
+    // Kéo thả thanh trên biểu đồ tiến độ: mode 'move' dời cả thanh, 'start'/'end' kéo dãn mép
+    const [ganttDrag, setGanttDrag] = useState(null);
     const autoSaveTimer = useRef(null);
     const lastSavedProcessRef = useRef(null);
     const [autoSaveStatus, setAutoSaveStatus] = useState('');
@@ -454,6 +456,47 @@ export default function CustomerDetailPage() {
         if (!res.ok) { const err = await res.json().catch(() => ({})); return alert(err.error || 'Lỗi xóa'); }
         router.push('/customers');
     };
+
+    const shiftDate = (d, days) => {
+        const dt = new Date(`${d}T00:00:00Z`);
+        dt.setUTCDate(dt.getUTCDate() + days);
+        return dt.toISOString().split('T')[0];
+    };
+    const ganttDragDates = (drag) => {
+        let s = drag.origStart, e = drag.origEnd;
+        if (drag.mode === 'move') { s = shiftDate(s, drag.delta); e = shiftDate(e, drag.delta); }
+        else if (drag.mode === 'start') { s = shiftDate(s, drag.delta); if (s > e) s = e; }
+        else { e = shiftDate(e, drag.delta); if (e < s) e = s; }
+        return { startDate: s, endDate: e };
+    };
+    const onGanttBarMouseDown = (e, schedIdx, mode, item, totalDays) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const trackW = e.currentTarget.closest('[data-gantt-track]')?.getBoundingClientRect().width || 1;
+        setGanttDrag({ schedIdx, mode, startX: e.clientX, dayW: trackW / totalDays, origStart: item.startDate, origEnd: item.endDate, delta: 0 });
+    };
+    useEffect(() => {
+        if (!ganttDrag) return;
+        const onMove = (e) => {
+            const delta = Math.round((e.clientX - ganttDrag.startX) / ganttDrag.dayW);
+            if (delta !== ganttDrag.delta) setGanttDrag(d => d && { ...d, delta });
+        };
+        const onUp = () => {
+            if (ganttDrag.delta !== 0) {
+                const { startDate, endDate } = ganttDragDates(ganttDrag);
+                const duration = Math.max(1, Math.round((new Date(endDate) - new Date(startDate)) / 86400000) + 1);
+                setProcessForm(prev => ({
+                    ...prev,
+                    _schedule: { ...prev._schedule, items: prev._schedule.items.map((it, i) => i === ganttDrag.schedIdx ? { ...it, startDate, endDate, duration } : it) },
+                }));
+            }
+            setGanttDrag(null);
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    }, [ganttDrag]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải...</div>;
     if (!data) { router.push('/customers'); return null; }
@@ -1159,15 +1202,21 @@ export default function CustomerDetailPage() {
                         const schedEnd = sched.items.reduce((m, it) => it.endDate > m ? it.endDate : m, sched.items[0]?.endDate || today);
 
                         // Khách hợp đồng nội thất: biểu đồ chỉ theo dõi Bước 3 (đặt hàng sản xuất & đối tác)
+                        // — bỏ dòng tổng của Bước 3, mỗi hạng mục con một màu riêng
                         let ganttItems = sched.items;
-                        if (sched.templateName === 'Khách hợp đồng nội thất') {
+                        let ganttOffset = 0; // vị trí của ganttItems[0] trong sched.items
+                        const ganttStep3Only = sched.templateName === 'Khách hợp đồng nội thất';
+                        if (ganttStep3Only) {
                             const groupIdxs = sched.items.map((it, i) => it.level === 0 ? i : -1).filter(i => i >= 0);
                             const s3 = groupIdxs.find(i => /^BƯỚC\s*3\b/i.test(sched.items[i].name)) ?? groupIdxs[2];
                             if (s3 != null) {
                                 const next = groupIdxs.find(i => i > s3) ?? sched.items.length;
-                                ganttItems = sched.items.slice(s3, next);
+                                ganttItems = sched.items.slice(s3 + 1, next);
+                                ganttOffset = s3 + 1;
                             }
                         }
+                        const ganttLabelW = ganttStep3Only ? 260 : 130;
+                        const ROW_COLORS = ['#3b82f6', '#f97316', '#10b981', '#8b5cf6', '#ef4444', '#06b6d4', '#eab308', '#ec4899', '#14b8a6', '#6366f1', '#84cc16', '#a16207'];
 
                         // Gantt range
                         const minDate = ganttItems.reduce((m, it) => it.startDate < m ? it.startDate : m, ganttItems[0]?.startDate || today);
@@ -1396,7 +1445,7 @@ export default function CustomerDetailPage() {
                                 {(scheduleView === 'gantt' || scheduleView === 'both') && <div style={{ padding: '16px', borderTop: '2px solid var(--border-light)', overflowX: 'auto' }}>
                                     <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, letterSpacing: 1 }}>BIỂU ĐỒ TIẾN ĐỘ</div>
                                     {/* Date header: month row + date tick row */}
-                                    <div style={{ marginBottom: 6, paddingLeft: 130 }}>
+                                    <div style={{ marginBottom: 6, paddingLeft: ganttLabelW }}>
                                         {/* Month labels */}
                                         <div style={{ position: 'relative', height: 16, minWidth: 200 }}>
                                             {months.map((m, i) => (
@@ -1418,15 +1467,22 @@ export default function CustomerDetailPage() {
                                         const isDone = item.status === 'done';
                                         const isInProgress = item.status === 'in_progress';
                                         const isGroup = item.level === 0;
-                                        const barColor = isDone ? '#10b981' : isInProgress ? '#f59e0b' : (item.color || (isGroup ? '#6b7280' : _gc));
+                                        const barColor = ganttStep3Only
+                                            ? ROW_COLORS[idx % ROW_COLORS.length]
+                                            : isDone ? '#10b981' : isInProgress ? '#f59e0b' : (item.color || (isGroup ? '#6b7280' : _gc));
                                         if (isGroup) _gc = barColor;
                                         const todayPct = getPct(today);
+                                        const schedIdx = ganttOffset + idx;
+                                        const dragging = ganttDrag?.schedIdx === schedIdx;
+                                        const bar = dragging ? ganttDragDates(ganttDrag) : item;
+                                        const barDays = Math.max(1, Math.round((new Date(bar.endDate) - new Date(bar.startDate)) / 86400000) + 1);
+                                        const handleStyle = { position: 'absolute', top: 0, bottom: 0, width: 6, cursor: 'ew-resize', zIndex: 4 };
                                         return (
                                             <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: isGroup ? 6 : 2, height: isGroup ? 26 : 20 }}>
-                                                <div style={{ width: 130, flexShrink: 0, fontSize: isGroup ? 12 : 11, fontWeight: isGroup ? 700 : 400, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8, paddingLeft: isGroup ? 0 : 10, textDecoration: isDone ? 'line-through' : 'none' }}>
+                                                <div style={{ width: ganttLabelW, flexShrink: 0, fontSize: isGroup ? 12 : 11, fontWeight: isGroup ? 700 : 400, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 8, paddingLeft: isGroup ? 0 : 10, textDecoration: isDone ? 'line-through' : 'none' }}>
                                                     {item.name}
                                                 </div>
-                                                <div style={{ flex: 1, position: 'relative', height: '100%', background: 'var(--bg-secondary)', borderRadius: 4, minWidth: 200 }}>
+                                                <div data-gantt-track style={{ flex: 1, position: 'relative', height: '100%', background: 'var(--bg-secondary)', borderRadius: 4, minWidth: 200 }}>
                                                     {/* Grid lines */}
                                                     {dateTicks.map((t, gi) => (
                                                         <div key={gi} style={{ position: 'absolute', left: `${t.pct}%`, top: 0, bottom: 0, width: 1, background: 'var(--border-light)', opacity: 0.7, zIndex: 1 }} />
@@ -1435,29 +1491,45 @@ export default function CustomerDetailPage() {
                                                     {todayPct >= 0 && todayPct <= 100 && (
                                                         <div style={{ position: 'absolute', left: `${todayPct}%`, top: 0, bottom: 0, width: 2, background: '#ef4444', opacity: 0.5, zIndex: 2 }} />
                                                     )}
-                                                    {/* Bar */}
-                                                    <div style={{
+                                                    {/* Bar — kéo giữa để dời ngày, kéo 2 mép để đổi ngày bắt đầu/kết thúc */}
+                                                    <div
+                                                        onMouseDown={e => onGanttBarMouseDown(e, schedIdx, 'move', item, totalDays)}
+                                                        title={`${new Date(bar.startDate).toLocaleDateString('vi-VN')} → ${new Date(bar.endDate).toLocaleDateString('vi-VN')} · kéo để dời ngày, kéo mép để đổi thời lượng`}
+                                                        style={{
                                                         position: 'absolute',
-                                                        left: `${getPct(item.startDate)}%`,
-                                                        width: `${getW(item.startDate, item.endDate)}%`,
+                                                        left: `${getPct(bar.startDate)}%`,
+                                                        width: `${getW(bar.startDate, bar.endDate)}%`,
                                                         height: '100%',
                                                         background: barColor,
                                                         borderRadius: 4,
-                                                        opacity: isDone ? 0.6 : 0.85,
+                                                        opacity: ganttStep3Only ? (isDone ? 0.3 : 0.9) : (isDone ? 0.6 : 0.85),
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        cursor: dragging ? 'grabbing' : 'grab', userSelect: 'none', zIndex: 3,
+                                                        boxShadow: dragging ? '0 0 0 2px var(--primary)' : 'none',
                                                     }}>
+                                                        <div onMouseDown={e => onGanttBarMouseDown(e, schedIdx, 'start', item, totalDays)} style={{ ...handleStyle, left: 0 }} />
+                                                        <div onMouseDown={e => onGanttBarMouseDown(e, schedIdx, 'end', item, totalDays)} style={{ ...handleStyle, right: 0 }} />
+                                                        {dragging && <span style={{ position: 'absolute', bottom: '100%', left: 0, marginBottom: 2, fontSize: 10, fontWeight: 700, color: 'var(--text-primary)', background: 'var(--bg-primary)', border: '1px solid var(--border-light)', borderRadius: 4, padding: '0 4px', whiteSpace: 'nowrap', zIndex: 5 }}>{new Date(bar.startDate).toLocaleDateString('vi-VN')} → {new Date(bar.endDate).toLocaleDateString('vi-VN')}</span>}
+                                                        {ganttStep3Only && <span style={{ fontSize: 9, color: '#fff', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', padding: '0 4px' }}>{isDone ? '✓ ' : ''}{barDays}d</span>}
                                                         {isGroup && <span style={{ fontSize: 9, color: '#fff', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', padding: '0 4px' }}>{item.duration}d</span>}
                                                     </div>
                                                 </div>
                                             </div>
                                         );
                                     }); })()}
-                                    <div style={{ marginTop: 8, paddingLeft: 130, display: 'flex', gap: 12 }}>
+                                    {ganttStep3Only ? (
+                                    <div style={{ marginTop: 8, paddingLeft: ganttLabelW, display: 'flex', gap: 12 }}>
+                                        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Mỗi hạng mục một màu · Thanh mờ có ✓ = Hoàn thành · Kéo thanh để dời ngày, kéo mép để đổi thời lượng</span>
+                                        <span style={{ fontSize: 10, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 2, height: 10, background: '#ef4444', opacity: 0.5, display: 'inline-block' }}/>Hôm nay</span>
+                                    </div>
+                                    ) : (
+                                    <div style={{ marginTop: 8, paddingLeft: ganttLabelW, display: 'flex', gap: 12 }}>
                                         <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 6, background: '#10b981', borderRadius: 2, display: 'inline-block' }}/>Hoàn thành</span>
                                         <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 6, background: '#f59e0b', borderRadius: 2, display: 'inline-block' }}/>Đang thực hiện</span>
                                         <span style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 6, background: '#3b82f6', borderRadius: 2, display: 'inline-block' }}/>Chưa bắt đầu</span>
                                         <span style={{ fontSize: 10, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 2, height: 10, background: '#ef4444', opacity: 0.5, display: 'inline-block' }}/>Hôm nay</span>
                                     </div>
+                                    )}
                                 </div>}
                             </div>
                         );
