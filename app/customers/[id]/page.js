@@ -638,10 +638,22 @@ export default function CustomerDetailPage() {
         setExpandedScheduleIdx(items.length);
     };
 
+    // Đánh lại số WBS theo thứ tự hiện tại: nhóm 1, 2, 3...; dòng con 3.1, 3.2...
+    // Dòng con đang để trống WBS (mẫu chăm sóc KH) thì giữ trống và không tính vào số thứ tự
+    const renumberWbs = (items) => {
+        let g = 0, c = 0;
+        return items.map(it => {
+            if (it.level === 0) { g++; c = 0; return { ...it, wbs: String(g) }; }
+            if (!it.wbs) return it;
+            c++;
+            return { ...it, wbs: g > 0 ? `${g}.${c}` : String(c) };
+        });
+    };
+
     const deleteScheduleRow = (idx) => {
         setProcessForm(prev => ({
             ...prev,
-            _schedule: { ...prev._schedule, items: prev._schedule.items.filter((_, i) => i !== idx) },
+            _schedule: { ...prev._schedule, items: renumberWbs(prev._schedule.items.filter((_, i) => i !== idx)) },
         }));
         if (expandedScheduleIdx === idx) setExpandedScheduleIdx(null);
     };
@@ -660,7 +672,7 @@ export default function CustomerDetailPage() {
         const newItems = [...processForm._schedule.items];
         const [dragged] = newItems.splice(from, 1);
         newItems.splice(idx, 0, dragged);
-        setProcessForm(prev => ({ ...prev, _schedule: { ...prev._schedule, items: newItems } }));
+        setProcessForm(prev => ({ ...prev, _schedule: { ...prev._schedule, items: renumberWbs(newItems) } }));
         dragRowIdx.current = null;
         setDragOverRowIdx(null);
     };
@@ -1143,9 +1155,23 @@ export default function CustomerDetailPage() {
                         const totalCount = sched.items.length;
                         const pctDone = totalCount > 0 ? Math.round(doneCount / totalCount * 100) : 0;
 
+                        const schedStart = sched.items.reduce((m, it) => it.startDate < m ? it.startDate : m, sched.items[0]?.startDate || today);
+                        const schedEnd = sched.items.reduce((m, it) => it.endDate > m ? it.endDate : m, sched.items[0]?.endDate || today);
+
+                        // Khách hợp đồng nội thất: biểu đồ chỉ theo dõi Bước 3 (đặt hàng sản xuất & đối tác)
+                        let ganttItems = sched.items;
+                        if (sched.templateName === 'Khách hợp đồng nội thất') {
+                            const groupIdxs = sched.items.map((it, i) => it.level === 0 ? i : -1).filter(i => i >= 0);
+                            const s3 = groupIdxs.find(i => /^BƯỚC\s*3\b/i.test(sched.items[i].name)) ?? groupIdxs[2];
+                            if (s3 != null) {
+                                const next = groupIdxs.find(i => i > s3) ?? sched.items.length;
+                                ganttItems = sched.items.slice(s3, next);
+                            }
+                        }
+
                         // Gantt range
-                        const minDate = sched.items.reduce((m, it) => it.startDate < m ? it.startDate : m, sched.items[0]?.startDate || today);
-                        const maxDate = sched.items.reduce((m, it) => it.endDate > m ? it.endDate : m, sched.items[0]?.endDate || today);
+                        const minDate = ganttItems.reduce((m, it) => it.startDate < m ? it.startDate : m, ganttItems[0]?.startDate || today);
+                        const maxDate = ganttItems.reduce((m, it) => it.endDate > m ? it.endDate : m, ganttItems[0]?.endDate || today);
                         const totalDays = Math.max(1, (new Date(maxDate) - new Date(minDate)) / 86400000 + 1);
                         const getPct = d => ((new Date(d) - new Date(minDate)) / 86400000) / totalDays * 100;
                         const getW = (s, e) => Math.max(1, ((new Date(e) - new Date(s)) / 86400000 + 1) / totalDays * 100);
@@ -1180,7 +1206,7 @@ export default function CustomerDetailPage() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: 'var(--bg-secondary)', borderTop: '1px solid var(--border-light)', flexWrap: 'wrap' }}>
                                     <span style={{ fontWeight: 700, fontSize: 13 }}>📅 {sched.templateName}</span>
                                     <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                                        {new Date(minDate).toLocaleDateString('vi-VN')} → {new Date(maxDate).toLocaleDateString('vi-VN')}
+                                        {new Date(schedStart).toLocaleDateString('vi-VN')} → {new Date(schedEnd).toLocaleDateString('vi-VN')}
                                     </span>
                                     <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 10, background: pctDone === 100 ? '#d1fae5' : '#fef3c7', color: pctDone === 100 ? '#10b981' : '#f59e0b', fontWeight: 600 }}>
                                         {doneCount}/{totalCount} · {pctDone}%
@@ -1388,7 +1414,7 @@ export default function CustomerDetailPage() {
                                         </div>
                                     </div>
                                     {/* Today line + bars */}
-                                    {(() => { let _gc = '#3b82f6'; return sched.items.map((item, idx) => {
+                                    {(() => { let _gc = '#3b82f6'; return ganttItems.map((item, idx) => {
                                         const isDone = item.status === 'done';
                                         const isInProgress = item.status === 'in_progress';
                                         const isGroup = item.level === 0;
