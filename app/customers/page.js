@@ -67,7 +67,8 @@ export default function CustomersPage() {
         next.has(id) ? next.delete(id) : next.add(id);
         return next;
     });
-    const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: 'Tư vấn', taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0, branch: 'HQ' });
+    const emptyForm = (pipelineStage) => ({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage, taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0, branch: 'HQ' });
+    const [form, setForm] = useState(() => emptyForm('Tư vấn'));
     const [dragId, setDragId] = useState(null);
     const [dragOver, setDragOver] = useState(null);
     const isDragging = useRef(false);
@@ -77,6 +78,16 @@ export default function CustomersPage() {
     const canSeeXD = !isThietKe && (role !== 'xuong' || email === 'buihoa@kientrucsct.com');
     const canSeeTK = isThietKe || role === 'hanh_chinh_kt';
     const isTKReadOnly = canSeeTK && !isThietKe;
+    // Phòng TK: khách mới thuộc bảng "Thiết kế nội thất" hoặc "TKKT" — quyết định bởi tiền tố của pipelineStage
+    const formIsTKKT = isTKKTStage(form.pipelineStage);
+    const formPipeline = isThietKe ? (formIsTKKT ? PIPELINE_TKKT : PIPELINE_TK_BOARD) : PIPELINE;
+    const setFormGroup = (toTKKT) => {
+        if (toTKKT === formIsTKKT) return;
+        const raw = (form.pipelineStage || '').replace(TKKT_PREFIX, '');
+        const target = toTKKT ? PIPELINE_TKKT : PIPELINE_TK_BOARD;
+        const key = toTKKT ? TKKT_PREFIX + raw : raw;
+        setForm({ ...form, pipelineStage: target.find(p => p.key === key) ? key : target[0].key });
+    };
 
     useEffect(() => {
         if (email === 'buihoa@kientrucsct.com') setShowXDBoard(true);
@@ -137,13 +148,13 @@ export default function CustomersPage() {
         if (!form.phone.trim()) return alert('Vui lòng nhập số điện thoại');
         const defaultStage = isThietKe ? 'Ưu tiên' : 'Tư vấn';
         const submitData = { ...form, status: 'Khách hàng' };
-        if (isThietKe && !PIPELINE_TK.find(p => p.key === submitData.pipelineStage)) {
+        if (isThietKe && ![...PIPELINE_TK_BOARD, ...PIPELINE_TKKT].find(p => p.key === submitData.pipelineStage)) {
             submitData.pipelineStage = 'Ưu tiên';
         }
         const res = await fetch('/api/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(submitData) });
         if (!res.ok) { const err = await res.json(); return alert(err.error || 'Lỗi tạo khách hàng'); }
         setShowModal(false);
-        setForm({ name: '', phone: '', email: '', address: '', type: 'Cá nhân', pipelineStage: defaultStage, taxCode: '', representative: '', source: '', notes: '', gender: 'Nam', birthday: '', salesPerson: '', designer: '', projectAddress: '', projectName: '', contactPerson2: '', phone2: '', estimatedValue: 0, branch: 'HQ' });
+        setForm(emptyForm(defaultStage));
         fetchCustomers();
     };
 
@@ -230,7 +241,7 @@ export default function CustomersPage() {
                             <button onClick={() => setView('kanban')} style={{ padding: '8px 14px', fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer', background: view === 'kanban' ? 'var(--primary)' : 'transparent', color: view === 'kanban' ? '#fff' : 'var(--text-secondary)', transition: 'all .15s', minHeight: 36 }}>📋 Kanban</button>
                             <button onClick={() => setView('table')} style={{ padding: '8px 14px', fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer', background: view === 'table' ? 'var(--primary)' : 'transparent', color: view === 'table' ? '#fff' : 'var(--text-secondary)', transition: 'all .15s', minHeight: 36 }}>📊 Bảng</button>
                         </div>
-                        <button className="btn btn-primary" onClick={() => setShowModal(true)} style={{ whiteSpace: 'nowrap' }}>+ Thêm KH</button>
+                        <button className="btn btn-primary" onClick={() => { if (isThietKe && ![...PIPELINE_TK_BOARD, ...PIPELINE_TKKT].find(p => p.key === form.pipelineStage)) setForm({ ...form, pipelineStage: 'Ưu tiên' }); setShowModal(true); }} style={{ whiteSpace: 'nowrap' }}>+ Thêm KH</button>
                     </div>
                 </div>
             </div>
@@ -504,6 +515,24 @@ export default function CustomersPage() {
                         </div>
                         <div className="modal-body" style={{ padding: '16px 20px', maxHeight: '70vh', overflowY: 'auto' }}>
 
+                            {/* Phòng TK: chọn bảng cho khách mới */}
+                            {isThietKe && (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                                    {[
+                                        { tkkt: false, label: '✏️ Khách thiết kế nội thất' },
+                                        { tkkt: true, label: '🏛️ Khách TKKT' },
+                                    ].map(g => {
+                                        const on = formIsTKKT === g.tkkt;
+                                        return (
+                                            <button key={g.label} type="button" onClick={() => setFormGroup(g.tkkt)}
+                                                style={{ padding: '10px 12px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', border: on ? '2px solid var(--primary)' : '1px solid var(--border-light)', background: on ? 'var(--primary)' : 'var(--bg-secondary)', color: on ? '#fff' : 'var(--text-secondary)', transition: 'all .15s' }}>
+                                                {g.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
                             {/* Section 1: Thông tin cơ bản */}
                             <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
                                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-primary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -559,7 +588,7 @@ export default function CustomersPage() {
                                     <div>
                                         <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>Giai đoạn KD</label>
                                         <select className="form-select" value={form.pipelineStage} onChange={e => setForm({ ...form, pipelineStage: e.target.value })}>
-                                            {PIPELINE.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+                                            {formPipeline.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
                                         </select>
                                     </div>
                                     <div>
