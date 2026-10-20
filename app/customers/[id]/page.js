@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import MentionTextarea from '@/components/MentionTextarea';
 import MentionText from '@/components/MentionText';
 import { findMentionedNames } from '@/lib/mentions';
+import { PIPELINE_TK_BOARD, PIPELINE_TKKT, isTKKTStage, tkBoardStage } from '@/lib/customerStagesTK';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
@@ -502,7 +503,11 @@ export default function CustomerDetailPage() {
     if (!data) { router.push('/customers'); return null; }
     const c = data;
     const s = c.stats || { projectCount: 0, contractCount: 0, totalContractValue: 0, totalPaid: 0, totalDebt: 0 };
-    const stage = PIPELINE.find(p => p.key === (c.pipelineStage || 'Khách nội thất')) || PIPELINE[0];
+    // Khách Phòng Thiết kế chỉ chọn được các cột của bảng mình đang nằm (TK hoặc TKKT) — tránh bị đẩy sang giai đoạn kinh doanh rồi rơi khỏi bảng
+    const isTKCustomer = c.createdByRole === 'thiet_ke';
+    const stageOptions = isTKCustomer ? (isTKKTStage(c.pipelineStage) ? PIPELINE_TKKT : PIPELINE_TK_BOARD) : PIPELINE;
+    const stageValue = isTKCustomer ? tkBoardStage(c.pipelineStage) : (c.pipelineStage || 'Khách nội thất');
+    const stage = stageOptions.find(p => p.key === stageValue) || stageOptions[0];
 
     // CRM Score calculation
     const score = Math.min(100,
@@ -545,7 +550,7 @@ export default function CustomerDetailPage() {
             <InlineEdit type="number" value={c.estimatedValue || ''} onSave={v => saveField({ estimatedValue: v })} display={c.estimatedValue ? fmt(c.estimatedValue) : '—'} />
         )},
         { icon: '📊', label: 'Tiến độ', value: (
-            <InlineEdit type="select" value={c.pipelineStage || 'Khách nội thất'} options={PIPELINE.map(p => ({ value: p.key, label: p.label }))} onSave={v => saveField({ pipelineStage: v })}
+            <InlineEdit type="select" value={stageValue} options={stageOptions.map(p => ({ value: p.key, label: p.label }))} onSave={v => saveField({ pipelineStage: v })}
                 display={
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: stage.bg, color: stage.color }}>
                         <span style={{ width: 6, height: 6, borderRadius: '50%', background: stage.color }} />{stage.label}
@@ -816,7 +821,7 @@ export default function CustomerDetailPage() {
                 {/* Quick Actions - scrollable on mobile */}
                 <div style={{ display: 'flex', gap: 6, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-light)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                     <button className="btn btn-secondary btn-sm" onClick={() => setShowLogModal(true)} style={{ whiteSpace: 'nowrap' }}>📝 Ghi chú</button>
-                    <button className="btn btn-secondary btn-sm" onClick={() => { setEditForm({ name: c.name, phone: c.phone, email: c.email, address: c.address, type: c.type, pipelineStage: c.pipelineStage || 'Khách nội thất', source: c.source, representative: c.representative, taxCode: c.taxCode, estimatedValue: c.estimatedValue || 0, nextFollowUp: c.nextFollowUp ? new Date(c.nextFollowUp).toISOString().split('T')[0] : '', salesPerson: c.salesPerson, designer: c.designer, notes: c.notes, demand: c.demand, category: c.category, area: c.area || 0, constructionStatus: c.constructionStatus, decisionMaker: c.decisionMaker, specialRequest: c.specialRequest, status: c.status }); setShowEditModal(true); }} style={{ whiteSpace: 'nowrap' }}>✏️ Sửa</button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => { setEditForm({ name: c.name, phone: c.phone, email: c.email, address: c.address, type: c.type, pipelineStage: stageValue, source: c.source, representative: c.representative, taxCode: c.taxCode, estimatedValue: c.estimatedValue || 0, nextFollowUp: c.nextFollowUp ? new Date(c.nextFollowUp).toISOString().split('T')[0] : '', salesPerson: c.salesPerson, designer: c.designer, notes: c.notes, demand: c.demand, category: c.category, area: c.area || 0, constructionStatus: c.constructionStatus, decisionMaker: c.decisionMaker, specialRequest: c.specialRequest, status: c.status }); setShowEditModal(true); }} style={{ whiteSpace: 'nowrap' }}>✏️ Sửa</button>
                     <button className="btn btn-secondary btn-sm" onClick={() => router.push('/quotations/create')} style={{ whiteSpace: 'nowrap' }}>📄 Tạo BG</button>
                     {c.phone && <a href={`tel:${c.phone}`} className="btn btn-secondary btn-sm" style={{ textDecoration: 'none', whiteSpace: 'nowrap' }}>📞 Gọi</a>}
                     <button className="btn btn-ghost btn-sm" onClick={handleDelete} style={{ color: 'var(--status-danger)', whiteSpace: 'nowrap', marginLeft: 'auto' }}>🗑️ Xóa</button>
@@ -1840,7 +1845,7 @@ export default function CustomerDetailPage() {
                             <div className="form-row">
                                 <div className="form-group"><label className="form-label">Giai đoạn KD</label>
                                     <select className="form-select" value={editForm.pipelineStage || 'Khách nội thất'} onChange={e => setEditForm({ ...editForm, pipelineStage: e.target.value })}>
-                                        {PIPELINE.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+                                        {stageOptions.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
                                     </select>
                                 </div>
                                 <div className="form-group"><label className="form-label">Nguồn</label>

@@ -2,6 +2,7 @@
 import { Fragment, useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRole } from '@/contexts/RoleContext';
+import { PIPELINE_TK, PIPELINE_TK_BOARD, PIPELINE_TKKT, TKKT_PREFIX, TK_STAGE_MAP, isTKKTStage } from '@/lib/customerStagesTK';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 const fmtShort = (n) => {
@@ -19,33 +20,6 @@ const PIPELINE = [
     { key: 'Thi công', label: 'Khách hợp đồng', color: '#f97316', bg: '#ffedd5' },
     { key: 'Khách huỷ', label: 'Khách hoàn thành', color: '#6b7280', bg: '#f3f4f6' },
 ];
-
-const PIPELINE_TK = [
-    { key: 'Ưu tiên', label: 'Khách chờ', color: '#8b5cf6', bg: '#ede9fe' },
-    { key: 'Chăm sóc', label: 'Khách chăm sóc', color: '#3b82f6', bg: '#dbeafe' },
-    { key: 'Khách ưu tiên', label: 'Khách ưu tiên', color: '#d946ef', bg: '#fae8ff' },
-    { key: 'Hợp đồng', label: 'Khách hợp đồng nội thất', color: '#f97316', bg: '#ffedd5' },
-    { key: 'Hợp đồng kiến trúc', label: 'Khách hợp đồng kiến trúc', color: '#0ea5e9', bg: '#e0f2fe' },
-    { key: 'Hoàn thành', label: 'Khách hoàn thành', color: '#10b981', bg: '#d1fae5' },
-    { key: 'Huỷ', label: 'Khách huỷ', color: '#ef4444', bg: '#fee2e2' },
-];
-
-// Bảng "Khách hàng TKKT" (thiết kế kiến trúc) — cùng phòng Thiết kế, cùng các cột như PIPELINE_TK,
-// phân biệt bằng tiền tố "TKKT " trong pipelineStage. Kéo thẻ giữa 2 bảng để chuyển khách.
-const TKKT_PREFIX = 'TKKT ';
-// Mỗi bảng bỏ cột "hợp đồng" của bảng kia: bảng TK không có cột kiến trúc, bảng TKKT không có cột nội thất.
-const PIPELINE_TK_BOARD = PIPELINE_TK.filter(p => p.key !== 'Hợp đồng kiến trúc');
-const PIPELINE_TKKT = PIPELINE_TK.filter(p => p.key !== 'Hợp đồng').map(p => ({ ...p, key: TKKT_PREFIX + p.key }));
-const isTKKTStage = (s) => (s || '').startsWith(TKKT_PREFIX);
-
-// Map stage cũ (kinh doanh) → stage TK khi hiển thị kanban TK
-const TK_STAGE_MAP = {
-    'Tư vấn': 'Ưu tiên',
-    'Tiềm năng': 'Ưu tiên',
-    'Báo giá': 'Ưu tiên',
-    'Thi công': 'Hợp đồng',
-    'Khách huỷ': 'Hoàn thành',
-};
 
 const SOURCES = ['Facebook', 'Zalo', 'Website', 'Instagram', 'Giới thiệu', 'Đối tác'];
 
@@ -170,6 +144,17 @@ export default function CustomersPage() {
         fetchCustomers();
     };
 
+    // Kéo thẻ giữa bảng Phòng Thiết Kế và bảng TKKT — 2 bảng có cột trùng tên nên dễ thả nhầm, hỏi lại trước khi chuyển
+    const moveToTKBoard = (id, stage) => {
+        const c = customersTK.find(x => x.id === id);
+        if (c && isTKKTStage(c.pipelineStage) !== isTKKTStage(stage)) {
+            const toBoard = isTKKTStage(stage) ? 'Khách hàng TKKT' : 'Khách hàng Phòng Thiết Kế';
+            const col = PIPELINE_TK.find(p => p.key === stage.replace(TKKT_PREFIX, ''))?.label || stage;
+            if (!confirm(`Chuyển khách "${c.name}" sang bảng ${toBoard} (cột ${col})?`)) return;
+        }
+        moveTo(id, stage);
+    };
+
     const moveToDept = async (id, stage, dept) => {
         await fetch(`/api/customers/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pipelineStage: stage, status: 'Khách hàng', createdByRole: dept }) });
         fetchCustomers();
@@ -274,7 +259,7 @@ export default function CustomersPage() {
                                 className="kanban-column"
                                 onDragOver={isTKReadOnly ? undefined : e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver(board.id + '_' + stage.key); }}
                                 onDragLeave={isTKReadOnly ? undefined : onDragLeave}
-                                onDrop={isTKReadOnly ? undefined : e => { e.preventDefault(); setDragOver(null); const id = e.dataTransfer.getData('text/plain') || dragId; if (id) { moveTo(id, stage.key); setDragId(null); } }}
+                                onDrop={isTKReadOnly ? undefined : e => { e.preventDefault(); setDragOver(null); const id = e.dataTransfer.getData('text/plain') || dragId; if (id) { moveToTKBoard(id, stage.key); setDragId(null); } }}
                                 style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', background: isOver ? stage.bg : 'var(--bg-secondary)', borderRadius: 10, border: isOver ? `2px dashed ${stage.color}` : '1px solid var(--border-light)', transition: 'all .2s' }}>
                                 <div style={{ padding: '10px 10px 6px', borderBottom: '2px solid ' + stage.color }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
