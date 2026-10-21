@@ -2,7 +2,7 @@ import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { assertInvPermission } from '@/lib/inventoryV2/permissions';
-import { docTypeMeta } from '@/lib/inventoryV2/workflow';
+import { docTypeMeta, assertDocumentCanReverse } from '@/lib/inventoryV2/workflow';
 import { withDailyCodeRetry } from '@/lib/generateCode';
 
 /**
@@ -24,11 +24,13 @@ export const POST = withAuth(async (request, { params }, session) => {
 
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
-    const source = await prisma.invDocument.findUnique({ where: { id }, include: { lines: true } });
+    const source = await prisma.invDocument.findUnique({
+        where: { id },
+        include: { lines: true, reversals: { select: { id: true, code: true, status: true, reversals: { select: { status: true } } } } },
+    });
     if (!source) return NextResponse.json({ error: 'Không tìm thấy phiếu' }, { status: 404 });
-    if (source.status !== 'APPROVED') {
-        return NextResponse.json({ error: 'Chỉ lập phiếu đảo cho phiếu đã Đã duyệt' }, { status: 400 });
-    }
+    const reverseErr = assertDocumentCanReverse(source);
+    if (reverseErr) return NextResponse.json({ error: reverseErr.error }, { status: reverseErr.status });
 
     let newDocType;
     try { newDocType = reversalDocType(source.docType); }

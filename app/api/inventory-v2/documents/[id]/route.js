@@ -12,7 +12,7 @@ export const GET = withAuth(async (request, { params }, session) => {
         include: {
             warehouse: true, targetWarehouse: true, supplier: true, project: true, mfgOrder: true, scheduleTask: true,
             sourceDocument: { select: { id: true, code: true } },
-            reversals: { select: { id: true, code: true, status: true } },
+            reversals: { select: { id: true, code: true, status: true, reversals: { select: { status: true } } } },
             attachments: true,
             lines: {
                 orderBy: { lineNo: 'asc' },

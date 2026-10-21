@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { materialFullName } from '@/lib/inventoryV2/materialLabel';
+import { activeReversal, STATUS_LABELS } from '@/lib/inventoryV2/workflow';
 
 const STATUS_BADGE = { DRAFT: 'badge-info', PENDING_APPROVAL: 'badge-warning', APPROVED: 'badge-success', CANCELLED: 'badge-danger' };
 const fmtDate = (d) => d ? new Date(d).toLocaleString('vi-VN') : '—';
@@ -58,6 +59,8 @@ export default function DocumentDetailPage() {
     if (doc.error) return <div style={{ padding: 40, textAlign: 'center', color: '#dc2626' }}>{doc.error}</div>;
 
     const canViewCost = doc.totalAmount !== undefined;
+    const reversedBy = activeReversal(doc);
+    const canReverse = doc.status === 'APPROVED' && !doc.sourceDocument && !reversedBy;
 
     return (
         <div className="card">
@@ -73,11 +76,22 @@ export default function DocumentDetailPage() {
                         <button className="btn btn-ghost" disabled={busy} onClick={() => doAction('reject', 'Từ chối, trả về nháp')}>Từ chối</button>
                         <button className="btn btn-primary" disabled={busy} onClick={() => doAction('approve')}>Duyệt</button>
                     </>}
-                    {doc.status === 'APPROVED' && <button className="btn btn-ghost" disabled={busy} onClick={doReverse}>↩ Lập phiếu đảo</button>}
+                    {canReverse && <button className="btn btn-ghost" disabled={busy} onClick={doReverse}>↩ Lập phiếu đảo</button>}
                     {(doc.status === 'DRAFT' || doc.status === 'PENDING_APPROVAL') && <button className="btn btn-ghost" style={{ color: '#dc2626' }} disabled={busy} onClick={() => setShowCancel(true)}>Hủy phiếu</button>}
                 </div>
             </div>
 
+            {doc.sourceDocument && (
+                <div style={{ padding: '10px 20px', background: '#fef3c7', color: '#92400e', fontSize: 13 }}>
+                    ↩ Đây là phiếu đảo của <Link href={`/inventory-v2/documents/${doc.sourceDocument.id}`} style={{ fontWeight: 700 }}>{doc.sourceDocument.code}</Link>
+                    {' '}— không lập phiếu đảo cho phiếu này. Muốn bỏ tác dụng, hãy lập phiếu đảo từ phiếu gốc.
+                </div>
+            )}
+            {reversedBy && (
+                <div style={{ padding: '10px 20px', background: '#fef3c7', color: '#92400e', fontSize: 13 }}>
+                    Phiếu này đã được đảo bởi <Link href={`/inventory-v2/documents/${reversedBy.id}`} style={{ fontWeight: 700 }}>{reversedBy.code}</Link> ({STATUS_LABELS[reversedBy.status]}).
+                </div>
+            )}
             {error && <div style={{ padding: '10px 20px', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
             <div style={{ padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))', gap: 12, borderBottom: '1px solid var(--border)', fontSize: 13 }}>

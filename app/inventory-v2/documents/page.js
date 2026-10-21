@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { materialFullName } from '@/lib/inventoryV2/materialLabel';
-import { DOC_TYPE_META } from '@/lib/inventoryV2/workflow';
+import { DOC_TYPE_META, activeReversal } from '@/lib/inventoryV2/workflow';
 
 const STATUS_BADGE = { DRAFT: 'badge-info', PENDING_APPROVAL: 'badge-warning', APPROVED: 'badge-success', CANCELLED: 'badge-danger' };
 const STATUS_LABEL = { DRAFT: 'Nháp', PENDING_APPROVAL: 'Chờ duyệt', APPROVED: 'Đã duyệt', CANCELLED: 'Đã hủy' };
@@ -58,7 +58,8 @@ function DocumentsPageInner() {
 
     // Lọc tại chỗ theo số phiếu, công trình/LSX hoặc mã/tên vật tư trong phiếu
     // Phiếu gốc đã có phiếu đảo được duyệt, và chính phiếu đảo đã duyệt, triệt tiêu nhau → mặc định ẩn cả cặp
-    const approvedReversal = (d) => d.reversals?.find(r => r.status === 'APPROVED');
+    // Phiếu đảo đã bị đảo ngược lại thì không còn hiệu lực → phiếu gốc coi như chưa đảo
+    const approvedReversal = (d) => { const r = activeReversal(d); return r?.status === 'APPROVED' ? r : null; };
     const isReversedPair = (d) => !!approvedReversal(d) || (d.status === 'APPROVED' && d.sourceDocument?.status === 'APPROVED');
     // Phiếu đã hủy cũng ẩn mặc định, trừ khi đang lọc đúng trạng thái "Đã hủy"
     const isHidden = (d) => isReversedPair(d) || (d.status === 'CANCELLED' && status !== 'CANCELLED');
@@ -104,10 +105,10 @@ function DocumentsPageInner() {
                                 <tr key={d.id} style={approvedReversal(d) ? { opacity: 0.55 } : undefined}>
                                     <td className="accent">
                                         <Link href={`/inventory-v2/documents/${d.id}`} style={approvedReversal(d) ? { textDecoration: 'line-through' } : undefined}>{d.code}</Link>
-                                        {d.reversals?.[0] && (
+                                        {activeReversal(d) && (
                                             <div style={{ fontSize: 11, color: '#dc2626' }}>
-                                                {approvedReversal(d) ? 'Đã đảo' : `Đang đảo (${STATUS_LABEL[d.reversals[0].status]})`} bởi{' '}
-                                                <Link href={`/inventory-v2/documents/${d.reversals[0].id}`}>{d.reversals[0].code}</Link>
+                                                {approvedReversal(d) ? 'Đã đảo' : `Đang đảo (${STATUS_LABEL[activeReversal(d).status]})`} bởi{' '}
+                                                <Link href={`/inventory-v2/documents/${activeReversal(d).id}`}>{activeReversal(d).code}</Link>
                                             </div>
                                         )}
                                         {d.sourceDocument && (
