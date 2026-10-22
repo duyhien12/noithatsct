@@ -18,7 +18,9 @@ const PIPELINE = [
     { key: 'Tiềm năng', label: 'Khách chăm sóc', color: '#3b82f6', bg: '#dbeafe' },
     { key: 'Báo giá', label: 'Khách ưu tiên', color: '#8b5cf6', bg: '#ede9fe' },
     { key: 'Thi công', label: 'Khách hợp đồng', color: '#f97316', bg: '#ffedd5' },
+    { key: 'Chờ thanh toán', label: 'Khách chờ thanh toán', color: '#14b8a6', bg: '#ccfbf1' },
     { key: 'Khách huỷ', label: 'Khách hoàn thành', color: '#6b7280', bg: '#f3f4f6' },
+    { key: 'Huỷ', label: 'Khách huỷ', color: '#ef4444', bg: '#fee2e2' },
 ];
 
 const SOURCES = ['Facebook', 'Zalo', 'Website', 'Instagram', 'Giới thiệu', 'Đối tác'];
@@ -260,7 +262,7 @@ export default function CustomersPage() {
                                 onDragOver={isTKReadOnly ? undefined : e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver(board.id + '_' + stage.key); }}
                                 onDragLeave={isTKReadOnly ? undefined : onDragLeave}
                                 onDrop={isTKReadOnly ? undefined : e => { e.preventDefault(); setDragOver(null); const id = e.dataTransfer.getData('text/plain') || dragId; if (id) { moveToTKBoard(id, stage.key); setDragId(null); } }}
-                                style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', background: isOver ? stage.bg : 'var(--bg-secondary)', borderRadius: 10, border: isOver ? `2px dashed ${stage.color}` : '1px solid var(--border-light)', transition: 'all .2s' }}>
+                                style={{ flex: '1 0 210px', minWidth: 210, maxHeight: 'calc(100vh - 340px)', display: 'flex', flexDirection: 'column', background: isOver ? stage.bg : 'var(--bg-secondary)', borderRadius: 10, border: isOver ? `2px dashed ${stage.color}` : '1px solid var(--border-light)', transition: 'all .2s' }}>
                                 <div style={{ padding: '10px 10px 6px', borderBottom: '2px solid ' + stage.color }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: stage.color, flexShrink: 0 }} />
@@ -269,7 +271,7 @@ export default function CustomersPage() {
                                     </div>
                                     {stageValue > 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{fmtShort(stageValue)}</div>}
                                 </div>
-                                <div style={{ flex: 1, padding: 6, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                <div style={{ flex: 1, minHeight: 0, padding: 6, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     {cards.map(c => (
                                         <div key={c.id}
                                             draggable={!isTKReadOnly}
@@ -319,7 +321,7 @@ export default function CustomersPage() {
                                     onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver('xd_' + stage.key); }}
                                     onDragLeave={onDragLeave}
                                     onDrop={e => { e.preventDefault(); setDragOver(null); const id = e.dataTransfer.getData('text/plain') || dragId; if (id) { moveToDept(id, stage.key, 'xay_dung'); setDragId(null); } }}
-                                    style={{ flex: '1 0 0', minWidth: 180, display: 'flex', flexDirection: 'column', background: isOverXD ? stage.bg : 'var(--bg-secondary)', borderRadius: 10, border: isOverXD ? `2px dashed ${stage.color}` : '1px solid var(--border-light)', transition: 'all .2s' }}>
+                                    style={{ flex: '1 0 210px', minWidth: 210, maxHeight: 'calc(100vh - 340px)', display: 'flex', flexDirection: 'column', background: isOverXD ? stage.bg : 'var(--bg-secondary)', borderRadius: 10, border: isOverXD ? `2px dashed ${stage.color}` : '1px solid var(--border-light)', transition: 'all .2s' }}>
                                     <div style={{ padding: '10px 10px 6px', borderBottom: '2px solid ' + stage.color }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                             <span style={{ width: 8, height: 8, borderRadius: '50%', background: stage.color, flexShrink: 0 }} />
@@ -328,7 +330,7 @@ export default function CustomersPage() {
                                         </div>
                                         {stageValue > 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{fmtShort(stageValue)}</div>}
                                     </div>
-                                    <div style={{ flex: 1, padding: 6, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <div style={{ flex: 1, minHeight: 0, padding: 6, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
                                         {cards.map(c => (
                                             <div key={c.id}
                                                 draggable
@@ -378,7 +380,7 @@ export default function CustomersPage() {
                                 onDragOver={e => onDragOver(e, stage.key)}
                                 onDragLeave={onDragLeave}
                                 onDrop={e => { e.preventDefault(); setDragOver(null); const id = e.dataTransfer.getData('text/plain') || dragId; if (id) { moveToDept(id, stage.key, 'kinh_doanh'); setDragId(null); } }}
-                                style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', background: isOver ? stage.bg : 'var(--bg-secondary)', borderRadius: 10, border: isOver ? `2px dashed ${stage.color}` : '1px solid var(--border-light)', transition: 'all .2s' }}>
+                                style={{ flex: '1 0 210px', minWidth: 210, maxHeight: 'calc(100vh - 340px)', display: 'flex', flexDirection: 'column', background: isOver ? stage.bg : 'var(--bg-secondary)', borderRadius: 10, border: isOver ? `2px dashed ${stage.color}` : '1px solid var(--border-light)', transition: 'all .2s' }}>
                                 <div style={{ padding: '10px 10px 6px', borderBottom: '2px solid ' + stage.color }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: stage.color, flexShrink: 0 }} />
@@ -387,7 +389,7 @@ export default function CustomersPage() {
                                     </div>
                                     {stageValue > 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fmtShort(stageValue)}</div>}
                                 </div>
-                                <div style={{ flex: 1, padding: 6, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                <div style={{ flex: 1, minHeight: 0, padding: 6, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     {cards.map(c => (
                                         <div key={c.id}
                                             draggable
