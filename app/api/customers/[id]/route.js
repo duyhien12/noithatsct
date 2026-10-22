@@ -71,10 +71,14 @@ export const PUT = withAuth(async (request, { params }, session) => {
     const privilegedRoles = ['admin', 'ban_gd', 'giam_doc', 'pho_gd'];
     const privilegedEmails = ['vancuong@kientrucsct.com', 'ngocquynh@kientrucsct.com'];
     const isPrivileged = privilegedRoles.includes(role) || privilegedEmails.includes(email);
+    // Người được sửa toàn bộ thông tin khách trên bảng Phòng Kinh doanh (mọi khách không thuộc bảng Xây dựng)
+    const salesEditorEmails = ['ducmanh@gmail.com'];
+    const isSalesEditor = salesEditorEmails.includes(email);
     if (!isPrivileged) {
         const existing = await prisma.customer.findUnique({ where: { id }, select: { createdByRole: true } });
         if (!existing) return NextResponse.json({ error: 'Không tìm thấy khách hàng' }, { status: 404 });
-        if (existing.createdByRole !== role) {
+        const isSalesBoard = existing.createdByRole !== 'xay_dung';
+        if (existing.createdByRole !== role && !(isSalesEditor && isSalesBoard)) {
             return NextResponse.json({ error: 'Bạn chỉ có thể chỉnh sửa khách hàng của phòng mình' }, { status: 403 });
         }
     }
@@ -94,7 +98,7 @@ export const PUT = withAuth(async (request, { params }, session) => {
 
     const customer = await prisma.customer.update({ where: { id }, data: updateData });
     return NextResponse.json(customer);
-}, { roles: ['admin', 'ban_gd', 'giam_doc', 'pho_gd', 'kinh_doanh', 'thiet_ke', 'xay_dung'], emails: ['vancuong@kientrucsct.com', 'ngocquynh@kientrucsct.com'] });
+}, { roles: ['admin', 'ban_gd', 'giam_doc', 'pho_gd', 'kinh_doanh', 'thiet_ke', 'xay_dung'], emails: ['vancuong@kientrucsct.com', 'ngocquynh@kientrucsct.com', 'ducmanh@gmail.com'] });
 
 export const DELETE = withAuth(async (request, { params }, session) => {
     const { id } = await params;
