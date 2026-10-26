@@ -6,7 +6,7 @@ import {
     LayoutDashboard, GitBranch, Users, Building2, FileText,
     Package, ClipboardList, Wrench,
     ShoppingCart, Truck, Wallet, UserCog,
-    BarChart3, ChevronRight, Shield, CalendarDays, HardHat, Banknote, TrendingUp, BookMarked, Factory, ListChecks, PencilRuler, GraduationCap, Sparkles, NotebookText
+    BarChart3, ChevronRight, Shield, CalendarDays, HardHat, Banknote, TrendingUp, BookMarked, Factory, ListChecks, PencilRuler, GraduationCap, Sparkles, NotebookText, Handshake
 } from 'lucide-react';
 import SidebarBrand from '@/components/sidebar/SidebarBrand';
 import SidebarRoleFooter from '@/components/sidebar/SidebarRoleFooter';
@@ -54,6 +54,9 @@ const menuItems = [
             { href: '/projects', icon: Building2, label: 'Dự án & Tiến độ' },
             { href: '/work-orders', icon: Wrench, label: 'Phiếu công việc',
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...KY_THUAT, ...VIEWER] },
+            // Quyền xem khớp lib/customerIssue/permissions.js
+            { href: '/dong-hanh-360', icon: Handshake, label: 'Đồng hành 360',
+              roles: [...BAN_GD, 'admin', ...KE_TOAN, ...KINH_DOANH, 'xay_dung', 'thiet_ke', 'xuong', ...VIEWER] },
             { href: '/schedule-templates', icon: CalendarDays, label: 'Mẫu tiến độ',
               roles: [...BAN_GD, ...KE_TOAN, ...KINH_DOANH, ...KY_THUAT, ...VIEWER] },
             { href: '/products', icon: Package, label: 'Sản phẩm & Vật tư',

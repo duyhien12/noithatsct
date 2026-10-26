@@ -50,6 +50,7 @@ const pageTitles = {
     '/purchasing': 'Mua sắm VT',
     '/contracts': 'Hợp đồng',
     '/work-orders': 'Phiếu CV',
+    '/dong-hanh-360': 'Đồng hành 360',
     '/partners': 'Đối tác',
     '/schedule-templates': 'Mẫu tiến độ',
 };

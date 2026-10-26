@@ -6,6 +6,8 @@ import MentionTextarea from '@/components/MentionTextarea';
 import MentionText from '@/components/MentionText';
 import { findMentionedNames } from '@/lib/mentions';
 import { PIPELINE_TK_BOARD, PIPELINE_TKKT, isTKKTStage, tkBoardStage } from '@/lib/customerStagesTK';
+import IssueWorkspace from '@/components/customerIssue/IssueWorkspace';
+import { getIssuePermissions } from '@/lib/customerIssue/permissions';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
@@ -591,7 +593,8 @@ export default function CustomerDetailPage() {
         { key: 'process', label: 'Quy trình thực hiện', icon: '🔄' },
         { key: 'designOrders', label: 'Đặt hàng TK', icon: '📐', count: designOrders?.length || undefined },
         { key: 'comments', label: 'Ghi chú', icon: '💬', count: comments.length || undefined },
-    ];
+        getIssuePermissions(session?.user).view && { key: 'dongHanh360', label: 'Đồng hành 360', icon: '🤝' },
+    ].filter(Boolean);
 
     const saveProcess = async () => {
         clearTimeout(autoSaveTimer.current);
@@ -1541,6 +1544,11 @@ export default function CustomerDetailPage() {
                     })()}
 
                 </div>
+            )}
+
+            {/* TAB: Đồng hành 360 — cùng API/dữ liệu với module /dong-hanh-360 */}
+            {tab === 'dongHanh360' && (
+                <IssueWorkspace variant="embedded" scope={{ customerId: c.id, customer: { id: c.id, label: c.name, sub: c.code } }} />
             )}
 
             {/* TAB: Nhận xét */}

@@ -1,0 +1,601 @@
+/* Đồng hành 360 — chỉ dùng token trong app/styles/tokens.css, không hardcode màu. */
+
+/* ── Thanh công cụ & bộ lọc ─────────────────────────────── */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.toolbarSpacer { flex: 1; }
+
+.filterGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr));
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.viewSwitch {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface);
+}
+.viewSwitch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-body);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.viewSwitch button + button { border-left: 1px solid var(--color-border); }
+.viewSwitch button[aria-pressed='true'] {
+  background: var(--color-primary-50);
+  color: var(--color-primary-700);
+  font-weight: 600;
+}
+.viewSwitch button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.activeFilters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  font-size: var(--fs-caption);
+  color: var(--color-text-secondary);
+}
+
+.kpiButton {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-lg);
+}
+.kpiButton > * { height: 100%; }
+.kpiButton:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* Điện thoại: 2 cột, bỏ dòng ghi chú để không chiếm cả màn hình đầu */
+@media (max-width: 600px) {
+  .kpiGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+  .kpiGrid :global(.ui-kpi__foot) { display: none; }
+  .kpiGrid > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+
+/* ── Kanban ─────────────────────────────────────────────── */
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(260px, 1fr));
+  gap: var(--space-3);
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+  align-items: start;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  min-height: 240px;
+  max-height: calc(100vh - 220px);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+.columnDrop {
+  border-color: var(--color-primary-500);
+  background: var(--color-primary-50);
+}
+.columnBlocked { opacity: 0.55; }
+
+.columnHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-2);
+}
+.columnTitle {
+  font-size: var(--fs-card-title);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.columnCount {
+  min-width: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+.columnHint {
+  padding: 0 var(--space-3) var(--space-2);
+  font-size: var(--fs-caption);
+  color: var(--color-text-muted);
+}
+.columnBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0 var(--space-2) var(--space-2);
+  overflow-y: auto;
+  flex: 1;
+}
+.columnEmpty {
+  padding: var(--space-6) var(--space-3);
+  text-align: center;
+  font-size: var(--fs-caption);
+  color: var(--color-text-muted);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+}
+.columnMore {
+  padding: var(--space-2);
+  text-align: center;
+  font-size: var(--fs-caption);
+  color: var(--color-text-secondary);
+}
+
+/* ── Thẻ vấn đề ─────────────────────────────────────────── */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.card:hover { border-color: var(--color-border-strong); box-shadow: var(--shadow-sm); }
+.card:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.cardSelected { border-color: var(--color-primary-500); box-shadow: var(--focus-ring); }
+.cardDragging { opacity: 0.5; }
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.code {
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.cardTitle {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  color: var(--color-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cardSub {
+  font-size: var(--fs-caption);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cardFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--space-3);
+  margin-top: 2px;
+  font-size: var(--fs-caption);
+  color: var(--color-text-secondary);
+}
+.metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.overdue { color: var(--color-danger); font-weight: 600; }
+.dueSoon { color: var(--color-warning); font-weight: 600; }
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-primary-100);
+  color: var(--color-primary-800);
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ── Panel chi tiết bên phải ────────────────────────────── */
+.panelOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: var(--color-overlay);
+  display: flex;
+  justify-content: flex-end;
+}
+.panel {
+  display: flex;
+  flex-direction: column;
+  width: min(640px, 100%);
+  height: 100%;
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  box-shadow: var(--shadow-l);
+  animation: slideIn var(--transition-normal);
+}
+@keyframes slideIn {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel { animation: none; }
+}
+
+.panelHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+.panelHeadTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.panelTitle {
+  margin: 0;
+  font-size: var(--fs-section-title);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  color: var(--color-text);
+}
+.panelActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.panelBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-6) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.section { display: flex; flex-direction: column; gap: var(--space-3); }
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.sectionTitle {
+  margin: 0;
+  font-size: var(--fs-card-title);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-4);
+}
+.infoItem { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.infoWide { grid-column: 1 / -1; }
+.infoLabel { font-size: var(--fs-caption); color: var(--color-text-secondary); }
+.infoValue {
+  font-size: var(--fs-body);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+.infoValue a { color: var(--color-primary-700); text-decoration: none; }
+.infoValue a:hover { text-decoration: underline; }
+
+.prose {
+  margin: 0;
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  color: var(--color-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.placeholder { font-size: var(--fs-body); color: var(--color-text-muted); }
+
+.notice {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-warning-br);
+  background: var(--color-warning-bg);
+  color: var(--color-text);
+  font-size: var(--fs-caption);
+}
+
+/* Người phụ trách / phối hợp */
+.chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-2);
+  font-size: var(--fs-caption);
+  color: var(--color-text);
+}
+.chip > span:last-child:not(.avatar) { padding-right: 6px; }
+
+/* Ảnh & tệp */
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: var(--space-2);
+}
+.thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  cursor: zoom-in;
+  font: inherit;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+}
+.thumb:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.thumbFile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  padding: var(--space-2);
+  font-size: var(--fs-caption);
+  color: var(--color-text-secondary);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.previewImage {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  margin: 0 auto;
+  border-radius: var(--radius-md);
+  object-fit: contain;
+}
+.linkButton {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.linkButton:hover { color: var(--color-primary-700); text-decoration: underline; }
+.linkButton:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* absolute: chiều cao % không tính được khi <button> lấy chiều cao từ aspect-ratio */
+.thumb .thumbFile { position: absolute; inset: 0; }
+.thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.uploadTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  aspect-ratio: 1;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--fs-caption);
+  cursor: pointer;
+}
+.uploadTile:hover { border-color: var(--color-primary-500); color: var(--color-primary-700); }
+.uploadTile:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.uploadTile:disabled { cursor: progress; opacity: 0.6; }
+
+.compareGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.subTitle {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.rowList { display: flex; flex-direction: column; gap: var(--space-2); }
+.rowItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  min-width: 0;
+}
+.rowMain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rowTitle {
+  font-size: var(--fs-body);
+  font-weight: 500;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rowTitle a { color: inherit; text-decoration: none; }
+.rowTitle a:hover { color: var(--color-primary-700); text-decoration: underline; }
+.rowSub { font-size: var(--fs-caption); color: var(--color-text-secondary); }
+
+/* Nhật ký */
+.timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.logItem {
+  position: relative;
+  display: flex;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+}
+.logItem::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 14px;
+  bottom: 0;
+  width: 2px;
+  background: var(--color-border);
+}
+.logItem:last-child::before { display: none; }
+.logDot {
+  width: 12px;
+  height: 12px;
+  margin-top: 4px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border-strong);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+.logDotStatus { border-color: var(--color-primary-600); background: var(--color-primary-100); }
+.logDotNote { border-color: var(--color-info); background: var(--color-info-bg); }
+.logBody { flex: 1; min-width: 0; }
+.logHead { font-size: var(--fs-body); color: var(--color-text); }
+.logHead strong { font-weight: 600; }
+.logMsg {
+  margin: 2px 0 0;
+  font-size: var(--fs-body);
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.logTime { font-size: var(--fs-caption); color: var(--color-text-muted); }
+
+/* Ô chọn có tìm kiếm */
+.lookup { position: relative; }
+.lookupMenu {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-m);
+}
+.lookupItem {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.lookupItem:hover, .lookupItemActive { background: var(--color-primary-50); }
+.lookupItemSub { font-size: var(--fs-caption); color: var(--color-text-secondary); }
+.lookupEmpty { padding: 10px; font-size: var(--fs-caption); color: var(--color-text-muted); }
+.lookupSelected {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+  padding: 0 4px 0 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-size: var(--fs-body);
+}
+.lookupSelected > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lookupSelectedLocked { background: var(--color-surface-2); color: var(--color-text-secondary); }
+
+/* Danh sách */
+.listTitle {
+  font-weight: 600;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 280px;
+}
+.listDesc {
+  font-size: var(--fs-caption);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 280px;
+}
+
+@media (max-width: 768px) {
+  .board {
+    grid-template-columns: repeat(4, 85vw);
+    scroll-snap-type: x mandatory;
+  }
+  .column { scroll-snap-align: start; max-height: none; }
+  .panelHead { padding: var(--space-3) var(--space-4); }
+  .panelBody { padding: var(--space-4) var(--space-4) var(--space-8); }
+  .infoGrid, .compareGrid { grid-template-columns: minmax(0, 1fr); }
+  .toolbar > * { flex: 1 1 auto; }
+}
