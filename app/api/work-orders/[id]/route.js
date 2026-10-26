@@ -3,6 +3,8 @@ import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { workOrderUpdateSchema } from '@/lib/validations/workOrder';
 import { notifyWorkOrderAssigned } from '@/lib/notify';
+import { syncIssueFromWorkOrder } from '@/lib/customerIssue/service';
+import { WORK_ORDER_DONE_STATUS } from '@/lib/customerIssue/constants';
 
 export const GET = withAuth(async (request, { params }) => {
     const { id } = await params;
@@ -45,6 +47,16 @@ export const PUT = withAuth(async (request, { params }, session) => {
     // Thông báo khi assignee thay đổi (giao lại cho người khác)
     if (data.assignee && data.assignee !== existing?.assignee) {
         notifyWorkOrderAssigned(order).catch(e => console.error('[work-orders PUT] notify lỗi:', e));
+    }
+
+    // Đồng hành 360: phiếu liên kết vấn đề vừa hoàn thành -> cập nhật vấn đề.
+    // Phiếu thường không bị ảnh hưởng; lỗi đồng bộ không làm hỏng việc cập nhật phiếu.
+    if (order.customerIssueId && data.status === WORK_ORDER_DONE_STATUS && existing?.status !== WORK_ORDER_DONE_STATUS) {
+        try {
+            await syncIssueFromWorkOrder(id, { note: body.stageNote || '', actor: session?.user });
+        } catch (e) {
+            console.error('[work-orders PUT] đồng bộ Đồng hành 360 lỗi:', e);
+        }
     }
 
     return NextResponse.json(order);

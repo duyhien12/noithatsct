@@ -76,6 +76,7 @@ model Customer {
   receivableEntries        ReceivableEntry[]
   payableEntries           PayableEntry[]
   installPlans             InstallPlan[]
+  customerIssues           CustomerIssue[]
 }
 
 model Project {
@@ -160,6 +161,7 @@ model Project {
   invDocuments          InvDocument[]
   invReservations       InvStockReservation[]
   invRemnants           InvMaterialRemnant[]
+  customerIssues        CustomerIssue[]
 
   @@index([customerId])
 }
@@ -795,29 +797,33 @@ model ContractPayment {
 }
 
 model WorkOrder {
-  id          String              @id @default(cuid())
-  code        String              @unique
-  title       String
-  description String              @default("")
-  priority    String              @default("Trung bình")
-  status      String              @default("Chờ xử lý")
-  assignee    String              @default("")
-  dueDate     DateTime?
-  completedAt DateTime?
-  category    String              @default("")
-  projectId   String
-  deletedAt   DateTime?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  sourceLogId String?
-  project     Project             @relation(fields: [projectId], references: [id])
-  checkins    WorkOrderCheckin[]
-  photos      WorkOrderPhoto[]
-  qcItems     WorkOrderQCItem[]
-  stageLogs   WorkOrderStageLog[]
+  id              String              @id @default(cuid())
+  code            String              @unique
+  title           String
+  description     String              @default("")
+  priority        String              @default("Trung bình")
+  status          String              @default("Chờ xử lý")
+  assignee        String              @default("")
+  dueDate         DateTime?
+  completedAt     DateTime?
+  category        String              @default("")
+  projectId       String
+  deletedAt       DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  sourceLogId     String?
+  // Đồng hành 360: vấn đề khách hàng mà phiếu này xử lý (null = phiếu thường)
+  customerIssueId String?
+  project         Project             @relation(fields: [projectId], references: [id])
+  customerIssue   CustomerIssue?      @relation(fields: [customerIssueId], references: [id])
+  checkins        WorkOrderCheckin[]
+  photos          WorkOrderPhoto[]
+  qcItems         WorkOrderQCItem[]
+  stageLogs       WorkOrderStageLog[]
 
   @@index([projectId])
   @@index([sourceLogId])
+  @@index([customerIssueId])
 }
 
 model WorkOrderCheckin {
@@ -3454,4 +3460,101 @@ model InstallPlan {
 
   @@index([customerId])
   @@index([startDate])
+}
+
+// ── Đồng hành 360 ── vấn đề / phản ánh của khách hàng, theo dõi đến khi khách xác nhận.
+// Trạng thái, ưu tiên, nhóm vấn đề lưu mã tiếng Anh — nhãn ở lib/customerIssue/constants.js
+model CustomerIssue {
+  id              String                      @id @default(cuid())
+  code            String                      @unique
+  customerId      String
+  projectId       String?
+  title           String
+  area            String                      @default("")
+  category        String                      @default("OTHER")
+  description     String                      @default("")
+  priority        String                      @default("MEDIUM")
+  status          String                      @default("NEW")
+  source          String                      @default("")
+  reporterName    String                      @default("")
+  reporterPhone   String                      @default("")
+  reportedAt      DateTime                    @default(now())
+  dueDate         DateTime?
+  assigneeId      String?
+  assigneeName    String                      @default("")
+  resolution      String                      @default("")
+  statusReason    String                      @default("")
+  resolvedAt      DateTime?
+  confirmedAt     DateTime?
+  confirmedById   String                      @default("")
+  confirmedByName String                      @default("")
+  cancelledAt     DateTime?
+  createdById     String                      @default("")
+  createdByName   String                      @default("")
+  lastActivityAt  DateTime                    @default(now())
+  deletedAt       DateTime?
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+  customer        Customer                    @relation(fields: [customerId], references: [id])
+  project         Project?                    @relation(fields: [projectId], references: [id])
+  collaborators   CustomerIssueCollaborator[]
+  attachments     CustomerIssueAttachment[]
+  logs            CustomerIssueLog[]
+  workOrders      WorkOrder[]
+
+  @@index([customerId])
+  @@index([projectId])
+  @@index([status])
+  @@index([assigneeId])
+  @@index([dueDate])
+  @@index([lastActivityAt])
+}
+
+model CustomerIssueCollaborator {
+  id        String        @id @default(cuid())
+  issueId   String
+  userId    String
+  userName  String        @default("")
+  addedById String        @default("")
+  createdAt DateTime      @default(now())
+  issue     CustomerIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@unique([issueId, userId])
+  @@index([userId])
+}
+
+// File đã upload qua /api/upload; category: BEFORE | DURING | AFTER | DOCUMENT
+model CustomerIssueAttachment {
+  id             String        @id @default(cuid())
+  issueId        String
+  category       String
+  url            String
+  thumbnailUrl   String        @default("")
+  fileName       String        @default("")
+  mimeType       String        @default("")
+  caption        String        @default("")
+  uploadedById   String        @default("")
+  uploadedByName String        @default("")
+  deletedAt      DateTime?
+  createdAt      DateTime      @default(now())
+  issue          CustomerIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId, category])
+}
+
+// Nhật ký chỉ thêm — không có API sửa/xoá
+model CustomerIssueLog {
+  id         String        @id @default(cuid())
+  issueId    String
+  action     String
+  fromStatus String        @default("")
+  toStatus   String        @default("")
+  message    String        @default("")
+  meta       String        @default("")
+  actorId    String        @default("")
+  actorName  String        @default("")
+  createdAt  DateTime      @default(now())
+  issue      CustomerIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId, createdAt])
 }

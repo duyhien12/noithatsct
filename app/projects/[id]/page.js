@@ -15,6 +15,8 @@ import BudgetEstimateTable from '@/components/budget/BudgetEstimateTable';
 import ProductionCostTable from '@/components/budget/ProductionCostTable';
 import MeasurementSheet, { MeasurementActions } from '@/components/contractor/MeasurementSheet';
 import ProjectManufacturingTab from '@/components/manufacturing/ProjectManufacturingTab';
+import IssueWorkspace from '@/components/customerIssue/IssueWorkspace';
+import { getIssuePermissions } from '@/lib/customerIssue/permissions';
 import { useSession } from 'next-auth/react';
 
 // Banner chia sẻ link + QR cho khách hàng
@@ -857,6 +859,7 @@ export default function ProjectDetailPage() {
         canSeeBudgetEstimate && { key: 'budget', label: 'Dự trù kinh phí', icon: '💰' },
         isXuongOrBGD && { key: 'hachtoan', label: 'Hạch toán', icon: '📊' },
         { key: 'chat', label: 'Ghi chú', icon: '💬' },
+        getIssuePermissions(session?.user).view && { key: 'dongHanh360', label: 'Đồng hành 360', icon: '🤝' },
     ].filter(Boolean);
 
     return (
@@ -1395,6 +1398,18 @@ export default function ProjectDetailPage() {
                     projectCode={p.code}
                     projectStartDate={p.startDate}
                     onProgressUpdate={(prog) => setData(prev => ({ ...prev, progress: prog }))}
+                />
+            )}
+
+            {/* TAB: Đồng hành 360 — cùng API/dữ liệu với module /dong-hanh-360 */}
+            {tab === 'dongHanh360' && (
+                <IssueWorkspace
+                    variant="embedded"
+                    scope={{
+                        projectId: p.id,
+                        project: { id: p.id, label: p.name, sub: p.code, customerId: p.customerId },
+                        customer: p.customerId ? { id: p.customerId, label: p.customer?.name || '' } : undefined,
+                    }}
                 />
             )}
 
