@@ -16,7 +16,7 @@ export default function DesignOrderDetailPage() {
     const { id } = useParams();
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { role } = useRole();
+    const { writeRole } = useRole();
     const toast = useToast();
 
     const [order, setOrder] = useState(null);
@@ -77,14 +77,14 @@ export default function DesignOrderDetailPage() {
                 <button className="btn btn-ghost" onClick={() => router.push('/design-orders')}>← Danh sách</button>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <StatusBadge status={order.status} colorMap={STATUS_COLORS} />
-                    {canEditDraft(role, order.status) && (
+                    {canEditDraft(writeRole, order.status) && (
                         <button className="btn btn-ghost" onClick={() => router.push(`/design-orders/${id}/edit`)}>✏️ Sửa</button>
                     )}
                     <button className="btn btn-primary" onClick={() => window.print()}>🖨️ In phiếu</button>
                 </div>
             </div>
 
-            <WorkflowPanel order={order} role={role} onChanged={load} />
+            <WorkflowPanel order={order} role={writeRole} onChanged={load} />
 
             {/* Phiếu in A4 */}
             <div className="do-page">

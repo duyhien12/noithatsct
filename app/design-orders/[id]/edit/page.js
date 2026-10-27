@@ -15,7 +15,7 @@ const REQUIREMENT_LEVELS = ['Cơ bản', 'Tiêu chuẩn', 'Cao cấp'];
 export default function EditDesignOrderPage() {
     const router = useRouter();
     const { id } = useParams();
-    const { role } = useRole();
+    const { writeRole } = useRole();
     const toast = useToast();
     const fileInputRef = useRef(null);
 
@@ -82,7 +82,7 @@ export default function EditDesignOrderPage() {
 
     if (loading || !form) return <div style={{ padding: 40, textAlign: 'center' }}>Đang tải...</div>;
 
-    if (!canEditDraft(role, status)) {
+    if (!canEditDraft(writeRole, status)) {
         return (
             <div className="card" style={{ padding: 40, textAlign: 'center' }}>
                 <p>Phiếu này đang ở trạng thái &quot;{status}&quot; — không thể chỉnh sửa.</p>

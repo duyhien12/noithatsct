@@ -95,7 +95,7 @@ function OrderPricing({ order, canEdit, onSaved }) {
 export default function DesignRevenuePage() {
     const router = useRouter();
     const toast = useToast();
-    const { role } = useRole();
+    const { writeRole } = useRole();
     const thisMonth = revenueMonthOf(new Date());
     const yearStart = `${thisMonth.slice(0, 4)}-01`;
     const [y, m] = thisMonth.split('-').map(Number);
@@ -195,7 +195,7 @@ export default function DesignRevenuePage() {
                         <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Các hạng mục lấy từ phiếu đặt hàng. Chỉ cần nhập đơn giá cho mục có khối lượng, doanh số và phần chia cho nhân viên sẽ được tính lại khi lưu.</div>
                     </div>
                     {data.orders.map(o => (
-                        <OrderPricing key={`${o.id}-${o.totalAfterDiscount}`} order={o} canEdit={canEditPricing(role)} onSaved={fetchData} />
+                        <OrderPricing key={`${o.id}-${o.totalAfterDiscount}`} order={o} canEdit={canEditPricing(writeRole)} onSaved={fetchData} />
                     ))}
                 </div>
             )}

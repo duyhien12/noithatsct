@@ -2,13 +2,14 @@ import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { canAssignDesigner, ASSIGNABLE_STATUSES } from '@/lib/designOrderStatus';
+import { DEPT_FULL_WRITE_EMAILS, writeRoleOf } from '@/lib/deptFullWrite';
 
 const ASSIGN_ROLES = ['thiet_ke', 'ban_gd', 'giam_doc', 'pho_gd', 'admin'];
 
 // Body: { designers: [{ userId, sharePercent }], confirmedDeadline }
 export const PATCH = withAuth(async (request, { params }, session) => {
     const { id } = await params;
-    if (!canAssignDesigner(session.user.role)) {
+    if (!canAssignDesigner(writeRoleOf(session.user))) {
         return NextResponse.json({ error: 'Bạn không có quyền phân công nhân sự thiết kế' }, { status: 403 });
     }
 
@@ -70,4 +71,4 @@ export const PATCH = withAuth(async (request, { params }, session) => {
     });
 
     return NextResponse.json(designOrder);
-}, { roles: ASSIGN_ROLES });
+}, { roles: ASSIGN_ROLES, emails: DEPT_FULL_WRITE_EMAILS });

@@ -2,6 +2,7 @@ import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { documentUpdateSchema } from '@/lib/validations/document';
+import { hasDeptFullWrite } from '@/lib/deptFullWrite';
 
 export const GET = withAuth(async (request, { params }) => {
     const { id } = await params;
@@ -29,12 +30,12 @@ export const PUT = withAuth(async (request, { params }, session) => {
     const adminRoles = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
     const userRole = session?.user?.role || '';
 
-    if (data.status && lockedStatuses.includes(existing.status) && !adminRoles.includes(userRole)) {
+    if (data.status && lockedStatuses.includes(existing.status) && !adminRoles.includes(userRole) && !hasDeptFullWrite(session?.user)) {
         return NextResponse.json({ error: 'Không có quyền thay đổi trạng thái tài liệu đã duyệt' }, { status: 403 });
     }
 
     // Prevent editing locked documents (except status change by admin)
-    if (lockedStatuses.includes(existing.status) && !adminRoles.includes(userRole)) {
+    if (lockedStatuses.includes(existing.status) && !adminRoles.includes(userRole) && !hasDeptFullWrite(session?.user)) {
         // Allow only status change
         const nonStatusFields = Object.keys(data).filter(k => k !== 'status');
         if (nonStatusFields.length > 0) {
@@ -55,7 +56,7 @@ export const DELETE = withAuth(async (request, { params }, session) => {
     // Block delete of approved/released docs for non-admin
     const lockedStatuses = ['Đã duyệt', 'Phát hành'];
     const adminRoles = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
-    if (lockedStatuses.includes(existing.status) && !adminRoles.includes(session?.user?.role || '')) {
+    if (lockedStatuses.includes(existing.status) && !adminRoles.includes(session?.user?.role || '') && !hasDeptFullWrite(session?.user)) {
         return NextResponse.json({ error: 'Không thể xóa tài liệu đã duyệt/phát hành' }, { status: 403 });
     }
 

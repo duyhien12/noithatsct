@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { designOrderUpdateSchema } from '@/lib/validations/designOrder';
 import { calcAll } from '@/lib/designOrderCalc';
 import { canEditDraft } from '@/lib/designOrderStatus';
+import { DEPT_FULL_WRITE_EMAILS, writeRoleOf } from '@/lib/deptFullWrite';
 
 const VIEW_ROLES = ['kinh_doanh', 'thiet_ke', 'ban_gd', 'giam_doc', 'pho_gd', 'admin', 'viewer'];
 const EDIT_ROLES = ['kinh_doanh', 'ban_gd', 'giam_doc', 'pho_gd', 'admin'];
@@ -29,7 +30,7 @@ export const PUT = withAuth(async (request, { params }, session) => {
     const { id } = await params;
     const existing = await prisma.designOrder.findUnique({ where: { id }, select: { status: true } });
     if (!existing) return NextResponse.json({ error: 'Không tìm thấy phiếu' }, { status: 404 });
-    if (!canEditDraft(session.user.role, existing.status)) {
+    if (!canEditDraft(writeRoleOf(session.user), existing.status)) {
         return NextResponse.json({ error: 'Phiếu đã gửi đi, không thể sửa ở trạng thái hiện tại' }, { status: 409 });
     }
 
@@ -86,7 +87,7 @@ export const PUT = withAuth(async (request, { params }, session) => {
     });
 
     return NextResponse.json(designOrder);
-}, { roles: EDIT_ROLES });
+}, { roles: EDIT_ROLES, emails: DEPT_FULL_WRITE_EMAILS });
 
 // Cập nhật nhanh ngày bắt đầu/hạn xác nhận — dùng cho kéo-thả trên biểu đồ Gantt.
 export const PATCH = withAuth(async (request, { params }, session) => {
@@ -102,7 +103,7 @@ export const PATCH = withAuth(async (request, { params }, session) => {
 
     const designOrder = await prisma.designOrder.update({ where: { id }, data });
     return NextResponse.json(designOrder);
-}, { roles: SCHEDULE_ROLES });
+}, { roles: SCHEDULE_ROLES, emails: DEPT_FULL_WRITE_EMAILS });
 
 export const DELETE = withAuth(async (request, { params }, session) => {
     const { id } = await params;
@@ -114,4 +115,4 @@ export const DELETE = withAuth(async (request, { params }, session) => {
 
     await prisma.designOrder.delete({ where: { id } });
     return NextResponse.json({ success: true });
-}, { roles: EDIT_ROLES });
+}, { roles: EDIT_ROLES, emails: DEPT_FULL_WRITE_EMAILS });

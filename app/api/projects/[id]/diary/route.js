@@ -1,6 +1,7 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { hasDeptFullWrite } from '@/lib/deptFullWrite';
 
 export const GET = withAuth(async (req, { params }) => {
     const { id } = await params;
@@ -52,7 +53,7 @@ export const DELETE = withAuth(async (req, { params }, session) => {
     }
 
     const isOwner = entry.senderName === (session.user.name || session.user.email);
-    const isAdmin = ['ban_gd', 'giam_doc', 'pho_gd'].includes(session.user.role);
+    const isAdmin = ['ban_gd', 'giam_doc', 'pho_gd'].includes(session.user.role) || hasDeptFullWrite(session.user);
     if (!isOwner && !isAdmin) {
         return NextResponse.json({ error: 'Không có quyền' }, { status: 403 });
     }

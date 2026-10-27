@@ -2,6 +2,7 @@ import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { STATUSES, NOTE_REQUIRED, canTransition, transitionLabel, revenueMonthOf, splitRevenue } from '@/lib/designOrderStatus';
+import { writeRoleOf } from '@/lib/deptFullWrite';
 
 const VIEW_ROLES = ['kinh_doanh', 'thiet_ke', 'ban_gd', 'giam_doc', 'pho_gd', 'admin'];
 
@@ -25,7 +26,7 @@ export const PATCH = withAuth(async (request, { params }, session) => {
     if (!existing) return NextResponse.json({ error: 'Không tìm thấy phiếu' }, { status: 404 });
 
     const from = existing.status;
-    if (!canTransition(session.user.role, from, status)) {
+    if (!canTransition(writeRoleOf(session.user), from, status)) {
         return NextResponse.json({ error: `Không thể chuyển từ "${from}" sang "${status}" với vai trò hiện tại` }, { status: 403 });
     }
     if (NOTE_REQUIRED.has(`${from}>${status}`) && !note) {
