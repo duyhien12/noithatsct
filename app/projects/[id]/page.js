@@ -18,6 +18,7 @@ import ProjectManufacturingTab from '@/components/manufacturing/ProjectManufactu
 import IssueWorkspace from '@/components/customerIssue/IssueWorkspace';
 import { getIssuePermissions } from '@/lib/customerIssue/permissions';
 import { useSession } from 'next-auth/react';
+import { writeRoleOf } from '@/lib/deptFullWrite';
 
 // Banner chia sẻ link + QR cho khách hàng
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
@@ -1911,7 +1912,7 @@ export default function ProjectDetailPage() {
                     <ProjectDiaryTab
                         projectId={id}
                         currentUserName={session?.user?.name || session?.user?.email}
-                        currentUserRole={userRole}
+                        currentUserRole={writeRoleOf(session?.user)}
                     />
                 </div>
             )}

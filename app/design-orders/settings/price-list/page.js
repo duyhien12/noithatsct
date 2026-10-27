@@ -9,7 +9,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 const MANAGE_ROLES = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
 
 export default function DesignPriceListSettingsPage() {
-    const { role } = useRole();
+    const { writeRole } = useRole();
     const router = useRouter();
     const toast = useToast();
 
@@ -18,7 +18,7 @@ export default function DesignPriceListSettingsPage() {
     const [newItem, setNewItem] = useState({ name: '', unit: '', defaultUnitPrice: 0 });
     const [deleteTarget, setDeleteTarget] = useState(null);
 
-    const canManage = MANAGE_ROLES.includes(role);
+    const canManage = MANAGE_ROLES.includes(writeRole);
 
     const load = useCallback(() => {
         apiFetch('/api/design-orders/price-list').then(setItems).catch(e => toast.error(e.message)).finally(() => setLoading(false));

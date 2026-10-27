@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { customerUpdateSchema } from '@/lib/validations/customer';
 import { z } from 'zod';
+import { DEPT_FULL_WRITE_EMAILS, hasDeptFullWrite } from '@/lib/deptFullWrite';
 
 export const GET = withAuth(async (request, { params }) => {
     const { id } = await params;
@@ -70,7 +71,7 @@ export const PUT = withAuth(async (request, { params }, session) => {
     const email = session?.user?.email;
     const privilegedRoles = ['admin', 'ban_gd', 'giam_doc', 'pho_gd'];
     const privilegedEmails = ['vancuong@kientrucsct.com', 'ngocquynh@kientrucsct.com'];
-    const isPrivileged = privilegedRoles.includes(role) || privilegedEmails.includes(email);
+    const isPrivileged = privilegedRoles.includes(role) || privilegedEmails.includes(email) || hasDeptFullWrite(session?.user);
     // Người được sửa toàn bộ thông tin khách trên bảng Phòng Kinh doanh (mọi khách không thuộc bảng Xây dựng)
     const salesEditorEmails = ['ducmanh@gmail.com'];
     const isSalesEditor = salesEditorEmails.includes(email);
@@ -98,7 +99,7 @@ export const PUT = withAuth(async (request, { params }, session) => {
 
     const customer = await prisma.customer.update({ where: { id }, data: updateData });
     return NextResponse.json(customer);
-}, { roles: ['admin', 'ban_gd', 'giam_doc', 'pho_gd', 'kinh_doanh', 'thiet_ke', 'xay_dung'], emails: ['vancuong@kientrucsct.com', 'ngocquynh@kientrucsct.com', 'ducmanh@gmail.com'] });
+}, { roles: ['admin', 'ban_gd', 'giam_doc', 'pho_gd', 'kinh_doanh', 'thiet_ke', 'xay_dung'], emails: ['vancuong@kientrucsct.com', 'ngocquynh@kientrucsct.com', 'ducmanh@gmail.com', ...DEPT_FULL_WRITE_EMAILS] });
 
 export const DELETE = withAuth(async (request, { params }, session) => {
     const { id } = await params;
@@ -108,7 +109,7 @@ export const DELETE = withAuth(async (request, { params }, session) => {
     const email = session?.user?.email;
     const privilegedRoles = ['admin', 'ban_gd', 'giam_doc'];
     const privilegedEmails = ['vancuong@kientrucsct.com', 'ngocquynh@kientrucsct.com'];
-    const isPrivileged = privilegedRoles.includes(role) || privilegedEmails.includes(email);
+    const isPrivileged = privilegedRoles.includes(role) || privilegedEmails.includes(email) || hasDeptFullWrite(session?.user);
     if (!isPrivileged) {
         const existing = await prisma.customer.findUnique({ where: { id }, select: { createdByRole: true } });
         if (!existing) return NextResponse.json({ error: 'Không tìm thấy khách hàng' }, { status: 404 });
@@ -156,4 +157,4 @@ export const DELETE = withAuth(async (request, { params }, session) => {
     });
 
     return NextResponse.json({ success: true });
-}, { roles: ['admin', 'ban_gd', 'giam_doc', 'thiet_ke'], emails: ['vancuong@kientrucsct.com', 'ngocquynh@kientrucsct.com'] });
+}, { roles: ['admin', 'ban_gd', 'giam_doc', 'thiet_ke'], emails: ['vancuong@kientrucsct.com', 'ngocquynh@kientrucsct.com', ...DEPT_FULL_WRITE_EMAILS] });

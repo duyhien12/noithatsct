@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { hasDeptFullWrite } from '@/lib/deptFullWrite';
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const pct = (a, b) => b > 0 ? Math.round((a / b) * 100) : 0;
@@ -43,7 +44,7 @@ export default function ContractsPage() {
         }
     };
 
-    const isAdmin = ['admin', 'ban_gd', 'giam_doc', 'pho_gd'].includes(session?.user?.role);
+    const isAdmin = ['admin', 'ban_gd', 'giam_doc', 'pho_gd'].includes(session?.user?.role) || hasDeptFullWrite(session?.user);
     const isKinhDoanh = session?.user?.role === 'kinh_doanh';
 
     if (status === 'loading' || session?.user?.role === 'xuong') return null;

@@ -14,7 +14,7 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 const PROJECT_TYPES = ['Nhà phố', 'Biệt thự', 'Chung cư', 'Văn phòng', 'Showroom', 'Homestay', 'Khác'];
 
 export default function DesignOrdersPage() {
-    const { role } = useRole();
+    const { role, writeRole } = useRole();
     const router = useRouter();
     const toast = useToast();
 
@@ -29,8 +29,8 @@ export default function DesignOrdersPage() {
     const [toDate, setToDate] = useState('');
     const [deleteTarget, setDeleteTarget] = useState(null);
 
-    const canCreate = role === 'kinh_doanh' || ['ban_gd', 'giam_doc', 'pho_gd', 'admin'].includes(role);
-    const canManagePriceList = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'].includes(role);
+    const canCreate = role === 'kinh_doanh' || ['ban_gd', 'giam_doc', 'pho_gd', 'admin'].includes(writeRole);
+    const canManagePriceList = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'].includes(writeRole);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -125,7 +125,7 @@ export default function DesignOrdersPage() {
                                                 <td onClick={e => e.stopPropagation()}>
                                                     <div style={{ display: 'flex', gap: 6 }}>
                                                         <button className="btn btn-ghost" style={{ padding: '4px 8px', fontSize: 12 }} onClick={() => router.push(`/design-orders/${o.id}`)}>Xem</button>
-                                                        {canEditDraft(role, o.status) && (
+                                                        {canEditDraft(writeRole, o.status) && (
                                                             <button className="btn btn-ghost" style={{ padding: '4px 8px', fontSize: 12 }} onClick={() => router.push(`/design-orders/${o.id}/edit`)}>Sửa</button>
                                                         )}
                                                         {o.status === 'Nháp' && canCreate && (

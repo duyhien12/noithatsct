@@ -5,6 +5,7 @@ import { workOrderUpdateSchema } from '@/lib/validations/workOrder';
 import { notifyWorkOrderAssigned } from '@/lib/notify';
 import { syncIssueFromWorkOrder } from '@/lib/customerIssue/service';
 import { WORK_ORDER_DONE_STATUS } from '@/lib/customerIssue/constants';
+import { DEPT_FULL_WRITE_EMAILS } from '@/lib/deptFullWrite';
 
 export const GET = withAuth(async (request, { params }) => {
     const { id } = await params;
@@ -66,4 +67,4 @@ export const DELETE = withAuth(async (request, { params }) => {
     const { id } = await params;
     await prisma.workOrder.delete({ where: { id } });
     return NextResponse.json({ success: true });
-}, { roles: ['admin', 'ban_gd', 'giam_doc'] });
+}, { roles: ['admin', 'ban_gd', 'giam_doc'], emails: DEPT_FULL_WRITE_EMAILS });

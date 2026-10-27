@@ -5,6 +5,7 @@ import { withDailyCodeRetry } from '@/lib/generateCode';
 import { NextResponse } from 'next/server';
 import { designOrderCreateSchema } from '@/lib/validations/designOrder';
 import { calcAll } from '@/lib/designOrderCalc';
+import { DEPT_FULL_WRITE_EMAILS } from '@/lib/deptFullWrite';
 
 const VIEW_ROLES = ['kinh_doanh', 'thiet_ke', 'ban_gd', 'giam_doc', 'pho_gd', 'admin', 'viewer'];
 const CREATE_ROLES = ['kinh_doanh', 'ban_gd', 'giam_doc', 'pho_gd', 'admin'];
@@ -117,4 +118,4 @@ export const POST = withAuth(async (request, context, session) => {
     });
 
     return NextResponse.json(result, { status: 201 });
-}, { roles: CREATE_ROLES });
+}, { roles: CREATE_ROLES, emails: DEPT_FULL_WRITE_EMAILS });

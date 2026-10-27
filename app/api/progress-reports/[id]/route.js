@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { progressReportReviewSchema } from '@/lib/validations/progressReport';
 import { recalcParentProgress, recalcProjectProgress } from '@/lib/scheduleUtils';
+import { DEPT_FULL_WRITE_EMAILS } from '@/lib/deptFullWrite';
 
 /**
  * GET /api/progress-reports/[id]
@@ -75,4 +76,4 @@ export const PUT = withAuth(async (request, { params }) => {
     }
 
     return NextResponse.json({ success: true });
-}, { roles: ['ban_gd', 'giam_doc', 'pho_gd'] });
+}, { roles: ['ban_gd', 'giam_doc', 'pho_gd'], emails: DEPT_FULL_WRITE_EMAILS });

@@ -1,6 +1,7 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { DEPT_FULL_WRITE_EMAILS } from '@/lib/deptFullWrite';
 
 const MANAGE_ROLES = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
 
@@ -19,10 +20,10 @@ export const PUT = withAuth(async (request, { params }) => {
         },
     });
     return NextResponse.json(item);
-}, { roles: MANAGE_ROLES });
+}, { roles: MANAGE_ROLES, emails: DEPT_FULL_WRITE_EMAILS });
 
 export const DELETE = withAuth(async (request, { params }) => {
     const { id } = await params;
     await prisma.designPriceListItem.delete({ where: { id } });
     return NextResponse.json({ success: true });
-}, { roles: MANAGE_ROLES });
+}, { roles: MANAGE_ROLES, emails: DEPT_FULL_WRITE_EMAILS });

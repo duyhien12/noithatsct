@@ -1,6 +1,7 @@
 'use client';
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { writeRoleOf } from '@/lib/deptFullWrite';
 
 const PHAM_DUONG_EMAIL = 'phamduong@kientrucsct.com';
 const SWITCH_ROLE_EMAILS = ['phamduong@kientrucsct.com', 'motnha@kientrucsct.com', 'buihoa@kientrucsct.com'];
@@ -159,10 +160,12 @@ export function RoleProvider({ children }) {
     const canViewDashboard = DASHBOARD_ROLES.includes(role) || email === ADMIN_EMAIL;
     // Nhân viên / Thợ xưởng: chỉ xem công việc, nhân công, tiến độ
     const isXuongNhanVien = role === 'xuong' && ['Nhân viên', 'Thợ chính', 'Thợ phụ'].includes(department);
+    // Role dùng để kiểm tra quyền ghi (tài khoản toàn quyền ghi phòng ban được coi như Ban GĐ)
+    const writeRole = writeRoleOf({ email, role });
 
     return (
         <RoleContext.Provider value={{
-            role, email, department, roleInfo, permissions,
+            role, writeRole, email, department, roleInfo, permissions,
             isKinhDoanh, isXuong, isXuongNhanVien, isViewer, canViewDashboard,
             isPhamDuong, canSwitchRole, viewAsRole, setViewAsRole, actualRole,
         }}>

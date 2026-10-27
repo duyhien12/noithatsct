@@ -1,6 +1,7 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { DEPT_FULL_WRITE_EMAILS } from '@/lib/deptFullWrite';
 
 /**
  * Snapshot current schedule as baseline.
@@ -22,4 +23,4 @@ export const POST = withAuth(async (request) => {
     );
 
     return NextResponse.json({ count: tasks.length, message: 'Baseline saved' });
-}, { roles: ['ban_gd', 'giam_doc', 'pho_gd'] });
+}, { roles: ['ban_gd', 'giam_doc', 'pho_gd'], emails: DEPT_FULL_WRITE_EMAILS });

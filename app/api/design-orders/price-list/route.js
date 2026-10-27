@@ -1,6 +1,7 @@
 import { withAuth } from '@/lib/apiHandler';
 import prisma from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { DEPT_FULL_WRITE_EMAILS } from '@/lib/deptFullWrite';
 
 const VIEW_ROLES = ['kinh_doanh', 'thiet_ke', 'ban_gd', 'giam_doc', 'pho_gd', 'admin', 'viewer'];
 const MANAGE_ROLES = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
@@ -27,4 +28,4 @@ export const POST = withAuth(async (request) => {
         },
     });
     return NextResponse.json(item, { status: 201 });
-}, { roles: MANAGE_ROLES });
+}, { roles: MANAGE_ROLES, emails: DEPT_FULL_WRITE_EMAILS });
