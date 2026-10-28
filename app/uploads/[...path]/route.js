@@ -31,6 +31,11 @@ export async function GET(request, { params }) {
             },
         });
     } catch {
+        // File đã chuyển lên R2 (cùng key type/filename) → chuyển hướng để link cũ trong DB vẫn dùng được
+        const r2Base = process.env.R2_PUBLIC_URL;
+        if (r2Base) {
+            return NextResponse.redirect(`${r2Base.replace(/\/$/, '')}/${safe.split('/').map(encodeURIComponent).join('/')}`, 302);
+        }
         return new NextResponse(
             `<!DOCTYPE html><html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc"><div style="text-align:center;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">⚠️</div><div style="font-size:16px;font-weight:600;color:#475569;margin-bottom:6px">Không tìm thấy file</div><div style="font-size:13px">File đã bị xóa hoặc chưa được tải lên server</div></div></body></html>`,
             { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
