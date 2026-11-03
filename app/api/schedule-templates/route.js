@@ -224,12 +224,52 @@ async function ensureKhachUuTienTemplate() {
     console.log('[schedule-templates] Quy trình quản lý khách ưu tiên template seeded');
 }
 
+let seededKhachDuAn = false;
+async function ensureKhachDuAnTemplate() {
+    if (seededKhachDuAn) return;
+    const exists = await prisma.scheduleTemplate.findFirst({ where: { name: 'Quy trình khách dự án' } });
+    if (exists) { seededKhachDuAn = true; return; }
+
+    console.log('[schedule-templates] Seeding Quy trình khách dự án template...');
+    const tpl = await prisma.scheduleTemplate.create({
+        data: { name: 'Quy trình khách dự án', type: 'Thiết kế', description: 'Quy trình thiết kế nội thất cho khách dự án: từ tiếp nhận hồ sơ kiến trúc đến ký và bàn giao hồ sơ' },
+    });
+    // Mỗi bước: nhóm "BƯỚC n: Nội dung công việc [Bộ phận phụ trách]" + 1 hạng mục con là sản phẩm phải hoàn thành
+    const steps = [
+        { name: 'Tiếp nhận hồ sơ kiến trúc, nhiệm vụ thiết kế', product: 'Hồ sơ đầu vào, danh mục phòng cần thiết kế',      owner: 'Kinh doanh + Thiết kế',          duration: 2, color: '#16a34a' },
+        { name: 'Nghiên cứu công năng, diện tích từng phòng',   product: 'Bảng thống kê phòng, diện tích, yêu cầu sử dụng', owner: 'Thiết kế',                       duration: 2, color: '#0891b2' },
+        { name: 'Thiết kế mặt bằng bố trí nội thất',            product: 'Mặt bằng bố trí nội thất từng phòng',             owner: 'Thiết kế',                       duration: 3, color: '#3b82f6' },
+        { name: 'Thiết kế phối cảnh 3D',                        product: 'Phối cảnh các không gian chính',                  owner: 'Thiết kế',                       duration: 5, color: '#8b5cf6' },
+        { name: 'Thống nhất phương án với đơn vị chủ trì và chủ đầu tư', product: 'Biên bản hoặc văn bản thống nhất phương án', owner: 'Thiết kế + Kinh doanh',     duration: 2, color: '#ec4899' },
+        { name: 'Triển khai bản vẽ kỹ thuật nội thất',          product: 'Bản vẽ chi tiết, cấu tạo, vật liệu',              owner: 'Thiết kế',                       duration: 7, color: '#f59e0b' },
+        { name: 'Bóc tách khối lượng, lập dự toán',             product: 'Bảng khối lượng, đơn giá, tổng hợp dự toán',      owner: 'Thiết kế + Dự toán',             duration: 3, color: '#ea580c' },
+        { name: 'Kiểm tra, ký hồ sơ và bàn giao',               product: 'Bộ hồ sơ hoàn chỉnh để ghép vào hồ sơ chung',     owner: 'Trưởng phòng + Ban giám đốc',    duration: 2, color: '#ef4444' },
+    ];
+    const daItems = [];
+    steps.forEach((s, i) => {
+        const groupIdx = daItems.length;
+        daItems.push({
+            name: `BƯỚC ${i + 1}: ${s.name} [${s.owner}]`,
+            level: 0, wbs: String(i + 1), duration: s.duration, weight: 1, color: s.color,
+            predIdx: i > 0 ? groupIdx - 2 : null,
+        });
+        daItems.push({
+            name: `Hoàn thành: ${s.product}`,
+            level: 1, wbs: `${i + 1}.1`, duration: s.duration, weight: 1, color: '', parentIdx: groupIdx,
+        });
+    });
+    await createTemplateItems(tpl.id, daItems);
+    seededKhachDuAn = true;
+    console.log('[schedule-templates] Quy trình khách dự án template seeded');
+}
+
 export const GET = withAuth(async () => {
     // Auto-seed defaults if empty
     try { await ensureDefaultTemplates(); } catch (e) { console.error('Auto-seed failed:', e); }
     try { await ensureCarePlanTemplate(); } catch (e) { console.error('Care plan seed failed:', e); }
     try { await ensureHopDongNTTemplate(); } catch (e) { console.error('HopDong NT seed failed:', e); }
     try { await ensureKhachUuTienTemplate(); } catch (e) { console.error('KhachUuTien seed failed:', e); }
+    try { await ensureKhachDuAnTemplate(); } catch (e) { console.error('KhachDuAn seed failed:', e); }
 
     const templates = await prisma.scheduleTemplate.findMany({
         include: { _count: { select: { items: true } } },
