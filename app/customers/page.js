@@ -123,7 +123,8 @@ export default function CustomersPage() {
         if (!form.name.trim()) return alert('Vui lòng nhập tên khách hàng');
         if (!form.phone.trim()) return alert('Vui lòng nhập số điện thoại');
         const defaultStage = isThietKe ? 'Ưu tiên' : 'Tư vấn';
-        const submitData = { ...form, status: 'Khách hàng' };
+        // createdByRole = phòng đang xem (kể cả khi tài khoản "xem như" phòng khác) để khách hiện đúng bảng
+        const submitData = { ...form, status: 'Khách hàng', createdByRole: role };
         if (isThietKe && ![...PIPELINE_TK_BOARD, ...PIPELINE_TKKT].find(p => p.key === submitData.pipelineStage)) {
             submitData.pipelineStage = 'Ưu tiên';
         }
