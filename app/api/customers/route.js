@@ -4,6 +4,10 @@ import prisma from '@/lib/prisma';
 import { withCodeRetry } from '@/lib/generateCode';
 import { NextResponse } from 'next/server';
 import { customerCreateSchema } from '@/lib/validations/customer';
+import { canSwitchRole } from '@/lib/roleSwitch';
+
+// Phòng ban mà khách hàng có thể được gán khi tạo (trùng với các bảng trên trang khách hàng)
+const DEPT_ROLES = ['xay_dung', 'kinh_doanh', 'thiet_ke'];
 
 export const GET = withAuth(async (request) => {
     const { searchParams } = new URL(request.url);
@@ -48,10 +52,17 @@ export const GET = withAuth(async (request) => {
 
 export const POST = withAuth(async (request, context, session) => {
     const body = await request.json();
-    const data = customerCreateSchema.parse(body);
+    const { createdByRole: requestedRole, ...data } = customerCreateSchema.parse(body);
+
+    // Phòng gán cho khách: mặc định là role đăng nhập. Tài khoản được "xem như" phòng khác
+    // (ban GĐ, admin...) thì nhận phòng đang xem từ client, miễn là thuộc danh sách phòng ban hợp lệ.
+    const actualRole = session?.user?.role || '';
+    const createdByRole = canSwitchRole(session?.user) && DEPT_ROLES.includes(requestedRole)
+        ? requestedRole
+        : actualRole;
 
     const customer = await withCodeRetry('customer', 'KH', (code) =>
-        prisma.customer.create({ data: { code, ...data, createdByRole: session?.user?.role || '' } })
+        prisma.customer.create({ data: { code, ...data, createdByRole } })
     );
 
     return NextResponse.json(customer, { status: 201 });

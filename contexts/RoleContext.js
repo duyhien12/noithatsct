@@ -2,10 +2,9 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { writeRoleOf } from '@/lib/deptFullWrite';
+import { SWITCH_ROLE_EMAILS, SWITCH_ROLE_ROLES } from '@/lib/roleSwitch';
 
 const PHAM_DUONG_EMAIL = 'phamduong@kientrucsct.com';
-const SWITCH_ROLE_EMAILS = ['phamduong@kientrucsct.com', 'motnha@kientrucsct.com', 'buihoa@kientrucsct.com'];
-const SWITCH_ROLE_ROLES = ['ban_gd', 'giam_doc', 'pho_gd', 'admin'];
 
 export const ROLES = [
     { key: 'ban_gd',        label: 'Ban giám đốc',              icon: '👑', color: '#c0392b' },
