@@ -68,11 +68,11 @@ async function ensureDefaultTemplates() {
     console.log('[schedule-templates] Seeded 2 default templates');
 }
 
-async function createTemplateItems(templateId, items) {
+async function createTemplateItems(templateId, items, db = prisma) {
     const created = [];
     for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        const c = await prisma.scheduleTemplateItem.create({
+        const c = await db.scheduleTemplateItem.create({
             data: {
                 name: item.name,
                 order: i,
@@ -227,40 +227,89 @@ async function ensureKhachUuTienTemplate() {
 let seededKhachDuAn = false;
 async function ensureKhachDuAnTemplate() {
     if (seededKhachDuAn) return;
-    const exists = await prisma.scheduleTemplate.findFirst({ where: { name: 'Quy trình khách dự án' } });
-    if (exists) { seededKhachDuAn = true; return; }
+    const TEMPLATE_NAME = 'Quy trình khách dự án';
 
-    console.log('[schedule-templates] Seeding Quy trình khách dự án template...');
-    const tpl = await prisma.scheduleTemplate.create({
-        data: { name: 'Quy trình khách dự án', type: 'Thiết kế', description: 'Quy trình thiết kế nội thất cho khách dự án: từ tiếp nhận hồ sơ kiến trúc đến ký và bàn giao hồ sơ' },
-    });
-    // Mỗi bước: nhóm "BƯỚC n: Nội dung công việc [Bộ phận phụ trách]" + 1 hạng mục con là sản phẩm phải hoàn thành
+    // Cấu trúc: 1. Quy trình 8 bước (BƯỚC 1–8) | 2. Thành phần hồ sơ | 3. Đề xuất
     const steps = [
-        { name: 'Tiếp nhận hồ sơ kiến trúc, nhiệm vụ thiết kế', product: 'Hồ sơ đầu vào, danh mục phòng cần thiết kế',      owner: 'Kinh doanh + Thiết kế',          duration: 2, color: '#16a34a' },
-        { name: 'Nghiên cứu công năng, diện tích từng phòng',   product: 'Bảng thống kê phòng, diện tích, yêu cầu sử dụng', owner: 'Thiết kế',                       duration: 2, color: '#0891b2' },
-        { name: 'Thiết kế mặt bằng bố trí nội thất',            product: 'Mặt bằng bố trí nội thất từng phòng',             owner: 'Thiết kế',                       duration: 3, color: '#3b82f6' },
-        { name: 'Thiết kế phối cảnh 3D',                        product: 'Phối cảnh các không gian chính',                  owner: 'Thiết kế',                       duration: 5, color: '#8b5cf6' },
-        { name: 'Thống nhất phương án với đơn vị chủ trì và chủ đầu tư', product: 'Biên bản hoặc văn bản thống nhất phương án', owner: 'Thiết kế + Kinh doanh',     duration: 2, color: '#ec4899' },
-        { name: 'Triển khai bản vẽ kỹ thuật nội thất',          product: 'Bản vẽ chi tiết, cấu tạo, vật liệu',              owner: 'Thiết kế',                       duration: 7, color: '#f59e0b' },
-        { name: 'Bóc tách khối lượng, lập dự toán',             product: 'Bảng khối lượng, đơn giá, tổng hợp dự toán',      owner: 'Thiết kế + Dự toán',             duration: 3, color: '#ea580c' },
-        { name: 'Kiểm tra, ký hồ sơ và bàn giao',               product: 'Bộ hồ sơ hoàn chỉnh để ghép vào hồ sơ chung',     owner: 'Trưởng phòng + Ban giám đốc',    duration: 2, color: '#ef4444' },
+        { name: 'Tiếp nhận hồ sơ kiến trúc, nhiệm vụ thiết kế', owner: 'Kinh doanh + Thiết kế',       duration: 2 },
+        { name: 'Nghiên cứu công năng, diện tích từng phòng',   owner: 'Thiết kế',                    duration: 2 },
+        { name: 'Thiết kế mặt bằng bố trí nội thất',            owner: 'Thiết kế',                    duration: 3 },
+        { name: 'Thiết kế phối cảnh 3D',                        owner: 'Thiết kế',                    duration: 5 },
+        { name: 'Thống nhất phương án với đơn vị chủ trì và chủ đầu tư', owner: 'Thiết kế + Kinh doanh', duration: 2 },
+        { name: 'Triển khai bản vẽ kỹ thuật nội thất',          owner: 'Thiết kế',                    duration: 7 },
+        { name: 'Bóc tách khối lượng, lập dự toán',             owner: 'Thiết kế + Dự toán',          duration: 3 },
+        { name: 'Kiểm tra, ký hồ sơ và bàn giao',               owner: 'Trưởng phòng + Ban giám đốc', duration: 2 },
     ];
+    const hoSo = [
+        'Thuyết minh giải pháp thiết kế nội thất',
+        'Bản vẽ mặt bằng bố trí nội thất',
+        'Bản vẽ mặt đứng, mặt cắt, chi tiết nội thất',
+        'Bảng thống kê vật liệu, sản phẩm nội thất',
+        'Bảng bóc tách khối lượng nội thất',
+        'Dự toán nội thất',
+        'Phối cảnh 3D',
+        'Báo cáo kinh tế – kỹ thuật riêng',
+    ];
+    const deXuat = [
+        'Phòng Thiết kế nội thất: Chịu trách nhiệm phương án, phối cảnh, bản vẽ kỹ thuật, thuyết minh và thống kê sản phẩm.',
+        'Bộ phận Dự toán: Chịu trách nhiệm bóc khối lượng, xác định đơn giá, lập dự toán và đối chiếu bản vẽ.',
+        'Trưởng phòng Thiết kế: Kiểm tra tính đầy đủ, thống nhất của hồ sơ.',
+        'Ban giám đốc: Kiểm soát hồ sơ trước khi phát hành chính thức.',
+        'Đơn vị chủ trì thiết kế: Phối hợp và ghép hồ sơ nội thất vào hồ sơ chung của dự án.',
+    ];
+
     const daItems = [];
+    // Nhóm 1: Quy trình 8 bước (index 0), các bước là hạng mục con (index 1..8), nối tiếp nhau
+    const stepSum = steps.reduce((a, s) => a + s.duration, 0);
+    daItems.push({ name: 'Quy trình 8 bước', level: 0, wbs: '1', duration: stepSum, weight: 1, color: '#16a34a' });
     steps.forEach((s, i) => {
-        const groupIdx = daItems.length;
         daItems.push({
             name: `BƯỚC ${i + 1}: ${s.name} [${s.owner}]`,
-            level: 0, wbs: String(i + 1), duration: s.duration, weight: 1, color: s.color,
-            predIdx: i > 0 ? groupIdx - 2 : null,
-        });
-        daItems.push({
-            name: `Hoàn thành: ${s.product}`,
-            level: 1, wbs: `${i + 1}.1`, duration: s.duration, weight: 1, color: '', parentIdx: groupIdx,
+            level: 1, wbs: `1.${i + 1}`, duration: s.duration, weight: 1, color: '',
+            parentIdx: 0, predIdx: i > 0 ? daItems.length - 1 : null,
         });
     });
-    await createTemplateItems(tpl.id, daItems);
+
+    // Nhóm 2: Thành phần hồ sơ (index 9)
+    const g2 = daItems.length;
+    daItems.push({ name: 'Thành phần hồ sơ thiết kế nội thất SCT cần lập', level: 0, wbs: '2', duration: 3, weight: 1, color: '#ca8a04' });
+    hoSo.forEach((name, i) => {
+        daItems.push({ name, level: 1, wbs: `2.${i + 1}`, duration: 1, weight: 1, color: '', parentIdx: g2 });
+    });
+
+    // Nhóm 3: Đề xuất (index 18), sau nhóm 2
+    const g3 = daItems.length;
+    daItems.push({ name: 'Đề xuất', level: 0, wbs: '3', duration: 2, weight: 1, color: '#ea580c', predIdx: g2 });
+    deXuat.forEach((name, i) => {
+        daItems.push({ name, level: 1, wbs: `3.${i + 1}`, duration: 1, weight: 1, color: '', parentIdx: g3 });
+    });
+
+    const exists = await prisma.scheduleTemplate.findFirst({
+        where: { name: TEMPLATE_NAME },
+        include: { items: { orderBy: { order: 'asc' }, select: { name: true } } },
+    });
+
+    if (!exists) {
+        console.log('[schedule-templates] Seeding Quy trình khách dự án template...');
+        const tpl = await prisma.scheduleTemplate.create({
+            data: { name: TEMPLATE_NAME, type: 'Thiết kế', description: 'Quy trình thiết kế nội thất cho khách dự án: từ tiếp nhận hồ sơ kiến trúc đến ký và bàn giao hồ sơ' },
+        });
+        await createTemplateItems(tpl.id, daItems);
+        console.log('[schedule-templates] Quy trình khách dự án template seeded');
+    } else {
+        // Mẫu đã có trong DB: cập nhật lại hạng mục nếu khác cấu trúc hiện tại
+        const same = exists.items.length === daItems.length
+            && exists.items.every((it, i) => it.name === daItems[i].name);
+        if (!same) {
+            console.log('[schedule-templates] Updating Quy trình khách dự án template items...');
+            await prisma.$transaction(async (tx) => {
+                await tx.scheduleTemplateItem.deleteMany({ where: { templateId: exists.id } });
+                await createTemplateItems(exists.id, daItems, tx);
+            });
+            console.log('[schedule-templates] Quy trình khách dự án template updated');
+        }
+    }
     seededKhachDuAn = true;
-    console.log('[schedule-templates] Quy trình khách dự án template seeded');
 }
 
 export const GET = withAuth(async () => {
