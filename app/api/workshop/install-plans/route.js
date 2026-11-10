@@ -10,7 +10,8 @@ export const GET = withAuth(async (req) => {
     const from = searchParams.get('from');
     const to = searchParams.get('to');
 
-    const where = { customer: { deletedAt: null } };
+    // Khách trong danh sách đã bị xóa thì ẩn; kế hoạch ghi tên tự do (không có khách) vẫn hiện
+    const where = { OR: [{ customerId: null }, { customer: { deletedAt: null } }] };
     if (customerId) where.customerId = customerId;
     // Lấy kế hoạch giao với khoảng [from, to)
     if (from) where.endDate = { gte: new Date(from) };
@@ -29,7 +30,7 @@ export const POST = withAuth(async (req, context, session) => {
     if (error) return NextResponse.json({ error }, { status: 400 });
 
     const last = await prisma.installPlan.findFirst({
-        where: { customerId: data.customerId },
+        where: data.customerId ? { customerId: data.customerId } : { customerId: null, customerName: data.customerName },
         orderBy: { order: 'desc' },
         select: { order: true },
     });

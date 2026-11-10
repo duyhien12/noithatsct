@@ -4,8 +4,12 @@ export const INSTALL_STATUSES = ['Chưa bắt đầu', 'Đang thực hiện', 'H
 export function parseInstallPlan(body, { requireCustomer = false } = {}) {
     const data = {};
     if (requireCustomer) {
-        if (!body.customerId) return { error: 'Chọn công trình' };
-        data.customerId = String(body.customerId);
+        // Chọn khách trong danh sách (customerId) hoặc ghi tên tự do (customerName)
+        const customerId = body.customerId ? String(body.customerId) : '';
+        const customerName = String(body.customerName || '').trim();
+        if (!customerId && !customerName) return { error: 'Chọn hoặc nhập tên công trình' };
+        data.customerId = customerId || null;
+        data.customerName = customerId ? '' : customerName;
     }
     if (body.name !== undefined) data.name = String(body.name).trim() || 'Lắp đặt tại công trình';
     if (body.workerCount !== undefined) {

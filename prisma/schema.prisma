@@ -3452,9 +3452,11 @@ model InstallPlan {
   notes       String   @default("")
   order       Int      @default(0)
   createdBy   String   @default("")
-  // Công trình = khách hàng ở cột "Khách hợp đồng" của Phòng Kinh doanh
-  customerId  String
-  customer    Customer @relation(fields: [customerId], references: [id])
+  // Công trình = khách hàng ở cột "Khách hợp đồng" của Phòng Kinh doanh.
+  // Nếu chọn tên ngoài danh sách thì customerId rỗng và customerName giữ tên tự gõ.
+  customerId   String?
+  customer     Customer? @relation(fields: [customerId], references: [id])
+  customerName String    @default("")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
