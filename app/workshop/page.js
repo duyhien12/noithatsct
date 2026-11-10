@@ -398,8 +398,8 @@ export default function WorkshopDashboard() {
                                     return (
                                         <tr key={p.id} onClick={() => router.push('/workshop/plan')} style={{ cursor: 'pointer' }}>
                                             <td style={{ maxWidth: 320 }}>
-                                                <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.customer?.name}>
-                                                    {p.customer?.name || '—'}
+                                                <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.customer?.name || p.customerName}>
+                                                    {p.customer?.name || p.customerName || '—'}
                                                 </div>
                                                 <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{p.customer?.code} · {p.name}</div>
                                             </td>

@@ -119,7 +119,7 @@ function buildScale(view, anchor, fitW = 0) {
     return { start, end, pxPerDay, totalDays, width: totalDays * pxPerDay, groups, units };
 }
 
-const EMPTY_FORM = { id: null, name: DEFAULT_NAME, customerId: '', workerCount: 2, status: 'Chưa bắt đầu', startDate: '', endDate: '', notes: '' };
+const EMPTY_FORM = { id: null, name: DEFAULT_NAME, customerId: '', customerName: '', workerCount: 2, status: 'Chưa bắt đầu', startDate: '', endDate: '', notes: '' };
 
 export default function WorkshopPlanPage() {
     const toast = useToast();
@@ -168,7 +168,9 @@ export default function WorkshopPlanPage() {
     const scale = useMemo(() => buildScale(view, anchor, fitW), [view, anchor, fitW]);
 
     // Kế hoạch giao với khoảng thời gian đang xem
+    // Đã hoàn thành thì ẩn khỏi bảng (cả thanh lẫn nhóm công trình không còn việc nào)
     const visible = useMemo(() => plans.filter(p => {
+        if (p.status === 'Hoàn thành') return false;
         if (filterCustomer && p.customerId !== filterCustomer) return false;
         return new Date(p.startDate) < scale.end && addDays(p.endDate, 1) > scale.start;
     }).map(p => ({ ...p, state: visualState(p, today) })), [plans, filterCustomer, scale, today]);
@@ -192,8 +194,10 @@ export default function WorkshopPlanPage() {
     const groups = useMemo(() => {
         const map = new Map();
         shown.forEach(p => {
-            if (!map.has(p.customerId)) map.set(p.customerId, { id: p.customerId, name: p.customer?.name || 'Không rõ công trình', items: [] });
-            map.get(p.customerId).items.push(p);
+            // Công trình ghi tay (không có khách trong danh sách) nhóm theo tên gõ
+            const key = p.customerId || `name:${p.customerName}`;
+            if (!map.has(key)) map.set(key, { id: key, name: p.customer?.name || p.customerName || 'Không rõ công trình', items: [] });
+            map.get(key).items.push(p);
         });
         const list = [...map.values()];
         list.forEach(g => g.items.sort((a, b) => new Date(a.startDate) - new Date(b.startDate) || a.order - b.order));
@@ -274,7 +278,7 @@ export default function WorkshopPlanPage() {
     const openEdit = (p) => {
         setConfirmDelete(false);
         setForm({
-            id: p.id, name: p.name, customerId: p.customerId, customerName: p.customer?.name || '', workerCount: p.workerCount, status: p.status,
+            id: p.id, name: p.name, customerId: p.customerId || '', customerName: p.customer?.name || p.customerName || '', workerCount: p.workerCount, status: p.status,
             startDate: toInput(p.startDate), endDate: toInput(p.endDate), notes: p.notes || '',
         });
     };
@@ -282,7 +286,7 @@ export default function WorkshopPlanPage() {
 
     const workerNum = form ? Number(form.workerCount) : 0;
     const formError = form && (
-        !form.customerId ? 'Chọn công trình'
+        !form.customerId && !form.customerName.trim() ? 'Chọn hoặc nhập tên công trình'
             : !Number.isInteger(workerNum) || workerNum < 1 ? 'Số người phải từ 1 trở lên'
             : !form.startDate || !form.endDate ? 'Chọn ngày bắt đầu và kết thúc'
             : form.endDate < form.startDate ? 'Ngày kết thúc phải sau ngày bắt đầu'
@@ -307,7 +311,7 @@ export default function WorkshopPlanPage() {
                 })
                 : await fetch('/api/workshop/install-plans', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...body, customerId: form.customerId }),
+                    body: JSON.stringify({ ...body, customerId: form.customerId, customerName: form.customerName.trim() }),
                 });
             if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || 'Lưu không thành công');
             // Kế hoạch nằm ngoài khoảng đang xem (VD thêm cho tháng sau) → chuyển sang tháng bắt đầu
@@ -600,7 +604,6 @@ export default function WorkshopPlanPage() {
                 <div className={s.legend}>
                     <span><i style={{ background: 'var(--color-neutral-br)' }} />Chưa bắt đầu</span>
                     <span><i style={{ background: 'var(--color-info)' }} />Đang thực hiện</span>
-                    <span><i style={{ background: 'var(--color-success)' }} />Hoàn thành</span>
                     <span><i style={{ background: 'var(--color-danger)', opacity: 0.6 }} />Quá hạn</span>
                     <span className={s.legendNote}>Bấm vào công việc để sửa · kéo thanh để dời lịch, kéo mép để đổi ngày</span>
                 </div>
@@ -631,9 +634,9 @@ export default function WorkshopPlanPage() {
                     <div className={s.formGrid}>
                         <Field label="Công trình" required className={s.full}>
                             {(a) => (
-                                <CustomerCombobox {...a} customers={customers} value={form.customerId}
-                                    fallbackLabel={form.customerName} disabled={!!form.id}
-                                    onChange={id => setForm(f => ({ ...f, customerId: id }))} />
+                                <CustomerCombobox {...a} customers={customers} customerId={form.customerId}
+                                    customerName={form.customerName} disabled={!!form.id}
+                                    onPick={({ id, name }) => setForm(f => ({ ...f, customerId: id, customerName: name }))} />
                             )}
                         </Field>
                         <Field label="Công việc" className={s.full}>
@@ -669,7 +672,7 @@ export default function WorkshopPlanPage() {
 const fold = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 
 // Ô gõ để tìm công trình (khách hợp đồng / ưu tiên) theo tên hoặc mã khách hàng.
-function CustomerCombobox({ customers, value, onChange, disabled, fallbackLabel, id, ...aria }) {
+function CustomerCombobox({ customers, customerId, customerName, onPick, disabled, id, ...aria }) {
     const [open, setOpen] = useState(false);
     const [q, setQ] = useState('');
     const [active, setActive] = useState(0);
@@ -683,8 +686,8 @@ function CustomerCombobox({ customers, value, onChange, disabled, fallbackLabel,
         return () => document.removeEventListener('mousedown', onDown);
     }, [open]);
 
-    const selected = customers.find(c => c.id === value);
-    const selectedLabel = selected ? selected.name : (value ? fallbackLabel || '' : '');
+    const selected = customers.find(c => c.id === customerId);
+    const selectedLabel = selected ? selected.name : (customerName || '');
     const results = useMemo(() => {
         const words = fold(q).split(/\s+/).filter(Boolean);
         if (!words.length) return customers;
@@ -694,15 +697,26 @@ function CustomerCombobox({ customers, value, onChange, disabled, fallbackLabel,
         });
     }, [customers, q]);
 
+    // Tên gõ tay không trùng khách nào → cho chọn làm công trình ghi tay (không tạo khách hàng mới)
+    const typed = q.trim();
+    const freeName = typed && !results.some(c => fold(c.name) === fold(typed)) ? typed : null;
+    const options = [
+        ...results.map(c => ({ kind: 'customer', c })),
+        ...(freeName ? [{ kind: 'free', name: freeName }] : []),
+    ];
+
     useEffect(() => {
         listRef.current?.children[active]?.scrollIntoView({ block: 'nearest' });
     }, [active]);
 
-    const pick = (c) => { onChange(c.id); setQ(''); setOpen(false); };
+    const pick = (o) => {
+        onPick(o.kind === 'free' ? { id: '', name: o.name } : { id: o.c.id, name: o.c.name });
+        setQ(''); setOpen(false);
+    };
     const onKeyDown = (e) => {
-        if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActive(i => Math.min(i + 1, results.length - 1)); }
+        if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActive(i => Math.min(i + 1, options.length - 1)); }
         else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(i => Math.max(i - 1, 0)); }
-        else if (e.key === 'Enter') { if (open && results[active]) { e.preventDefault(); pick(results[active]); } }
+        else if (e.key === 'Enter') { if (open && options[active]) { e.preventDefault(); pick(options[active]); } }
         else if (e.key === 'Escape' && open) { e.stopPropagation(); setOpen(false); }
     };
     const listId = `${id}-list`;
@@ -718,7 +732,7 @@ function CustomerCombobox({ customers, value, onChange, disabled, fallbackLabel,
                 aria-autocomplete="list"
                 autoComplete="off"
                 disabled={disabled}
-                placeholder="Gõ tên hoặc mã khách hàng để tìm…"
+                placeholder="Gõ tên khách/mã để tìm, hoặc nhập tên mới…"
                 value={open ? q : selectedLabel}
                 onFocus={() => { setOpen(true); setQ(''); setActive(0); }}
                 onChange={e => { setQ(e.target.value); setActive(0); setOpen(true); }}
@@ -726,16 +740,24 @@ function CustomerCombobox({ customers, value, onChange, disabled, fallbackLabel,
             />
             {open && !disabled && (
                 <ul className={s.comboList} id={listId} role="listbox" ref={listRef}>
-                    {results.length === 0 && <li className={s.comboEmpty}>Không tìm thấy công trình nào</li>}
-                    {results.map((c, i) => (
-                        <li key={c.id} role="option" aria-selected={c.id === value}
+                    {options.length === 0 && <li className={s.comboEmpty}>Gõ tên để nhập công trình mới</li>}
+                    {options.map((o, i) => (o.kind === 'free' ? (
+                        <li key="__free" role="option" aria-selected={false}
                             className={`${s.comboItem} ${i === active ? s.comboActive : ''}`}
                             onMouseEnter={() => setActive(i)}
-                            onMouseDown={e => { e.preventDefault(); pick(c); }}>
-                            <span>{c.name}</span>
-                            <small>{STAGE_LABEL[c.pipelineStage] ? `${STAGE_LABEL[c.pipelineStage]} · ` : ''}{c.code}</small>
+                            onMouseDown={e => { e.preventDefault(); pick(o); }}>
+                            <span>Dùng “{o.name}” (ngoài danh sách)</span>
+                            <small>Nhập tay</small>
                         </li>
-                    ))}
+                    ) : (
+                        <li key={o.c.id} role="option" aria-selected={o.c.id === customerId}
+                            className={`${s.comboItem} ${i === active ? s.comboActive : ''}`}
+                            onMouseEnter={() => setActive(i)}
+                            onMouseDown={e => { e.preventDefault(); pick(o); }}>
+                            <span>{o.c.name}</span>
+                            <small>{STAGE_LABEL[o.c.pipelineStage] ? `${STAGE_LABEL[o.c.pipelineStage]} · ` : ''}{o.c.code}</small>
+                        </li>
+                    )))}
                 </ul>
             )}
         </div>

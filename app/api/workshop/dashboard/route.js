@@ -163,11 +163,11 @@ export const GET = withAuth(async (request, ctx, session) => {
 
         // Kế hoạch & tiến độ lắp đặt (cùng dữ liệu trang /workshop/plan) — các đợt chưa hoàn thành
         prisma.installPlan.findMany({
-            where: { status: { not: 'Hoàn thành' }, customer: { deletedAt: null } },
+            where: { status: { not: 'Hoàn thành' }, OR: [{ customerId: null }, { customer: { deletedAt: null } }] },
             orderBy: [{ endDate: 'asc' }, { startDate: 'asc' }],
             take: 10,
             select: {
-                id: true, name: true, startDate: true, endDate: true, status: true, workerCount: true,
+                id: true, name: true, startDate: true, endDate: true, status: true, workerCount: true, customerName: true,
                 customer: { select: { id: true, code: true, name: true } },
             },
         }),
