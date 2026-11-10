@@ -1528,6 +1528,12 @@ tfoot .lbl{text-align:center;color:#ea580c;font-size:7.5pt}
                         <div className="card-header" style={{ flexWrap: 'wrap', gap: 8 }}>
                             <h3 style={{ margin: 0 }}>📋 Bảng thanh toán lương — Tháng {monthStr}</h3>
                             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <button className="btn btn-ghost btn-sm" title="Tháng trước"
+                                    onClick={() => { const d = new Date(yw, mw - 2, 1); setSummaryMonth(toMonthStr(d)); }}>◀</button>
+                                <input type="month" value={summaryMonth} onChange={e => e.target.value && setSummaryMonth(e.target.value)}
+                                    style={{ padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 600 }} />
+                                <button className="btn btn-ghost btn-sm" title="Tháng sau"
+                                    onClick={() => { const d = new Date(yw, mw, 1); setSummaryMonth(toMonthStr(d)); }}>▶</button>
                                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Click ô để chỉnh sửa</span>
                                 <button className="btn btn-ghost btn-sm" onClick={() => { setPayrollMonth(''); }}
                                     title="Tải lại dữ liệu từ bảng chấm công">↺ Làm mới</button>
