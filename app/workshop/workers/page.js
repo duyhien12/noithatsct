@@ -200,7 +200,7 @@ export default function WorkersPage() {
                 mucLuong: Math.round(w.hourlyRate * 26),
                 ngayLuong: Math.round(w.hourlyRate),
                 ngayCong: totalCong,
-                thuong: 0, phuCap: 0,
+                thuong: 0, phuCap: 0, thuKhac: 0,
                 luongOT: otCost,
                 tamUng: advance, baoHiem: 0, cd: 0, daThanhToan: 0,
             };
@@ -1293,7 +1293,7 @@ tfoot td{font-weight:bold;background:#f5f5f5}
                     const tongLuong = r.ngayCong * r.ngayLuong;
                     const tongTien = tongLuong + r.thuong + r.phuCap + r.luongOT;
                     const congGiamTru = r.tamUng + r.baoHiem + r.cd;
-                    const thanhTien = tongTien - congGiamTru;
+                    const thanhTien = tongTien - congGiamTru + r.thuKhac;
                     const conLai = thanhTien - r.daThanhToan;
                     return { ...r, tongLuong, tongTien, congGiamTru, thanhTien, conLai };
                 });
@@ -1302,6 +1302,7 @@ tfoot td{font-weight:bold;background:#f5f5f5}
                     ngayCong: s.ngayCong + r.ngayCong,
                     tongLuong: s.tongLuong + r.tongLuong,
                     thuong: s.thuong + r.thuong,
+                    thuKhac: s.thuKhac + r.thuKhac,
                     phuCap: s.phuCap + r.phuCap,
                     luongOT: s.luongOT + r.luongOT,
                     tongTien: s.tongTien + r.tongTien,
@@ -1312,7 +1313,7 @@ tfoot td{font-weight:bold;background:#f5f5f5}
                     thanhTien: s.thanhTien + r.thanhTien,
                     daThanhToan: s.daThanhToan + r.daThanhToan,
                     conLai: s.conLai + r.conLai,
-                }), { ngayCong:0,tongLuong:0,thuong:0,phuCap:0,luongOT:0,tongTien:0,tamUng:0,baoHiem:0,cd:0,congGiamTru:0,thanhTien:0,daThanhToan:0,conLai:0 });
+                }), { ngayCong:0,tongLuong:0,thuong:0,thuKhac:0,phuCap:0,luongOT:0,tongTien:0,tamUng:0,baoHiem:0,cd:0,congGiamTru:0,thanhTien:0,daThanhToan:0,conLai:0 });
 
                 // Styles
                 const thBase = { padding: '5px 4px', textAlign: 'center', fontSize: 10, fontWeight: 700, border: '1px solid #94a3b8', background: '#f1f5f9', whiteSpace: 'nowrap', lineHeight: 1.3 };
@@ -1366,6 +1367,7 @@ tfoot td{font-weight:bold;background:#f5f5f5}
                         <td class="tr">${v(r.baoHiem,'cr')}</td>
                         <td class="tr">${v(r.cd,'cr')}</td>
                         <td class="tr c11 fw">${v(r.congGiamTru,'cr')}</td>
+                        <td class="tr">${v(r.thuKhac,'cg')}</td>
                         <td class="tr c12 fw">${v(r.thanhTien,'cg')}</td>
                         <td class="tr">${v(r.daThanhToan)}</td>
                         <td class="tr c14 fw">${v(r.conLai,'cb')}</td>
@@ -1452,6 +1454,7 @@ tfoot .lbl{text-align:center;color:#ea580c;font-size:7.5pt}
     <col style="width:13mm"> <!-- Bảo hiểm (9) -->
     <col style="width:8mm">  <!-- CD (10) -->
     <col style="width:15mm"> <!-- Cộng (11) -->
+    <col style="width:13mm"> <!-- Thu khác (+) -->
     <col style="width:17mm"> <!-- Thành tiền (12) -->
     <col style="width:13mm"> <!-- Đã TT (13) -->
     <col style="width:17mm"> <!-- Còn lại (14) -->
@@ -1470,7 +1473,8 @@ tfoot .lbl{text-align:center;color:#ea580c;font-size:7.5pt}
       <th rowspan="2">Lương làm thêm giờ (6)</th>
       <th rowspan="2">Tổng tiền (7=3+4+5+6)</th>
       <th colspan="4" class="hg">Giảm trừ</th>
-      <th rowspan="2">Thành tiền (12=7-11)</th>
+      <th rowspan="2">Thu khác (+)</th>
+      <th rowspan="2">Thành tiền (12=7-11+Thu khác)</th>
       <th rowspan="2">Đã thanh toán (13)</th>
       <th rowspan="2">Còn lại (14=12-13)</th>
       <th rowspan="2">Ký nhận</th>
@@ -1497,6 +1501,7 @@ tfoot .lbl{text-align:center;color:#ea580c;font-size:7.5pt}
       <td class="tr cr">${fmtN(totals.baoHiem)}</td>
       <td class="tr cr">${fmtN(totals.cd)}</td>
       <td class="tr fw cr c11">${fmtN(totals.congGiamTru)}</td>
+      <td class="tr cg">${fmtN(totals.thuKhac)}</td>
       <td class="tr fw cg c12">${fmtN(totals.thanhTien)}</td>
       <td class="tr">${fmtN(totals.daThanhToan)}</td>
       <td class="tr fw cb c14">${fmtN(totals.conLai)}</td>
@@ -1557,7 +1562,8 @@ tfoot .lbl{text-align:center;color:#ea580c;font-size:7.5pt}
                                         <th rowSpan={2} style={{ ...thBase, width: 65, background: '#fff7ed', color: '#c2410c' }}>Lương OT (6)</th>
                                         <th rowSpan={2} style={{ ...thBase, width: 72, background: '#dcfce7', color: '#15803d' }}>Tổng tiền (7=3+4+5+6)</th>
                                         <th colSpan={4} style={{ ...thBase, background: '#fee2e2', color: '#b91c1c' }}>Giảm trừ</th>
-                                        <th rowSpan={2} style={{ ...thBase, width: 72, background: '#dcfce7', color: '#166534', fontWeight: 800 }}>Thành tiền (12=7-11)</th>
+                                        <th rowSpan={2} style={{ ...thBase, width: 65, background: '#ecfdf5', color: '#0f766e' }}>Thu khác (+)</th>
+                                        <th rowSpan={2} style={{ ...thBase, width: 72, background: '#dcfce7', color: '#166534', fontWeight: 800 }}>Thành tiền (12=7-11+Thu khác)</th>
                                         <th rowSpan={2} style={{ ...thBase, width: 65 }}>Đã thanh toán (13)</th>
                                         <th rowSpan={2} style={{ ...thBase, width: 72, background: '#dbeafe', color: '#1d4ed8', fontWeight: 800 }}>Còn lại (14=12-13)</th>
                                         <th rowSpan={2} style={{ ...thBase, width: 48 }}>Ký nhận</th>
@@ -1589,6 +1595,7 @@ tfoot .lbl{text-align:center;color:#ea580c;font-size:7.5pt}
                                             {eCell(r, 'baoHiem', { color: '#b91c1c' })}
                                             {eCell(r, 'cd', { color: '#b91c1c' })}
                                             <td style={{ ...redTd }}>{fmtN(r.congGiamTru)}</td>
+                                            {eCell(r, 'thuKhac', { color: '#0f766e' })}
                                             <td style={{ ...greenTd, fontWeight: 800 }}>{fmtN(r.thanhTien)}</td>
                                             {eCell(r, 'daThanhToan')}
                                             <td style={{ ...blueTd, fontWeight: 800 }}>{fmtN(r.conLai)}</td>
@@ -1611,6 +1618,7 @@ tfoot .lbl{text-align:center;color:#ea580c;font-size:7.5pt}
                                         <td style={{ ...tdBase, textAlign: 'right', color: '#b91c1c' }}>{fmtN(totals.baoHiem)}</td>
                                         <td style={{ ...tdBase, textAlign: 'right', color: '#b91c1c' }}>{fmtN(totals.cd)}</td>
                                         <td style={{ ...redTd, fontWeight: 800 }}>{fmtN(totals.congGiamTru)}</td>
+                                        <td style={{ ...tdBase, textAlign: 'right', color: '#0f766e' }}>{fmtN(totals.thuKhac)}</td>
                                         <td style={{ ...greenTd, fontWeight: 800 }}>{fmtN(totals.thanhTien)}</td>
                                         <td style={{ ...tdBase, textAlign: 'right' }}>{fmtN(totals.daThanhToan)}</td>
                                         <td style={{ ...blueTd, fontWeight: 800 }}>{fmtN(totals.conLai)}</td>
