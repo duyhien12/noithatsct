@@ -181,3 +181,22 @@
 .comboActive { background: var(--color-primary-50); }
 .comboItem[aria-selected='true'] span { font-weight: 600; color: var(--color-primary-700); }
 .comboEmpty { padding: 10px; color: var(--color-text-secondary); font-size: var(--fs-table); }
+
+/* Đội thi công */
+.barConflict { background: var(--color-danger); color: var(--color-text-inverse); border-color: var(--color-danger); }
+.teamName { font-size: var(--fs-table); font-weight: 600; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.teamName em { font-style: normal; font-weight: 400; color: var(--color-text-secondary); }
+.teamPicks { display: flex; flex-direction: column; gap: var(--space-2); }
+.teamHint { font-size: var(--fs-caption); color: var(--color-text-secondary); }
+.teamAdmin { display: flex; flex-direction: column; gap: var(--space-3); }
+.teamRow { display: grid; grid-template-columns: 1.6fr 1fr 0.8fr auto auto; gap: var(--space-2); align-items: center; }
+.teamNew { padding-top: var(--space-3); border-top: 1px dashed var(--color-border); }
+@media (max-width: 640px) {
+    .teamRow { grid-template-columns: 1fr 1fr; }
+}
+
+/* Form: nhóm thông tin xếp lịch */
+.schedHead { font-weight: 700; color: var(--color-primary-700); padding-top: var(--space-2); border-top: 1px solid var(--color-border); margin-top: var(--space-2); }
+.quickBox { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: var(--fs-table); color: var(--color-text); background: var(--color-surface-2); padding: var(--space-2) var(--space-3); border-radius: 8px; }
+.quickNum { width: 72px; }
+.depBox { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow: auto; padding: var(--space-2); border: 1px solid var(--color-border); border-radius: 8px; }

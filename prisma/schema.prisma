@@ -3443,25 +3443,72 @@ model InvMigrationMapping {
 
 // Kế hoạch lắp đặt tại công trình (trang /workshop/plan) — độc lập với ScheduleTask
 model InstallPlan {
-  id          String   @id @default(cuid())
-  name        String   @default("Lắp đặt tại công trình")
-  workerCount Int      @default(1)
-  startDate   DateTime
-  endDate     DateTime
-  status      String   @default("Chưa bắt đầu") // Chưa bắt đầu | Đang thực hiện | Hoàn thành
-  notes       String   @default("")
-  order       Int      @default(0)
-  createdBy   String   @default("")
+  id             String            @id @default(cuid())
+  name           String            @default("Lắp đặt tại công trình")
+  workerCount    Int               @default(1)
+  startDate      DateTime
+  endDate        DateTime
+  status         String            @default("Chưa bắt đầu") // Chưa bắt đầu | Đang thực hiện | Hoàn thành
+  notes          String            @default("")
+  order          Int               @default(0)
+  createdBy      String            @default("")
   // Công trình = khách hàng ở cột "Khách hợp đồng" của Phòng Kinh doanh.
   // Nếu chọn tên ngoài danh sách thì customerId rỗng và customerName giữ tên tự gõ.
-  customerId   String?
-  customer     Customer? @relation(fields: [customerId], references: [id])
-  customerName String    @default("")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  customerId     String?
+  customer       Customer?         @relation(fields: [customerId], references: [id])
+  customerName   String            @default("")
+  // Đội thi công được gán cho đợt này. workerCount = tổng thành viên các đội (tự tính khi lưu).
+  teams          InstallPlanTeam[]
+  // Thông tin để bộ xếp lịch (lib/schedule). effortHours null = chưa khai báo khối lượng.
+  effortHours    Float?
+  doneHours      Float             @default(0)
+  priority       Int               @default(3)
+  deadline       DateTime?
+  startNotBefore DateTime?
+  readyDate      DateTime? // ngày hàng sẵn sàng
+  siteReadyDate  DateTime? // ngày mặt bằng sẵn sàng
+  skill          String            @default("")
+  maxTeams       Int               @default(1)
+  travelDays     Int               @default(0)
+  allowOvertime  Boolean           @default(false)
+  dependsOn      String            @default("") // mã công việc phải xong trước, ngăn cách bằng dấu phẩy
+  locked         Boolean           @default(false) // khóa phân công: giữ đội và ngày hiện tại khi tính lại
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   @@index([customerId])
   @@index([startDate])
+}
+
+// Đội thi công: đội lắp đặt, hoặc đội xưởng có thể đi lắp đặt khi cần.
+model InstallTeam {
+  id           String            @id @default(cuid())
+  name         String
+  kind         String            @default("Lắp đặt") // Lắp đặt | Xưởng
+  memberCount  Int               @default(2)
+  active       Boolean           @default(true)
+  order        Int               @default(0)
+  notes        String            @default("")
+  // Lịch làm việc: chuỗi ngăn cách bằng dấu phẩy. Ngày: 1=T2 … 6=T7, 0=CN. offDates: YYYY-MM-DD
+  skills       String            @default("")
+  workWeekdays String            @default("1,2,3,4,5,6")
+  offDates     String            @default("")
+  memberIds    String            @default("") // mã thành viên, dùng để phát hiện một người thuộc nhiều đội
+  allowPartial Boolean           @default(false) // false: đội chỉ làm khi đủ người
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  plans        InstallPlanTeam[]
+}
+
+// Bảng nối: một đợt lắp đặt có thể dùng nhiều đội
+model InstallPlanTeam {
+  planId String
+  teamId String
+  plan   InstallPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  team   InstallTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@id([planId, teamId])
+  @@index([teamId])
 }
 
 // ── Đồng hành 360 ── vấn đề / phản ánh của khách hàng, theo dõi đến khi khách xác nhận.
@@ -3559,4 +3606,33 @@ model CustomerIssueLog {
   issue      CustomerIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
 
   @@index([issueId, createdAt])
+}
+
+// ── Bộ xếp lịch thi công ── cấu hình giờ làm và tăng ca (một dòng, id = "default")
+model ScheduleSettings {
+  id            String   @id @default("default")
+  hoursPerDay   Int      @default(8)
+  otMaxPerDay   Int      @default(3)
+  otMaxPerMonth Int      @default(40)
+  otMaxPerYear  Int      @default(300)
+  otWeekdays    String   @default("1,2,3,4,5,6")
+  updatedAt     DateTime @updatedAt
+}
+
+// Mỗi lần tính lịch tạo một bản: draft (xem trước) → applied khi chốt; bản cũ thành superseded.
+// Lưu đầu vào và kết quả để so sánh các phiên bản.
+model ScheduleRun {
+  id         String    @id @default(cuid())
+  kind       String    @default("auto") // auto | recalc
+  status     String    @default("draft") // draft | applied | superseded
+  label      String    @default("")
+  createdBy  String    @default("")
+  summary    String    @default("{}")
+  inputJson  String    @default("{}")
+  resultJson String    @default("{}")
+  createdAt  DateTime  @default(now())
+  appliedAt  DateTime?
+
+  @@index([status])
+  @@index([createdAt])
 }

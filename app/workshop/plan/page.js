@@ -1,11 +1,14 @@
 'use client';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { CheckCircle2, Clock, AlertCircle, ChevronDown, ChevronRight, Plus, Check, Users } from 'lucide-react';
-import { PageHeader, Button, Modal, Field, Input, Select, Textarea, useToast } from '@/components/ui';
+import { PageHeader, Button, Modal, Field, Input, Select, Textarea, Checkbox, useToast } from '@/components/ui';
+import { rangesOverlap, sumMembers, TEAM_KINDS } from '@/lib/installTeams';
+import { splitList, joinList } from '@/lib/schedule/mapping';
+import { ScheduleRunModal, ScheduleSettingsModal, TeamTimeline } from './ScheduleRunModal';
 import s from './plan.module.css';
 
 // Kế hoạch lắp đặt tại công trình: Gantt theo công trình, mỗi dòng là một đợt
-// lắp đặt kèm số người. Dữ liệu riêng ở bảng InstallPlan (/api/workshop/install-plans),
+// lắp đặt gán cho các đội thi công. Dữ liệu riêng ở bảng InstallPlan (/api/workshop/install-plans),
 // không liên quan hạng mục tiến độ (ScheduleTask).
 
 // Công trình = khách hàng Phòng Kinh doanh ở cột "Khách hợp đồng" và "Khách ưu tiên"
@@ -119,12 +122,36 @@ function buildScale(view, anchor, fitW = 0) {
     return { start, end, pxPerDay, totalDays, width: totalDays * pxPerDay, groups, units };
 }
 
-const EMPTY_FORM = { id: null, name: DEFAULT_NAME, customerId: '', customerName: '', workerCount: 2, status: 'Chưa bắt đầu', startDate: '', endDate: '', notes: '' };
+const EMPTY_FORM = {
+    id: null, name: DEFAULT_NAME, customerId: '', customerName: '', teamIds: [], status: 'Chưa bắt đầu', startDate: '', endDate: '', notes: '',
+    // Thông tin để bộ xếp lịch
+    effortHours: '', doneHours: '0', priority: 3, deadline: '', startNotBefore: '', readyDate: '', siteReadyDate: '',
+    skill: '', maxTeams: 1, travelDays: 0, allowOvertime: false, locked: false, dependsOn: [],
+};
+
+// Danh sách đội của một đợt (từ API: p.teams[].team)
+const teamsOf = (p) => (p.teams || []).map(x => x.team).filter(Boolean);
+const teamTip = (p) => {
+    const list = teamsOf(p);
+    if (!list.length) return 'Chưa gán đội';
+    return `Đội: ${list.map(t => t.name).join(', ')} · ${sumMembers(list)} người`;
+};
 
 export default function WorkshopPlanPage() {
     const toast = useToast();
     const today = useMemo(() => startOfDay(new Date()), []);
     const [plans, setPlans] = useState([]);
+    const [teams, setTeams] = useState([]);
+    const [teamModal, setTeamModal] = useState(false);
+    // Bộ xếp lịch: danh sách bản tính, bản đang xem, cấu hình giờ làm, chế độ xem
+    const [runs, setRuns] = useState([]);
+    const [runDetail, setRunDetail] = useState(null);
+    const [runModal, setRunModal] = useState(false);
+    const [settingsModal, setSettingsModal] = useState(false);
+    const [settings, setSettings] = useState(null);
+    const [scheduleBusy, setScheduleBusy] = useState(false);
+    const [viewMode, setViewMode] = useState('plan'); // plan = theo công trình | team = theo đội
+    const [quick, setQuick] = useState({ size: 2, days: 1, hours: 8 }); // nhập nhanh khối lượng: đội × ngày × giờ
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterCustomer, setFilterCustomer] = useState('');
@@ -146,11 +173,13 @@ export default function WorkshopPlanPage() {
     const fetchData = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
-            const [pl, ...byStage] = await Promise.all([
+            const [pl, tm, ...byStage] = await Promise.all([
                 fetch('/api/workshop/install-plans').then(r => r.json()),
+                fetch('/api/workshop/install-teams').then(r => r.json()),
                 ...CUSTOMER_STAGES.map(st => fetch(`/api/customers?dept=kinh_doanh&pipelineStage=${encodeURIComponent(st.key)}&limit=500`).then(r => r.json())),
             ]);
             setPlans(Array.isArray(pl) ? pl : []);
+            setTeams(Array.isArray(tm) ? tm : []);
             // Khách hợp đồng trước, khách ưu tiên sau
             setCustomers(byStage.flatMap(r => r?.data || []).filter(x => !x.deletedAt));
         } catch {
@@ -230,6 +259,26 @@ export default function WorkshopPlanPage() {
         ), 0));
     }, [view, scale, shown]);
 
+    // Tải theo đội: mỗi đội một dòng, các đợt đang còn việc trong khoảng đang xem.
+    // Đợt nào trùng ngày với đợt khác của cùng đội thì đánh dấu clash (tô đỏ).
+    const teamLoad = useMemo(() => {
+        if (!teams.length) return [];
+        const inView = plans
+            .filter(p => p.status !== 'Hoàn thành' && new Date(p.startDate) < scale.end && addDays(new Date(p.endDate), 1) > scale.start)
+            .map(p => ({ ...p, state: visualState(p, today) }));
+        return teams
+            .filter(t => t.active || inView.some(p => teamsOf(p).some(x => x.id === t.id)))
+            .map(t => {
+                const items = inView
+                    .filter(p => teamsOf(p).some(x => x.id === t.id))
+                    .map(p => ({ ...p, clash: false }));
+                items.forEach((a, i) => items.forEach((b, j) => {
+                    if (i !== j && rangesOverlap(a.startDate, a.endDate, b.startDate, b.endDate)) a.clash = true;
+                }));
+                return { team: t, items };
+            });
+    }, [teams, plans, scale, today]);
+
     const todayX = today >= scale.start && today < scale.end
         ? (diffDays(scale.start, today) + 0.5) * scale.pxPerDay
         : null;
@@ -270,6 +319,111 @@ export default function WorkshopPlanPage() {
         return next;
     });
 
+    // ---------- Bộ xếp lịch ----------
+    const fetchRuns = useCallback(async () => {
+        try {
+            const r = await fetch('/api/workshop/schedule/runs').then(x => x.json());
+            const list = Array.isArray(r) ? r : [];
+            setRuns(list);
+            return list;
+        } catch {
+            return [];
+        }
+    }, []);
+    const loadRun = useCallback(async (id) => {
+        const r = await fetch(`/api/workshop/schedule/runs/${id}`).then(x => x.json());
+        if (r.error) throw new Error(r.error);
+        setRunDetail(r);
+        return r;
+    }, []);
+    // Mở trang: hiện bản đã chốt gần nhất (hoặc bản nháp gần nhất) để xem theo đội
+    useEffect(() => {
+        (async () => {
+            const list = await fetchRuns();
+            const pick = list.find(r => r.status === 'applied') || list.find(r => r.status === 'draft');
+            if (pick) loadRun(pick.id).catch(() => null);
+        })();
+    }, [fetchRuns, loadRun]);
+
+    const createRun = async (kind) => {
+        setScheduleBusy(true);
+        try {
+            const res = await fetch('/api/workshop/schedule/runs', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                const extra = data.violations?.[0]?.message ? `: ${data.violations[0].message}` : '';
+                throw new Error((data.error || 'Không tính được lịch') + extra);
+            }
+            await fetchRuns();
+            setRunDetail(data);
+            setRunModal(true);
+            const sum = data.summary || {};
+            toast.success(`Kịp hạn ${sum.onTime ?? 0}/${sum.total ?? 0} công việc`, kind === 'recalc' ? 'Đã tính lại lịch (bản nháp)' : 'Đã xếp lịch (bản nháp)');
+        } catch (e) {
+            toast.error(e.message);
+        } finally {
+            setScheduleBusy(false);
+        }
+    };
+    const openRunModal = async () => {
+        setScheduleBusy(true);
+        try {
+            const list = await fetchRuns();
+            const draft = list.find(r => r.status === 'draft');
+            if (draft && runDetail?.id !== draft.id) await loadRun(draft.id);
+            else if (!draft && !runDetail) { toast.error('Chưa có bản xếp lịch nào. Bấm “Tự động xếp lịch” trước.'); return; }
+            setRunModal(true);
+        } catch (e) {
+            toast.error(e.message);
+        } finally {
+            setScheduleBusy(false);
+        }
+    };
+    const applyRun = async (id) => {
+        setScheduleBusy(true);
+        try {
+            const res = await fetch(`/api/workshop/schedule/runs/${id}/apply`, { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Không chốt được kế hoạch');
+            toast.success(`Đã cập nhật ${data.applied} công việc${data.skipped?.length ? `, ${data.skipped.length} việc giữ lịch cũ` : ''}`, 'Đã chốt kế hoạch');
+            setRunModal(false);
+            await fetchRuns();
+            await loadRun(id);
+            fetchData(true);
+        } catch (e) {
+            toast.error(e.message);
+        } finally {
+            setScheduleBusy(false);
+        }
+    };
+    const deleteDraft = async (id) => {
+        try {
+            const res = await fetch(`/api/workshop/schedule/runs/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Không xóa được');
+            toast.success('', 'Đã xóa bản nháp');
+            setRunModal(false);
+            const list = await fetchRuns();
+            setRunDetail(null);
+            const pick = list.find(r => r.status === 'applied') || list.find(r => r.status === 'draft');
+            if (pick) loadRun(pick.id).catch(() => null);
+        } catch (e) {
+            toast.error(e.message);
+        }
+    };
+    const openSettings = async () => {
+        try {
+            const r = await fetch('/api/workshop/schedule/settings').then(x => x.json());
+            if (r.error) throw new Error(r.error);
+            setSettings(r);
+            setSettingsModal(true);
+        } catch (e) {
+            toast.error(e.message);
+        }
+    };
+
     // ---------- Thêm / sửa ----------
     const openAdd = () => {
         setConfirmDelete(false);
@@ -278,16 +432,24 @@ export default function WorkshopPlanPage() {
     const openEdit = (p) => {
         setConfirmDelete(false);
         setForm({
-            id: p.id, name: p.name, customerId: p.customerId || '', customerName: p.customer?.name || p.customerName || '', workerCount: p.workerCount, status: p.status,
+            id: p.id, name: p.name, customerId: p.customerId || '', customerName: p.customer?.name || p.customerName || '',
+            teamIds: (p.teams || []).map(x => x.teamId), status: p.status,
             startDate: toInput(p.startDate), endDate: toInput(p.endDate), notes: p.notes || '',
+            effortHours: p.effortHours ?? '', doneHours: String(p.doneHours ?? 0), priority: p.priority ?? 3,
+            deadline: p.deadline ? toInput(p.deadline) : '', startNotBefore: p.startNotBefore ? toInput(p.startNotBefore) : '',
+            readyDate: p.readyDate ? toInput(p.readyDate) : '', siteReadyDate: p.siteReadyDate ? toInput(p.siteReadyDate) : '',
+            skill: p.skill || '', maxTeams: p.maxTeams ?? 1, travelDays: p.travelDays ?? 0,
+            allowOvertime: !!p.allowOvertime, locked: !!p.locked, dependsOn: splitList(p.dependsOn),
         });
     };
     const setF = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
-    const workerNum = form ? Number(form.workerCount) : 0;
+    // Đội đang chọn (kể cả đội đã ngừng dùng nhưng vẫn gắn với đợt này)
+    const formTeams = form ? teams.filter(t => form.teamIds.includes(t.id)) : [];
     const formError = form && (
         !form.customerId && !form.customerName.trim() ? 'Chọn hoặc nhập tên công trình'
-            : !Number.isInteger(workerNum) || workerNum < 1 ? 'Số người phải từ 1 trở lên'
+            : form.locked && form.teamIds.length === 0 ? 'Việc đã khóa phải có đội'
+            : form.effortHours !== '' && (!Number.isFinite(Number(form.effortHours)) || Number(form.effortHours) < 0) ? 'Khối lượng (giờ-người) không hợp lệ'
             : !form.startDate || !form.endDate ? 'Chọn ngày bắt đầu và kết thúc'
             : form.endDate < form.startDate ? 'Ngày kết thúc phải sau ngày bắt đầu'
             : null
@@ -299,11 +461,24 @@ export default function WorkshopPlanPage() {
         try {
             const body = {
                 name: form.name.trim() || DEFAULT_NAME,
-                workerCount: workerNum,
+                teamIds: form.teamIds,
                 status: form.status,
                 startDate: form.startDate,
                 endDate: form.endDate,
                 notes: form.notes,
+                effortHours: form.effortHours === '' ? null : Number(form.effortHours),
+                doneHours: Number(form.doneHours || 0),
+                priority: Number(form.priority),
+                deadline: form.deadline || null,
+                startNotBefore: form.startNotBefore || null,
+                readyDate: form.readyDate || null,
+                siteReadyDate: form.siteReadyDate || null,
+                skill: form.skill.trim(),
+                maxTeams: Number(form.maxTeams),
+                travelDays: Number(form.travelDays),
+                allowOvertime: form.allowOvertime,
+                locked: form.locked,
+                dependsOn: form.dependsOn,
             };
             const res = form.id
                 ? await fetch(`/api/workshop/install-plans/${form.id}`, {
@@ -449,6 +624,15 @@ export default function WorkshopPlanPage() {
                         </option>
                     ))}
                 </Select>
+                <Button variant="ghost" icon={Users} onClick={() => setTeamModal(true)}>Quản lý đội</Button>
+                <Button variant="ghost" onClick={openSettings}>Cấu hình giờ</Button>
+                <Button variant="primary" onClick={() => createRun('auto')} loading={scheduleBusy}>Tự động xếp lịch</Button>
+                <Button variant="secondary" onClick={() => createRun('recalc')} disabled={scheduleBusy}>Tính lại lịch</Button>
+                <Button variant="secondary" onClick={openRunModal} disabled={scheduleBusy}>Chốt kế hoạch</Button>
+                <div className={s.segmented} role="group" aria-label="Kiểu xem bảng">
+                    <button type="button" className={viewMode === 'plan' ? s.segActive : ''} aria-pressed={viewMode === 'plan'} onClick={() => setViewMode('plan')}>Theo công trình</button>
+                    <button type="button" className={viewMode === 'team' ? s.segActive : ''} aria-pressed={viewMode === 'team'} onClick={() => setViewMode('team')}>Theo đội</button>
+                </div>
                 <div className={s.segmented} role="group" aria-label="Chế độ xem">
                     {VIEWS.map(v => (
                         <button key={v.key} type="button" className={view === v.key ? s.segActive : ''}
@@ -459,6 +643,16 @@ export default function WorkshopPlanPage() {
                 </div>
             </div>
 
+            {viewMode === 'team' ? (
+            <div className={s.card}>
+                <div className={s.legend}>
+                    <span>
+                        Đang xem: {runDetail ? `${runDetail.label} · ${runDetail.status === 'applied' ? 'đã chốt' : runDetail.status === 'draft' ? 'bản nháp' : 'đã thay thế'}` : 'chưa có bản xếp lịch'}
+                    </span>
+                </div>
+                <TeamTimeline result={runDetail?.result} />
+            </div>
+            ) : (
             <div className={s.card}>
                 {loading ? (
                     <div className={s.empty}>Đang tải…</div>
@@ -473,7 +667,7 @@ export default function WorkshopPlanPage() {
                             <div className={s.head}>
                                 <div className={s.leftHead} data-left>
                                     <div>Công việc</div>
-                                    <div style={{ textAlign: 'center' }}>Số người</div>
+                                    <div style={{ textAlign: 'center' }}>Số đội</div>
                                 </div>
                                 <div className={s.timeHead} style={{ width: scale.width }}>
                                     <div className={s.groupRow}>
@@ -545,7 +739,7 @@ export default function WorkshopPlanPage() {
                                     const en = new Date(pv.endDate);
                                     const range = `${fmtDM(st)} - ${fmtDM(en)}`;
                                     const lateDays = p.state === 'late' ? diffDays(en, today) : 0;
-                                    const tip = `${p.name}\n${range}\nSố người: ${p.workerCount}\n${p.status}${lateDays ? ` · trễ ${lateDays} ngày` : ''}${p.notes ? `\n${p.notes}` : ''}`;
+                                    const tip = `${p.name}\n${range}\n${teamTip(p)}\n${p.status}${lateDays ? ` · trễ ${lateDays} ngày` : ''}${p.notes ? `\n${p.notes}` : ''}`;
                                     return (
                                         <div key={p.id} className={s.row} style={{ height: ROW_H }}>
                                             <div className={s.left} style={{ height: ROW_H }}>
@@ -553,8 +747,8 @@ export default function WorkshopPlanPage() {
                                                     onClick={() => openEdit(p)} title={p.name}>
                                                     {p.name}
                                                 </button>
-                                                <div className={s.people} title={`${p.workerCount} người`}>
-                                                    <Users size={14} aria-hidden="true" /> {p.workerCount}
+                                                <div className={s.people} title={teamTip(p)}>
+                                                    <Users size={14} aria-hidden="true" /> {teamsOf(p).length || '—'}
                                                 </div>
                                             </div>
                                             <div className={s.right} style={{ width: scale.width }}>
@@ -585,6 +779,46 @@ export default function WorkshopPlanPage() {
                                 })}
                             </div>
 
+                            {teamLoad.length > 0 && (
+                                <>
+                                    <div className={`${s.row} ${s.groupRowLine}`} style={{ height: GROUP_H }}>
+                                        <div className={s.left} style={{ height: GROUP_H }}>
+                                            <div className={s.groupTitle}>
+                                                <span className={s.groupName}>Tải theo đội <em>(thanh đỏ = đội bị trùng lịch)</em></span>
+                                            </div>
+                                        </div>
+                                        <div className={s.right} style={{ width: scale.width }} />
+                                    </div>
+                                    {teamLoad.map(({ team, items }) => (
+                                        <div key={`t-${team.id}`} className={s.row} style={{ height: ROW_H }}>
+                                            <div className={s.left} style={{ height: ROW_H }}>
+                                                <div className={s.teamName} title={team.name}>
+                                                    {team.name}{!team.active && <em> (ngừng)</em>}
+                                                </div>
+                                                <div className={s.people} title={`${team.memberCount} người`}>
+                                                    <Users size={14} aria-hidden="true" /> {team.memberCount}
+                                                </div>
+                                            </div>
+                                            <div className={s.right} style={{ width: scale.width }}>
+                                                {items.map(p => {
+                                                    const bar = barOf(p);
+                                                    const label = p.customer?.name || p.customerName || p.name;
+                                                    const range = `${fmtDM(new Date(p.startDate))} - ${fmtDM(new Date(p.endDate))}`;
+                                                    return (
+                                                        <div key={p.id}
+                                                            className={`${s.bar} ${p.clash ? s.barConflict : BAR_CLASS[p.state]}`}
+                                                            style={{ left: bar.x + 1, width: Math.max(bar.w - 2, 4), top: (ROW_H - BAR_H) / 2, height: BAR_H, cursor: 'default' }}
+                                                            title={`${label}\n${range}${p.clash ? '\nTRÙNG LỊCH với đợt khác của đội này' : ''}`}>
+                                                            {bar.w >= 84 && <span className={s.barLabel}>{label}</span>}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </>
+                            )}
+
                             {dailyPeople && (
                                 <div className={`${s.row} ${s.totalRow}`} style={{ height: ROW_H }}>
                                     <div className={s.left} style={{ height: ROW_H }}>
@@ -608,6 +842,7 @@ export default function WorkshopPlanPage() {
                     <span className={s.legendNote}>Bấm vào công việc để sửa · kéo thanh để dời lịch, kéo mép để đổi ngày</span>
                 </div>
             </div>
+            )}
 
             <Modal
                 isOpen={!!form}
@@ -642,8 +877,28 @@ export default function WorkshopPlanPage() {
                         <Field label="Công việc" className={s.full}>
                             {(a) => <Input {...a} value={form.name} onChange={setF('name')} placeholder={DEFAULT_NAME} />}
                         </Field>
-                        <Field label="Số người" required>
-                            {(a) => <Input {...a} type="number" min={1} step={1} numeric value={form.workerCount} onChange={setF('workerCount')} />}
+                        <Field label="Đội thi công" hint="Để trống thì bộ xếp lịch sẽ gán đội. Việc đã khóa bắt buộc phải chọn đội." className={s.full}>
+                            {() => (
+                                <div className={s.teamPicks}>
+                                    {teams.length === 0 && (
+                                        <span className={s.teamHint}>Chưa có đội nào. Bấm “Quản lý đội” ở trang này để thêm.</span>
+                                    )}
+                                    {teams.map(t => {
+                                        const on = form.teamIds.includes(t.id);
+                                        return (
+                                            <Checkbox key={t.id} label={`${t.name} · ${t.memberCount} người${t.kind === 'Xưởng' ? ' · xưởng' : ''}${t.active ? '' : ' (ngừng)'}`}
+                                                checked={on}
+                                                onChange={e => setForm(f => ({
+                                                    ...f,
+                                                    teamIds: e.target.checked ? [...f.teamIds, t.id] : f.teamIds.filter(x => x !== t.id),
+                                                }))} />
+                                        );
+                                    })}
+                                    <span className={s.teamHint}>
+                                        {formTeams.length} đội · {sumMembers(formTeams)} người
+                                    </span>
+                                </div>
+                            )}
                         </Field>
                         <Field label="Trạng thái">
                             {(a) => (
@@ -661,10 +916,197 @@ export default function WorkshopPlanPage() {
                         <Field label="Ghi chú" className={s.full}>
                             {(a) => <Textarea {...a} rows={2} value={form.notes} onChange={setF('notes')} />}
                         </Field>
+
+                        <div className={`${s.full} ${s.schedHead}`}>Thông tin xếp lịch</div>
+                        <Field label="Khối lượng (giờ-người)" hint="Ví dụ: 2 người × 5 ngày × 8 giờ = 80" className={s.full}>
+                            {(a) => <Input {...a} type="number" min={0} step="0.5" numeric value={form.effortHours} onChange={setF('effortHours')} placeholder="Để trống nếu chưa biết" />}
+                        </Field>
+                        <div className={`${s.full} ${s.quickBox}`}>
+                            <span>Nhập nhanh: 1 đội</span>
+                            <Input type="number" min={1} numeric className={s.quickNum} value={quick.size} onChange={e => setQuick(q => ({ ...q, size: e.target.value }))} aria-label="Số người trong đội" />
+                            <span>người làm</span>
+                            <Input type="number" min={1} numeric className={s.quickNum} value={quick.days} onChange={e => setQuick(q => ({ ...q, days: e.target.value }))} aria-label="Số ngày" />
+                            <span>ngày, mỗi ngày</span>
+                            <Input type="number" min={1} max={12} numeric className={s.quickNum} value={quick.hours} onChange={e => setQuick(q => ({ ...q, hours: e.target.value }))} aria-label="Giờ mỗi ngày" />
+                            <span>giờ</span>
+                            <Button variant="secondary" onClick={() => setForm(f => ({ ...f, effortHours: String(Number(quick.size) * Number(quick.days) * Number(quick.hours)) }))}>Quy đổi</Button>
+                        </div>
+                        <Field label="Hạn bàn giao">
+                            {(a) => <Input {...a} type="date" value={form.deadline} onChange={setF('deadline')} />}
+                        </Field>
+                        <Field label="Mức ưu tiên" hint="1 = cao nhất">
+                            {(a) => (
+                                <Select {...a} value={form.priority} onChange={setF('priority')}>
+                                    {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                                </Select>
+                            )}
+                        </Field>
+                        <Field label="Không bắt đầu trước">
+                            {(a) => <Input {...a} type="date" value={form.startNotBefore} onChange={setF('startNotBefore')} />}
+                        </Field>
+                        <Field label="Hàng sẵn sàng (ngày)">
+                            {(a) => <Input {...a} type="date" value={form.readyDate} onChange={setF('readyDate')} />}
+                        </Field>
+                        <Field label="Mặt bằng sẵn sàng (ngày)">
+                            {(a) => <Input {...a} type="date" value={form.siteReadyDate} onChange={setF('siteReadyDate')} />}
+                        </Field>
+                        <Field label="Chuyên môn yêu cầu" hint="Để trống nếu không cần">
+                            {(a) => (
+                                <>
+                                    <Input {...a} list="schedule-skills" value={form.skill} onChange={setF('skill')} placeholder="ví dụ: tu_bep" />
+                                    <datalist id="schedule-skills">
+                                        {[...new Set(teams.flatMap(t => splitList(t.skills)))].map(k => <option key={k} value={k} />)}
+                                    </datalist>
+                                </>
+                            )}
+                        </Field>
+                        <Field label="Số đội tối đa làm đồng thời">
+                            {(a) => (
+                                <Select {...a} value={form.maxTeams} onChange={setF('maxTeams')}>
+                                    {[1, 2, 3].map(n => <option key={n} value={n}>{n}</option>)}
+                                </Select>
+                            )}
+                        </Field>
+                        <Field label="Ngày di chuyển tới công trình" hint="Đội đổi công trình phải đi trước bấm số ngày này">
+                            {(a) => <Input {...a} type="number" min={0} max={30} numeric value={form.travelDays} onChange={setF('travelDays')} />}
+                        </Field>
+                        <Field label="Đã làm (giờ-người)" hint="Cập nhật khi tính lại lịch">
+                            {(a) => <Input {...a} type="number" min={0} step="0.5" numeric value={form.doneHours} onChange={setF('doneHours')} />}
+                        </Field>
+                        <div className={s.full}>
+                            <Checkbox label="Cho phép tăng ca (trong trần giờ/ngày, tháng, năm)" checked={form.allowOvertime} onChange={e => setForm(f => ({ ...f, allowOvertime: e.target.checked }))} />
+                            <Checkbox label="Khóa phân công: giữ nguyên đội và ngày khi tính lại" checked={form.locked} onChange={e => setForm(f => ({ ...f, locked: e.target.checked }))} />
+                        </div>
+                        <Field label="Phải xong trước khi làm việc này" className={s.full}>
+                            {() => (
+                                <div className={s.depBox}>
+                                    {plans.filter(p => p.id !== form.id && p.status !== 'Hoàn thành').slice(0, 60).map(p => (
+                                        <Checkbox key={p.id}
+                                            label={`${p.customer?.name || p.customerName || '—'} · ${p.name} (${fmtDM(new Date(p.startDate))} - ${fmtDM(new Date(p.endDate))})`}
+                                            checked={form.dependsOn.includes(p.id)}
+                                            onChange={e => setForm(f => ({
+                                                ...f,
+                                                dependsOn: e.target.checked ? [...f.dependsOn, p.id] : f.dependsOn.filter(x => x !== p.id),
+                                            }))} />
+                                    ))}
+                                    {plans.filter(p => p.id !== form.id && p.status !== 'Hoàn thành').length === 0 && <span className={s.teamHint}>Chưa có công việc khác.</span>}
+                                </div>
+                            )}
+                        </Field>
                     </div>
                 )}
             </Modal>
+
+            <TeamManagerModal
+                isOpen={teamModal}
+                onClose={() => setTeamModal(false)}
+                teams={teams}
+                onChanged={() => fetchData(true)}
+            />
+
+            <ScheduleRunModal
+                isOpen={runModal}
+                onClose={() => setRunModal(false)}
+                run={runDetail}
+                runs={runs}
+                onSelectRun={async (id) => {
+                    try { await loadRun(id); } catch (e) { toast.error(e.message); }
+                }}
+                onApply={applyRun}
+                onDeleteDraft={deleteDraft}
+                onRecalc={() => createRun('recalc')}
+                busy={scheduleBusy}
+            />
+            <ScheduleSettingsModal
+                isOpen={settingsModal}
+                onClose={() => setSettingsModal(false)}
+                settings={settings}
+                onSaved={(r) => setSettings(r)}
+            />
         </div>
+    );
+}
+
+// Quản lý đội thi công: thêm đội, sửa tên/loại/số thành viên, ngừng dùng đội (không xóa để giữ lịch sử)
+function TeamManagerModal({ isOpen, onClose, teams, onChanged }) {
+    const toast = useToast();
+    const toastRef = useRef(toast);
+    useEffect(() => { toastRef.current = toast; });
+    const [drafts, setDrafts] = useState({});
+    const [busy, setBusy] = useState(false);
+    const [newTeam, setNewTeam] = useState({ name: '', kind: 'Lắp đặt', memberCount: 2 });
+
+    const draftOf = (t) => drafts[t.id] || { name: t.name, kind: t.kind, memberCount: t.memberCount, active: t.active };
+    const setDraft = (t, patch) => setDrafts(d => ({ ...d, [t.id]: { ...draftOf(t), ...patch } }));
+    const changed = (t) => {
+        const d = drafts[t.id];
+        return !!d && (d.name !== t.name || d.kind !== t.kind || Number(d.memberCount) !== t.memberCount || d.active !== t.active);
+    };
+
+    const send = async (url, method, body) => {
+        setBusy(true);
+        try {
+            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || 'Lưu không thành công');
+            onChanged();
+            return true;
+        } catch (e) {
+            toastRef.current.error(e.message);
+            return false;
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const saveTeam = async (t) => {
+        const d = draftOf(t);
+        if (await send(`/api/workshop/install-teams/${t.id}`, 'PUT', d)) {
+            setDrafts(x => { const n = { ...x }; delete n[t.id]; return n; });
+            toastRef.current.success('', 'Đã lưu đội');
+        }
+    };
+
+    const addTeam = async () => {
+        if (!newTeam.name.trim()) { toastRef.current.error('Nhập tên đội'); return; }
+        if (await send('/api/workshop/install-teams', 'POST', newTeam)) {
+            setNewTeam({ name: '', kind: 'Lắp đặt', memberCount: 2 });
+            toastRef.current.success('', 'Đã thêm đội');
+        }
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Quản lý đội thi công" maxWidth={720} closeOnOverlayClick={false}
+            footer={<Button variant="primary" onClick={onClose}>Xong</Button>}>
+            <div className={s.teamAdmin}>
+                {teams.length === 0 && <div className={s.teamHint}>Chưa có đội nào.</div>}
+                {teams.map(t => {
+                    const d = draftOf(t);
+                    return (
+                        <div key={t.id} className={s.teamRow}>
+                            <Input value={d.name} onChange={e => setDraft(t, { name: e.target.value })} aria-label="Tên đội" />
+                            <Select value={d.kind} onChange={e => setDraft(t, { kind: e.target.value })} aria-label="Loại đội">
+                                {TEAM_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
+                            </Select>
+                            <Input type="number" min={1} max={50} numeric value={d.memberCount}
+                                onChange={e => setDraft(t, { memberCount: e.target.value })} aria-label="Số thành viên" />
+                            <Checkbox label="Đang dùng" checked={d.active} onChange={e => setDraft(t, { active: e.target.checked })} />
+                            <Button variant="secondary" disabled={!changed(t) || busy} onClick={() => saveTeam(t)}>Lưu</Button>
+                        </div>
+                    );
+                })}
+                <div className={s.teamRow + ' ' + s.teamNew}>
+                    <Input value={newTeam.name} placeholder="Tên đội mới" onChange={e => setNewTeam(x => ({ ...x, name: e.target.value }))} aria-label="Tên đội mới" />
+                    <Select value={newTeam.kind} onChange={e => setNewTeam(x => ({ ...x, kind: e.target.value }))} aria-label="Loại đội mới">
+                        {TEAM_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
+                    </Select>
+                    <Input type="number" min={1} max={50} numeric value={newTeam.memberCount}
+                        onChange={e => setNewTeam(x => ({ ...x, memberCount: e.target.value }))} aria-label="Số thành viên đội mới" />
+                    <span />
+                    <Button variant="primary" icon={Plus} disabled={busy} onClick={addTeam}>Thêm đội</Button>
+                </div>
+                <div className={s.teamHint}>Đội “Xưởng” là đội sản xuất có thể đi lắp đặt khi cần. Ngừng dùng thì đội không được gán cho đợt mới, nhưng lịch cũ vẫn giữ.</div>
+            </div>
+        </Modal>
     );
 }
 

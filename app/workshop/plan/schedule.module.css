@@ -1,0 +1,81 @@
+/* Giao diện bộ xếp lịch: kết quả, cấu hình giờ làm, dòng thời gian theo đội */
+
+.body { display: flex; flex-direction: column; gap: var(--space-4); }
+.empty { padding: var(--space-6); text-align: center; color: var(--color-text-secondary); }
+.muted { color: var(--color-text-secondary); font-size: var(--fs-caption); }
+.ok, .okText { color: var(--color-success); font-weight: 600; }
+.bad { color: var(--color-danger); font-weight: 600; }
+.confirmText { color: var(--color-text); font-size: var(--fs-table); }
+
+.footerRow { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; width: 100%; }
+.footerLeft { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+
+.runPicker { display: flex; align-items: center; gap: var(--space-3); }
+.runPicker > :last-child { flex: 1; min-width: 0; }
+
+.summaryGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3); }
+.summaryCard { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: 12px; border: 1px solid var(--color-border); background: var(--color-surface); }
+.summaryCard svg { flex-shrink: 0; }
+.summaryLabel { font-size: var(--fs-caption); color: var(--color-text-secondary); }
+.summaryValue { font-size: 22px; font-weight: 700; color: var(--color-text); }
+.summaryValue span { font-size: var(--fs-caption); font-weight: 400; color: var(--color-text-secondary); }
+.tone_ok { background: #ecfdf3; border-color: #b7ebc6; }
+.tone_ok svg { color: var(--color-success); }
+.tone_bad { background: #fef2f2; border-color: #fecaca; }
+.tone_bad svg { color: var(--color-danger); }
+.tone_warn { background: #fff7ed; border-color: #fed7aa; }
+.tone_warn svg { color: #c2410c; }
+
+.chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.chip { padding: 3px 10px; border-radius: var(--radius-pill); background: var(--color-surface-2); border: 1px solid var(--color-border); font-size: var(--fs-caption); color: var(--color-text); }
+
+.tableWrap { overflow: auto; border: 1px solid var(--color-border); border-radius: 10px; max-height: 46vh; }
+.table { width: 100%; border-collapse: collapse; font-size: var(--fs-table); }
+.table th { position: sticky; top: 0; background: var(--color-surface-2); text-align: left; padding: 8px 10px; font-weight: 600; border-bottom: 1px solid var(--color-border); z-index: 1; }
+.table td { padding: 8px 10px; border-bottom: 1px solid var(--color-border-subtle); vertical-align: top; }
+.rowClick { cursor: pointer; }
+.rowClick:hover td { background: var(--color-primary-50); }
+.detailRow td { background: var(--color-surface-2); }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: var(--radius-pill); font-size: var(--fs-caption); font-weight: 600; }
+.badge.ok { background: #dcfce7; color: #166534; }
+.badge.bad { background: #fee2e2; color: #991b1b; }
+.badge.warn { background: #ffedd5; color: #9a3412; }
+
+.detail { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-2) 0; }
+.detailGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-3); }
+.detailTitle { font-weight: 600; margin-bottom: 4px; color: var(--color-text); }
+.diag { padding: var(--space-2) var(--space-3); border-left: 3px solid var(--color-danger); background: #fef2f2; border-radius: 6px; }
+.suggest { padding: var(--space-2) var(--space-3); border-left: 3px solid var(--color-primary-600); background: var(--color-primary-50); border-radius: 6px; }
+
+.missingBanner { display: flex; gap: var(--space-2); align-items: flex-start; padding: var(--space-3); border-radius: 8px; background: #fef2f2; border: 1px solid #fca5a5; color: var(--color-text); }
+.missingBanner svg { flex-shrink: 0; margin-top: 2px; color: #dc2626; }
+.missingList { margin: 6px 0 0; padding-left: 18px; max-height: 20vh; overflow: auto; font-size: var(--fs-table); }
+.warnList { display: flex; flex-direction: column; gap: 6px; max-height: 30vh; overflow: auto; }
+.warnList h4 { margin: 0 0 4px; font-size: var(--fs-body); }
+.warnItem { font-size: var(--fs-table); padding: 6px 10px; border-radius: 6px; background: var(--color-surface-2); }
+.warnType { font-weight: 600; margin-right: 6px; }
+.sev_error { background: #fef2f2; }
+.sev_warning { background: #fff7ed; }
+
+.settingsGrid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.settingsGrid label { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-table); color: var(--color-text); }
+.dayPick { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-top: var(--space-3); }
+@media (max-width: 640px) { .settingsGrid { grid-template-columns: 1fr; } }
+
+/* Dòng thời gian theo đội */
+.timeline { overflow: auto; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); }
+.tlHead, .tlRow { display: grid; min-width: max-content; }
+.tlHead { position: sticky; top: 0; z-index: 2; background: var(--color-surface-2); border-bottom: 1px solid var(--color-border); font-size: 11px; color: var(--color-text-secondary); }
+.tlHead > div { padding: 6px 4px; text-align: center; }
+.tlHead > div:first-child { text-align: left; padding-left: 10px; }
+.tlRow { border-bottom: 1px solid var(--color-border-subtle); height: 44px; align-items: center; }
+.tlName { position: sticky; left: 0; z-index: 1; background: var(--color-surface); padding: 0 10px; font-weight: 600; font-size: var(--fs-table); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.tlName em { font-style: normal; font-weight: 400; color: var(--color-text-secondary); font-size: var(--fs-caption); }
+.swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.tlTrack { position: relative; height: 44px; background-image: linear-gradient(to right, var(--color-border-subtle) 1px, transparent 1px); background-size: 26px 100%; }
+.tlBar { position: absolute; top: 10px; height: 24px; border-radius: 6px; color: #fff; font-size: 11px; line-height: 24px; padding: 0 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; box-sizing: border-box; cursor: default; }
+.tlOt { box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.35); }
+
+/* Thanh xung đột trên bảng Gantt */
+.barConflict { background: var(--color-danger); color: #fff; }
