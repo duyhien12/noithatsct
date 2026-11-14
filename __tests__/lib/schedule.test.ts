@@ -281,7 +281,7 @@ describe('khóa phân công', () => {
 describe('dữ liệu thiếu và cập nhật thực tế', () => {
     it('việc thiếu hạn hoặc khối lượng không được xếp và được báo', () => {
         const { result } = run(input({
-            jobs: [job('A', { deadline: undefined }), job('B', { effortHours: undefined })],
+            jobs: [job('A', { deadline: undefined }), job('B', { effortHours: undefined, deadline: undefined })],
         }));
         expect(result.jobs.length).toBe(0);
         expect(result.issues.filter((i: any) => i.type === 'MISSING_DATA').length).toBe(2);
@@ -329,5 +329,54 @@ describe('minh họa: 4 công trình, 4 đội, mỗi đội 2 người', () => 
         const a = runSchedule(demo());
         const b = runSchedule(demo());
         expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+    });
+});
+
+describe('công việc chỉ có khung ngày (chưa nhập khối lượng)', () => {
+    it('ước tính khối lượng theo sức làm của đội trong khung, và xếp vừa khung', () => {
+        // Khung 16/11 → 17/11 (2 ngày) với 1 đội 2 người × 8h = 32 giờ-người
+        const { result, check } = run(input({
+            teams: [teamsAll()[0]],
+            jobs: [job('A', { effortHours: undefined, startNotBefore: '2026-11-16', deadline: '2026-11-17' })],
+        }));
+        const a = byId(result, 'A');
+        expect(a.effortEstimated).toBe(true);
+        expect(a.effortHours).toBe(32);
+        expect(a.status).toBe('on_time');
+        expect(a.plannedEnd).toBe('2026-11-17');
+        expect(check.violations).toEqual([]);
+    });
+
+    it('khung không đủ sức làm của đội thì báo trễ', () => {
+        // Hai công trình cùng khung, chỉ có một đội: việc thứ hai phải chờ nên trễ
+        const { result } = run(input({
+            teams: [teamsAll()[0]],
+            jobs: [
+                job('A', { effortHours: undefined, startNotBefore: '2026-11-16', deadline: '2026-11-17' }),
+                job('B', { effortHours: undefined, projectId: 'KH2', projectName: 'Công trình 2', startNotBefore: '2026-11-16', deadline: '2026-11-17' }),
+            ],
+        }));
+        const statuses = [byId(result, 'A').status, byId(result, 'B').status];
+        expect(statuses).toContain('late');
+        expect(result.issues.some((i: any) => i.type === 'LATE_RISK' && i.jobId === 'B')).toBe(true);
+    });
+
+    it('không có đội hoặc khung rỗng thì vẫn báo thiếu dữ liệu', () => {
+        const { result } = run(input({ teams: [], jobs: [job('A', { effortHours: undefined, startNotBefore: '2026-11-16', deadline: '2026-11-17' })] }));
+        expect(result.jobs.length).toBe(0);
+        expect(result.issues.some((i: any) => i.type === 'MISSING_DATA')).toBe(true);
+    });
+});
+
+describe('giữ đội cho công trình', () => {
+    it('công trình một đội không luân phiên sang đội khác qua các ngày', () => {
+        // 4 đội đều rảnh; việc cần 4 ngày × 16 giờ-người = 64 giờ-người với 1 đội → chỉ dùng đúng 1 đội
+        const { result, check } = run(input({
+            jobs: [job('A', { effortHours: 64, deadline: '2026-11-30', maxTeams: 1 })],
+        }));
+        const a = byId(result, 'A');
+        expect(a.teamIds.length).toBe(1);
+        expect(new Set(result.segments.filter((s: any) => s.jobId === 'A').map((s: any) => s.teamId)).size).toBe(1);
+        expect(check.violations).toEqual([]);
     });
 });

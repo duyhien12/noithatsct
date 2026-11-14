@@ -34,6 +34,16 @@ describe('chuyển đổi dữ liệu DB sang đầu vào bộ xếp lịch', ()
         expect(t.offDates).toEqual(['2026-11-20']);
     });
 
+    it('công việc chưa có hạn bàn giao thì lấy ngày kết thúc làm hạn', () => {
+        const [j] = toEngineJobs([{
+            id: 'P2', name: 'Lắp đặt', customerId: 'C2', customer: { name: 'Nhà B' }, priority: 3, effortHours: 16, doneHours: 0,
+            deadline: null, startNotBefore: null, readyDate: null, siteReadyDate: null, skill: '', maxTeams: 1, travelDays: 0,
+            allowOvertime: false, dependsOn: '', locked: false, teams: [], startDate: new Date('2026-11-16T00:00:00Z'),
+            endDate: new Date('2026-11-25T00:00:00Z'),
+        }]);
+        expect(j.deadline).toBe('2026-11-25');
+    });
+
     it('công việc: ngày theo YYYY-MM-DD và khóa lấy cửa sổ từ ngày bắt đầu/kết thúc', () => {
         const [j] = toEngineJobs([{
             id: 'P1', name: 'Tủ bếp', customerId: 'C1', customer: { name: 'Nhà A' }, priority: 2, effortHours: 40, doneHours: 8,
@@ -132,12 +142,13 @@ describe('luồng đầy đủ: dữ liệu DB dạng thật → engine → ki�
             jobs: toEngineJobs(planRows),
         };
         const result = runSchedule(input);
-        // J2 thiếu khối lượng nên không được xếp và phải được báo
-        expect(result.jobs.map(j => j.id)).toEqual(['J1']);
-        expect(result.issues.some(i => i.type === 'MISSING_DATA' && i.jobId === 'J2')).toBe(true);
+        // J2 chưa có khối lượng nhưng có khung ngày: khối lượng được ước tính theo sức làm của đội và vẫn được xếp
+        expect(result.jobs.map(j => j.id)).toEqual(['J1', 'J2']);
+        expect(result.issues.some(i => i.type === 'MISSING_DATA')).toBe(false);
+        expect(result.jobs.find(j => j.id === 'J2').effortEstimated).toBe(true);
         expect(result.jobs[0].status).toBe('on_time');
         expect(verifySchedule(result, input).ok).toBe(true);
         const { updates } = planUpdatesFromResult(result);
-        expect(updates.map(u => u.planId)).toEqual(['J1']);
+        expect(updates.map(u => u.planId)).toEqual(['J1', 'J2']);
     });
 });

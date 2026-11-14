@@ -48,6 +48,9 @@
 .diag { padding: var(--space-2) var(--space-3); border-left: 3px solid var(--color-danger); background: #fef2f2; border-radius: 6px; }
 .suggest { padding: var(--space-2) var(--space-3); border-left: 3px solid var(--color-primary-600); background: var(--color-primary-50); border-radius: 6px; }
 
+.missingBanner { display: flex; gap: var(--space-2); align-items: flex-start; padding: var(--space-3); border-radius: 8px; background: #fef2f2; border: 1px solid #fca5a5; color: var(--color-text); }
+.missingBanner svg { flex-shrink: 0; margin-top: 2px; color: #dc2626; }
+.missingList { margin: 6px 0 0; padding-left: 18px; max-height: 20vh; overflow: auto; font-size: var(--fs-table); }
 .warnList { display: flex; flex-direction: column; gap: 6px; max-height: 30vh; overflow: auto; }
 .warnList h4 { margin: 0 0 4px; font-size: var(--fs-body); }
 .warnItem { font-size: var(--fs-table); padding: 6px 10px; border-radius: 6px; background: var(--color-surface-2); }

@@ -44,6 +44,8 @@ export function ScheduleRunModal({ isOpen, onClose, run, runs, onSelectRun, onAp
     const canApply = run?.status === 'draft';
     const hasRisk = (sum.late || 0) + (sum.unfinished || 0) > 0;
 
+    const missingData = useMemo(() => warnings.filter(w => w.type === 'MISSING_DATA'), [warnings]);
+
     const warnByType = useMemo(() => {
         const m = {};
         for (const w of warnings) m[w.type] = (m[w.type] || 0) + 1;
@@ -102,6 +104,21 @@ export function ScheduleRunModal({ isOpen, onClose, run, runs, onSelectRun, onAp
                         <SummaryCard tone="bad" icon={Info} label="Đã chứng minh không khả thi" value={sum.provenInfeasible ?? 0} />
                     </div>
 
+                    {missingData.length > 0 && (
+                        <div className={s.missingBanner} role="alert">
+                            <AlertTriangle size={18} aria-hidden="true" />
+                            <div>
+                                <b>{missingData.length} công việc chưa được xếp vì thiếu dữ liệu.</b>
+                                <div className={s.muted}>
+                                    Vào “Kế hoạch lắp đặt”, cập nhật ngày bắt đầu/kết thúc hoặc khối lượng (giờ-người) cho từng việc dưới đây, rồi bấm “Tính lại lịch”.
+                                </div>
+                                <ul className={s.missingList}>
+                                    {missingData.map((w, i) => <li key={i}>{w.message}</li>)}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
+
                     <div className={s.chips}>
                         {Object.entries(warnByType).map(([type, n]) => (
                             <span key={type} className={s.chip}>{WARN_LABEL[type] || type}: {n}</span>
@@ -129,7 +146,7 @@ export function ScheduleRunModal({ isOpen, onClose, run, runs, onSelectRun, onAp
                                     return (
                                         <Fragment key={j.id}>
                                             <tr className={s.rowClick} onClick={() => setExpanded(open ? null : j.id)}>
-                                                <td><b>{j.name}</b><div className={s.muted}>{j.projectName}</div></td>
+                                                <td><b>{j.name}</b><div className={s.muted}>{j.projectName}{j.effortEstimated ? ' · khối lượng ước tính theo khung ngày' : ''}</div></td>
                                                 <td>{teamNames(result, j) || <span className={s.muted}>chưa có</span>}</td>
                                                 <td>{fmt(j.plannedStart)}</td>
                                                 <td>{fmt(j.plannedEnd)}</td>
